@@ -240,20 +240,21 @@ static partial class Program
             h.MatchEnd(); Click(alice, 1);
             Check("Alone, one vote ends it at once", Ballot is { Open: false, Result.How: "all" } && Pending is { By: "the vote" });
 
-            // ---- votes change and go back as often as a player likes; a picked map without votes leaves; the settle time ----
+            // ---- a vote moves as often as a player likes and never goes back; a player's own card stays; the settle time ----
             Fresh();
             foreach (var p in new[] { alice, bob }) h.Join(p);
             var solo = m[5];
             Pick(alice, solo);
             Click(alice, 0);
-            Check("Her pick's own vote taken back: the map she put on the ballot has no votes left and leaves it, until somebody puts it on again - and she is told how to have it back",
-                Ballot is { Open: true } sb && sb.Options.All(o => o.Map != solo) && sb.Choices.Count == 0
-                && BuildHud(h.Clock).Notes[2001].Text == $"{Clip(Label(solo), 32)} left the vote, with no votes on it - Add it again from Browse to vote for it");
-            Pick(bob, solo);
-            Check("...as Bob does: back on, with his vote", Ballot!.Options.SingleOrDefault(o => o.Map == solo) is { } back2 && Ballot.Choices[bob.Item2] == back2.N);
+            Check("Her pick's own vote stays: 0 takes nothing back, and her own card is on the ballot with her vote - no note of a map that left",
+                Ballot is { Open: true } sb && sb.Options.Single(o => o.Map == solo) is { } own && own.Owner == alice.Item2 && sb.Choices[alice.Item2] == own.N && sb.Choices.Count == 1
+                && !BuildHud(h.Clock).Notes.ContainsKey(2001));
             MapVote.InactivitySeconds = 5;
             try
             {
+                Pick(bob, solo);
+                Check("...Bob's pick of the same map is a vote for her card: one card, still hers, two votes", Ballot!.Options.Count(o => o.Map == solo) == 1
+                    && Ballot.Options.Single(o => o.Map == solo) is { } back2 && Ballot.Choices[bob.Item2] == back2.N && back2.Owner == alice.Item2 && Ballot.Open);
                 var (r1, r2) = (Ballot!.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(0).N, Ballot.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(1).N);
                 Click(alice, r1);
                 Check($"The inactivity timer ({MapVote.InactivitySeconds} s): everybody has voted, the vote stays open, the screen counts it down and names who reset it",
@@ -323,11 +324,11 @@ static partial class Program
                 h.Run(22);
                 Click(alice, winA); Click(bob, winA); Click(cara, winA); Click(dan, winB);
                 var w1 = WinState();
-                Check("Voting: who has not voted, the limit's digits and how many have, the inactivity row waiting; votes/present on the tiles, each in its place (Keep first) - no card moved for its votes; the limit's bar at its step",
+                Check("Voting: who has not voted, the limit's digits and how many have, the inactivity row waiting; votes/present on the tiles, the most votes first, live (her own card first in her view); the limit's bar at its step",
                     Header(w1) == "Started by Alice | Waiting for: Eve, Fay | 38 s | 4 of 6 voted | Inactivity timer |  | Starts when everybody has voted"
                     && ClassOn(w1, HudView.Screen, "voting") && !ClassOn(w1, HudView.Screen, "vdone") && !ClassOn(w1, HudView.Screen, "vlow")
-                    && StepOf(w1, HudVote.LimitBar) == "w6" && StepOf(w1, HudVote.IdleBar) == "w0" && TextOf(w1, "os_m1_score") == "0/6" && TextOf(w1, "os_m2_score") == "3/6" && TextOf(w1, "os_m3_score") == "1/6"
-                    && w1.Maps[0].Source == VoteSource.Keep && w1.Maps[1].N == winA && w1.Maps[2].N == winB);
+                    && StepOf(w1, HudVote.LimitBar) == "w6" && StepOf(w1, HudVote.IdleBar) == "w0" && TextOf(w1, "os_m1_score") == "3/6" && TextOf(w1, "os_m2_score") == "1/6" && TextOf(w1, "os_m3_score") == "0/6"
+                    && w1.Maps[0].N == winA && w1.Maps[1].N == winB && w1.Maps[2].Source == VoteSource.Keep);
                 h.Run(11);
                 Click(eve, winA); Click(fay, winB);
                 var w2 = WinState();
@@ -397,19 +398,16 @@ static partial class Program
                 said2.Says.Count == 2 && said2.Lately.Single(l => l.Key == lineKey).Text == $"Cara voted for {mapA} - 2 of 6 voted: Bob, Cara - Waiting for: Alice, Dan, Eve, Fay");
             Click(bob, lineB);
             Check("...a changed vote says so too", Last() == $"Bob voted for {mapB} - 2 of 6 voted: Bob, Cara - Waiting for: Alice, Dan, Eve, Fay");
-            Click(bob, 0);
-            Check("...a vote taken back too: he is waited for again", Last() == "Bob took their vote back - 1 of 6 voted: Cara - Waiting for: Alice, Bob, Dan, Eve, Fay");
-            Click(cara, 0);
-            Check("...and with nobody left: Nobody has voted", Last() == "Cara took their vote back - Nobody has voted - Waiting for: Alice, Bob, Cara, Dan, Eve, Fay");
             var saidBefore = BuildHud(h.Clock).Says.Count;
-            Click(cara, 0); Click(bob, lineA); Click(bob, lineA);
-            var saidAfter = BuildHud(h.Clock).Says;
-            Check("...a click that changes nothing changes nothing: no vote to take back says nothing, and the card his vote is on again (sent before his game drew his vote there) tells him alone that his vote is on it",
-                saidAfter.Count == saidBefore + 2 && saidAfter[^1].Account == AccountId(bob.Item2) && M.Plain(saidAfter[^1].Text).Contains(M.Plain(ChatReply.VoteStays)) && Ballot!.Choices[bob.Item2] == lineA);
+            Click(bob, 0); Click(cara, 0); Click(dan, 0);
+            Check("...a vote is never taken back: 0 - an older plugin's take-back - changes nothing and says nothing, from a voter or not",
+                BuildHud(h.Clock).Says.Count == saidBefore && Ballot!.Choices[bob.Item2] == lineB && Ballot.Choices[cara.Item2] == lineA && !Ballot.Choices.ContainsKey(dan.Item2));
+            Click(bob, lineA); Click(bob, lineA);
+            Check("...a click that changes nothing says nothing: the card his vote is on again", BuildHud(h.Clock).Says.Count == saidBefore + 1 && Ballot!.Choices[bob.Item2] == lineA);
             Click(dan, lineKeep);
-            Check("...Keep and Random in their own words", Last().StartsWith($"Dan voted to keep {Clip(CurrentLabel(), 32)} - 2 of 6 voted: Bob, Dan - "));
+            Check("...Keep and Random in their own words", Last().StartsWith($"Dan voted to keep {Clip(CurrentLabel(), 32)} - 3 of 6 voted: Bob, Cara, Dan - "));
             Click(eve, MapVote.RandomOption);
-            Check("......", Last().StartsWith("Eve voted for Random - 3 of 6 voted: Bob, Dan, Eve - "));
+            Check("......", Last().StartsWith("Eve voted for Random - 4 of 6 voted: Bob, Cara, Dan, Eve - "));
             Click(alice, lineA); Click(cara, lineA); Click(fay, lineA);
             Check("...and the last one: Everybody has voted, with every name; then the result", M.Plain(BuildHud(h.Clock).Says[^2].Text) == $"Fay voted for {mapA} - Everybody has voted: Alice, Bob, Cara, Dan, Eve, Fay" && Last().StartsWith("Everybody has voted: "));
             foreach (var (names, cut) in new[] { ("Longer Player Name No ", false), ("P", true) })
@@ -500,52 +498,51 @@ static partial class Program
             Click(alice, 2); Click(alice, 3);
             Check("A second click changes the vote", Ballot!.Choices[alice.Item2] == 3 && Ballot.Choices.Count == 1);
             Click(alice, 0);
-            Check("...and 0 takes it back", Ballot!.Choices.Count == 0);
+            Check("...and 0 does not take it back: a vote stays until it moves", Ballot!.Choices[alice.Item2] == 3 && Ballot.Choices.Count == 1);
             ClearNotices(); Click(bob, 60);
-            Check("A card the ballot does not have: a note - that map left the vote, click again - nothing cast", h.Said(M.Plain(ChatReply.CardGone)) && Ballot!.Choices.Count == 0);
+            Check("A card the ballot does not have: a note - that map left the vote, click again - nothing cast", h.Said(M.Plain(ChatReply.CardGone)) && Ballot!.Choices.Count == 1);
             ClearNotices(); Click(bob, 1, round - 1);
-            Check("A click for another round: a note, nothing cast", h.Said("That vote is over") && Ballot!.Choices.Count == 0);
-            Check("A click must be one: !mv without a round is refused at the door", !HudAct($"{bob.Item2}\tBob\t!mv 1") && Ballot!.Choices.Count == 0);
-            var lastFill = Ballot!.Options.Where(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace).MaxBy(o => o.Order)!;
+            Check("A click for another round: a note, nothing cast", h.Said("That vote is over") && Ballot!.Choices.Count == 1);
+            Check("A click must be one: !mv without a round is refused at the door", !HudAct($"{bob.Item2}\tBob\t!mv 1") && Ballot!.Choices.Count == 1);
             var offBallot = m.Where(x => x != m[9] && Ballot.Options.All(o => o.Map != x)).ToList(); // maps of ours the dice did not put on it
-            var (p6, p7) = (offBallot[0], offBallot[1]);
-            var placesBefore = LiveVote().Maps.Select(o => o.N).ToList();
-            var fillPlace = placesBefore.IndexOf(lastFill.N);
+            var (p6, p7, p8) = (offBallot[0], offBallot[1], offBallot[2]);
+            var cardsBefore = Ballot.Options.Where(o => o.Source != VoteSource.Random).ToList();
             var numbersBefore = Ballot.Options.Select(o => o.N).ToHashSet();
             ClearNotices(); Pick(alice, p6);
-            Check("A pick while the vote is open goes on the ballot for everybody with her vote, in the place of a random card nobody voted for, with a number no card had in this vote; nothing changes",
-                Pending is null && Ballot!.Open && Ballot.Options.Count == MapVote.PageCards + 1 && Ballot.Options.Single(o => o.Map == p6) is { Source: VoteSource.Picked } added
-                && !numbersBefore.Contains(added.N) && added.N < MapVote.RandomOption && added.Replaced == lastFill && !Ballot.Options.Contains(lastFill) && Ballot.Choices[alice.Item2] == added.N && h.Said("Alice added"));
+            Check("A pick while the vote is open goes on the ballot for everybody with her vote, as her own card: it takes no other card's place - the ballot grows - and has a number no card had in this vote; nothing changes",
+                Pending is null && Ballot!.Open && Ballot.Options.Count == cardsBefore.Count + 2 && cardsBefore.All(Ballot.Options.Contains)
+                && Ballot.Options.Single(o => o.Map == p6) is { Source: VoteSource.Picked } added && added.Owner == alice.Item2
+                && !numbersBefore.Contains(added.N) && added.N < MapVote.RandomOption && Ballot.Choices[alice.Item2] == added.N && h.Said("Alice added"));
+            var addedN = Ballot!.Options.Single(o => o.Map == p6).N;
             var shownAdd = LiveVote();
-            var addedN = Ballot!.Options.FirstOrDefault(o => o.Map == p6)?.N ?? -1;
-            Check("...the live state shows it in that card's very place, with who picked it, her vote lit; no other card moved",
-                fillPlace >= 0 && shownAdd.Maps[fillPlace] is { Source: VoteSource.Picked, Who: "Alice" } a1 && a1.N == addedN && shownAdd.ChoiceOf(2001) == addedN
-                && shownAdd.Maps.Select(o => o.N).Where((n, i) => i != fillPlace).SequenceEqual(placesBefore.Where((n, i) => i != fillPlace)));
-            Check("...and the line for everybody names the card it took the place of", M.Plain(BuildHud(h.Clock).Says[^1].Text).StartsWith($"Alice added {Clip(Label(p6), 32)} to the vote in place of {Clip(Label(lastFill.Map!), 32)} - "));
+            Check("...the live state: the cards with the most votes first, ties in the ballot's own order; her own view puts the card her vote is on first",
+                shownAdd.Maps.Select(o => o.N).SequenceEqual(cardsBefore.Concat(Ballot.Options.Where(o => o.Map == p6)).OrderByDescending(o => Ballot.Choices.Values.Count(n => n == o.N)).ThenBy(o => o.Order).Select(o => o.N))
+                && shownAdd.ForPlayer(2001).Maps[0].N == shownAdd.ChoiceOf(2001) && shownAdd.Maps.Count == MapVote.PageCards + 1 && HudVote.Pages(shownAdd) == 2
+                && shownAdd.Maps.Single(o => o.N == addedN) is { Source: VoteSource.Picked, Who: "Alice" });
+            Check("...the line for everybody says she added it - in nobody's place", M.Plain(BuildHud(h.Clock).Says[^1].Text).StartsWith($"Alice added {Clip(Label(p6), 32)} to the vote - ")
+                && !M.Plain(BuildHud(h.Clock).Says[^1].Text).Contains("in place of"));
+            Click(bob, addedN);
             ClearNotices();
-            Check("A click sent for the card that made room - before the clicker saw it go - finds no card: a note, nothing cast; never a vote for the map in its place",
-                HudAct($"{bob.Item2}\t{bob.Item1}\t{MapVote.Click(round, lastFill.N)}") && !Ballot!.Choices.ContainsKey(bob.Item2) && h.Said(M.Plain(ChatReply.CardGone)));
+            Check("A card's Play while the vote is open (the HUD's !map) adds the same way: a second pick of hers is her own card now, her vote on it; her first stays - Bob's vote is on it - a card like any other",
+                HudAct($"{alice.Item2}\t{alice.Item1}\t!map {ArgOf(p7)}") && Ballot!.Options.Single(o => o.Map == p7) is { } seven && seven.Owner == alice.Item2
+                && Ballot.Choices[alice.Item2] == seven.N && Ballot.Options.Single(o => o.Map == p6).Owner == "" && Ballot.Choices[bob.Item2] == addedN
+                && !M.Plain(BuildHud(h.Clock).Says[^1].Text).Contains("in place of"));
+            var gone7 = Ballot!.Options.Single(o => o.Map == p7).N;
             ClearNotices();
-            Check("...the same click from her, whose own pick took that very place (sent before her game drew it there): her vote is on it and stays, and she is told so - never that the map left",
-                HudAct($"{alice.Item2}\t{alice.Item1}\t{MapVote.Click(round, lastFill.N)}") && Ballot!.Choices[alice.Item2] == addedN && h.Said(M.Plain(ChatReply.VoteStays)) && !h.Said(M.Plain(ChatReply.CardGone))
-                && Ballot.Options.Count(o => o.Map == p6) == 1 && !Ballot.Options.Contains(lastFill));
+            Check("...her third takes the place of her second, which nobody else voted for: it leaves the ballot, and the line says in place of what; her first, with Bob's vote, stays",
+                HudAct($"{alice.Item2}\t{alice.Item1}\t!map {ArgOf(p8)}") && Ballot!.Options.All(o => o.Map != p7) && Ballot.Options.Single(o => o.Map == p8).Owner == alice.Item2
+                && Ballot.Options.Any(o => o.Map == p6) && M.Plain(BuildHud(h.Clock).Says[^1].Text).StartsWith($"Alice added {Clip(Label(p8), 32)} to the vote in place of {Clip(Label(p7), 32)} - "));
             ClearNotices();
-            Check("...as does a click on her pick itself, sent before her game drew her vote on it: nothing moves, and she is told her vote is on it",
-                HudAct($"{alice.Item2}\t{alice.Item1}\t{MapVote.Click(round, addedN)}") && Ballot!.Choices[alice.Item2] == addedN && h.Said(M.Plain(ChatReply.VoteStays)));
-            var secondFill = Ballot!.Options.Where(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace && !Ballot.Choices.ContainsValue(o.N)).MaxBy(o => o.Order)!;
-            var secondPlace = LiveVote().Maps.FindIndex(o => o.N == secondFill.N);
-            ClearNotices();
-            Check("A card's Play while the vote is open (the HUD's !map) adds the same way: a second pick of hers is another card, in the place of the next random card, her vote moved to it - and her first, with no votes left, leaves the ballot",
-                HudAct($"{alice.Item2}\t{alice.Item1}\t!map {ArgOf(p7)}") && Ballot!.Options.Count(o => o.Source == VoteSource.Picked) == 1 && Ballot.Choices[alice.Item2] == Ballot.Options.Single(o => o.Map == p7).N
-                && Ballot.Options.All(o => o.Map != p6) && LiveVote().Maps[secondPlace].Key == Key(p7));
-            Check("...the card her first replaced is back in its place, with its own number, and she is told; still one page, no other card moved",
-                Ballot!.Options.Contains(lastFill) && LiveVote().Maps[fillPlace].N == lastFill.N && LiveVote().Maps.Count == MapVote.PageCards
-                && LiveVote().Maps.Select(o => o.N).Where((n, i) => i != secondPlace).SequenceEqual(placesBefore.Where((n, i) => i != secondPlace))
-                && BuildHud(h.Clock).Notes[2001].Text == $"{Clip(Label(p6), 32)} left the vote, with no votes on it - {Clip(Label(lastFill.Map!), 32)} is back in its place");
+            Check("A click sent for the card that left - before the clicker saw it go - finds no card: a note, nothing cast",
+                HudAct($"{cara.Item2}\t{cara.Item1}\t{MapVote.Click(round, gone7)}") && !Ballot!.Choices.ContainsKey(cara.Item2) && h.Said(M.Plain(ChatReply.CardGone)));
+            ClearNotices(); Click(bob, addedN);
+            Check("...a click on the card his vote is on already changes nothing and says nothing - never a take-back", Ballot!.Choices[bob.Item2] == addedN && !h.Said(M.Plain(ChatReply.CardGone)));
+            ClearNotices(); Pick(alice, p7);
+            Check("...p7 again is a new card of hers, with a new number, in the place of her third", Ballot!.Options.Single(o => o.Map == p7) is { } again7 && again7.N != gone7 && again7.Owner == alice.Item2
+                && Ballot.Options.All(o => o.Map != p8) && Ballot.Choices[alice.Item2] == again7.N);
             var p7Card = LiveVote();
-            var p7Slot = p7Card.Maps.FindIndex(o => o.Key == Key(p7)) + 1;
-            Check("...a click on the card her vote is on takes it back (!mv <round> 0), and on another card moves it",
-                HudVote.Click(p7Card, $"os_m{p7Slot}_play", 0, 2001) == MapVote.Click(p7Card.Round, 0) && HudVote.Click(p7Card, $"os_m{p7Slot}_play", 0, 2002) == MapVote.Click(p7Card.Round, p7Card.Maps[p7Slot - 1].N)
+            Check("...on the HUD: a click on the card her vote is on - first in her view - does nothing; on another card it moves the vote, Random too",
+                p7Card.ForPlayer(2001).Maps[0].Key == Key(p7) && HudVote.Click(p7Card, "os_m1_play", 0, 2001) == null && HudVote.Click(p7Card, "os_m2_play", 0, 2001) == MapVote.Click(p7Card.Round, p7Card.ForPlayer(2001).Maps[1].N)
                 && HudVote.Click(p7Card, HudVote.RandomButton, 0, 2001) == MapVote.Click(p7Card.Round, MapVote.RandomOption));
             var two0 = Opt(2).Map!;
             ClearNotices(); Pick(bob, two0);
@@ -701,10 +698,9 @@ static partial class Program
             for (var i = 0; i < 9; i++) Pick(nine[i], many[i]);
             var big9 = LiveVote();
             Console.WriteLine("ballot of nine picks: " + string.Join(" | ", big9.Options.Select(o => $"{o.N}. {o.Label} ({o.Source}, {o.Mode}, {o.Votes})")));
-            Check($"Nine players each pick a map during the vote (10 on: no Wingman): every pick is on the ballot with its picker's vote; the {MapVote.PageCards - 2} random Arms Race cards made room, each pick in the place of the card it replaced, then a second page holds the rest - Keep first, the Deathmatch card in its place, the ninth pick after it",
-                big9.Open && big9.Maps.Count(o => o.Source == VoteSource.Picked) == 9 && many.All(x => big9.Maps.Any(o => o.Key == Key(x))) && big9.Maps.Count == 11
-                && big9.Maps[0].Source == VoteSource.Keep && big9.Maps.Skip(1).Take(8).All(o => o.Source == VoteSource.Picked && o.Votes == 1)
-                && big9.Maps.Skip(9).Select(o => o.Source).SequenceEqual([VoteSource.Rolled, VoteSource.Picked]) && big9.Maps[9].Mode == Modes.DeathmatchId
+            Check($"Nine players each pick a map during the vote (10 on): every pick is on the ballot as its picker's own card, with that vote; no card made room - the ballot grows to {MapVote.PageCards + 9} cards, two pages - the picks first (a vote each), then Keep and the dice's cards",
+                big9.Open && big9.Maps.Count(o => o.Source == VoteSource.Picked) == 9 && many.All(x => big9.Maps.Any(o => o.Key == Key(x))) && big9.Maps.Count == MapVote.PageCards + 9
+                && big9.Maps.Take(9).All(o => o.Source == VoteSource.Picked && o.Votes == 1) && big9.Maps[9].Source == VoteSource.Keep && big9.Maps.Skip(10).All(o => o.Source == VoteSource.Rolled)
                 && HudVote.Pages(big9) == 2 && HudVote.Cards(big9, 2001, null).Classes.Contains((HudView.Screen, "vmore", true))
                 && HudVote.Cards(big9, 2001, null, page: 1).Classes.Contains((HudBrowser.PrevButton, "off", false)) && !HudVote.Cards(big9, 2001, null, page: 1).Classes.Contains((HudView.Screen, "vmore", true)));
 

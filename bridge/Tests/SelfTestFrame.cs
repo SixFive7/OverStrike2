@@ -74,13 +74,12 @@ static partial class Program
         Check("Frame: a vote that freezes everybody opens every window on MAPS, the ballot, held and with no close button",
             slots.WindowOpen(1) && slots.WindowOpen(2) && slots.PageOf(2) == HudSlots.Page.Maps && players[2].VoteOpened && screen.C(HudView.Screen, "vlock", 2) && screen.C(HudView.Screen, "voting", 2)
             && screen.T("os_m1_name", 2) == "#12 aim_x" && screen.V(HudView.Global, $"{HudView.PlayersVar}2d") == "waiting" && screen.V(HudView.Global, $"{HudView.PlayersVar}1d") == "voted"
-            && players[2].Drawn.Round == 1793900000 && HudFrame.SeenOrder(players[2], 1793900000, 0, t0.AddSeconds(40)) is [1]);
+            && players[2].VoteView.Round == 1793900000);
         frame.Draw(World(live, new VoteState { WaitFor = 120 }, t0.AddSeconds(50)), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
         Check("Frame: when the freeze ends, the windows it opened close together - but the welcome, which goes back to its start page and waits for its X",
             !slots.WindowOpen(2) && !players[2].VoteOpened && slots.WindowOpen(1) && slots.PageOf(1) == HudSlots.Page.Start);
 
-        // ---- the ballot's clicks: a card that left counts for nothing; a click on her own card right after her vote landed keeps it; Add to the vote
-        // follows her vote to its page ----
+        // ---- the ballot's clicks: her own card first in her view, the rest by votes; a vote moves, never goes back ----
         const long r = 1793950000;
         VoteState BallotOf(IEnumerable<int> cards, Dictionary<long, int>? choices = null)
         {
@@ -90,60 +89,39 @@ static partial class Program
             foreach (var (a, n) in choices ?? new()) v.Choices[a] = n;
             return v;
         }
-        var tenBefore = BallotOf(Enumerable.Range(1, 10));
-        var tenAfter = BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10]); // a pick, card 11, took the place of card 2: no other card moved
-        int[] seenBefore = [.. HudVote.Order(tenBefore, 0)];
-        Check("Ballot: a click on a card whose map left the vote since the player saw it counts for nothing and is said (Gone) - never a vote for the map in its place; a card still there counts as ever, and the newest order names the new card",
-            HudVote.Click(tenAfter, "os_m2_play", 0, 1001, seenBefore) == null && HudVote.Gone(tenAfter, "os_m2_play", 0, seenBefore)
-            && HudVote.Click(tenAfter, "os_m3_play", 0, 1001, seenBefore) == MapVote.Click(r, 3) && !HudVote.Gone(tenAfter, "os_m3_play", 0, seenBefore)
-            && HudVote.Click(tenAfter, "os_m2_play", 0, 1001) == MapVote.Click(r, 11) && !HudVote.Gone(tenAfter, "os_m2_play", 0) && !HudVote.Gone(tenAfter, HudVote.RandomButton, 0, seenBefore)
-            && !HudVote.Gone(new VoteState { Round = r, Open = false, Options = tenAfter.Options }, "os_m2_play", 0, seenBefore)
+        var twelve = BallotOf(Enumerable.Range(1, 12), new() { [1001] = 12, [1002] = 3 }); // two pages, the bridge's order; her vote on card 12, the second page's
+        var hers = twelve.ForPlayer(1001);
+        var decided = BallotOf(Enumerable.Range(1, 12), new() { [1001] = 12 });
+        decided.Open = false;
+        var onRandom = BallotOf(Enumerable.Range(1, 12), new() { [1001] = MapVote.RandomOption });
+        Check("Ballot: in her own view the card her vote is on comes first, the rest in the bridge's order (the most votes first); Random's vote, no vote, a decided vote and another player's view as they are",
+            hers.Maps.Select(o => o.N).SequenceEqual([12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) && hers.Options[^1].Source == VoteSource.Random && twelve.Maps[0].N == 1
+            && twelve.ForPlayer(1002).Maps.Select(o => o.N).SequenceEqual([3, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]) && ReferenceEquals(twelve.ForPlayer(1003), twelve)
+            && ReferenceEquals(twelve.ForPlayer(-1), twelve) && ReferenceEquals(decided.ForPlayer(1001), decided) && ReferenceEquals(onRandom.ForPlayer(1001), onRandom)
+            && HudVote.Order(hers, 0)[0] == 12 && HudVote.PageOf(hers, 12) == 0 && HudVote.PageOf(twelve, 12) == 1);
+        Check("...a click counts for the card in her view: her own card (first) does nothing - a vote is never taken back - another card moves it, Random too; another player's click on card 1 is his own card's, and nothing",
+            HudVote.Click(twelve, "os_m1_play", 0, 1001) == null && HudVote.Click(twelve, "os_m2_play", 0, 1001) == MapVote.Click(r, 1) && HudVote.Click(twelve, "os_m3_play", 1, 1001) == null
+            && HudVote.Click(twelve, "os_m1_play", 1, 1001) == MapVote.Click(r, 10) && HudVote.Click(twelve, "os_m2_play", 1, 1001) == MapVote.Click(r, 11) && HudVote.Click(twelve, HudVote.RandomButton, 0, 1001) == MapVote.Click(r, MapVote.RandomOption)
+            && HudVote.Click(onRandom, HudVote.RandomButton, 0, 1001) == null && HudVote.Click(onRandom, "os_m1_play", 0, 1001) == MapVote.Click(r, 1)
+            && HudVote.Click(twelve, "os_m1_play", 0, 1002) == null && HudVote.Click(twelve, "os_m4_play", 0, 1002) == MapVote.Click(r, 4)
+            && HudVote.Click(twelve, "os_m1_play", 0) == MapVote.Click(r, 1) && HudVote.Click(decided, "os_m1_play", 0, 1003) == null
             && HudVote.CardOf("os_m10_play") == 10 && HudVote.CardOf("os_m11_play") == 0 && HudVote.CardOf("os_m1_up") == 0 && HudVote.CardOf(HudVote.RandomButton) == 0 && HudVote.CardOf("os_m_play") == 0);
+        var cards = HudVote.Cards(twelve, 1001, null);
+        Check("...the cards drawn in her view: card 1 is her vote's (Your vote, lit), the rest by the bridge's order; the hint says her vote comes first and moves, never that it goes back",
+            cards.Texts.Single(x => x.Id == "os_m1_name").Text == "map 12" && cards.Texts.Single(x => x.Id == "os_m1_play_text").Text == "Your vote"
+            && cards.Classes.Single(x => x.Id == "os_m1" && x.Class == "confirm").On && !cards.Classes.Single(x => x.Id == "os_m2" && x.Class == "confirm").On
+            && cards.Texts.Single(x => x.Id == "os_m2_name").Text == "map 1" && HudVote.Thumbs(twelve, null, 0, MapVote.PageCards, 1001).Count == HudMenu.Cards
+            && !cards.Texts.Any(x => x.Text.Contains("take it back", StringComparison.OrdinalIgnoreCase)));
         var at = t0.AddMinutes(5);
-        var her = new HudPlayer();
-        var hers = BallotOf(Enumerable.Range(1, 10), new() { [1001] = 4 });
-        HudFrame.SeeVote(her, tenBefore, 1001, at);
-        HudFrame.SeeVote(her, hers, 1001, at.AddSeconds(1)); // her vote lands on card 4
-        HudFrame.SeeVote(her, hers, 1001, at.AddSeconds(1.5)); // ...and stays: its clock does not start again
-        var takeBack = HudVote.Click(hers, "os_m4_play", 0, 1001);
-        Check($"Ballot: a click on the card her vote landed on less than {HudVote.KeepSeconds} s ago keeps the vote (a double click, a click to make sure); after that it takes it back, and a click on another card is never held",
-            takeBack == MapVote.Click(r, 0) && her.Mine == (r, 4, at.AddSeconds(1)) && HudFrame.KeepsVote(her, hers, takeBack, at.AddSeconds(2.5))
-            && !HudFrame.KeepsVote(her, hers, takeBack, at.AddSeconds(1 + HudVote.KeepSeconds)) && !HudFrame.KeepsVote(her, hers, MapVote.Click(r, 5), at.AddSeconds(1.5))
-            && !HudFrame.KeepsVote(her, hers, MapVote.Click(r - 1, 0), at.AddSeconds(1.5)) && !HudFrame.KeepsVote(new HudPlayer(), hers, takeBack, at.AddSeconds(1.5)));
-        HudFrame.SeeVote(her, BallotOf(Enumerable.Range(1, 10)), 1001, at.AddSeconds(3));
-        Check("...her vote taken back: nothing of hers to keep", her.Mine.N == 0 && !HudFrame.KeepsVote(her, hers, takeBack, at.AddSeconds(3.5)));
-        var twelve = BallotOf(Enumerable.Range(1, 12), new() { [1001] = 2 }); // two pages; her vote on card 2, the first page
-        var follower = new HudPlayer();
-        HudFrame.AddedToVote(follower, twelve, 1001, at, MapVote.PageCards);
-        Check("Add to the vote: back to the ballot, on the page of her vote now, following it", follower.VoteView == (r, 0, false) && follower.Follow.Round == r && follower.Follow.From == 2);
-        var landed = BallotOf(Enumerable.Range(1, 12), new() { [1001] = 12 }); // the bridge's answer: her vote on the map she added, card 12, the second page
-        HudFrame.FollowVote(follower, landed, 1001, at.AddSeconds(0.5), MapVote.PageCards);
-        Check("...once her vote moves to the map she added: the page that card is on (HudVote.PageOf) - the second of two here - and the following ends",
-            follower.VoteView == (r, 1, false) && follower.Follow.Round == 0);
-        var late = new HudPlayer();
-        HudFrame.AddedToVote(late, twelve, 1001, at, MapVote.PageCards);
-        HudFrame.FollowVote(late, landed, 1001, at.AddSeconds(HudVote.FollowSeconds + 1), MapVote.PageCards);
-        Check($"...but not after {HudVote.FollowSeconds} s (a refused pick moves nothing): the page stays", late.VoteView == (r, 0, false) && late.Follow.Round == 0);
-        // her own Add's card, drawn a moment ago in the place of another: a click there within the re-sort's grace counts against the order she saw before, whose
-        // card has left - it keeps her vote (OwnCardNow), where it said the map left the vote (the lab's rehearsal of 201, check 3)
-        var mineAfter = BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10], new() { [1001] = 11, [1002] = 3 }); // her Add, card 11, in the place of card 2, with her vote
-        var closedMine = BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10], new() { [1001] = 11 });
-        closedMine.Open = false;
-        Check("Ballot: a click on her own Add's card, drawn a moment ago in the place of card 2, that counts against the order she saw before keeps her vote (OwnCardNow) - never that the map left; another player's says it left, a card still there is a vote as ever",
-            HudVote.Click(mineAfter, "os_m2_play", 0, 1001, seenBefore) == null && HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, 1001, seenBefore)
-            && !HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, 1002, seenBefore) && HudVote.Gone(mineAfter, "os_m2_play", 0, seenBefore)
-            && !HudVote.OwnCardNow(mineAfter, "os_m3_play", 0, 1002, seenBefore) && HudVote.Click(mineAfter, "os_m3_play", 0, 1002, seenBefore) == MapVote.Click(r, 0)
-            && !HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, 1001, null) && !HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, -1, seenBefore)
-            && !HudVote.OwnCardNow(BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10], new() { [1001] = 4 }), "os_m2_play", 0, 1001, seenBefore)
-            && !HudVote.OwnCardNow(closedMine, "os_m2_play", 0, 1001, seenBefore) && !HudVote.OwnCardNow(mineAfter, HudVote.RandomButton, 0, 1001, seenBefore));
-        int[] nineSeen = [.. HudVote.Order(BallotOf(Enumerable.Range(1, 9)), 0)];
-        var tenHers = BallotOf(Enumerable.Range(1, 10), new() { [1001] = 10 }); // her Add, card 10, after the last of nine
-        Check("...her Add's card after the last: a click on it within the grace keeps her vote too, where it did nothing at all",
-            HudVote.Click(tenHers, "os_m10_play", 0, 1001, nineSeen) == null && !HudVote.Gone(tenHers, "os_m10_play", 0, nineSeen) && HudVote.OwnCardNow(tenHers, "os_m10_play", 0, 1001, nineSeen)
-            && !HudVote.OwnCardNow(tenHers, "os_m10_play", 0, 1002, nineSeen));
+        var adder = new HudPlayer { VoteView = (r, 1, false) };
+        HudFrame.AddedToVote(adder, twelve, at, "os_m3_play");
+        Check("Add to the vote: back to the ballot's first page - where the card her vote is on comes first, the map she added once the bridge's answer comes",
+            adder.VoteView == (r, 0, false) && adder.Added == (r, "os_m3_play", at));
         // the second click of a double click on the map browser's Play: the Add made that card the ballot's card in its place
         var doubler = new HudPlayer();
-        HudFrame.AddedToVote(doubler, twelve, 1001, at, MapVote.PageCards, "os_m3_play");
+        HudFrame.AddedToVote(doubler, twelve, at, "os_m3_play");
+        var late = new HudPlayer();
+        HudFrame.AddedToVote(late, twelve, at);
         var nextRound = new VoteState { Round = r + 1, Open = true, Options = twelve.Options };
         var addedBy = doubler.Added;
         var asEver = !HudFrame.SecondClick(doubler, twelve, "os_m4_play", at.AddSeconds(0.3)) && !HudFrame.SecondClick(doubler, nextRound, "os_m3_play", at.AddSeconds(0.3))

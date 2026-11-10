@@ -15,17 +15,6 @@ public sealed class HudPlayer
     /// <summary>The vote this player is looking at: its round, the ballot's page, and whether the map browser is open on it (MAPS, Browse).</summary>
     public (long Round, int Page, bool Browse) VoteView;
 
-    /// <summary>The ballot's cards as last drawn for this player, and before the last change: a click counts against what the player saw (HudFrame.SeenOrder).</summary>
-    public (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt) Drawn = (0, 0, [], [], DateTime.MinValue);
-
-    /// <summary>The card this player's vote is on as the frames have seen it (0: none), and since when: a click there in the first HudVote.KeepSeconds keeps the
-    /// vote (HudFrame.KeepsVote).</summary>
-    public (long Round, int N, DateTime Since) Mine;
-
-    /// <summary>After this player's Add to the vote: the round, their vote before it, and until when their ballot page follows their vote to its page
-    /// (HudFrame.FollowVote). Round 0: not following.</summary>
-    public (long Round, int From, DateTime Until) Follow;
-
     /// <summary>This player's last Add to the vote from the map browser: the round, the Play it came from and when - a click on that very button within
     /// HudVote.DoubleClickSeconds is the second click of a double click (HudFrame.SecondClick). Round 0: none.</summary>
     public (long Round, string Button, DateTime At) Added;

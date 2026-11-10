@@ -32,7 +32,7 @@ public static class HudView
     public static string SubCaption(HudSlots.Page page, bool ballot, bool browsingVote) => page switch
     {
         HudSlots.Page.Start => "",
-        HudSlots.Page.Maps => ballot ? "Click a map to vote, yours again to take it back" : browsingVote ? "Browse: Play puts a map on this vote, with your vote"
+        HudSlots.Page.Maps => ballot ? "Click a map to vote, another to move your vote" : browsingVote ? "Browse: Play puts a map on this vote, with your vote"
             : "Every map: Play puts it to the vote",
         HudSlots.Page.Fun => "Anybody, at any time, for everybody",
         HudSlots.Page.Bots => "Bots for everybody: a preset sets several at once",

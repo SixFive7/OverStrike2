@@ -35,12 +35,9 @@ public static class ChatReply
 
     // ---- the ballot's clicks (HudVote, BridgeLink) ----
 
-    /// <summary>A click on a ballot card whose map has left the vote since the player saw it - a pick that lost its votes, a card a pick took the place of: it
-    /// counts for nothing. The plugin says it when it knows, the bridge when the click reached it first (CastBallot).</summary>
+    /// <summary>A click on a ballot card whose map has left the vote since the player saw it - a player's own map they put another in place of, a map no
+    /// longer playable: it counts for nothing (the bridge's CastBallot).</summary>
     public static readonly string CardGone = M.Refused("That map left the vote - Click again");
-
-    /// <summary>A click on the card this player's vote landed on a moment ago (HudVote.KeepSeconds): the vote stays there - a double click, or a click to make sure.</summary>
-    public static readonly string VoteStays = M.Done("Your vote is on this map");
 
     /// <summary>A click the plugin could not hand to the server: its line was full, or a vote waited too long for room (BridgeLink).</summary>
     public static readonly string ClickLost = M.Refused("The server did not get that click - Click again");

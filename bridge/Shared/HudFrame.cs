@@ -119,8 +119,6 @@ public sealed class HudFrame
         screen.Class(HudView.Screen, "vjoin", h.JoinedFor is { } joined && joined.TotalSeconds < HudVersion.JoinSeconds, slot); // a newer content's banner, for a while after a join
         screen.Class(HudView.Screen, "qhelp", view.Window && view.Page == HudSlots.Page.Maps && now < p.SearchHelpUntil && !OnBallot(p, vote), slot); // the search helped, after a click on its area
         var perPage = MapVote.PageCards;
-        SeeVote(p, vote, account, now);
-        FollowVote(p, vote, account, now, perPage);
         var vv = VoteView(p, vote, perPage);
         var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
         if (vote.Round <= 0 || browsing) screen.Class(HudView.Screen, "voting", false, slot);
@@ -171,7 +169,7 @@ public sealed class HudFrame
         foreach (var (id, text) in texts) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in classes) screen.Class(id, cls, on, slot);
         if (page != HudSlots.Page.Maps) return;
-        if (ballot) { screen.Pictures(slot, HudVote.Thumbs(vote, w.Catalog, p.VoteView.Page, perPage)); return; }
+        if (ballot) { screen.Pictures(slot, HudVote.Thumbs(vote, w.Catalog, p.VoteView.Page, perPage, h.Account)); return; }
         var (recentTexts, recentClasses) = HudMenu.RecentWords(h.Recent ?? []); // the search's words row: this player's last searches
         foreach (var (id, text) in recentTexts) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in recentClasses) screen.Class(id, cls, on, slot);
@@ -181,17 +179,12 @@ public sealed class HudFrame
         screen.Pictures(slot, HudMenu.Thumbs(w.Catalog, p.Browser, h.Account, w.Search));
     }
 
-    /// <summary>The ballot's page for this player: its texts and classes, and its variables on os_screen (Random's button, the hint for the other pages, the
-    /// header's clocks). The order of its cards is remembered as drawn: a re-sort keeps the order before it for HudVote.ReSortSeconds (SeenOrder).</summary>
+    /// <summary>The ballot's page for this player, in their own view (their card first, then the most votes - HudVote.Cards): its texts and classes, and its
+    /// variables on os_screen (Random's button, the hint for the other pages, the header's clocks).</summary>
     static (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) BallotPage(World w, Human h, HudPlayer p, int perPage, IScreen screen)
     {
-        var vote = w.Vote;
-        var page = p.VoteView.Page;
-        var (texts, classes, vars) = HudVote.Cards(vote, h.Account, w.Catalog, page, perPage, w.BarVote);
+        var (texts, classes, vars) = HudVote.Cards(w.Vote, h.Account, w.Catalog, p.VoteView.Page, perPage, w.BarVote);
         foreach (var (name, text) in vars) screen.Var(HudView.Screen, name, text, h.Slot);
-        var order = HudVote.Order(vote, page, perPage);
-        if (p.Drawn.Round != vote.Round || p.Drawn.Page != page) p.Drawn = (vote.Round, page, order, order, DateTime.MinValue);
-        else if (!p.Drawn.Now.SequenceEqual(order)) p.Drawn = (vote.Round, page, order, p.Drawn.Now, w.Now);
         return (texts, classes);
     }
 
@@ -224,44 +217,12 @@ public sealed class HudFrame
         return (p.VoteView.Page, p.VoteView.Browse);
     }
 
-    /// <summary>The order of a player's ballot cards a click counts against: the one drawn before the last re-sort while that re-sort is younger than
-    /// HudVote.ReSortSeconds, else the one drawn last; null when nothing of this round and page was drawn for them (the newest order then).</summary>
-    public static int[]? SeenOrder(HudPlayer p, long round, int page, DateTime now) =>
-        p.Drawn.Round == round && p.Drawn.Page == page && p.Drawn.Now.Length > 0 ? ((now - p.Drawn.ChangedAt).TotalSeconds < HudVote.ReSortSeconds ? p.Drawn.Before : p.Drawn.Now) : null;
-
-    /// <summary>Every frame: the card this player's vote is on, and since when (HudPlayer.Mine) - a new round, a new card or no vote starts its clock.</summary>
-    public static void SeeVote(HudPlayer p, VoteState vote, long account, DateTime now)
+    /// <summary>A map browser's Add to the vote, from this player, by the Play of button: back to the ballot's first page, where the card their vote is on comes
+    /// first (VoteState.ForPlayer) - the map they added, once the bridge's answer comes; the button and the moment kept for the second click of a double click
+    /// (SecondClick).</summary>
+    public static void AddedToVote(HudPlayer p, VoteState vote, DateTime now, string button = "")
     {
-        var n = vote is { Open: true, Round: > 0 } ? vote.ChoiceOf(account) : 0;
-        if (p.Mine.Round != vote.Round || p.Mine.N != n) p.Mine = (vote.Round, n, now);
-    }
-
-    /// <summary>Whether this click would take the player's vote back from the card it landed on less than HudVote.KeepSeconds ago: a double click, or a
-    /// click to make sure. The vote stays then (ChatReply.VoteStays); a later click takes it back as ever.</summary>
-    public static bool KeepsVote(HudPlayer p, VoteState vote, string? command, DateTime now) =>
-        command != null && MapVote.ParseClick(command) is { Option: 0 } click && click.Round == vote.Round
-        && p.Mine is { N: > 0 } mine && mine.Round == vote.Round && (now - mine.Since).TotalSeconds < HudVote.KeepSeconds;
-
-    /// <summary>After this player's Add to the vote (HudPlayer.Follow): once their vote moves - to the map they added, or to its card if the ballot had it - their
-    /// ballot shows the page that card is on (HudVote.PageOf), wherever its place is; for HudVote.FollowSeconds at most.</summary>
-    public static void FollowVote(HudPlayer p, VoteState vote, long account, DateTime now, int perPage)
-    {
-        if (p.Follow.Round == 0) return;
-        if (p.Follow.Round != vote.Round || !vote.Open || now >= p.Follow.Until) { p.Follow = default; return; }
-        var n = vote.ChoiceOf(account);
-        if (n == p.Follow.From || n <= 0 || vote.Random?.N == n || vote.Numbered(n) == null) return;
-        p.VoteView = (vote.Round, HudVote.PageOf(vote, n, perPage), false);
-        p.Follow = default;
-    }
-
-    /// <summary>A map browser's Add to the vote, from this player, by the Play of button: back to the ballot, on the page of their vote now (if it is on a card),
-    /// and following it once it moves (FollowVote); the button and the moment kept for the second click of a double click (SecondClick).</summary>
-    public static void AddedToVote(HudPlayer p, VoteState vote, long account, DateTime now, int perPage, string button = "")
-    {
-        var n = vote.ChoiceOf(account);
-        var page = n > 0 && vote.Random?.N != n && vote.Numbered(n) != null ? HudVote.PageOf(vote, n, perPage) : VoteView(p, vote, perPage).Page;
-        p.VoteView = (vote.Round, page, false);
-        p.Follow = (vote.Round, n, now.AddSeconds(HudVote.FollowSeconds));
+        p.VoteView = (vote.Round, 0, false);
         p.Added = (vote.Round, button, now);
     }
 

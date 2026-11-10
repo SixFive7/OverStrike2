@@ -13,42 +13,42 @@
 // a player who tries to call a vote when none may be called reads why in their own line, and chat and the board name them (RefuseCall).
 //
 // The ballot, a page of cards (MapVote.PageCards): Keep - "Keep playing this map" while the match is on, "Play this map again" once it is over (Wingman: the
-// whole match, not a round) - every map a player selected, one map of each other mode that suits the players on (Modes.Mode.Suits: Valve's
-// maxplayers, so Wingman up to 4), then the server's own mode: one fresh map - a new Workshop upload or a recent update our sync tested, unless a
+// whole match, not a round) - every map a player selected, one map of each other mode that suits the players on (ModeSuits: Deathmatch by Valve's
+// maxplayers, Wingman with any number), then the server's own mode: one fresh map - a new Workshop upload or a recent update our sync tested, unless a
 // card above is fresh already - one surprise from the discovery stock (a map new to us), and the Workshop's favourites the server keeps to fill
 // the page. Every card but a player's pick is on the server's disk (Stock.cs), so whichever wins loads at once; an empty slot - no fresh
 // map on the disk, the stock not downloaded yet - is a favourite. The cards are rolled by points (Dice.cs). Random is a button of its own,
-// without a number. A map a player selects while the vote is open goes on it, with their vote, taking the place of a random card of the
-// server's mode nobody voted for - favourites first, then the surprise, the fresh card last; the other modes' cards keep their place - so that
-// one page holds it all; a second page only when what must be on it does not fit. Each card has its tags (MapTags) as they were when it went on.
+// without a number. A second page comes when the players' own maps need it. Each card has its tags (MapTags) as they were when it went on.
 //
-// While the vote is open no card moves: each keeps the place it went on in - an added map the very place of the card it replaced - and a card's
-// number is never given again in that vote, so a click sent for a card that has just gone counts for nothing rather than for the map in its place
-// (CastBallot says so). Once the vote is decided, the cards show with the most votes first.
+// A map a player selects while the vote is open is their own card (BallotOption.Owner): it takes no other card's place - the
+// ballot grows a page instead - and a player has one: a new map of theirs takes the place of their last, which leaves the ballot unless somebody
+// else's vote is on it, when it stays as a card like any other - no vote vanishes through somebody else's doing. A map the ballot holds already
+// is a vote for its card. A card's number is never given again in that vote, so a click sent for a card that has just gone counts for nothing
+// rather than for another map (CastBallot says so).
+//
+// The cards show with the most votes first, live, ties in the ballot's own order (Keep, the picks, the server's mode, the other modes); each
+// player's own view puts the card their vote is on first (VoteState.ForPlayer). Once the vote is decided the winner is first.
 //
 // Every card shown is remembered (S.Shown, S.Met): a card shown and not chosen steps back in the points for a while, and a map shown or played is
 // no longer new to us - a stock entry shown is used up.
 //
-// A vote changes, or goes back, as often as its player likes: a click on another card moves it, a click on their own takes it back. A map a
-// player put on the ballot that has no votes left leaves it, until somebody puts it on again; the random card it replaced comes back in its place,
-// and whoever put it on is told. Once everybody present has voted the vote closes
+// A vote moves as often as its player likes - a click on another card - but is never taken back (242): a click on their own card does
+// nothing, and a voter who leaves takes their vote along. Once everybody present has voted the vote closes
 // when the inactivity timer runs out: MapVote.InactivitySeconds after the last activity - a vote, a map put on it, a player's work in the map
 // browser - with who reset it last on the screen, or at the vote's limit, whichever is first. The live state carries both timers.
 //
-// The most votes win; a tie is drawn at random; nobody voting keeps the map mid-match and is Random at a match end. A Wingman map cannot win
-// with five or more on: the next most votes do. After any vote nobody can call another for MapVote.WaitSeconds (2 min); a match end opens
-// its vote anyway. The maps on an open ballot go first in queues.json (Stock.cs), so the restart watcher downloads them at once.
+// The most votes win; a tie is drawn at random; nobody voting keeps the map mid-match and is Random at a match end. After any vote nobody can
+// call another for MapVote.WaitSeconds (2 min); a match end opens its vote anyway. The maps on an open ballot go first in queues.json (Stock.cs), so the restart watcher downloads them at once.
 static partial class Program
 {
     /// <summary>One card of the ballot: its number on the wire, how it got there, the map (null for Random, and for Keep on a map the bridge only
     /// knows by name), the mode it loads in, its place among ties (Keep, the picks, the server's mode, the other modes), who selected it, its tags as
-    /// it went on, and when it was shown (unix seconds, 0 for Keep and Random). Slot: its place on the screen while the vote is open, which never
-    /// changes; Replaced: the random card a pick took the place of, which gets that place back when the pick leaves.</summary>
+    /// it went on, and when it was shown (unix seconds, 0 for Keep and Random). Owner: the player whose own card it is - the map they put on the
+    /// ballot, until they put on another (AddToBallot) - "" for none.</summary>
     sealed class BallotOption(VoteSource source, MapInfo? map, Modes.Mode mode, int order, string tags = "")
     {
         public int N;
-        public int Slot;
-        public BallotOption? Replaced;
+        public string Owner = "";
         public VoteSource Source { get; } = source;
         public MapInfo? Map { get; } = map;
         public Modes.Mode Mode { get; } = mode;
@@ -97,8 +97,7 @@ static partial class Program
         (b.LastChange, b.LastBy) = (Now(), by);
     }
 
-    /// <summary>The cards' places among ties: Keep, the picks, the server's mode - its fresh card, its surprise, then its favourites, so that a pick
-    /// replaces the favourites first and the fresh card last (Replaceable) - and the other modes.</summary>
+    /// <summary>The cards' places among ties: Keep, the picks, the server's mode - its fresh card, its surprise, then its favourites - and the other modes.</summary>
     const int KeepOrder = 0, PickOrder = 100, FillOrder = 200, FreshOrder = FillOrder, SurpriseOrder = FillOrder + 1, FavouriteOrder = FillOrder + 2, OtherOrder = 300;
 
     static BallotState? Ballot;
@@ -109,7 +108,7 @@ static partial class Program
 
     /// <summary>A card number this vote has not given yet: the lowest, never Random's (MapVote.RandomOption), within the click's two digits. A click names
     /// the number the player saw on the card, so a number is never given twice: a click sent for a card that has just gone finds no card, instead of
-    /// the map that took its place. Only once a vote has given all 98 (a ballot holds MapVote.MaxMaps at once) does it take the lowest no card holds now.</summary>
+    /// another map. Only once a vote has given all 98 (a ballot holds MapVote.MaxMaps at once) does it take the lowest no card holds now.</summary>
     static int FreshNumber(BallotState b)
     {
         for (var n = 1; n < MapVote.RandomOption; n++) if (b.Given.Add(n)) return n;
@@ -190,26 +189,26 @@ static partial class Program
 
     /// <summary>One draw of the dice for a card: a map of the mode from the kept maps on the server's disk (KeptOnDisk), by points, never one already
     /// taken - and taken by it. Null: none is left.</summary>
-    static MapInfo? DrawKept(Modes.Mode mode, HashSet<string> taken, int players = 0)
+    static MapInfo? DrawKept(Modes.Mode mode, HashSet<string> taken)
     {
-        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && KeptOnDisk(m) && (players == 0 || Fits(m, players))).ToList();
+        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && KeptOnDisk(m)).ToList();
         if (RollIn(pool) is not { } r || !taken.Add(Key(r.Pick))) return null;
         return r.Pick;
     }
 
     /// <summary>The fresh card's draw: a fresh map of the mode on the server's disk - kept, or a downloaded stock entry - by points. Null: none.</summary>
-    static MapInfo? DrawFresh(Modes.Mode mode, HashSet<string> taken, int players = 0)
+    static MapInfo? DrawFresh(Modes.Mode mode, HashSet<string> taken)
     {
-        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && IsFresh(m) && KeptOnDisk(m) && (players == 0 || Fits(m, players))).ToList();
+        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && IsFresh(m) && KeptOnDisk(m)).ToList();
         var have = pool.Select(Key).ToHashSet();
-        pool.AddRange(StockOnDisk(mode, taken).Where(m => IsFresh(m) && (players == 0 || Fits(m, players)) && have.Add(Key(m))));
+        pool.AddRange(StockOnDisk(mode, taken).Where(m => IsFresh(m) && have.Add(Key(m))));
         if (RollIn(pool) is not { } r || !taken.Add(Key(r.Pick))) return null;
         return r.Pick;
     }
 
     /// <summary>The surprise: the first of the mode's stock entries on the server's disk that may be shown. Null: none is downloaded yet.</summary>
-    static MapInfo? DrawSurprise(Modes.Mode mode, HashSet<string> taken, int players = 0) =>
-        StockOnDisk(mode, taken).FirstOrDefault(m => CanRoll(m, taken) && (players == 0 || Fits(m, players))) is { } m && taken.Add(Key(m)) ? m : null;
+    static MapInfo? DrawSurprise(Modes.Mode mode, HashSet<string> taken) =>
+        StockOnDisk(mode, taken).FirstOrDefault(m => CanRoll(m, taken)) is { } m && taken.Add(Key(m)) ? m : null;
 
     /// <summary>A card shown: its map is no longer new to us, and a card the dice or a player put on it is remembered with the time, for the step back
     /// a card shown and not chosen takes in the points (Dice.cs: ShownPenalty). Showings older than ShownFadeDays are forgotten.</summary>
@@ -240,12 +239,12 @@ static partial class Program
         var round = Math.Max(new DateTimeOffset(now).ToUnixTimeSeconds(), LastRound + 1);
         var b = new BallotState { Round = round, Opened = now, Ends = now.AddSeconds(MapVote.Seconds), PresentAtOpen = present > 0 ? 0 : humans,
             Starter = starter, StarterName = starterName, MatchEnded = matchEnd, ServerStart = serverStart };
-        b.FillMode = ModeSuits(CurrentMode, players) ? CurrentMode : Modes.Default; // Wingman with more on than any of its maps takes: its random cards and Random come from Arms Race
+        b.FillMode = ModeSuits(CurrentMode, players) ? CurrentMode : Modes.Default; // a mode that does not suit the players on (ModeSuits): its random cards and Random come from Arms Race
         var taken = new HashSet<string>();
         if (CurrentKey != "") { b.Options.Add(new BallotOption(VoteSource.Keep, S.Map, CurrentMode, KeepOrder, S.Map is { } on ? TagsOf(on) : "")); taken.Add(CurrentKey); }
         if (pick != null && taken.Add(Key(pick)))
         {
-            var p = new BallotOption(VoteSource.Picked, pick, ModeOf(pick), PickOrder + b.Picks++, TagsOf(pick, picked: true));
+            var p = new BallotOption(VoteSource.Picked, pick, ModeOf(pick), PickOrder + b.Picks++, TagsOf(pick, picked: true)) { Owner = starter }; // the starter's own card
             p.Pickers.Add((starter, starterName));
             b.Options.Add(p);
         }
@@ -255,18 +254,18 @@ static partial class Program
         foreach (var mode in Modes.All.Where(m => m.Id != b.FillMode.Id && ModeSuits(m, players)))
         {
             if (pick != null && ModeOf(pick).Id == mode.Id) continue;
-            if (DrawKept(mode, taken, players) is { } map) others.Add(Rolled(map, mode, OtherOrder + others.Count)); // a Wingman map with spawn points for them
+            if (DrawKept(mode, taken) is { } map) others.Add(Rolled(map, mode, OtherOrder + others.Count));
         }
         // the server's own mode until the page is full: the fresh card, the surprise, the favourites
         var fill = new List<BallotOption>();
         var room = MapVote.PageCards - b.Options.Count - others.Count;
-        if (room > 0 && !b.Options.Concat(others).Any(o => o.Map is { } x && IsFresh(x)) && DrawFresh(b.FillMode, taken, players) is { } fresh) { fill.Add(Rolled(fresh, b.FillMode, FreshOrder)); room--; }
-        if (room > 0 && DrawSurprise(b.FillMode, taken, players) is { } surprise) { fill.Add(Rolled(surprise, b.FillMode, SurpriseOrder)); room--; }
-        while (room > 0 && DrawKept(b.FillMode, taken, players) is { } favourite) { fill.Add(Rolled(favourite, b.FillMode, FavouriteOrder + fill.Count)); room--; }
+        if (room > 0 && !b.Options.Concat(others).Any(o => o.Map is { } x && IsFresh(x)) && DrawFresh(b.FillMode, taken) is { } fresh) { fill.Add(Rolled(fresh, b.FillMode, FreshOrder)); room--; }
+        if (room > 0 && DrawSurprise(b.FillMode, taken) is { } surprise) { fill.Add(Rolled(surprise, b.FillMode, SurpriseOrder)); room--; }
+        while (room > 0 && DrawKept(b.FillMode, taken) is { } favourite) { fill.Add(Rolled(favourite, b.FillMode, FavouriteOrder + fill.Count)); room--; }
         b.Options.AddRange(fill);
         b.Options.AddRange(others);
         if (b.Options.Count(o => o.Source != VoteSource.Keep) == 0) { Log("vote: nothing to put on the ballot"); return false; }
-        for (var i = 0; i < b.Options.Count; i++) (b.Options[i].N, b.Options[i].Slot) = (FreshNumber(b), i); // the numbers and the places in that order: Keep 1, the pick 2, ...
+        foreach (var o in b.Options) o.N = FreshNumber(b); // the numbers in that order: Keep 1, the pick 2, ...
         b.Options.Add(new BallotOption(VoteSource.Random, null, b.FillMode, int.MaxValue) { N = MapVote.RandomOption });
         if (pick != null && b.Options.FirstOrDefault(o => o.Source == VoteSource.Picked) is { } listed) b.Choices[starter] = listed.N;
         (b.LastChange, b.LastBy) = (now, starterName);
@@ -328,31 +327,20 @@ static partial class Program
         if (!OpenBallot(now, Math.Max(Humans(), 1), steamId, by, map)) Tell(steamId, M.Refused("No vote could open right now - Try again in a moment"));
     }
 
-    /// <summary>A player's vote: !mv &lt;round&gt; &lt;n&gt; from the vote screen (0 takes it back, 99 is Random) - as often as they like.</summary>
+    /// <summary>A player's vote: !mv &lt;round&gt; &lt;n&gt; from the vote screen (99 is Random) - moved as often as they like, never taken back:
+    /// 0, an older plugin's take-back, changes nothing, and a click on the card their vote is on already says nothing.</summary>
     static void CastBallot(string by, string steamId, string arg)
     {
         if (MapVote.ParseClick($"{MapVote.Verb} {arg}") is not { } click || Ballot is not { Open: true } b || b.Round != click.Round) { Tell(steamId, M.Refused("That vote is over")); return; }
         var now = Now();
         if (click.Option == 0)
         {
-            if (!b.Choices.Remove(steamId)) return;
-            Log($"vote: {by} {steamId} took their vote back");
-            (b.LastChange, b.LastBy) = (now, by);
-            SayVote(b, $"{VoterMark(by)} took their vote back", now);
-            BallotTick(now);
+            if (b.Choices.ContainsKey(steamId)) Log($"vote: {by} {steamId} asked to take their vote back - a vote stays until it moves to another card");
             return;
         }
         if (b.Options.FirstOrDefault(o => o.N == click.Option) is not { } option)
         {
-            // The number of a card that has left: the click was made on the ballot as the player's game drew it before. When the card that took its very place
-            // is the one their own vote is on - their own Add put it there a moment ago, and their game had not drawn it yet - the click is meant for it.
-            if (b.Options.FirstOrDefault(o => o.Replaced?.N == click.Option) is { } there && b.Choices.GetValueOrDefault(steamId) == there.N)
-            {
-                Log($"vote: {by} {steamId} clicked {click.Option}, whose place {there.N}. {OptionLabel(b, there)} took - their vote is on it, and stays");
-                Tell(steamId, ChatReply.VoteStays);
-                return;
-            }
-            Log($"vote: {by} {steamId} clicked {click.Option}, a card no longer on the ballot");
+            Log($"vote: {by} {steamId} clicked {click.Option}, a card no longer on the ballot"); // the click was made on the ballot as the player's game drew it before
             Tell(steamId, ChatReply.CardGone);
             return;
         }
@@ -365,48 +353,13 @@ static partial class Program
             (b.LastChange, b.LastBy) = (now, by);
             SayVote(b, VotedWords(b, by, option), now);
         }
-        else Tell(steamId, ChatReply.VoteStays); // a click on the card their vote is on, sent before their game had drawn the vote there (HudFrame.KeepsVote's words)
         BallotTick(now);
     }
 
-    /// <summary>A map a player put on the ballot that has no votes left leaves it, until somebody puts it on again: the random card it replaced comes back
-    /// in its place (LeaveBallot), and whoever put it on, if still on the server, is told - their own line and their chat.</summary>
-    static void DropUnvotedPicks(BallotState b)
-    {
-        var gone = b.Options.Where(o => o.Source == VoteSource.Picked && !b.Choices.ContainsValue(o.N)).ToList();
-        if (gone.Count == 0) return;
-        var present = PresentIds(Now());
-        foreach (var o in gone)
-        {
-            var back = LeaveBallot(b, o);
-            Log($"vote: {Label(o.Map!)} has no votes left - it leaves the ballot{(back?.Map is { } bm ? $", {Label(bm)} back in its place as {back.N}" : "")}");
-            var label = M.A(Clip(Label(o.Map!), 32));
-            var words = back?.Map is { } m ? $"{label} left the vote, with no votes on it - {M.A(Clip(Label(m), 32))} is back in its place"
-                : $"{label} left the vote, with no votes on it - Add it again from Browse to vote for it";
-            foreach (var id in o.Pickers.Select(p => p.Id).Distinct().Where(present.Contains)) Tell(id, words);
-        }
-        ExportQueues();
-    }
-
-    /// <summary>A card leaves the ballot. A pick that took the place of a random card gives it that place back, with its own number - unless its map is on the
-    /// ballot again by now or can no longer be played - so no card moves; otherwise the card goes. Returns the card that came back, or null.</summary>
-    static BallotOption? LeaveBallot(BallotState b, BallotOption o)
-    {
-        var at = b.Options.IndexOf(o);
-        if (at < 0) return null;
-        if (o.Replaced is { Map: { } m } back && Unplayable(m) == null && b.Options.All(x => x == o || OptionKey(x) != Key(m)))
-        {
-            back.Slot = o.Slot;
-            b.Options[at] = back;
-            return back;
-        }
-        b.Options.RemoveAt(at);
-        return null;
-    }
-
     /// <summary>A map selected while the vote is open: onto the ballot for everybody, with this player's vote. A map the ballot holds already - the
-    /// map that is on is Keep - gets the vote alone; somebody else's pick is joined. A new card takes the place of a random card of the server's
-    /// mode nobody voted for - its very place on the screen, with a number of its own - so one page holds it all; MapVote.MaxMaps a ballot.</summary>
+    /// map that is on is Keep - is a vote for its card; somebody else's pick is joined. A new map is this player's own card (BallotOption.Owner): it takes no other card's place - the ballot grows a page when it must - and it takes the place of their own last one, which
+    /// leaves the ballot unless somebody else's vote is on it: then it stays, a card like any other, so no vote vanishes through somebody else's
+    /// doing. MapVote.MaxMaps a ballot.</summary>
     static void AddToBallot(BallotState b, string by, string steamId, MapInfo map, DateTime now)
     {
         var key = Key(map);
@@ -422,38 +375,30 @@ static partial class Program
             BallotTick(now);
             return;
         }
-        var cards = b.Options.Where(o => o.Source != VoteSource.Random).ToList();
-        if (cards.Count >= MapVote.MaxMaps) { Tell(steamId, M.Refused($"The vote holds {M.V($"{MapVote.MaxMaps}")} maps - Vote for one of them")); return; }
-        var o = new BallotOption(VoteSource.Picked, map, ModeOf(map), PickOrder + b.Picks++, TagsOf(map, picked: true));
+        var mine = b.Options.FirstOrDefault(x => x.Owner == steamId);
+        var kept = mine != null && b.Choices.Any(c => c.Key != steamId && c.Value == mine.N); // somebody else's vote is on it: it stays
+        var cards = b.Options.Count(x => x.Source != VoteSource.Random) - (mine != null && !kept ? 1 : 0);
+        if (cards >= MapVote.MaxMaps) { Tell(steamId, M.Refused($"The vote holds {M.V($"{MapVote.MaxMaps}")} maps - Vote for one of them")); return; }
+        var o = new BallotOption(VoteSource.Picked, map, ModeOf(map), PickOrder + b.Picks++, TagsOf(map, picked: true)) { Owner = steamId };
         o.Pickers.Add((steamId, by));
-        o.N = FreshNumber(b); // never the number of the card it replaces: a click sent for that card finds no card, instead of this one
-        var gone = cards.Count >= MapVote.PageCards ? Replaceable(b) : null;
-        if (gone != null)
+        o.N = FreshNumber(b); // never a number the vote gave before: a click sent for a card that has gone finds no card, instead of this one
+        if (mine != null)
         {
-            (o.Slot, o.Replaced) = (gone.Slot, gone);
-            b.Options[b.Options.IndexOf(gone)] = o; // its very place on the screen: no other card moves
-            Log($"vote: {Label(gone.Map!)} makes room for {Label(map)}, as {o.N} in its place");
+            mine.Owner = "";
+            if (kept) Log($"vote: {by} {steamId}'s last map {Label(mine.Map!)} stays on the ballot as {mine.N} - somebody else's vote is on it");
+            else { b.Options.Remove(mine); Log($"vote: {by} {steamId}'s last map {Label(mine.Map!)} leaves the ballot for their new one"); }
         }
-        else
-        {
-            o.Slot = cards.Count == 0 ? 0 : cards.Max(x => x.Slot) + 1; // after the last card
-            b.Options.Insert(b.Options.FindIndex(x => x.Source == VoteSource.Random) is var r and >= 0 ? r : b.Options.Count, o);
-        }
+        b.Options.Insert(b.Options.FindIndex(x => x.Source == VoteSource.Random) is var r and >= 0 ? r : b.Options.Count, o);
         b.Choices[steamId] = o.N;
         (b.LastChange, b.LastBy) = (now, by);
         Showing(o, now);
         CatalogVersion++;
         Save();
         Log($"vote: {by} {steamId} added {o.N}. {OptionLabel(b, o)} and votes for it");
-        SayVote(b, $"{VoterMark(by)} added {M.A(Clip(Label(map), 32))}{ModeTag(map)} to the vote{(gone?.Map is { } g ? $" in place of {M.A(Clip(Label(g), 32))}" : "")}", now);
-        FillStock(); // a stock entry picked is used up; the new card goes into queues.json
+        SayVote(b, $"{VoterMark(by)} added {M.A(Clip(Label(map), 32))}{ModeTag(map)} to the vote{(mine?.Map is { } g && !kept ? $" in place of {M.A(Clip(Label(g), 32))}" : "")}", now);
+        FillStock(); // a stock entry picked is used up; the new card goes into queues.json, and one that left comes out
         BallotTick(now);
     }
-
-    /// <summary>The random card a new pick replaces: one of the server's mode nobody voted for - the favourites first, the last rolled first, then the
-    /// surprise, the fresh card last. The other modes' cards keep their place. Null: there is none, and the ballot grows a page.</summary>
-    static BallotOption? Replaceable(BallotState b) =>
-        b.Options.Where(o => o.Source == VoteSource.Rolled && !b.Choices.ContainsValue(o.N) && o.Order >= FillOrder && o.Order < OtherOrder).MaxBy(o => o.Order);
 
     /// <summary>Every tick, and after every vote: a voter who left takes their vote along; everybody present having voted ends the vote, the timer
     /// ends it. Once decided it stays on screen until its change has gone out, or for MapVote.KeptSeconds when it kept the map. A vote always ends: whatever
@@ -475,7 +420,6 @@ static partial class Program
         }
         var present = PresentIds(now);
         foreach (var id in b.Choices.Keys.Where(id => !present.Contains(id)).ToList()) { b.Choices.Remove(id); b.LastChange = now; }
-        DropUnvotedPicks(b);
         var count = VotePresent(b, now);
         if (count == 0) { Log("vote: everybody left - no change"); Ballot = null; return; }
         var everybody = b.Choices.Count >= count; // every human present has voted (a vote of a player not counted as present counts too)
@@ -483,11 +427,8 @@ static partial class Program
         else b.EverybodySince ??= now;
         if (now < VoteEnds(b) && (!everybody || now < SettleEnd(b))) return; // InactivitySeconds 0: the moment the last one votes
         var tally = b.Options.ToDictionary(o => o.N, o => b.Choices.Values.Count(n => n == o.N));
-        bool Takes(BallotOption o) => o.Source is VoteSource.Keep or VoteSource.Random || o.Map is not { } map || Fits(map, count); // a Wingman map takes as many a side as it has spawn points
-        var ranked = b.Options.Where(Takes).ToList();
+        var ranked = b.Options;
         var most = ranked.Max(o => tally[o.N]);
-        foreach (var o in b.Options.Where(o => !Takes(o) && tally[o.N] > 0 && tally[o.N] >= most))
-            Log($"vote: {OptionLabel(b, o)} has {tally[o.N]} vote(s), but it takes {(o.Mode.Id == Modes.WingmanId && o.Map is { } m ? Modes.WingmanTakes(SpawnsPerSide(m)) : $"{o.Mode.MaxPlayers} players")} and {count} are on - it cannot win");
         if (most == 0)
         {
             // Nobody voted: Random at a match end and at a server start (the dice the start roll would have rolled). Mid-match the map stays - also when the bridge does
@@ -577,15 +518,15 @@ static partial class Program
         var gone = b.Options.Where(o => o.Source is VoteSource.Picked or VoteSource.Rolled && o.Map is { } m && Unplayable(m) != null).ToList();
         foreach (var o in gone)
         {
-            var back = LeaveBallot(b, o); // a pick gives the card it replaced its place back
+            b.Options.Remove(o);
             foreach (var id in b.Choices.Where(c => c.Value == o.N).Select(c => c.Key).ToList()) b.Choices.Remove(id);
-            Log($"vote: {Label(o.Map!)} leaves the ballot - {M.Plain(Unplayable(o.Map!))}{(back?.Map is { } bm ? $"; {Label(bm)} back in its place as {back.N}" : "")}");
+            Log($"vote: {Label(o.Map!)} leaves the ballot - {M.Plain(Unplayable(o.Map!))}");
         }
         return gone.Count;
     }
 
-    /// <summary>The vote, for the live state (the lines VoteState.Encode adds after HudState's): the cards in their places while it is open (no card moves
-    /// under a player's mouse: each keeps the place it went on in), with the most votes first once it is decided; Random last.
+    /// <summary>The vote, for the live state (the lines VoteState.Encode adds after HudState's): the cards with the most votes first, live, ties in the ballot's
+    /// own order - each player's view puts their own card first (VoteState.ForPlayer) - and, once it is decided, the winner first; Random last.
     /// While it is open both timers are on the wire: SecondsLeft, the vote's limit, always; Inactivity and who reset it once everybody has voted,
     /// never more than SecondsLeft - the limit closes it first. Decided, SecondsLeft is the countdown: the change's, or the window's when it kept the map.</summary>
     static VoteState BuildVoteState(DateTime now)
@@ -611,8 +552,7 @@ static partial class Program
         foreach (var g in b.Choices.GroupBy(c => c.Value)) v.Voters[g.Key] = g.Select(c => VoterName(c.Key)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
         if (b.Open) v.Waiting = PresentIds(now).Where(id => !b.Choices.ContainsKey(id)).Select(VoterName).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
         int VotesOn(BallotOption o) => b.Choices.Values.Count(n => n == o.N);
-        var shown = b.Options.OrderBy(o => o.Source == VoteSource.Random);
-        foreach (var o in b.Open ? shown.ThenBy(o => o.Slot) : shown.ThenByDescending(VotesOn).ThenBy(o => o.Order))
+        foreach (var o in b.Options.OrderBy(o => o.Source == VoteSource.Random).ThenBy(o => !b.Open && b.Result?.N == o.N ? 0 : 1).ThenByDescending(VotesOn).ThenBy(o => o.Order))
         {
             var keep = o.Source == VoteSource.Keep;
             v.Options.Add(new VoteState.Option(o.N, o.Mode.Id, o.Source, OptionKey(o),

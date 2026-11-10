@@ -130,11 +130,11 @@ static partial class Program
         var second = HudVote.Cards(twelve, 1001, null, page: 1);
         string P(List<(string Id, string Text)> t, string id) => t.Single(x => x.Id == id).Text;
         bool C((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) d, string id, string cls) => d.Classes.Single(x => x.Id == id && x.Class == cls).On;
-        Check($"Twelve cards: {HudVote.Pages(twelve)} pages of {MapVote.PageCards} - in the order the bridge sends them (the most votes first); the pager and the hint for the next page impossible to miss, the Next button's pulse on",
-            twelve is { MatchEnded: false } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "os_m1_rank") == "Keep" && P(first.Texts, "os_m1_play_text") == "Keep"
-            && P(first.Texts, "os_m1_name") == "Keep playing this map" && P(first.Texts, "os_m1_size") == "#5 aim_on"
-            && P(first.Texts, "os_m2_name") == "#77 aim_added" && P(first.Texts, "os_m2_votes").Contains("Picked by Cara") && P(first.Texts, "os_m2_play_text") == "Your vote"
-            && P(first.Texts, "os_m2_who") == "9 MB  ·  Picked by Cara" && P(first.Texts, "os_m2_score") == $"1/{twelve.Present}" && P(first.Texts, "os_m10_name") == "#29 map_9"
+        Check($"Twelve cards: {HudVote.Pages(twelve)} pages of {MapVote.PageCards} - her own card first, then in the order the bridge sends them (the most votes first); the pager and the hint for the next page impossible to miss, the Next button's pulse on",
+            twelve is { MatchEnded: false } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "os_m2_rank") == "Keep" && P(first.Texts, "os_m2_play_text") == "Keep"
+            && P(first.Texts, "os_m2_name") == "Keep playing this map" && P(first.Texts, "os_m2_size") == "#5 aim_on"
+            && P(first.Texts, "os_m1_name") == "#77 aim_added" && P(first.Texts, "os_m1_votes").Contains("Picked by Cara") && P(first.Texts, "os_m1_play_text") == "Your vote"
+            && P(first.Texts, "os_m1_who") == "9 MB  ·  Picked by Cara" && P(first.Texts, "os_m1_score") == $"1/{twelve.Present}" && P(first.Texts, "os_m10_name") == "#29 map_9"
             && P(first.Texts, "os_pg_text") == "Page 1 of 2  ·  12 maps: 2 more on the next page" && C(first, HudView.Screen, "vpages") && C(first, HudView.Screen, "vmore") 
             && first.Vars.Single(x => x.Name == HudVote.MoreVar).Text == "2 more maps on the next page" && C(first, HudBrowser.PrevButton, "off") && !C(first, HudBrowser.NextButton, "off")
             && P(second.Texts, "os_m2_name") == "#31 map_11" && P(second.Texts, "os_m3_name") == "" && !C(second, HudView.Screen, "vmore") 
@@ -151,18 +151,18 @@ static partial class Program
         Check($"A ballot in pages of eight: its pager reaches every option, card k of a page that page's option - as in pages of {MapVote.PageCards}",
             HudVote.Pages(twelve, eight) == 2 && !C(oldFirst, "os_m9", "used") && C(oldFirst, "os_m8", "used") && P(oldFirst.Texts, "os_m9_name") == ""
             && P(oldFirst.Texts, "os_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && P(oldSecond.Texts, "os_m1_name") == P(first.Texts, "os_m9_name")
-            && HudVote.Click(twelve, "os_m1_play", 1, -1, null, eight) == MapVote.Click(twelve.Round, twelve.Maps[eight].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, eight) == 1
+            && HudVote.Click(twelve, "os_m1_play", 1, -1, eight) == MapVote.Click(twelve.Round, twelve.Maps[eight].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, eight) == 1
             && HudVote.Order(twelve, 1, eight).Length == 12 - eight && HudVote.PageOf(twelve, twelve.Maps[eight].N, eight) == 1 && HudVote.Thumbs(twelve, null, 1, eight).Count(x => x.Classes.Length > 0) == 0);
-        // ---- a click counts against the order that player saw: the cards re-sort as votes come in ----
+        // ---- the cards re-sort live as votes come in (241 d): a click counts for the card drawn there now; a vote never goes back (242) ----
         var before = HudVote.Order(twelve, 0);
         var resorted = VoteState.Decode(big.ToString());
         resorted.Options.Reverse(0, 2); // the added map now leads: card 1 shows it, card 2 Keep
         var after = HudVote.Order(resorted, 0);
-        Check($"A card's click counts for the map the player saw on it: against the order drawn before a re-sort for {HudVote.ReSortSeconds} s, the newest after; a map the vote dropped counts for nothing",
+        Check("A card's click counts for the card drawn there now, the newest order - no grace after a re-sort, a misclick is accepted; her own card does nothing, never a take-back",
             before[0] == 1 && before[1] == 12 && after[0] == 12 && after[1] == 1
-            && HudVote.Click(resorted, "os_m1_play", 0, 1003, before) == "!mv 1793600000 1" && HudVote.Click(resorted, "os_m1_play", 0, 1003, after) == "!mv 1793600000 12"
-            && HudVote.Click(resorted, "os_m1_play", 0, 1003) == "!mv 1793600000 12" && HudVote.Click(resorted, "os_m1_play", 0, 1003, [42]) == null
-            && HudVote.Click(resorted, "os_m2_play", 0, 1001, before) == "!mv 1793600000 0");
+            && HudVote.Click(resorted, "os_m1_play", 0, 1003) == "!mv 1793600000 12" && HudVote.Click(resorted, "os_m2_play", 0, 1003) == "!mv 1793600000 1"
+            && HudVote.Click(resorted, "os_m1_play", 0, 1001) == null && HudVote.Click(resorted, "os_m2_play", 0, 1001) == "!mv 1793600000 1"
+            && HudVote.Click(twelve, "os_m1_play", 0, 1002) == null && HudVote.Click(twelve, "os_m2_play", 0, 1002) == "!mv 1793600000 12");
         // ---- where the votes go - bars, voters, the leader or a tie, the strip, the waiting line; a risky map's record on its card ----
         var spread = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800000\topen\t25\t5\t4\tend\t0\t1\n"
             + "mvo\t1\tarmsrace\tpicked\t12\t3084291312\t#12 aim_x\t17 MB\t2\tAlice\nmvo\t2\tdeathmatch\trolled\tde_dust2\tde_dust2\tde_dust2 (official)\t\t1\t\n"

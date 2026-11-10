@@ -223,35 +223,30 @@ static partial class Program
                 b.Options.All(o => o.Order is not (FreshOrder or SurpriseOrder)) && b.Options.Count(o => o.Order >= FavouriteOrder && o.Order < OtherOrder) == MapVote.PageCards - 3
                 && b.Options.Where(o => o.Source == VoteSource.Rolled).All(o => KeptOnDisk(o.Map!)));
 
-            // ---- picks while the vote is open: the favourites make room first, then the surprise, the fresh card last; the other modes keep their place ----
+            // ---- picks while the vote is open: each its picker's own card - every random card stays where the dice put it, the ballot grows a page at a time ----
             Fresh();
             foreach (var w in PoolOf(Modes.Wingman)) S.Crashes[Key(w)] = 1; // every Wingman map out of the dice: no Wingman card in this test
-            foreach (var p in players) h.Join(p); // nine on: no Wingman card; the clock stands still, so the vote stays open whoever votes
+            foreach (var p in players) h.Join(p); // nine on: no Wingman card; the clock stands still, so the vote stays open until all have voted
             ReportAllStock();
             StartVote(players[8].Item1, players[8].Item2);
             b = Ballot!;
-            var order = b.Options.Where(o => o.Source == VoteSource.Rolled && o.Order < OtherOrder).OrderByDescending(o => o.Order).Select(o => o.Order).ToList();
-            var dm = b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled);
-            var dmPlace = LiveVote().Maps.FindIndex(o => o.N == dm.N);
-            var replaced = new List<int>();
-            var picks = MapVote.PageCards - 1; // one more than the random cards of the mode: the last one opens a second page
+            var rolledBefore = b.Options.Where(o => o.Source == VoteSource.Rolled).ToList();
+            var cardsAtOpen = b.Options.Count(o => o.Source != VoteSource.Random);
+            var picks = MapVote.PageCards - 1;
             var extra = Maps.Skip(150).Where(x => b.Options.All(o => o.Map != x)).Take(picks).ToList();
             VoteState? openNow = null;
             for (var i = 0; i < picks; i++)
             {
-                var room = b.Options.Where(o => o.Source == VoteSource.Rolled && o.Order < OtherOrder).Select(o => o.Order).ToHashSet();
                 Command(players[i].Item1, players[i].Item2, $"!map {ArgOf(extra[i])}");
-                replaced.AddRange(room.Where(r => b.Options.All(o => o.Order != r)));
-                if (i == picks - 2) openNow = LiveVote(); // eight of nine have voted, still open: every card in its place (the ninth vote decides it, and the cards sort)
+                if (i == picks - 2) openNow = LiveVote(); // eight of nine have voted, still open (the ninth vote decides it)
             }
-            Check($"{picks} picks during the vote: each takes the place of a random card nobody voted for - the favourites first (the last rolled first), then the surprise, the fresh card last ({string.Join(", ", replaced)})",
-                order.Count == MapVote.PageCards - 2 && replaced.SequenceEqual(order) && order[^2] == SurpriseOrder && order[^1] == FreshOrder);
-            Console.WriteLine($"picks' ballot, eight in (the Deathmatch card {dm.N} was at {dmPlace}): " + string.Join(" | ", openNow!.Maps.Select(o => $"{o.N}. {o.Label} ({o.Source}, {o.Mode})")));
-            Check("...the Deathmatch card keeps its place and number - Keep first, the picks in the random cards' places, then it; each pick has a number of its own, none a card had before; the last pick, with no random card of the mode left, opens a second page",
-                b.Options.Contains(dm) && b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).N == dm.N && dmPlace == MapVote.PageCards - 1
-                && openNow is { Open: true } && openNow.Maps[dmPlace].N == dm.N && openNow.Maps[0].Source == VoteSource.Keep && openNow.Maps.Skip(1).Take(MapVote.PageCards - 2).All(o => o.Source == VoteSource.Picked)
-                && b.Options.Count(o => o.Source == VoteSource.Picked) == picks && b.Options.Where(o => o.Source == VoteSource.Picked).Select(o => o.N).Order().SequenceEqual(Enumerable.Range(MapVote.PageCards + 1, picks))
-                && HudVote.Pages(LiveVote()) == 2);
+            Check($"{picks} picks during the vote: each is its picker's own card, with that player's vote - every random card stays, none replaced; the ballot grows to {cardsAtOpen + picks} cards, a second page",
+                rolledBefore.All(b.Options.Contains) && b.Options.Count(o => o.Source == VoteSource.Picked) == picks
+                && b.Options.Where(o => o.Source == VoteSource.Picked).All(o => o.Owner != "" && b.Choices[o.Owner] == o.N) && HudVote.Pages(LiveVote()) == (cardsAtOpen + picks + MapVote.PageCards - 1) / MapVote.PageCards);
+            Check("...each pick has a number of its own, none a card had before; while open the live state shows the picks first - a vote each, in the order they came - then Keep and the random cards in the ballot's own order",
+                b.Options.Where(o => o.Source == VoteSource.Picked).Select(o => o.N).Order().SequenceEqual(Enumerable.Range(cardsAtOpen + 1, picks))
+                && openNow is { Open: true } && openNow.Maps.Take(picks - 1).All(o => o.Source == VoteSource.Picked && o.Votes == 1)
+                && openNow.Maps.Take(picks - 1).Select(o => o.N).SequenceEqual(Enumerable.Range(cardsAtOpen + 1, picks - 1)) && openNow.Maps[picks - 1].Source == VoteSource.Keep);
 
             // ---- Random takes a map on the disk ----
             Fresh();
@@ -394,7 +389,7 @@ static partial class Program
                 ($"each Dislike or Too big takes {DislikePoints:0}", DislikePoints == 2 && TooBigVote < 0), ($"loses {ShownPoints:0} point, {ShownMaxPoints:0} at most, fading to nothing over {ShownFadeDays} days", true),
                 ("each one doubles the odds", true), ($"the last {RecentCount} maps played (while others are left)", true), ("a map's download size never makes it more or less likely", true),
                 ($"{MapVote.Seconds} s at the most", true), ($"{MapVote.WaitSeconds / 60} minutes before the next one can be called", MapVote.WaitSeconds % 60 == 0),
-                ("a second page only when needed", true), ("A risky map shows its record", true),
+                ("a vote is never taken back", true), ("your next one takes its place", true), ("the card with your vote comes first", true), ("a second page when the players' own maps need one", true), ("A risky map shows its record", true),
                 ("putting it to the vote takes a second click", PickConfirmSeconds > 0), ("No votes: mid-match the map stays, at a match end Random", true), ("A Workshop update lifts a crash mark", true),
                 ($"{ResetEmptyMinutes} minutes with nobody on", true),
             };

@@ -256,19 +256,15 @@ never leaves anybody frozen.
 
 ### Voting
 
-A vote is a click on a card, changed or taken back as often as the player likes: a click on another card moves it, a click on their own takes
-it back - except in the first 2 s after their vote landed there (`HudVote.KeepSeconds`): a double click, or a click to make sure, keeps the vote
-and says "Your vote is on this map". A voter who leaves takes their vote along.
+A vote is a click on a card, moved as often as the player likes - a click on another card moves it - and **never taken back**: a click on the card your vote is on does nothing, and a vote goes only to another card. A voter who leaves takes their vote along.
 
-**No card moves while the vote is open:** each keeps the place it went on in, so a click lands on the map the player aimed at; once the vote is
-decided, the cards show with the most votes first. A click counts for the map the player saw on the card. Each card has a number of its own that the
-vote never gives again, so a click on a card that has just left - a pick that lost its votes, a card a pick took the place of - counts for nothing
-and says "That map left the vote - Click again", never a vote for the map in its place. The one exception is a player's own Add: a click on the
-place where the card their Add just put on stands, made before their game drew it there (the plugin's grace after a change, `HudVote.OwnCardNow`;
-or with the old card's number, which the bridge matches to the card that took its place), says "Your vote is on this map" and changes nothing -
-as does a click on the card their vote is on that the bridge gets before that player's game showed the vote there. The second click of a double
-click on the map browser's Play counts for nothing (`HudFrame.SecondClick`, within 0.5 s of the click before it, a burst too): the Add turns that card
-into the ballot's card in its place, and the click would otherwise take the vote off the map just added.
+**The cards show with the most votes first, live**, ties in the ballot's own order; **in your own view the card your vote is on
+comes first**, with its YOUR VOTE badge (`VoteState.ForPlayer`). A click counts for the card drawn under it now: cards move as the votes move, and a
+misclick on a card that moved a moment ago is accepted. Once the vote is decided, the winner is first. Each card has a number of its own that the
+vote never gives again, so a click the bridge gets for a card that has just left - a player's own map they put another in place of, a map no longer
+playable - counts for nothing and says "That map left the vote - Click again". The second click of a double click on the map browser's Play counts
+for nothing (`HudFrame.SecondClick`, within 0.5 s of the click before it, a burst too): the Add turns that card into the ballot's card in its place,
+and the click would otherwise take the vote off the map just added.
 
 **No vote click is lost on the way:** the plugin keeps at most 8 clicks on their way to the bridge at once (`BridgeLink.cs`); while that is full, a
 vote, a map put to the vote, a vote started and the HUD check's click wait - one a player and kind, a newer one taking its place - and go out as
@@ -276,15 +272,15 @@ room comes; any other click is given up and its player told "The server did not 
 the vote and every click given up is a line of the plugin's log (`Over Strike 2 vote: ...`), and the bridge's log keeps the same in its day files
 ([The data files](#the-data-files)), which outlive a swap of the bridge.
 
-Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast, changed or taken back, a
+Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast or moved, a
 map put on the ballot, a page, a sort, a filter or a search in the map browser - and the screen names who reset it last. The vote's **limit is
 60 s**, whichever comes first. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match and is Random at a match
-end. The window shows who started the vote, where the votes go, who has not voted yet and
-both timers, then what came of it and the countdown. Every vote - cast, changed or taken back - says in chat and on the board who voted and who still has to.
+end. The window shows who started the vote, where the votes go, who has not voted yet and both timers, then what came of it and the countdown.
+Every vote - cast or moved - says in chat and on the board who voted and who still has to.
 
 ### The ballot
 
-**Your own vote** (HUD content v4.11.0): the card your vote is on has a white frame and glow and a white YOUR VOTE badge with a check at its picture's top right;
+**Your own vote** (HUD content v4.11.0): the card your vote is on comes first in your view and has a white frame and glow and a white YOUR VOTE badge with a check at its picture's top right;
 LEADING and TIE keep their chips but no frame, so on an open ballot the only framed card is yours, and Random's button lights the same white while your vote is on
 Random. White differs from every other state by brightness, not hue. A vote is never taken back (HUD content v4.12.0 drops v4.11.0's CLICK TO TAKE BACK under the
 mouse): it moves only to another card. **Wingman's player count** (v4.12.0): a Wingman card in the map browser says on its picture, beside the mode's label, how many
@@ -293,7 +289,7 @@ ballot none. **A confirmed action's countdown** (v4.12.0): after the confirming 
 button itself runs the countdown, lit red, with a line at its foot that drains a second at a time (`pending`, and `w0`-`w10` named for where the line is going,
 `HudVote.CountdownStep`), and a click on it cancels the action.
 
-One page of ten cards, a second only when what must be on it does not fit (48 at the most). In this order (`OpenBallot`, `VoteRound.cs`):
+Ten cards a page; the players' own maps add pages (48 cards at the most). The ballot opens with these (`OpenBallot`, `VoteRound.cs`):
 
 1. **Keep**: Keep playing this map while the match is on, Play this map again once it is over;
 2. **every map a player selected**, tagged PICKED;
@@ -302,15 +298,13 @@ One page of ten cards, a second only when what must be on it does not fit (48 at
 4. **the server's own mode to fill the page:** one **fresh** map, unless a card above is fresh already; one **surprise** from the discovery stock,
    new to us; and **favourites**, the kept maps by points. An empty slot - no fresh map on the disk, the stock not downloaded yet - is a favourite.
 
-**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when no Wingman map is left for the dice). While
-the vote is open every card keeps its place, Keep first; once it is decided, the cards show with the most votes first. A map a player selects while
-the vote is open takes the place of a random card of the server's mode nobody voted for - its very place on the screen, with a number of its own -
-favourites first, then the surprise, the fresh card last; the other modes' cards keep their place; chat says which card it replaced ("Bob added
-Lake to the vote in place of Poseidon"). The window of a player who added it from the map browser goes back to the ballot, on the page of that
-card. A map a player put on the ballot that has no votes left leaves it, until somebody puts it on again: the random card it replaced comes back in
-its place, with its own number, and whoever put it on is told. A map selected that is on the ballot already only gets that player's vote. Every card but a
-player's pick is on the server's disk, so it loads at once. A card whose map has become unplayable meanwhile leaves the ballot (a pick gives the card
-it replaced its place back); a winner that became unplayable hands over to the dice.
+**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when no Wingman map is left for the dice). **A map a player selects while
+the vote is open is their own card**: it takes no other card's place - the ballot grows a page instead - and each player has
+one: a new map of theirs takes the place of their last, which leaves the ballot unless somebody else's vote is on it, when it stays as a card like
+any other, so no vote vanishes through somebody else's doing (chat says it: "Bob added Lake to the vote in place of Poseidon"). The same map
+selected by two players is one card, and a map selected that is on the ballot already only gets that player's vote. The window of a player who
+added it from the map browser goes back to the ballot's first page, where their card comes first. Every card but a player's pick is on the
+server's disk, so it loads at once. A card whose map has become unplayable meanwhile leaves the ballot; a winner that became unplayable hands over to the dice.
 
 ### The automatic changes
 

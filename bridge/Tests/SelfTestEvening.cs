@@ -77,21 +77,20 @@ static partial class Program
             var vs = BuildVoteState(h.Clock);
             Check($"With three on, a pick opens the vote for everybody and freezes everybody until all have voted: the map on it with Alice's vote, Keep playing, one map of each other mode, random maps of this mode to a page of {MapVote.PageCards}, Random beside the cards",
                 vote is { Open: true } && Pending == null && vs is { Open: true, Freeze: true, MatchEnded: false } && vs.Maps.Count == MapVote.PageCards
-                && vs.Maps[0] is { Source: VoteSource.Keep } && vs.Maps[1] is { Source: VoteSource.Picked, Votes: 1, Who: "Alice" } firstCard && firstCard.Key == Key(m[2])
+                && vs.Maps[0] is { Source: VoteSource.Picked, Votes: 1, Who: "Alice" } firstCard && firstCard.Key == Key(m[2]) && vs.Maps[1] is { Source: VoteSource.Keep }
                 && vs.Maps.Count(o => o.Source == VoteSource.Keep) == 1 && vs.Maps.Single(o => o.Source == VoteSource.Keep) is { Label: "Keep playing this map", Key: var keepKey } && keepKey == Key(m[1])
                 && vs.Maps.Count(o => o.Mode == Modes.DeathmatchId) == 1 && vs.Maps.Count(o => o.Mode == Modes.WingmanId) == 1 && vs.Random is { N: MapVote.RandomOption }
                 && vs.Choices[1001] == firstCard.N && vs.Waiting.SequenceEqual(["Bob", "Cara"]) && vs.Present == 3);
-            var fillN = vote.Options.Where(o => o.Source == VoteSource.Rolled && o.Mode.Id == Modes.ArmsRaceId).MaxBy(o => o.Order)!.N;
-            var placesBefore = vs.Maps.Select(o => o.N).ToList();
-            var fillPlace = placesBefore.IndexOf(fillN);
+            var cardsBefore = vs.Maps.Select(o => o.N).ToList();
             h.Quiet(); h.Talk(bob, $"!map {Rank(3)}");
             vs = BuildVoteState(h.Clock);
-            Check("A pick while the vote is open goes on it with the picker's vote, in the place of a random card nobody voted for - its very place, with a number of its own: one page still holds it all",
-                vs.Maps.Count == MapVote.PageCards && vs.Maps.Single(o => o.Key == Key(m[3])) is { Source: VoteSource.Picked, Votes: 1, Who: "Bob" } bobs && bobs.N != fillN && !placesBefore.Contains(bobs.N)
-                && vs.Maps[fillPlace].N == bobs.N && vote.Choices["[U:1:1002]"] == bobs.N && h.Said("Bob added") && h.Said("in place of"));
+            Check("A pick while the vote is open goes on it with the picker's vote, as his own card - in nobody's place, with a number of its own: the ballot grows, a second page",
+                vs.Maps.Count == MapVote.PageCards + 1 && vs.Maps.Single(o => o.Key == Key(m[3])) is { Source: VoteSource.Picked, Votes: 1, Who: "Bob" } bobs && !cardsBefore.Contains(bobs.N)
+                && cardsBefore.All(n => vs.Maps.Any(o => o.N == n)) && vote.Choices["[U:1:1002]"] == bobs.N && h.Said("Bob added") && !h.Said("in place of") && HudVote.Pages(vs) == 2);
             var bobsN = vote.Choices["[U:1:1002]"];
-            Check("...while the vote is open no card moves for its votes: Keep first, Alice's pick second, every other card where it was",
-                vs.Maps.Select(o => o.N).Where((n, i) => i != fillPlace).SequenceEqual(placesBefore.Where((n, i) => i != fillPlace)) && vs.Maps.Take(2).Select(o => o.Source).SequenceEqual([VoteSource.Keep, VoteSource.Picked]));
+            Check("...the cards with the most votes first, live, ties in the ballot's own order: Alice's pick, then Bob's, then Keep and the rest as they went on",
+                vs.Maps.Take(3).Select(o => o.Source).SequenceEqual([VoteSource.Picked, VoteSource.Picked, VoteSource.Keep]) && vs.Maps[1].N == bobsN
+                && vs.Maps.Skip(2).Select(o => o.N).SequenceEqual(cardsBefore.Skip(1)) && vs.ForPlayer(1002).Maps[0].N == bobsN);
             h.Quiet(); h.Talk(cara, $"!map {Rank(3)}");
             Check("...a map on it already gets the vote, and joins its picker", vote.Choices["[U:1:1003]"] == bobsN && BuildVoteState(h.Clock).Maps.Single(o => o.N == bobsN).Who == "Bob and Cara");
             Check("...that was everybody: the most votes win, everybody stays frozen through the countdown", Pending?.Map == m[3] && h.Said("Everybody has voted") && BuildVoteState(h.Clock).Freeze);

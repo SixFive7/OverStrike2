@@ -199,9 +199,9 @@ static partial class Program
         var drawn = HudVote.Cards(ballot, 1001, null);
         var cards = drawn.Texts;
         string T(string id) => cards.Single(x => x.Id == id).Text;
-        Check("The ballot's cards carry no number: the mode on the picture, Vote on the button, Random's button its votes; the line under them says to click, and how to take a vote back",
+        Check("The ballot's cards carry no number: the mode on the picture, Vote on the button, Random's button its votes; the line under them says to click, that a vote comes first and moves - never how to take one back",
             T("os_m2_rank") == "Deathmatch" && T("os_m3_rank") == "" && drawn.Vars.Single(x => x.Name == HudVote.RandomVar).Text == "Random  ·  0 votes"
-            && T("os_m1_play_text") == "Your vote" && T("os_m2_play_text") == "Vote" && !T("os_pg_text").Contains("number") && T("os_pg_text").Contains("yours to take it back")
+            && T("os_m1_play_text") == "Your vote" && T("os_m2_play_text") == "Vote" && !T("os_pg_text").Contains("number") && T("os_pg_text").Contains("first") && !T("os_pg_text").Contains("back")
             && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "os_pg_text").Text == "Click a card's Vote");
 
         // ---- a command that opens a page: its words are on it at once, as for everybody (no content has to prove anything first) ----

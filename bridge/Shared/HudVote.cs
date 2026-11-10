@@ -179,25 +179,22 @@ public static class HudVote
     /// <summary>The ballot's pages: perPage cards a page. Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v, int perPage = MapVote.PageCards) => Math.Max(1, (v.Maps.Count + perPage - 1) / perPage);
 
-    /// <summary>The options on a page of the ballot, in screen order as the bridge sends them: each card in its place while the vote is open, the most votes
-    /// first once it is decided.</summary>
+    /// <summary>The options on a page of the ballot, in the order given: the bridge's - the most votes first, the winner first once decided - or a player's own
+    /// view of it (VoteState.ForPlayer), their card first.</summary>
     public static List<VoteState.Option> PageOptions(VoteState v, int page, int perPage = MapVote.PageCards) =>
         v.Maps.Skip(Math.Clamp(page, 0, Pages(v, perPage) - 1) * perPage).Take(perPage).ToList();
 
-    /// <summary>The option numbers of a page's cards, card 1 first: what the plugin remembers it drew for a player (Click's order).</summary>
+    /// <summary>The option numbers of a page's cards, card 1 first.</summary>
     public static int[] Order(VoteState v, int page, int perPage = MapVote.PageCards) => PageOptions(v, page, perPage).Select(o => o.N).ToArray();
 
-    /// <summary>How long after a page's order changed for a player (a card left or came, or the vote was decided and the cards sorted) a click still counts
-    /// against the order that player saw before: a click made on the old order arrives a frame and a network trip after the new one went out.</summary>
-    public const double ReSortSeconds = 1.0;
-
-    /// <summary>The vote on the Maps page's cards, a page of them in the bridge's order (PageOptions): option k of this page on card k, each with its mode (a label on
+    /// <summary>The vote on the Maps page's cards, a page of them in this player's own view (VoteState.ForPlayer: their card first, then the most votes): option k of this page on card k, each with its mode (a label on
     /// the picture and the card's colour), its map, its votes and who picked it, every tag that applies, its record when it is risky; this player's
     /// choice lit (confirm), the winner once decided (now); the header's clocks and the page line where the other cards are. Random's button and the
     /// hint for the other pages are variables on os_screen, and the pager's classes on os_screen too. perPage: that player's page size.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
         VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards, VoteState? bars = null)
     {
+        v = v.ForPlayer(account);
         var b = bars ?? v; // the two clocks' bars: the vote as of HudVote.BarLeadMs from now (the frame's BarVote), its words as of now
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -216,7 +213,7 @@ public static class HudVote
         var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
         var tied = counted.Count(o => o.Votes == most) > 1;
         t.Add(("os_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
-            : mine > 0 ? "Your vote is lit - Click another card to change it, yours to take it back" : "Click a card's Vote"));
+            : mine > 0 ? "Your vote is first, lit - Click another card to move it" : "Click a card's Vote"));
         t.Add(("os_m_empty", ""));
         c.Add(("os_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
@@ -304,11 +301,11 @@ public static class HudVote
         return (t, c, w);
     }
 
-    /// <summary>The pictures of a page of the vote's cards: an option's map's picture where the addon has one (a Workshop map, an official map of any
-    /// mode, the map that is on for Keep playing); none for a map without one.</summary>
-    public static List<(string Panel, string[] Classes)> Thumbs(VoteState v, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards)
+    /// <summary>The pictures of a page of the vote's cards, in this player's own view (account; -1: the bridge's order): an option's map's picture where the addon
+    /// has one (a Workshop map, an official map of any mode, the map that is on for Keep playing); none for a map without one.</summary>
+    public static List<(string Panel, string[] Classes)> Thumbs(VoteState v, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards, long account = -1)
     {
-        var shown = PageOptions(v, page, perPage);
+        var shown = PageOptions(v.ForPlayer(account), page, perPage);
         return Enumerable.Range(1, HudMenu.Cards).Select(k =>
         {
             var o = k <= shown.Count ? shown[k - 1] : null;
@@ -361,17 +358,17 @@ public static class HudVote
         return null;
     }
 
-    /// <summary>A click on card k's Play while the vote is open, on this player's page: !mv &lt;round&gt; &lt;n&gt;; Random's button likewise; a click on the
-    /// card (or Random) this player's vote is on takes it back, !mv &lt;round&gt; 0; null for anything else (the card's arrows do nothing then).
-    /// account: the player's; -1 when not known, which never takes a vote back. order: the option numbers this player's cards showed (Order), so a
-    /// click counts for the map that player saw on the card - an option the vote no longer has counts for nothing (Gone); null: the newest order, in pages
-    /// of perPage.</summary>
-    public static string? Click(VoteState v, string buttonId, int page = 0, long account = -1, IReadOnlyList<int>? order = null, int perPage = MapVote.PageCards)
+    /// <summary>A click on card k's Play while the vote is open, on this player's page of their own view (VoteState.ForPlayer: their card first): !mv &lt;round&gt; &lt;n&gt;;
+    /// Random's button likewise; null for anything else - the card's arrows - and for the card (or Random) this player's vote is on already: a vote is never
+    /// taken back, it moves only to another card. account: the player's; -1 when not known. The click counts for the card drawn there now:
+    /// cards move as the votes move, and a click on a card that moved a moment ago counts for the new one (241: misclicks are accepted).</summary>
+    public static string? Click(VoteState v, string buttonId, int page = 0, long account = -1, int perPage = MapVote.PageCards)
     {
         if (!v.Open || v.Round <= 0) return null;
-        string Toggle(int n) => MapVote.Click(v.Round, account >= 0 && v.ChoiceOf(account) == n ? 0 : n);
-        if (buttonId == RandomButton) return v.Random is { } r ? Toggle(r.N) : null;
-        return SeenNumber(v, CardOf(buttonId), page, order, perPage) is > 0 and var n && v.Numbered(n) is { Source: not VoteSource.Random } seen ? Toggle(seen.N) : null;
+        v = v.ForPlayer(account);
+        string? Vote(int n) => account >= 0 && v.ChoiceOf(account) == n ? null : MapVote.Click(v.Round, n);
+        if (buttonId == RandomButton) return v.Random is { } r ? Vote(r.N) : null;
+        return SeenNumber(v, CardOf(buttonId), page, perPage) is > 0 and var n && v.Numbered(n) is { Source: not VoteSource.Random } seen ? Vote(seen.N) : null;
     }
 
     /// <summary>The card a ballot button belongs to: k for card k's Play (os_m&lt;k&gt;_play, the whole tile on the ballot), 0 for any other button.</summary>
@@ -379,44 +376,16 @@ public static class HudVote
         buttonId.StartsWith("os_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal) && buttonId.Length > 9
         && int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= HudMenu.Cards ? k : 0;
 
-    /// <summary>The option number this player saw on card k: from the order their cards showed (order), else from the newest order in pages of perPage;
-    /// 0 for no card there.</summary>
-    public static int SeenNumber(VoteState v, int k, int page = 0, IReadOnlyList<int>? order = null, int perPage = MapVote.PageCards)
+    /// <summary>The option number on card k of this page, in pages of perPage of the order given (a player's view: VoteState.ForPlayer); 0 for no card there.</summary>
+    public static int SeenNumber(VoteState v, int k, int page = 0, int perPage = MapVote.PageCards)
     {
         if (k < 1) return 0;
-        if (order != null) return k <= order.Count ? order[k - 1] : 0;
         var shown = PageOptions(v, page, perPage);
         return k <= shown.Count ? shown[k - 1].N : 0;
     }
 
-    /// <summary>Whether a click on this button names a card whose map has left the vote since the player saw it - a pick that lost its votes, or a card a
-    /// pick took the place of: the click counts for nothing, and the player is told (ChatReply.CardGone).</summary>
-    public static bool Gone(VoteState v, string buttonId, int page = 0, IReadOnlyList<int>? order = null, int perPage = MapVote.PageCards) =>
-        v is { Open: true, Round: > 0 } && SeenNumber(v, CardOf(buttonId), page, order, perPage) is > 0 and var n && v.Numbered(n) == null;
-
-    /// <summary>Whether a click that counts against the order this player saw a moment ago (order: HudFrame.SeenOrder, within ReSortSeconds of a change)
-    /// lands where the card their own vote is on stands now, in the place of a card that has left - or where no card stood before: the card their own Add
-    /// put there, which their game had just drawn. The click is meant for it, and their vote stays (ChatReply.VoteStays), instead of "That map left the
-    /// vote" about their own map, or nothing at all. account: the player's; -1 when not known, which never matches.</summary>
-    public static bool OwnCardNow(VoteState v, string buttonId, int page, long account, IReadOnlyList<int>? order, int perPage = MapVote.PageCards)
-    {
-        if (v is not { Open: true, Round: > 0 } || account < 0 || order == null) return false;
-        var k = CardOf(buttonId);
-        var now = SeenNumber(v, k, page, null, perPage);
-        var then = SeenNumber(v, k, page, order, perPage);
-        return now > 0 && now != then && v.ChoiceOf(account) == now && (then == 0 || v.Numbered(then) == null);
-    }
-
     /// <summary>How long after a map browser's Add to the vote a click on the very same card's Play is the second click of a double click (HudFrame.SecondClick):
-    /// the Add has turned that card into the ballot's card in its place, so the click would vote for whatever stands there - away from the map just added,
-    /// which then leaves the ballot unless somebody else votes for it. Windows' own double-click time is half a second.</summary>
+    /// the Add has turned that card into the ballot's card in its place, so the click would vote for whatever stands there - away from the map just added.
+    /// Windows' own double-click time is half a second; a Play, Previous or restart's second click counts after it too (HudBrowser.DoubleClick).</summary>
     public const double DoubleClickSeconds = 0.5;
-
-    /// <summary>How long after a player's vote lands on a card a click there leaves it on, instead of taking it back (HudFrame.KeepsVote): a double click,
-    /// or a click to make sure, keeps the vote.</summary>
-    public const double KeepSeconds = 2.0;
-
-    /// <summary>How long after a map browser's Add to the vote the player's ballot page follows their vote to the page of the map they added
-    /// (HudFrame.FollowVote): the bridge's answer comes well within it.</summary>
-    public const double FollowSeconds = 5.0;
 }
