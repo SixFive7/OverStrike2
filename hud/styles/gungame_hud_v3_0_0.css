@@ -2636,6 +2636,9 @@ Label
 	visibility: visible;
 }
 
+/* Panorama takes a transition's length from the state it leaves: the steps' 1 s move the line a step at a time, and the 0 s here make a countdown's
+   start snap to its first step - a line collapsed in the middle of its way back to full kept that place, and the next countdown grew from it (the live
+   lab's frames, 2026-11-10: half its length, growing to 80% over 0.8 s, before it drained). */
 .os-pend-fill
 {
 	width: 100%;
@@ -2645,117 +2648,139 @@ Label
 	transform: scaleX( 1 );
 	transition-property: transform;
 	transition-timing-function: linear;
-	transition-duration: 1s;
+	transition-duration: 0s;
 }
 
 .pending.w10 .os-pend-fill
 {
 	transform: scaleX( 1 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w10 .os-pend-fill
 {
 	transform: scaleX( 1 );
+	transition-duration: 1s;
 }
 
 .pending.w9 .os-pend-fill
 {
 	transform: scaleX( 0.9 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w9 .os-pend-fill
 {
 	transform: scaleX( 0.9 );
+	transition-duration: 1s;
 }
 
 .pending.w8 .os-pend-fill
 {
 	transform: scaleX( 0.8 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w8 .os-pend-fill
 {
 	transform: scaleX( 0.8 );
+	transition-duration: 1s;
 }
 
 .pending.w7 .os-pend-fill
 {
 	transform: scaleX( 0.7 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w7 .os-pend-fill
 {
 	transform: scaleX( 0.7 );
+	transition-duration: 1s;
 }
 
 .pending.w6 .os-pend-fill
 {
 	transform: scaleX( 0.6 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w6 .os-pend-fill
 {
 	transform: scaleX( 0.6 );
+	transition-duration: 1s;
 }
 
 .pending.w5 .os-pend-fill
 {
 	transform: scaleX( 0.5 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w5 .os-pend-fill
 {
 	transform: scaleX( 0.5 );
+	transition-duration: 1s;
 }
 
 .pending.w4 .os-pend-fill
 {
 	transform: scaleX( 0.4 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w4 .os-pend-fill
 {
 	transform: scaleX( 0.4 );
+	transition-duration: 1s;
 }
 
 .pending.w3 .os-pend-fill
 {
 	transform: scaleX( 0.3 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w3 .os-pend-fill
 {
 	transform: scaleX( 0.3 );
+	transition-duration: 1s;
 }
 
 .pending.w2 .os-pend-fill
 {
 	transform: scaleX( 0.2 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w2 .os-pend-fill
 {
 	transform: scaleX( 0.2 );
+	transition-duration: 1s;
 }
 
 .pending.w1 .os-pend-fill
 {
 	transform: scaleX( 0.1 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w1 .os-pend-fill
 {
 	transform: scaleX( 0.1 );
+	transition-duration: 1s;
 }
 
 .pending.w0 .os-pend-fill
 {
 	transform: scaleX( 0 );
+	transition-duration: 1s;
 }
 
 .pending .os-mplay.w0 .os-pend-fill
 {
 	transform: scaleX( 0 );
+	transition-duration: 1s;
 }
 
 .os-restart.pending

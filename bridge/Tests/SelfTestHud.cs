@@ -348,8 +348,9 @@ static partial class Program
                     && noTakeBack.Contains("<Button id=\"os_q_prev\" class=\"os-qprev\"><Label id=\"os_q_prev_text\" text=\"{s:text}\" /><Panel class=\"os-pend\" hittest=\"false\"><Panel class=\"os-pend-fill\" /></Panel></Button>", StringComparison.Ordinal)
                     && Regex.Matches(noTakeBack, @"<Panel class=""os-mlock-line""><Panel class=""os-mlock-fill"" /></Panel><Panel class=""os-pend"" hittest=""false""><Panel class=""os-pend-fill"" /></Panel>").Count == HudMenu.Cards
                     && new[] { ".os-restart.pending .os-pend", ".os-qprev.pending .os-pend", ".os-mcard.pending .os-pend" }.All(r => Regex.IsMatch(css, $@"(?m)^{Regex.Escape(r)}\s*\{{\s*visibility:\s*visible;"))
-                    && Enumerable.Range(0, 11).All(k => Regex.IsMatch(css, $@"(?m)^\.pending\.w{k} \.os-pend-fill\s*\{{\s*transform:\s*scaleX\(\s*{(k / 10.0).ToString(System.Globalization.CultureInfo.InvariantCulture)}\s*\);"))
-                    && Regex.IsMatch(css, @"(?m)^\.os-pend-fill\s*\{[^}]*transition-duration:\s*1s;"));
+                    && Enumerable.Range(0, 11).All(k => Regex.IsMatch(css, $@"(?m)^\.pending\.w{k} \.os-pend-fill\s*\{{\s*transform:\s*scaleX\(\s*{(k / 10.0).ToString(System.Globalization.CultureInfo.InvariantCulture)}\s*\);\s*transition-duration:\s*1s;")
+                        && Regex.IsMatch(css, $@"(?m)^\.pending \.os-mplay\.w{k} \.os-pend-fill\s*\{{\s*transform:\s*scaleX\(\s*{(k / 10.0).ToString(System.Globalization.CultureInfo.InvariantCulture)}\s*\);\s*transition-duration:\s*1s;"))
+                    && Regex.IsMatch(css, @"(?m)^\.os-pend-fill\s*\{[^}]*transition-duration:\s*0s;")); // the start snaps to its first step: the 0 s of the state it leaves
                 Check($"Content {HudVersion.Content}: Wingman's player count on every card's picture, beside its mode's label - only while the card says one (sided), and never on the ballot",
                     Enumerable.Range(1, HudMenu.Cards).All(k => Regex.IsMatch(noTakeBack, $@"<Label class=""os-mmode os-mmode-wingman"" text=""Wingman"" /><Label id=""{HudMenu.Card(k)}_side"" class=""os-mside"" text=""\{{s:text\}}"" />"))
                     && Regex.IsMatch(css, @"(?m)^\.os-mside\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"(?m)^\.os-mcard\.sided \.os-mside\s*\{\s*visibility:\s*visible;")
