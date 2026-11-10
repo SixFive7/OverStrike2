@@ -80,6 +80,14 @@ A real game client draws every picture here against a test copy of the server, t
 
 ![MAPS &gt; Browse: a search with no match, the empty page's words](img/maps-search-empty.jpg)
 
+## MAPS > Browse: a click on the search area helps the search - the box lit, the words row in the filters' place, the window lifted, the pointer beside the chat line
+
+![MAPS &gt; Browse: a click on the search area helps the search - the box lit, the words row in the filters' place, the window lifted, the pointer beside the chat line](img/maps-search-help.jpg)
+
+## MAPS > Browse: a chat line on Browse searches it - the words in the search area, its line in chat as typed
+
+![MAPS &gt; Browse: a chat line on Browse searches it - the words in the search area, its line in chat as typed](img/maps-search-chat.jpg)
+
 ## MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)
 
 ![MAPS &gt; Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)](img/maps-workshop-refused.jpg)

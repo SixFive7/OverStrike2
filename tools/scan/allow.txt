@@ -197,7 +197,9 @@ binary docs/hud/img/maps-ours.jpg 9a45f87cbdc97815afa51a18448f9551270cfd31f65093
 binary docs/hud/img/maps-page-2.jpg 80d29fab251fdf348f5b1b6c0355e41a125db9f6cdeec7a6b3b5d7dbc592f643  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-page-last.jpg 28e655a17e40a13b401ea447b9c4948cc30c3951503ef2bd3d002e90bf0f49ad  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-risky-card.jpg e2ce9f9ccbbfdaa08db1823e3cd4fcdff757b1f61003d76f9f5b833a95374e6d  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
+binary docs/hud/img/maps-search-chat.jpg 56289a2884a3c9e10b514b36e0f89863854905def76f04dab78cd7f3f74aff2a  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-search-empty.jpg 9e2377b494577c43c88c3ec453909e2da1da76da4f4bb14d030bf4307b1cae84  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
+binary docs/hud/img/maps-search-help.jpg 26a9edac3dc2fa9806f3b37bb1463d63d0a1f82ae292f69a7545ae666b930710  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-search.jpg f1264d7095728265ae654116f31964d2d2f6c4ff7b450248c9ec26deca6c53b4  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-size-large.jpg eac5c92fe849837aeb081b95acc4eca2dfeaca1c9ba35f1239e608a84ecd9129  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-size-mid.jpg f7e9ea0cfd4e9410ea20da5d39af851a66f4a0ff6973ec1996f4404eb8c2ee9e  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
