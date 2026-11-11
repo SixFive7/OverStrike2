@@ -49,9 +49,11 @@ static partial class Program
             && NextMatch.Read(NextMatch.Reply(NextMatch.Result.Sooner, "x")) == NextMatch.Result.Sooner && NextMatch.Read(NextMatch.Reply(NextMatch.Result.NotEnded, "game phase 2")) == NextMatch.Result.NotEnded
             && NextMatch.Read(NextMatch.Reply(NextMatch.Result.Refused, "no game rules")) == NextMatch.Result.Refused
             && NextMatch.Read($"Unknown command '{NextMatch.Command}'!") == null && NextMatch.Read(null) == null && NextMatch.Read("") == null && NextMatch.Line(8) == "os_nextmatch 8");
-        Check("...the new end: the seconds from now, never later than the screen's own end - one ending by then already, or right then, moves nothing; a screen without an end time takes it",
-            NextMatch.NewEnd(100f, 186f, 8) == 108f && NextMatch.NewEnd(100f, 108f, 8) == null && NextMatch.NewEnd(100f, 104f, 8) == null && NextMatch.NewEnd(100f, 0f, 8) == 108f
-            && NextMatch.NewEnd(100f, 99f, 8) == null);
+        Check("...the new delay, counted from the screen's start: the time it has been up plus the seconds - whole seconds rounded up for a convar without fractions, never down;"
+            + " a screen its delay ends by then already, or right then, changes nothing",
+            NextMatch.NewDelay(100, 90, 90, 8, whole: true) == 18 && NextMatch.NewDelay(100, 89.4, 90, 8, whole: true) == 19 && NextMatch.NewDelay(100, 89.4, 90, 8, whole: false) == 18.6
+            && NextMatch.NewDelay(100, 90, 18, 8, whole: true) == null && NextMatch.NewDelay(100, 90, 17, 8, whole: true) == null && NextMatch.NewDelay(100, 90, 18.5, 8, whole: false) == 18
+            && NextMatch.NewDelay(100.0004, 90, 90, 8, whole: true) == 18 && NextMatch.Delay == "mp_match_restart_delay");
         Check("Modes: ids unique and plain, Arms Race first and the default, the convar pairs unique and Valve's (1/0, 1/2, 0/2)",
             Modes.All.Select(m => m.Id).Distinct().Count() == Modes.All.Length && Modes.All.All(m => m.Id.All(char.IsAsciiLetterLower)) && Modes.Default == Modes.ArmsRace
             && Modes.All[0] == Modes.ArmsRace && Modes.All.Select(m => (m.GameType, m.GameMode)).Distinct().Count() == Modes.All.Length

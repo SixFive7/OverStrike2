@@ -283,10 +283,13 @@ Every vote - cast or moved - says in chat and on the board who voted and who sti
 
 **Play this map again starts the next match after the countdown a map change has** (`bridge.changeDelaySeconds`, 8 s): the window says "Next match in 8 s".
 Every mode's cfg keeps the match-end screen up for 90 s (`mp_match_restart_delay`), long enough for the vote, and as the vote decides, the bridge asks the
-plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The plugin moves the game's own end of the screen (the game
-rules' `m_flIntermissionEndTime`), and there the game starts the next match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load,
-so nobody goes through a load and no fairness restart follows. 2 s after that end the plugin logs whether the next match did start. A plugin without the command,
-or a screen that ends sooner by itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out.
+plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The game ends the screen at its start (the game rules'
+`m_flIntermissionStartTime`) plus `mp_match_restart_delay`, read as it goes - `m_flIntermissionEndTime` passes about 10 s into the screen and ends nothing - so the
+plugin sets the delay to the time the screen has been up plus the countdown, and puts the value it had back once the next match's round has started (2 s after the
+new end at the latest; a map change drops it, since the new map's cfg sets its own). CS2's own countdown on the screen follows it. There the game starts the next
+match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows; as at any
+such reset, CS2 then puts everybody on its team select. 2 s after the new end the plugin logs whether the next match did start. A plugin without the command, or a
+screen that ends sooner by itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out.
 
 ### The ballot
 
