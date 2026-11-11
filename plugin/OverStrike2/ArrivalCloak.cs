@@ -12,7 +12,7 @@ namespace OverStrike2;
 /// 10 s. "Spotted" is the game's own m_entitySpottedState, the radar's: the enemies' bits in m_bSpottedByMask, every other player's in free-for-all
 /// (mp_teammates_are_enemies). Read in the cloak's look before its pass, which then clears it while the player is hidden, so the radar shows no dot for them
 /// (the live lab, 2026-11-10: both fields cleared, at the pass after the entities' think). The bots' guard keeps the bots' damage off a hidden player until
-/// their own first attack (BotGuard, CloakShield). The cfgs' mp_playerid keeps an enemy's name off the crosshair, hidden or not. Bots are never hidden by it.
+/// their own first attack (BotGuard, CloakShield). The name under an enemy's crosshair still shows (Valve's mp_playerid 0). Bots are never hidden by it.
 /// The hides and how they ended are counted, and logged at each map's end, not one by one: Arms Race respawns all the time. os_arrival says where every life
 /// stands.</summary>
 sealed class ArrivalCloak(BasePlugin plugin, ILogger log, Cloak cloak)

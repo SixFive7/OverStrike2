@@ -87,9 +87,8 @@ game that cannot draw our window - a content before v4.8.0, a download that fail
 server all map and be hidden at every spawn; the end of [the HUD check's](#the-huds-version-and-the-hud-check) 90 s closes it instead, with
 `warn` and with the check off, and the cloak ends with it ("the menu window closed"). The radar's dot is no model: the game draws it while an
 enemy has the player spotted (`m_entitySpottedState`), so while the cloak hides a player it clears both of that state's fields for the clients, and no
-dot shows (the live lab, 2026-11-10: either field alone still drew it). The name when aimed at is the cfgs' `mp_playerid`: 1 in Arms Race and Wingman,
-no enemy's name under the crosshair, only a teammate's; 2 in Deathmatch, where everybody is an enemy, none at all. Sounds - footsteps too - muzzle flashes,
-tracers and blood still show. The cloak hides a player from people, not from the [bots](#bots), which aim by what the server knows:
+dot shows (the live lab, 2026-11-10: either field alone still drew it). The name when aimed at still shows, hidden or not: CS2 names the player under an
+enemy's crosshair (Valve's `mp_playerid 0`, which no cfg of ours changes). So do sounds - footsteps too - muzzle flashes, tracers and blood. The cloak hides a player from people, not from the [bots](#bots), which aim by what the server knows:
 so while it hides a player - the spawn cloak, the spawn invisibility, Ghost, `os_cloak hide` - no bot's damage hurts them (`BotGuard.cs`), until their own
 first attack in that hide: a shot, a throw or a hit on somebody else ends that shield, though not the hide, and the next hide shields again. A player's
 damage lands as ever.

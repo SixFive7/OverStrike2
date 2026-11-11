@@ -42,7 +42,7 @@ namespace OverStrike2;
 /// weapon's (C_KeychainModule), and whether it follows the weapon's alpha is not known; nor whether the carried C4's light (a particle) does.
 /// The radar's dot is no model: the game draws it while an enemy has the player spotted (m_entitySpottedState). So while a player is hidden the pass
 /// clears both its fields after the cloak's look has read them, and the clients see nobody spotted (the live lab, 2026-11-10: either field alone
-/// still drew the dot). The name over a player when aimed at is the cfgs' mp_playerid's (no enemy names). Never hidden: sounds - footsteps too -
+/// still drew the dot). Never hidden: the name over a player when aimed at (Valve's mp_playerid 0), sounds - footsteps too -
 /// muzzle flashes, tracers, blood.
 ///
 /// Nothing heavy inside a player's callback: the events only change the reasons, and the pass makes every write. A death, a respawn and a
