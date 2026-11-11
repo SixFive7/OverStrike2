@@ -71,6 +71,7 @@ static partial class Program
         public VoteState.Outcome? Result;
         public Change? Change;                                    // what the result started
         public DateTime? KeptUntil;                               // the vote kept the map: the window shows that until then, everybody still frozen
+        public bool NextMatch;                                    // ...at a match end, and the plugin ends the match-end screen then: the next match starts as the window closes (NextMatch.cs)
         public string Starter = "", StarterName = "";             // who called it ("" at a match end)
         public bool MatchEnded;                                   // the match is over: Keep is "Play this map again", nobody voting is Random
         public bool ServerStart;                                  // a server start with players on: the vote in place of the start roll, nobody voting is Random
@@ -445,9 +446,20 @@ static partial class Program
     /// <summary>The map that is on, where it starts a section: "... stays": its label, or plain words when the bridge does not know which map it is.</summary>
     static string OnWords() => CurrentKey != "" ? Clip(CurrentLabel(), 40) : "The map";
 
+    /// <summary>A match end's vote played the map again: the plugin ends the match-end screen this many seconds from now, and the next match starts then
+    /// (NextMatch.cs) - true when it says it has. A plugin without the command (5.14.2 and older), a screen that ends sooner by itself or no answer: false, and
+    /// the screen runs out as before.</summary>
+    static bool CutMatchEnd(int seconds)
+    {
+        var reply = Send(NextMatch.Line(seconds));
+        Log($"vote: {NextMatch.Line(seconds)} -> {reply ?? "(rcon failed)"}");
+        return NextMatch.Read(reply) == NextMatch.Result.Set;
+    }
+
     /// <summary>The vote is decided: Keep shows that for MapVote.KeptSeconds and the map plays on; anything else goes out through the usual countdown. Everybody stays
-    /// frozen until then. Either way the next vote waits MapVote.WaitSeconds. The chosen card is no showing that steps back. "N of M" in what it says is the tile's
-    /// N/M: its votes of everybody present.</summary>
+    /// frozen until then. A match end's Keep - Play this map again - counts down the change's ChangeDelay instead, at whose end the plugin ends the match-end
+    /// screen and the next match starts (CutMatchEnd). Either way the next vote waits MapVote.WaitSeconds. The chosen card is no showing that steps back.
+    /// "N of M" in what it says is the tile's N/M: its votes of everybody present.</summary>
     static void CloseBallot(BallotState b, DateTime now, BallotOption o, string how, Dictionary<int, int> tally, int present)
     {
         b.Open = false; b.DoneAt = now;
@@ -473,12 +485,20 @@ static partial class Program
         if (o.Source == VoteSource.Keep)
         {
             b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40));
-            b.KeptUntil = now.AddSeconds(MapVote.KeptSeconds);
-            Save();
             Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
+            b.NextMatch = b.MatchEnded && CutMatchEnd(ChangeDelay);
+            var keptFor = b.NextMatch ? ChangeDelay : MapVote.KeptSeconds;
+            b.KeptUntil = now.AddSeconds(keptFor);
+            if (b.NextMatch)
+            {
+                if (MatchEndUntil > b.KeptUntil) MatchEndUntil = b.KeptUntil.Value; // the match that starts then is no match that has just ended: a join restarts it for fairness, Restart match may go
+                After(keptFor * 1000 + 50, () => BallotTick(Now())); // the window closes and everybody unfreezes as the match starts, not at the next second's tick
+            }
+            Save();
             var kept = M.A(OnWords());
             Post(Messages.VoteKept, how == "none" ? $"Nobody voted - {kept} stays"
-                : how == "tie" ? $"The vote kept {kept} ({count}) - A tie, drawn by the dice"
+                : how == "tie" ? $"The vote kept {kept} ({count}) - A tie, drawn by the dice{(b.NextMatch ? $" - The next match starts in {M.V($"{keptFor} s")}" : "")}"
+                : b.NextMatch ? $"The vote: {kept} again ({count}) - The next match starts in {M.V($"{keptFor} s")}"
                 : b.MatchEnded ? $"The vote: {kept} again ({count}) - Its next match starts on it"
                 : $"The vote kept {kept} ({count})");
             if (!b.Options.Contains(o)) Ballot = null; // no card for it: the bridge does not know which map is on, so there is nothing to show - everybody unfreezes at once
@@ -535,13 +555,13 @@ static partial class Program
         if (Ballot is not { Open: true } && now < VoteWaitUntil) (v.WaitFor, v.WaitUntilMs) = ((int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds), HudState.Ms(VoteWaitUntil));
         if (Ballot is not { } b) return v;
         var count = VotePresent(b, now);
-        v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded;
+        v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded; v.NextMatch = b.NextMatch && b.KeptUntil != null;
         v.StarterName = b.StarterName;
         var counting = b.Open ? VoteEnds(b) : b.KeptUntil ?? (Pending is { } p && p == b.Change ? p.FiresAt : (DateTime?)null);
         v.Freeze = b.Open || b.KeptUntil != null || (Pending != null && Pending == b.Change);
         v.SecondsLeft = counting is { } at ? Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)) : 0;
         v.EndsAtMs = counting is { } at2 ? HudState.Ms(at2) : 0; // the plugin counts down from these (HudTransport.cs)
-        v.DoneSeconds = b.Open ? 0 : b.KeptUntil != null ? MapVote.KeptSeconds : ChangeDelay;
+        v.DoneSeconds = b.Open ? 0 : b.KeptUntil != null && !b.NextMatch ? MapVote.KeptSeconds : ChangeDelay;
         if (b.Open && MapVote.InactivitySeconds > 0 && b.EverybodySince != null)
         {
             (v.Inactivity, v.ResetBy) = (Math.Min(Math.Max(1, (int)Math.Ceiling((SettleEnd(b) - now).TotalSeconds)), Math.Max(1, v.SecondsLeft)), b.LastBy);

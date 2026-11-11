@@ -140,6 +140,7 @@ public static class HudVote
         if (v.Kept)
             return r.How == "none" ? $"Nobody voted - {label} stays"
                 : r.How == "tie" ? $"The vote kept {label} {count} - A tie, drawn by the dice"
+                : v.NextMatchCounts ? $"{label} again {count}"
                 : v.MatchEnded ? $"{label} again {count} - Its next match starts on it"
                 : $"The vote kept {label} {count}";
         return r.How == "none" ? $"Nobody voted - The dice rolled {label}"
@@ -159,10 +160,13 @@ public static class HudVote
     public readonly record struct ClockWords(string LimitNum, string Limit, string IdleKey, string IdleNum, string Idle);
 
     public static ClockWords Clocks(VoteState v) =>
-        !v.Open ? new("", "", v.Kept ? "Closes in" : "Changing in", $"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", "")
+        !v.Open ? new("", "", DoneKey(v), $"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", "")
         : new($"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", $"{v.Cast} of {v.Present} voted", "Inactivity timer",
             v.Inactivity > 0 ? $"{v.Inactivity.ToString(CultureInfo.InvariantCulture)} s" : "",
             v.Inactivity <= 0 ? "Starts when everybody has voted" : v.ResetBy != "" ? $"Reset by {Hud.Clean(v.ResetBy, 24)}" : "");
+
+    /// <summary>What the countdown of a decided vote counts to: the map change, the next match on the map played again (NextMatch.cs), or the window's close.</summary>
+    public static string DoneKey(VoteState v) => v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : "Changing in";
 
     /// <summary>The last seconds of the limit, when its digits turn red and pulse (vlow on os_screen).</summary>
     public const int LowSeconds = 10;
@@ -206,7 +210,7 @@ public static class HudVote
         page = Math.Clamp(page, 0, pages - 1);
         var shown = PageOptions(v, page, perPage);
         var rest = maps.Count - (page + 1) * perPage;
-        t.Add(("os_m_count", done ? $"{DoneLine(v)} - {(v.Kept ? "Closes in" : "Changing in")} {v.SecondsLeft} s"
+        t.Add(("os_m_count", done ? $"{DoneLine(v)} - {DoneKey(v)} {v.SecondsLeft} s"
             : v.Inactivity > 0 ? $"Everybody has voted  ·  {InactivityLine(v)}"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  Waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
         var counted = v.Options.Where(o => o.Votes > 0).ToList();

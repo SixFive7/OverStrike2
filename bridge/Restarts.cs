@@ -342,7 +342,7 @@ static partial class Program
     /// just gone out (FairFoldSeconds), or a player's Restart match counting down: each starts the newcomer over too. Else the match restarts, unless the server
     /// is about to go down, the map is about to change, a vote decides or the match has just ended (RematchBlocked; the minute after a restart does not hold it,
     /// since every join may restart again): EarlyJoin.CountdownSeconds on the countdown banner, naming who came in, then the plugin's os_restart (FireRematch).
-    /// A player's Restart match waits RematchWaitSeconds after it, as after their own.</summary>
+    /// It starts no wait: a player's Restart match may go right after it - only a pressed one makes the next wait RematchWaitSeconds.</summary>
     static void FairRestart(string steamId, string name)
     {
         var now = Now();
@@ -360,7 +360,6 @@ static partial class Program
         if (RematchBlocked(now) is { } no) { Log($"fair: {name} {steamId} joined - no restart: {M.Plain(no)}"); return; }
         FairNames.Clear();
         FairNames.Add(name);
-        RematchWaitUntil = now.AddSeconds(RematchWaitSeconds);
         var due = new Rematch(name, now.AddSeconds(EarlyJoin.CountdownSeconds), Fair: true);
         RematchDue = due;
         Log($"fair: {name} {steamId} joined a match in its first {EarlyJoin.WindowSeconds} s - it restarts for fairness in {EarlyJoin.CountdownSeconds} s");

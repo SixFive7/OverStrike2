@@ -253,9 +253,9 @@ Any number of players plays on any Wingman map; its [spawn points](#wingman-and-
 
 Every vote opens everybody's window on the ballot and freezes everybody: nobody moves, shoots, takes damage or closes the window, bots
 included (`VoteFreeze.cs`). A player who joins meanwhile is frozen and counted. Everybody unfreezes at the same moment: when the vote keeps
-the map, once the window has said so for 8 s; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes. The
-plugin frees everybody by itself if the bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge
-never leaves anybody frozen.
+the map, once the window has said so for 8 s; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes;
+when it plays the map again at a match end, after that same countdown, as the next match starts ([below](#voting)). The plugin frees everybody by itself if the
+bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge never leaves anybody frozen.
 
 ### Voting
 
@@ -280,6 +280,13 @@ map put on the ballot, a page, a sort, a filter or a search in the map browser -
 60 s**, whichever comes first. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match and is Random at a match
 end. The window shows who started the vote, where the votes go, who has not voted yet and both timers, then what came of it and the countdown.
 Every vote - cast or moved - says in chat and on the board who voted and who still has to.
+
+**Play this map again starts the next match after the countdown a map change has** (`bridge.changeDelaySeconds`, 8 s): the window says "Next match in 8 s".
+Every mode's cfg keeps the match-end screen up for 90 s (`mp_match_restart_delay`), long enough for the vote, and as the vote decides, the bridge asks the
+plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The plugin moves the game's own end of the screen (the game
+rules' `m_flIntermissionEndTime`), and there the game starts the next match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load,
+so nobody goes through a load and no fairness restart follows. 2 s after that end the plugin logs whether the next match did start. A plugin without the command,
+or a screen that ends sooner by itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out.
 
 ### The ballot
 
@@ -350,10 +357,10 @@ Anybody may change the length and press the two restarts, on the Game page or in
   says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. A join while it counts
   down folds into it - one restart, at the same moment, and the banner and a line name them all: "Bob and Cas are in", "Bob, Cas, Dee and 2 more are in" - and so does a join
   in the 3 s after it went out, or while a player's Restart match counts down: each starts the newcomer over too. None while a vote is on, a map change counts down or loads,
-  the server's restart counts down or the match has just ended; the minute a player's Restart match waits after a restart does not hold it. A player's Restart match waits
-  60 s after a fairness restart, as after their own. In Wingman a player who comes in within 30 s of a round's start, after the 60 s too, still plays it (its cfg's
-  `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map stands, and `os_fair live`, the client harness's, starts
-  the match running then and counts the next join as joining somebody, so a lone test game's spawn asks.
+  the server's restart counts down or the match has just ended; the minute a player's Restart match waits after a restart does not hold it. It starts no such minute
+  itself: a player's Restart match may go right after it - only a pressed one makes the next wait 60 s. In Wingman a player who comes in within 30 s of a round's
+  start, after the 60 s too, still plays it (its cfg's `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map
+  stands, and `os_fair live`, the client harness's, starts the match running then and counts the next join as joining somebody, so a lone test game's spawn asks.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms - 0.5 s or more after the click before it, as for Restart the match - then the
   same 10 s countdown with the player's name - in its button too, where a click by anybody cancels it (`!cancel restart`, the news line says who, and its cooldown goes
   with it; the watcher's restarts are not the players' to cancel) - and the bridge quits the game process
@@ -367,8 +374,9 @@ after every server restart and after 10 minutes with nobody on. **Deathmatch** a
 
 No mode has a warmup (`mp_warmup_online_enabled 0`, Wingman's too): a match is on the moment the first player is in, and [the fairness
 restart](#the-match-length-and-the-restarts) starts it over every time somebody joins it during its first minute.
-Both deathmatch-style modes spawn players at random, each spawn point tested for line of sight to the enemies (`mp_randomspawn_los 1`): the game picks one that no
-enemy sees, where the map has one - Valve's Deathmatch cfg sets it, and ours sets it for Arms Race too (Valve's Arms Race cfg does not).
+Both deathmatch-style modes spawn players at random with `mp_randomspawn_los 1` - Valve's Deathmatch cfg sets it, and ours sets it for Arms Race too (Valve's Arms Race
+cfg does not). It is meant to test each spawn point for line of sight to the enemies and pick one that no enemy sees, but in Arms Race it made no measurable difference: with
+8 bots moving and firing on ar_shoots and ar_baggage, an enemy had 10 of 142 spawns spotted within 0.75 s with it on and 10 of 145 with it off (p = 1.00). It stays on.
 
 Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
 playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for the others. A map loads in its own mode: the bridge tells the plugin

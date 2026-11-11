@@ -217,15 +217,16 @@ static partial class Program
 
     static string MaintenanceFile => Path.Combine(StateDir, "maintenance");
 
-    /// <summary>True while STATE_DIR/maintenance exists: no automatic map change of any kind, and a vote's result changes nothing. Checked at every
-    /// decision and every tick; each flip is logged, never said in chat.</summary>
+    /// <summary>True while STATE_DIR/maintenance exists: no automatic map change of any kind - the start roll, a match end's vote, the way back to Arms Race -
+    /// and a vote nobody called or nobody voted in changes nothing; a vote a player called still decides (CloseBallot). Checked at every decision and every
+    /// tick; each flip is logged, never said in chat.</summary>
     static bool InMaintenance()
     {
         var on = File.Exists(MaintenanceFile);
         if (on != MaintenanceOn)
         {
             MaintenanceOn = on;
-            Log(on ? $"maintenance: {MaintenanceFile} exists - no automatic map changes (the start roll, the dice) and no vote's result until it is gone"
+            Log(on ? $"maintenance: {MaintenanceFile} exists - no automatic map changes until it is gone (the start roll, a match end's vote, the way back to Arms Race, the dice when nobody voted); a vote a player called still decides"
                 : $"maintenance: {MaintenanceFile} is gone - automatic map changes resume");
         }
         return on;

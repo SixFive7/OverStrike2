@@ -296,10 +296,14 @@ static partial class Program
             Check("...Dan joining as it goes out folds into it too: the game is starting everybody over, so nothing more counts down", RematchDue == null && !SaysNow.Any());
             h.Run(5);
             Fair(dan);
-            Check("...not once per map: the next join after that is a restart of its own, in the minute a player's Restart match would wait",
+            Check("...not once per map: the next join after that is a restart of its own",
                 RematchDue is { Fair: true, By: "Dan" } && Live() is { RematchBy: "Dan", RematchCount: 1 });
             h.Run(EarlyJoin.CountdownSeconds + 1);
             Check("...and goes out as the first did", h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null);
+            ClearNotices(); h.Sent.Clear();
+            Twice(alice, "!rematch");
+            Check("...and starts no wait: a player's Restart match right after a fairness restart goes - only a pressed one makes the next one wait",
+                RematchDue is { Fair: false, By: "Alice" } && !h.Said("The match was just restarted") && RematchWaitUntil > h.Clock);
             Fresh();
             StartVote(bob.Item1, bob.Item2);
             ClearNotices();

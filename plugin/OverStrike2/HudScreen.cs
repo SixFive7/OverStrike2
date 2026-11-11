@@ -89,6 +89,7 @@ sealed partial class HudScreen
         plugin.RegisterEventHandler<EventPlayerHurt>(OnHurt);
         plugin.AddTimer(FrameSeconds, Frame, TimerFlags.REPEAT);
         MatchLoad();
+        NextMatchLoad(); // HudScreenNextMatch.cs: the match-end screen cut short when the vote plays the map again
         WarmUp();
         if (hotReload) { worldReady = true; EnsureEntity(); } // a map is running: the one case where entities may be touched right away
     }

@@ -18,7 +18,7 @@ static partial class Program
         Check("The wait's words: minutes and seconds, or seconds", MapVote.Left(80) == "1 min 20 s" && MapVote.Left(45) == "45 s" && MapVote.Left(0) == "1 s");
         var codec = new VoteState
         {
-            Round = 1793000000, Open = false, SecondsLeft = 7, Present = 5, Cast = 4, MatchEnded = true, Freeze = true, StarterName = "Alice\tB", DoneSeconds = 8,
+            Round = 1793000000, Open = false, SecondsLeft = 7, Present = 5, Cast = 4, MatchEnded = true, Freeze = true, StarterName = "Alice\tB", DoneSeconds = 8, NextMatch = true,
             Options = [new(1, "armsrace", VoteSource.Picked, "3070000012", "#12 aim\tx\nwith a very long name that goes on and on", "17 MB", 2, "Alice and Bob"),
                        new(2, "wingman", VoteSource.Rolled, "de_nuke", "de_nuke (official)", "", 1, ""),
                        new(3, "deathmatch", VoteSource.Keep, "de_dust2", "Play this map again", "de_dust2 (official)", 0, ""),
@@ -29,19 +29,29 @@ static partial class Program
         var hudText = new HudState { Map = "#1 x" }.Encode() + codec.Encode();
         var back = VoteState.Decode(hudText);
         Check("Vote codec: what goes out comes back - the vote (a match end's, everybody frozen), its cards (Keep, Random last), the choices and the result",
-            back.Round == codec.Round && !back.Open && back.SecondsLeft == 7 && back.Present == 5 && back.Cast == 4 && back.MatchEnded && back.Freeze && back.WaitFor == 0 && back.StarterName == "Alice B" && back.DoneSeconds == 8
+            back.Round == codec.Round && !back.Open && back.SecondsLeft == 7 && back.Present == 5 && back.Cast == 4 && back.MatchEnded && back.Freeze && back.WaitFor == 0 && back.StarterName == "Alice B" && back.DoneSeconds == 8 && back.NextMatch
             && back.Options.Count == 4 && back.Options[0] is { N: 1, Mode: "armsrace", Source: VoteSource.Picked, Key: "3070000012", Size: "17 MB", Votes: 2, Who: "Alice and Bob" }
             && back.Options[0].Label.Length <= 40 && !back.Options[0].Label.Contains('\t') && back.Options[2] is { Source: VoteSource.Keep, Label: "Play this map again" }
             && back.Options[3] is { Source: VoteSource.Random, N: MapVote.RandomOption } && back.Maps.Count == 3 && back.Random?.N == MapVote.RandomOption
             && back.Choices.Count == 4 && back.ChoiceOf(2003) == 2 && back.ChoiceOf(9) == 0 && back.Result is { N: 1, How: "most", Label: "#12 aim x" });
         var lines = codec.Encode(endTimes: true).Split('\n');
         Check("Vote codec: nothing goes out that no plugin reads - no mode lines; mv's 7th field and mvo's 4th, which the plugin reads by place, stay in place and empty; mvr ends at its label",
-            !lines.Any(l => l.StartsWith("mode\t") || l.StartsWith("mi\t")) && lines.Single(l => l.StartsWith("mv\t")).Split('\t') is { Length: 13 } mv && mv[6] == "end" && mv[7] == "0" && mv[8] == "1"
+            !lines.Any(l => l.StartsWith("mode\t") || l.StartsWith("mi\t")) && lines.Single(l => l.StartsWith("mv\t")).Split('\t') is { Length: 14 } mv && mv[6] == "end" && mv[7] == "0" && mv[8] == "1" && mv[13] == "1"
             && lines.Where(l => l.StartsWith("mvo\t")).All(l => l.Split('\t') is { Length: 11 } o && o[4] == "" && o[5] == codec.Numbered(int.Parse(o[1]))!.Key)
             && lines.Single(l => l.StartsWith("mvr\t")) == "mvr\t1\tmost\t#12 aim x");
         Check("Vote codec: the HUD's own state reads the same text unharmed, and a text without vote lines is no vote",
             HudState.Decode(hudText)?.Map == "#1 x" && VoteState.Decode(new HudState().Encode()) is { Round: 0, Options.Count: 0 } && VoteState.Decode(null).Round == 0
             && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t1\t\n").Options.Count == 0 && VoteState.Decode("mvo\t1\tarmsrace\tqueue\t1\t1\tx\t\t1\t\nmv\t1\topen\t1\t1\t0\tmid\t0\t1\n").Options.Count == 0);
+        Check("Vote codec: an older bridge's mv line, without its 14th field, is no next match - the window says Closes in, as it did",
+            VoteState.Decode("mv\t9\tdone\t8\t3\t3\tend\t0\t1\t0\t\t\t8\n") is { Round: 9, MatchEnded: true, NextMatch: false, DoneSeconds: 8 });
+        Check("The match-end screen cut short (NextMatch.cs): the plugin's replies read back - set, sooner by itself, no match end, refused; a plugin without the command or no answer is none of them",
+            NextMatch.Read(NextMatch.Reply(NextMatch.Result.Set, "the screen ends in 8 s, not 70.0 s")) == NextMatch.Result.Set
+            && NextMatch.Read(NextMatch.Reply(NextMatch.Result.Sooner, "x")) == NextMatch.Result.Sooner && NextMatch.Read(NextMatch.Reply(NextMatch.Result.NotEnded, "game phase 2")) == NextMatch.Result.NotEnded
+            && NextMatch.Read(NextMatch.Reply(NextMatch.Result.Refused, "no game rules")) == NextMatch.Result.Refused
+            && NextMatch.Read($"Unknown command '{NextMatch.Command}'!") == null && NextMatch.Read(null) == null && NextMatch.Read("") == null && NextMatch.Line(8) == "os_nextmatch 8");
+        Check("...the new end: the seconds from now, never later than the screen's own end - one ending by then already, or right then, moves nothing; a screen without an end time takes it",
+            NextMatch.NewEnd(100f, 186f, 8) == 108f && NextMatch.NewEnd(100f, 108f, 8) == null && NextMatch.NewEnd(100f, 104f, 8) == null && NextMatch.NewEnd(100f, 0f, 8) == 108f
+            && NextMatch.NewEnd(100f, 99f, 8) == null);
         Check("Modes: ids unique and plain, Arms Race first and the default, the convar pairs unique and Valve's (1/0, 1/2, 0/2)",
             Modes.All.Select(m => m.Id).Distinct().Count() == Modes.All.Length && Modes.All.All(m => m.Id.All(char.IsAsciiLetterLower)) && Modes.Default == Modes.ArmsRace
             && Modes.All[0] == Modes.ArmsRace && Modes.All.Select(m => (m.GameType, m.GameMode)).Distinct().Count() == Modes.All.Length
@@ -77,8 +87,10 @@ static partial class Program
         var fakeBlockLate = false;        // ...its block has not put the told values back yet: what the convars say is the mode CS2 brought back (the race)
         const string usageLine = "[CSS] Expected usage: \"!os_mode <mode id>\"."; // CounterStrikeSharp's answer for a plugin whose os_mode takes one argument
         Modes.Mode? fakeTold = null, fakeLoaded = Modes.ArmsRace, fakeLoadsAs = null; // what os_mode said last; the mode the map on loaded in (the convars at its start); a load that ignores its convars
+        string? nextMatchReply = null; // the plugin's answer to os_nextmatch (Fresh: it ends the screen)
         h.Server = command =>
         {
+            if (command.StartsWith(NextMatch.Command + " ", StringComparison.Ordinal)) return nextMatchReply;
             foreach (var part in command.Split(';'))
                 switch (part.Trim().Split(' '))
                 {
@@ -110,6 +122,7 @@ static partial class Program
                 HudActive = () => true; ModeProbeEnabled = false;
                 (gameType, gameMode, statusHumans) = (1, 0, 0); (onOfficial, snapshot) = (true, (1, 0));
                 (fakePlugin, fakeTold, fakeLoaded, fakeLoadsAs, fakeAnswers, fakeBlockLate) = (false, null, Modes.ArmsRace, null, true, false);
+                nextMatchReply = NextMatch.Reply(NextMatch.Result.Set, "the screen ends in 8 s, not 82.0 s (up 4.0 s, game time 900.0)");
             }
             void Settle() => VoteWaitUntil = default; // the 2 minutes after a vote, waived for the tests that are not about them
             void Click((string Name, string Id) p, int n, long? round = null) => HudAct($"{p.Id}\t{p.Name}\t{MapVote.Click(round ?? Ballot?.Round ?? 1, n)}");
@@ -646,7 +659,8 @@ static partial class Program
                 && h.Said("Bob started a vote for the next map"));
             Click(alice, 1); Click(cara, 1); Click(bob, 2);
             Check($"Keep wins once everybody has voted, 2 of 3: no change, the window says so for {MapVote.KeptSeconds} s, everybody still frozen",
-                Ballot is { Open: false, KeptUntil: not null } && Pending is null && S.Map == m[4] && LiveVote() is { Freeze: true, Kept: true } && h.Said("The vote kept"));
+                Ballot is { Open: false, KeptUntil: not null, NextMatch: false } && Pending is null && S.Map == m[4] && LiveVote() is { Freeze: true, Kept: true, NextMatch: false } && h.Said("The vote kept")
+                && !h.Sent.Any(c => c.StartsWith(NextMatch.Command, StringComparison.Ordinal)));
             h.Run(MapVote.KeptSeconds);
             Check("...then the vote is gone and everybody unfreezes at the same moment", Ballot is null && Pending is null && !LiveVote().Freeze);
             ClearNotices(); StartVote(cara.Item1, cara.Item2);
@@ -685,9 +699,45 @@ static partial class Program
             Ask(alice, m[4]); Land();
             h.MatchEnd();
             var again = OptOf(o => o.Source == VoteSource.Keep);
+            h.Quiet();
             Click(alice, again); Click(bob, again); Click(cara, again);
             Check("Play this map again wins at a match end: no change - the server's next match is on the same map (mp_match_end_restart)",
-                Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && h.Said("again") && h.Said("Its next match"));
+                Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && h.Said("again") && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("host_workshop_map")));
+            Check($"...and it starts after the countdown a map change has, not when the match-end screen runs out: the plugin's {NextMatch.Line(ChangeDelay)} ends the screen then, and chat and the board say so",
+                h.Sent.Contains(NextMatch.Line(ChangeDelay)) && Ballot is { NextMatch: true, KeptUntil: { } cutUntil } && cutUntil == h.Clock.AddSeconds(ChangeDelay)
+                && h.Said($"again (3 of 3) - The next match starts in {ChangeDelay} s") && !h.Said("Its next match"));
+            var cutVote = LiveVote();
+            Check("...the window counts it down - Next match in, its bar over the change's seconds - everybody still frozen, and its line says what won",
+                cutVote is { Kept: true, NextMatch: true, NextMatchCounts: true, Freeze: true } && cutVote.DoneSeconds == ChangeDelay && HudVote.Clocks(cutVote) is { IdleKey: "Next match in" } cutClock
+                && cutClock.IdleNum == $"{ChangeDelay} s" && HudVote.DoneLine(cutVote).EndsWith(" again (3 of 3)", StringComparison.Ordinal) && HudVote.DoneKey(cutVote) == "Next match in");
+            Check("...and the match that starts then is no match that has just ended: the 30 s after a match end, which hold a fairness restart and Restart match, end with the countdown",
+                Ballot is { KeptUntil: { } endsAt } && MatchEndUntil == endsAt);
+            h.Run(ChangeDelay - 0.5);
+            Check("...half a second before it, still counting, everybody frozen", Ballot is { NextMatch: true } && LiveVote() is { Freeze: true, NextMatch: true });
+            h.Run(0.6);
+            Check("...then, as the next match starts, the window closes and everybody unfreezes; a join may restart it for fairness, and Restart match may go",
+                Ballot is null && !LiveVote().Freeze && RematchBlocked(h.Clock) == null);
+            Fresh();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            Ask(alice, m[4]); Land();
+            h.MatchEnd();
+            nextMatchReply = $"Unknown command '{NextMatch.Command}'!";
+            again = OptOf(o => o.Source == VoteSource.Keep);
+            h.Quiet();
+            Click(alice, again); Click(bob, again); Click(cara, again);
+            var uncut = LiveVote();
+            Check("...a plugin without the command (5.14.2 and older): the window says Closes in for its 8 s, as it did, and the screen runs out - no word promises a sooner match",
+                h.Sent.Contains(NextMatch.Line(ChangeDelay)) && Ballot is { NextMatch: false, KeptUntil: { } keptUntil } && keptUntil == h.Clock.AddSeconds(MapVote.KeptSeconds) && h.Said("again (3 of 3) - Its next match starts on it")
+                && !h.Said("The next match starts in") && uncut is { Kept: true, NextMatch: false } && HudVote.DoneKey(uncut) == "Closes in" && uncut.DoneSeconds == MapVote.KeptSeconds
+                && HudVote.DoneLine(uncut).EndsWith("again (3 of 3) - Its next match starts on it", StringComparison.Ordinal) && MatchEndUntil > keptUntil);
+            Fresh();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            Ask(alice, m[4]); Land();
+            h.MatchEnd();
+            nextMatchReply = NextMatch.Reply(NextMatch.Result.NotEnded, "game phase 2, nothing moved");
+            again = OptOf(o => o.Source == VoteSource.Keep);
+            Click(alice, again); Click(bob, again); Click(cara, again);
+            Check("...and so does a plugin that finds no match-end screen up: nothing moved, nothing promised", Ballot is { NextMatch: false } && !h.Said("The next match starts in"));
 
             // ---- the vote is dropped by a map start, the maintenance flag, everybody leaving, a restart ----
             Fresh();
