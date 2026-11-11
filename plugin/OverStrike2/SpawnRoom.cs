@@ -10,7 +10,7 @@ namespace OverStrike2;
 /// spawn point count (CCSGameRules.m_iSpawnPointCount_Terrorist and _CT) caps the side, and the bots get "Team is full" - so before every round, and after
 /// every join, each side gets room for one more than it holds: the map's own spawn points that are off switched on, then new ones made beside the ones that
 /// are on, and the game's count raised to what is on. In Wingman only; the other modes are as the maps make them. os_room says, per side, what the map has,
-/// what is on, the game's count and its spawn lists, and who plays; os_room apply makes the room now.</summary>
+/// what is on, the game's count and its spawn lists, and who plays, and the map's deathmatch spawn points; os_room apply makes the room now.</summary>
 sealed class SpawnRoom(BasePlugin plugin, ILogger log, Func<string> modeId)
 {
     public const string Command = "os_room";
@@ -104,6 +104,9 @@ sealed class SpawnRoom(BasePlugin plugin, ILogger log, Func<string> modeId)
                 : ($"{rules.SpawnPointCount_CT}", $"{rules.CTSpawnPoints.Count}", $"{rules.CTSpawnPointsMasterList.Count}");
             lines.Add($"  {name}: {onTeam} on the side; {spots.Count} spawn points, {spots.Count(s => s.Enabled)} on; the game's count {count}, its list {list}, its master list {master}");
         }
+        // the deathmatch spawn points, which random spawning (mp_randomspawn) may take instead of the sides' own
+        var dm = Utilities.FindAllEntitiesByDesignerName<SpawnPoint>("info_deathmatch_spawn").Where(s => s.IsValid).ToList();
+        lines.Add($"  deathmatch: {dm.Count} info_deathmatch_spawn, {dm.Count(s => s.Enabled)} on");
         return string.Join("\n", lines);
     }
 }

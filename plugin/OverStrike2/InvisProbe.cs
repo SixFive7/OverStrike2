@@ -3,6 +3,7 @@ using System.Globalization;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,12 @@ namespace OverStrike2;
 ///   os_probe footsteps &lt;#slot&gt; on | off                                  that player's footstep events logged
 ///   os_probe respawn &lt;account | #slot&gt; [here]                           that player spawned again - a new life, as the game gives one - and with
 ///                                                                     "here" put back where they stood, facing as they faced: a watched spawn, at will
+///   os_probe spawnwatch on | off                                        every spawn of every player, bots too, until a new map: where, how it came
+///                                                                     (after a death, at a round start, or else), and at +0.25, +0.5 and +0.75 s how
+///                                                                     many enemies have the new life spotted (its own m_bSpottedByMask) and how many
+///                                                                     it has spotted (theirs) - every other player in free-for-all. A human the cloak
+///                                                                     hides reads 0 in the first (the cloak clears it). Bare: the totals since on,
+///                                                                     from the +0.5 and +0.75 s looks (+0.25 may still read the life before)
 ///   os_probe status                                                     the watches, the field offsets, every watched player's state now
 ///
 /// Each line says "t=" milliseconds since the plugin loaded and the server tick, so a snap of the view (look) and the spotted state's change
@@ -52,13 +59,22 @@ sealed class InvisProbe(BasePlugin plugin, ILogger log)
     }
 
     readonly Dictionary<int, Watch> watches = new();
+
+    // the spawn watch (os_probe spawnwatch): every spawn's sight at three moments, and the totals per team
+    static readonly double[] SpawnLooks = [0.25, 0.5, 0.75];
+    bool spawnWatch;
+    readonly Dictionary<int, int> lifeOf = new();                       // slot -> its spawn's number: a look at a life that has ended since is dropped
+    readonly Dictionary<int, double> diedAt = new();                    // slot -> when it last died
+    double roundAt = double.NegativeInfinity;                           // the last round start
+    int lives;
+    readonly Dictionary<string, (int Spawns, int Seen, int Sees)> spawnTotals = new();
     readonly Stopwatch clock = Stopwatch.StartNew();
     long transmitTick = -1;
     int faults;
 
     public void Load()
     {
-        plugin.AddCommand(Command, "Over Strike 2 lab probe: place | look | spotted | clearspotted | footsteps | respawn | status (the console only)", OnCommand);
+        plugin.AddCommand(Command, "Over Strike 2 lab probe: place | look | spotted | clearspotted | footsteps | respawn | spawnwatch | status (the console only)", OnCommand);
         plugin.RegisterListener<Listeners.OnTick>(() => Pass("tick"));
         plugin.RegisterListener<Listeners.OnServerPostEntityThink>(() => Pass("think"));
         plugin.RegisterListener<Listeners.CheckTransmit>(_ =>
@@ -68,7 +84,15 @@ sealed class InvisProbe(BasePlugin plugin, ILogger log)
             Pass("transmit");
         });
         plugin.RegisterEventHandler<EventPlayerFootstep>(OnFootstep);
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { if (watches.Count > 0) Log("a new map: every watch ends"); watches.Clear(); });
+        plugin.RegisterListener<Listeners.OnMapStart>(_ =>
+        {
+            if (watches.Count > 0 || spawnWatch) Log("a new map: every watch ends");
+            watches.Clear();
+            spawnWatch = false;
+        });
+        plugin.RegisterEventHandler<EventRoundStart>((_, _) => { roundAt = Server.CurrentTime; return HookResult.Continue; });
+        plugin.RegisterEventHandler<EventPlayerDeath>((ev, _) => { if (ev.Userid is { IsValid: true } p) diedAt[p.Slot] = Server.CurrentTime; return HookResult.Continue; });
+        plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawnWatch);
     }
 
     string Stamp => $"t={clock.ElapsedMilliseconds} ms, tick {Server.TickCount}";
@@ -128,6 +152,59 @@ sealed class InvisProbe(BasePlugin plugin, ILogger log)
         for (var i = 0; i < 32; i++) if ((m1 & (1u << i)) != 0) list.Add($"#{32 + i}");
         return list.Count == 0 ? "nobody" : string.Join(" ", list);
     }
+
+    // ---- the spawn watch ----
+
+    HookResult OnSpawnWatch(EventPlayerSpawn ev, GameEventInfo info)
+    {
+        if (!spawnWatch || ev.Userid is not { IsValid: true, IsHLTV: false } p || p.Team is not (CsTeam.Terrorist or CsTeam.CounterTerrorist)) return HookResult.Continue;
+        var slot = p.Slot;
+        var now = Server.CurrentTime;
+        var how = diedAt.TryGetValue(slot, out var died) && died > roundAt ? "after a death" : now - roundAt < 2 ? "at a round start" : "else (a join, a team change)";
+        var life = lifeOf[slot] = ++lives;
+        var (name, team) = (p.PlayerName, p.Team == CsTeam.Terrorist ? "T" : "CT");
+        Server.NextFrame(() =>
+        {
+            var at = Pawn(slot)?.AbsOrigin;
+            Log($"spawnwatch #{slot} {name} {team} spawned {how}, at {at?.X:0} {at?.Y:0} {at?.Z:0}");
+        });
+        var (seen, sees) = (0, 0);
+        for (var i = 0; i < SpawnLooks.Length; i++)
+        {
+            var (k, last) = (i, i == SpawnLooks.Length - 1);
+            plugin.AddTimer((float)SpawnLooks[k], () =>
+            {
+                if (!spawnWatch || lifeOf.GetValueOrDefault(slot) != life || Pawn(slot) is not { } pawn) return;
+                var (a, b) = Sight(slot, pawn);
+                if (k > 0) (seen, sees) = (Math.Max(seen, a), Math.Max(sees, b)); // the totals from +0.5 s on: the game evaluates about every 0.5 s, so +0.25 may still be the life before
+                Log($"spawnwatch #{slot} {name} {team} +{SpawnLooks[k]:0.00} s: spotted by {a} enem{(a == 1 ? "y" : "ies")}, spots {b}");
+                if (!last) return;
+                var t = spawnTotals.GetValueOrDefault(team);
+                spawnTotals[team] = (t.Spawns + 1, t.Seen + (seen > 0 ? 1 : 0), t.Sees + (sees > 0 ? 1 : 0));
+            }, CounterStrikeSharp.API.Modules.Timers.TimerFlags.STOP_ON_MAPCHANGE);
+        }
+        return HookResult.Continue;
+    }
+
+    /// <summary>A life's sight now: how many enemies have it spotted (bits of its own m_bSpottedByMask), and how many it has spotted (its bit in theirs).</summary>
+    static (int SpottedBy, int Spots) Sight(int slot, CCSPlayerPawn pawn)
+    {
+        var me = Utilities.GetPlayerFromSlot(slot);
+        var ffa = ConVar.Find("mp_teammates_are_enemies")?.GetPrimitiveValue<bool>() == true;
+        bool Enemy(CCSPlayerController o) => o.Slot != slot && o.Team is CsTeam.Terrorist or CsTeam.CounterTerrorist && (ffa || o.Team != me?.Team);
+        var mine = pawn.EntitySpottedState.SpottedByMask;
+        var (by, spots) = (0, 0);
+        foreach (var o in Utilities.GetPlayers().Where(o => o is { IsValid: true, IsHLTV: false } && Enemy(o)))
+        {
+            if (o.Slot / 32 < mine.Length && (mine[o.Slot / 32] & (1u << (o.Slot % 32))) != 0) by++;
+            if (Pawn(o.Slot) is { } theirs && theirs.EntitySpottedState.SpottedByMask is var their && slot / 32 < their.Length && (their[slot / 32] & (1u << (slot % 32))) != 0) spots++;
+        }
+        return (by, spots);
+    }
+
+    string SpawnTotals() =>
+        $"spawnwatch {(spawnWatch ? "on" : "off")}: " + (spawnTotals.Count == 0 ? "no spawn watched"
+            : string.Join("; ", spawnTotals.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key} {kv.Value.Spawns} spawns, {kv.Value.Seen} spotted by an enemy at +0.5 or +0.75 s, {kv.Value.Sees} spotting one")));
 
     HookResult OnFootstep(EventPlayerFootstep ev, GameEventInfo info)
     {
@@ -192,6 +269,17 @@ sealed class InvisProbe(BasePlugin plugin, ILogger log)
                     else w.Steps = on;
                     Forget(who.Slot, w);
                     Reply($"#{who.Slot} {who.PlayerName}: {Arg(1).ToLowerInvariant()} {(on ? "logged" : "no longer logged")}");
+                    return;
+                }
+                case "spawnwatch":
+                {
+                    var verb = Arg(2).ToLowerInvariant();
+                    if (verb is "on" or "off")
+                    {
+                        spawnWatch = verb == "on";
+                        if (spawnWatch) spawnTotals.Clear();
+                    }
+                    Reply(SpawnTotals());
                     return;
                 }
                 case "respawn":
