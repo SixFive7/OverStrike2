@@ -326,7 +326,7 @@ static partial class Program
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panel v4.12.1 retires: v4.12.0's version button, whose place this content's own takes. Every other panel keeps its id.
+                // The panel v4.12.2 retires: v4.12.1's version button, whose place this content's own takes. Every other panel keeps its id.
                 var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
@@ -348,6 +348,10 @@ static partial class Program
                     && Regex.Matches(noTakeBack, @"<Panel class=""os-mlock-line""><Panel class=""os-mlock-fill"" /></Panel><Panel class=""os-pend"" hittest=""false""><Panel class=""os-pend-fill"" /></Panel>").Count == HudMenu.Cards
                     && new[] { ".os-restart.pending .os-pend", ".os-qprev.pending .os-pend", ".os-mcard.pending .os-pend" }.All(r => Regex.IsMatch(css, $@"(?m)^{Regex.Escape(r)}\s*\{{[^}}]*height:\s*3px;[^}}]*opacity:\s*1;"))
                     && Regex.IsMatch(css, @"(?m)^\.os-pend\s*\{[^}]*height:\s*0px;[^}]*opacity:\s*0;") && !Regex.IsMatch(css, @"(?m)^\.os-pend\s*\{[^}]*visibility:\s*collapse;") // resting in the layout, never collapsed (v4.12.1)
+                    && new[] { ".os-qprev", ".os-mcard" }.All(p => Regex.IsMatch(css, $@"(?m)^{Regex.Escape(p)} \.os-pend\s*\{{\s*height:\s*3px;\s*opacity:\s*1;\s*background-color:\s*#FFFFFF01;")
+                        && Regex.IsMatch(css, $@"(?m)^{Regex.Escape(p)}\.pending \.os-pend\s*\{{[^}}]*background-color:\s*#FFFFFF1F;")
+                        && Regex.IsMatch(css, $@"(?m)^{Regex.Escape(p)} \.os-pend-fill\s*\{{\s*background-color:\s*#FFB4A601;")
+                        && Regex.IsMatch(css, $@"(?m)^{Regex.Escape(p)}\.pending \.os-pend-fill\s*\{{\s*background-color:\s*#FFB4A6;")) // a card's and Previous's line stay drawn at rest, clear by their colours (v4.12.2)
                     && Enumerable.Range(0, 11).All(k => Regex.IsMatch(css, $@"(?m)^\.pending\.w{k} \.os-pend-fill\s*\{{\s*transform:\s*scaleX\(\s*{(k / 10.0).ToString(System.Globalization.CultureInfo.InvariantCulture)}\s*\);\s*transition-duration:\s*1s;")
                         && Regex.IsMatch(css, $@"(?m)^\.pending \.os-mplay\.w{k} \.os-pend-fill\s*\{{\s*transform:\s*scaleX\(\s*{(k / 10.0).ToString(System.Globalization.CultureInfo.InvariantCulture)}\s*\);\s*transition-duration:\s*1s;"))
                     && Regex.IsMatch(css, @"(?m)^\.os-pend-fill\s*\{[^}]*transition-duration:\s*0s;")); // the start snaps to its first step: the 0 s of the state it leaves

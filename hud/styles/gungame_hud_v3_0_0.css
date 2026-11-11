@@ -822,12 +822,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 54 up it is newer than this one (v4.12.1), and the banner stays while it is. */
-.os-global.latest-54 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 55 up it is newer than this one (v4.12.2), and the banner stays while it is. */
 .os-global.latest-55 .os-outdated
 {
 	visibility: visible;
@@ -1053,7 +1048,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 52 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 53 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1115,6 +1110,11 @@ Label
 }
 
 .os-global.latest-52 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-53 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -2619,6 +2619,25 @@ Label
 	background-color: #FFFFFF1F;
 }
 
+/* A card's line and Previous's stay drawn while nothing is pending (content v4.12.2): their full 3 px at full opacity, clear by their colours alone, an alpha
+   of 1/255 here and on the fill below. Resting at 0 px and clear, as v4.12.1 had them, a card's fill still kept the place a cancel left it at, and the next
+   countdown grew from there (the live lab's frames, 2026-11-11: from 56 px to 87 of 98 over 0.7 s, as with v4.12.0), while the padlock's line under it,
+   drawn all the time, follows the same card's classes at once. Neither lies in a flow, so the 3 px take no room. The restart buttons' 0 px line comes back
+   full and stays as it is. */
+.os-qprev .os-pend
+{
+	height: 3px;
+	opacity: 1;
+	background-color: #FFFFFF01;
+}
+
+.os-mcard .os-pend
+{
+	height: 3px;
+	opacity: 1;
+	background-color: #FFFFFF01;
+}
+
 .os-restart.pending .os-pend
 {
 	height: 3px;
@@ -2630,12 +2649,14 @@ Label
 {
 	height: 3px;
 	opacity: 1;
+	background-color: #FFFFFF1F;
 }
 
 .os-mcard.pending .os-pend
 {
 	height: 3px;
 	opacity: 1;
+	background-color: #FFFFFF1F;
 }
 
 /* Panorama takes a transition's length from the state it leaves: the steps' 1 s move the line a step at a time, and the 0 s here make a countdown's
@@ -2651,6 +2672,26 @@ Label
 	transition-property: transform;
 	transition-timing-function: linear;
 	transition-duration: 0s;
+}
+
+.os-qprev .os-pend-fill
+{
+	background-color: #FFB4A601;
+}
+
+.os-mcard .os-pend-fill
+{
+	background-color: #FFB4A601;
+}
+
+.os-qprev.pending .os-pend-fill
+{
+	background-color: #FFB4A6;
+}
+
+.os-mcard.pending .os-pend-fill
+{
+	background-color: #FFB4A6;
 }
 
 .pending.w10 .os-pend-fill

@@ -292,7 +292,8 @@ a side its own spawn points take - "3v3", the catalog's `Side` - a recommendatio
 ballot none. **A confirmed action's countdown** (v4.12.0): after the confirming click of Restart the server, Restart the match, Previous and a risky map's Play the
 button itself runs the countdown, lit red, with a line at its foot that drains a second at a time (`pending`, and `w0`-`w10` named for where the line is going,
 `HudVote.CountdownStep`), and a click on it cancels the action. From v4.12.1 the line rests in the layout, 0 px high, while nothing is pending, so a countdown after a
-cancel starts from full too.
+cancel starts from full too; from v4.12.2 a card's line and Previous's stay drawn at rest, at their full 3 px and opacity, clear by their colours alone - at 0 px a
+card's fill still kept the place a cancel left it at.
 
 Ten cards a page; the players' own maps add pages (48 cards at the most). The ballot opens with these (`OpenBallot`, `VoteRound.cs`):
 
