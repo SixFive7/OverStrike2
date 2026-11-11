@@ -822,12 +822,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 53 up it is newer than this one (v4.12.0), and the banner stays while it is. */
-.os-global.latest-53 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 54 up it is newer than this one (v4.12.1), and the banner stays while it is. */
 .os-global.latest-54 .os-outdated
 {
 	visibility: visible;
@@ -1058,7 +1053,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 51 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 52 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1115,6 +1110,11 @@ Label
 }
 
 .os-global.latest-51 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-52 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -2607,33 +2607,35 @@ Label
    at its foot drains with the countdown in steps of a second, w0 ... w10 (HudVote.CountdownStep) - on the same panel for the three buttons, on the Play
    for a card, whose own w-classes are its share of the votes: each names where the line is going a second from now, sent HudVote.BarLeadMs early, so it
    is empty as the action goes, and right within a second for whoever opens the page partway. */
+/* The line rests in the layout while nothing is pending - 0 px high and clear, never collapsed (content v4.12.1): a collapsed panel's style is not
+   worked out, so a fill hidden by a cancel kept the place it had reached, and the next countdown grew from there to its first step (the live lab's
+   frames, 2026-11-11: from 55-60% to 85-90% over 0.7 s, after every cancel). In the layout it goes back to full by its resting rule below. */
 .os-pend
 {
-	visibility: collapse;
 	width: 100%;
-	height: 3px;
+	height: 0px;
 	vertical-align: bottom;
+	opacity: 0;
 	background-color: #FFFFFF1F;
-}
-
-.os-restart .os-pend
-{
-	margin-top: 6px;
 }
 
 .os-restart.pending .os-pend
 {
-	visibility: visible;
+	height: 3px;
+	margin-top: 6px;
+	opacity: 1;
 }
 
 .os-qprev.pending .os-pend
 {
-	visibility: visible;
+	height: 3px;
+	opacity: 1;
 }
 
 .os-mcard.pending .os-pend
 {
-	visibility: visible;
+	height: 3px;
+	opacity: 1;
 }
 
 /* Panorama takes a transition's length from the state it leaves: the steps' 1 s move the line a step at a time, and the 0 s here make a countdown's

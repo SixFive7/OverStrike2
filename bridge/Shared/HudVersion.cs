@@ -35,6 +35,7 @@ public static class HudVersion
         ("v4.10.0", 50), // the match length's row in Deathmatch too (release 197)
         ("v4.11.0", 51), // your own vote on the ballot, Wingman's match length in rounds, a Wingman map that does not fit, the search's typing look and its words
         ("v4.12.0", 52), // no taking a vote back, a confirmed action's countdown in its button with Cancel, Wingman's player count on a card
+        ("v4.12.1", 53), // the countdown's line starts from full after a cancel too: it rests in the layout, 0 px high, never collapsed
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older
@@ -71,7 +72,7 @@ public static class HudVersion
     public static List<(string Id, string Class, bool On)> Classes(int level) => [(HudView.Global, LatestClass(level), true)];
 
     /// <summary>A content's name for its level, as the banner says it: its line in Contents. os_hud level and content also ask for levels no line has. Above the
-    /// last line that is a name no content has, which reads as newer: the last version's next minors (53 is v4.13.0 while v4.12.0 is the last line). Between two lines
+    /// last line that is a name no content has, which reads as newer: the last version's next minors (54 is v4.13.0 while v4.12.1 is the last line). Between two lines
     /// it is the older of them, and below the first line the first.</summary>
     public static string OfLevel(int level)
     {
