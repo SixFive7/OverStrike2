@@ -13,7 +13,8 @@ static partial class Program
         var said = new List<string>(); // this test's own lines, for the capitals below
         var toldAll = ToldAll;
         string? restartReply = "os_restart: the match restarts in 1 s", bareReply = ""; // the plugin's answers to os_restart and to a bare mp_restartgame
-        h.Server = command => rconDown ? null : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
+        var phaseReply = ""; // the plugin's answer to os_phase: none, as from a plugin without it, unless a test says otherwise
+        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
             : command == "status" ? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
             : command == RematchCommand ? restartReply : command == RematchFallback ? bareReply : "";
         try
@@ -27,7 +28,7 @@ static partial class Program
             void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the HUD, on the lists below, Alice and Bob on
             {
                 h.Fresh();
-                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", "");
+                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = "";
                 Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
@@ -226,10 +227,41 @@ static partial class Program
             Twice(alice, "!rematch");
             Check("Refused while a vote is on", voteOpen && h.Said("The vote for the next map is on - It decides first") && RematchDue == null);
             Fresh();
-            MatchEndUntil = h.Clock.AddSeconds(20);
+            h.MatchEnd(); EndBallot("the test's"); // a match end, its vote out of the way: what is left is the screen
             ClearNotices();
             Twice(alice, "!rematch");
-            Check("Refused right after a match's end: the next one starts by itself", h.Said("This match has just ended - The next one starts by itself") && RematchDue == null);
+            Check("Refused right after a match's end, with a plugin that cannot say whether its screen is up (no os_phase): the 30 s after it, as before - the next one starts by itself",
+                h.Said("This match has just ended - The next one starts by itself") && RematchDue == null && h.Sent.Contains(MatchPhase.Command));
+            h.Run(31);
+            ClearNotices(); Twice(alice, "!rematch");
+            Check("...and after those 30 s it goes", RematchDue is { By: "Alice" });
+            Fresh();
+            h.MatchEnd(); EndBallot("the test's");
+            phaseReply = MatchPhase.Reply(MatchPhase.Ended);
+            h.Run(40);
+            ClearNotices(); Twice(alice, "!rematch");
+            Check("The plugin's os_phase says the match-end screen is up: refused, also past the 30 s - a screen the vote did not cut runs 90 s, and the game would ignore the restart",
+                h.Said("This match has just ended - The next one starts by itself") && RematchDue == null && EndScreenAt != null);
+            phaseReply = MatchPhase.Reply(1);
+            ClearNotices(); Twice(alice, "!rematch");
+            Check("...the moment it says the next match is on, Restart match goes, and the screen is asked about no more",
+                RematchDue is { By: "Alice" } && EndScreenAt == null);
+            Fresh();
+            h.MatchEnd(); EndBallot("the test's");
+            phaseReply = MatchPhase.Reply(1);
+            h.Run(12);
+            ClearNotices(); Twice(alice, "!rematch");
+            Check("...also inside the 30 s: a next match 12 s after the end - the screen cut short and everybody back on their side - is no match that has just ended",
+                RematchDue is { By: "Alice" });
+            Fresh();
+            h.MatchEnd(); EndBallot("the test's");
+            phaseReply = MatchPhase.Reply(MatchPhase.Ended);
+            h.Run(EndScreenMostSeconds);
+            ClearNotices(); Twice(alice, "!rematch");
+            Check($"...but a screen is never taken as up past {EndScreenMostSeconds} s after the match end", RematchDue is { By: "Alice" } && EndScreenAt == null);
+            Check("os_phase's replies read back - the phase, or none: no game rules, a plugin without it, no answer",
+                MatchPhase.Read(MatchPhase.Reply(5)) == 5 && MatchPhase.Read(MatchPhase.Reply(1)) == 1 && MatchPhase.Read(MatchPhase.NoRules) == null
+                && MatchPhase.Read($"Unknown command '{MatchPhase.Command}'!") == null && MatchPhase.Read(null) == null && MatchPhase.Read("") == null);
             Fresh();
             Twice(alice, "!rematch");
             h.Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
@@ -324,6 +356,18 @@ static partial class Program
             S.Mode = Modes.WingmanId; S.Map = new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId);
             Fair(bob);
             Check("...in Wingman too, like Arms Race and Deathmatch", RematchDue is { Fair: true, By: "Bob" });
+            Fresh();
+            h.MatchEnd(); EndBallot("the test's");
+            phaseReply = MatchPhase.Reply(1);
+            h.Run(15);
+            Fair(cara);
+            Check("...and in a next match on the same map 15 s after the match end - the screen cut short - a join restarts it: the plugin's os_phase says the match is on",
+                RematchDue is { Fair: true, By: "Cara" });
+            Fresh();
+            h.MatchEnd(); EndBallot("the test's");
+            phaseReply = MatchPhase.Reply(MatchPhase.Ended);
+            Fair(cara);
+            Check("...while a join the plugin asks about with the screen still up restarts nothing", RematchDue == null);
             Fresh();
             Fair(bob);
             Fair(cara);

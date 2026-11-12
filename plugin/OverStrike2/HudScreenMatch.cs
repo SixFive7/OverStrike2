@@ -11,7 +11,7 @@ namespace OverStrike2;
 sealed partial class HudScreen
 {
     /// <summary>CCSGameRules.GamePhase while the match-end screen is up (GAMEPHASE_MATCH_ENDED).</summary>
-    const int MatchEndedPhase = 5;
+    const int MatchEndedPhase = MatchPhase.Ended;
 
     void MatchLoad() => plugin.AddCommand(MatchLength.Command, "Over Strike 2: the match length, for the match that is on too: os_matchlength <minutes, or Wingman's rounds> (the bridge's !time)", OnMatchLengthCommand);
 

@@ -45,7 +45,7 @@ static partial class Program
         S.Map = null; S.PickedBy = null; S.LogName = null; // the restarted server will be on its start map
         EndBallot("the server is restarting"); ModeAtServerStart(); // VoteRound.cs, ModeSwitch.cs: it boots in Arms Race
         RestartGoing(); // Restarts.cs: a restart announced is happening
-        MatchEndUntil = default;
+        MatchEndUntil = default; EndScreenAt = null;
         StartAwaited();
         Save();
     }
@@ -109,7 +109,7 @@ static partial class Program
             Pending = null; LoadPending = false;
             S.LogName = null; // attribution starts over below
         }
-        AllReloading(now); MatchEndUntil = default; RematchDue = null; FairNames.Clear(); FairSentAt = DateTime.MinValue; // fresh map: everyone reconnects into it, and it has a match of its own
+        AllReloading(now); MatchEndUntil = default; EndScreenAt = null; RematchDue = null; FairNames.Clear(); FairSentAt = DateTime.MinValue; // fresh map: everyone reconnects into it, and it has a match of its own
         WhyOpen.Clear(); // Likes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
         if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the plugin say which mode it was told (else the convars)
@@ -185,6 +185,7 @@ static partial class Program
         var now = Now();
         if (now < MatchEndUntil) return;
         MatchEndUntil = now.AddSeconds(30);
+        EndScreenAt = now; // Restarts.cs: no restart of the match while its screen is up
         MatchLengthAtMatchEnd(); // MatchTime.cs: Wingman's next match plays the chosen rounds - a kept map's starts without a load
         if (RestartAtMatchEnd(now)) return; // Restarts.cs: a restart was waiting for this match's end - no vote, the server goes down
         if (Pending != null) { Log($"match end: a change to {Label(Pending.Map)} is already counting down"); return; }

@@ -35,6 +35,7 @@ static partial class Program
     static bool LoadBehindDownload;                // ...and whether the restart watcher reported a background download during it
     static readonly Dictionary<string, (string Key, DateTime Until)> PickConfirms = new(); // SteamID -> the risky map it clicked once, and until when the second click counts
     static DateTime MatchEndUntil;                 // debounce: one match end is one decision, however many lines the server logs for it
+    static DateTime? EndScreenAt;                  // the last match end, while its match-end screen may still be up (Restarts.cs, EndScreenUp)
     static readonly Random Dice = new();
     static Timer? Clock;                           // drives Tick once a second; held here so it is never collected
 

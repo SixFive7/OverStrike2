@@ -260,15 +260,34 @@ static partial class Program
     }
 
     /// <summary>Why no restart of the match may go now, whoever asks - a player's Restart match or the fairness restart: the server is about to go down, the map
-    /// is about to change or a vote is deciding that, or the match has just ended by itself. Null: it may.</summary>
+    /// is about to change or a vote is deciding that, or the match has ended and its screen is still up (EndScreenUp). Null: it may.</summary>
     static string? RematchBlocked(DateTime now)
     {
         if (RestartDue is { GoesAt: { } at } && at > now.AddSeconds(-RestartStaleMinutes * 60)) return $"The server restarts {(at > now ? $"in {LeftWords(at, now)}" : "now")} - No restart of the match";
         if (Pending is { } p) return $"Already changing to {Clip(Label(p.Map), 40)} - Wait for it";
         if (LoadPending) return "The next map is still loading - Wait for it";
         if (Ballot != null) return "The vote for the next map is on - It decides first";
-        if (now < MatchEndUntil) return "This match has just ended - The next one starts by itself";
+        if (EndScreenUp(now)) return "This match has just ended - The next one starts by itself";
         return null;
+    }
+
+    /// <summary>A match-end screen is never up longer than this: the cfgs' 90 s and a margin.</summary>
+    public const int EndScreenMostSeconds = 150;
+
+    /// <summary>The match-end screen is up - the game ignores a restart of the match then: from a match end until the game leaves it, as the plugin's os_phase
+    /// says when asked (MatchPhase.cs) - 8 s after the vote played the map again (NextMatch.cs), or after the screen's full 90 s - and never past
+    /// EndScreenMostSeconds. A plugin that cannot say (5.15.1 and older) or no answer: the 30 s after the match end (MatchEndUntil), as before, which the
+    /// vote's cut ends at its countdown's end (CloseBallot).</summary>
+    static bool EndScreenUp(DateTime now)
+    {
+        if (EndScreenAt is not { } at) return false;
+        if (now >= at.AddSeconds(EndScreenMostSeconds)) { EndScreenAt = null; return false; }
+        var reply = Send(MatchPhase.Command);
+        if (MatchPhase.Read(reply) is not { } phase) return now < MatchEndUntil;
+        if (phase == MatchPhase.Ended) return true;
+        EndScreenAt = null;
+        Log($"match end: the next match is on, {(now - at).TotalSeconds:0} s after the end - {MatchPhase.Command} -> {reply}");
+        return false;
     }
 
     /// <summary>!rematch: the match starts over, 10 s after the second click, naming who pressed it. Refused while something else decides what comes next (RematchRefusal); a vote cannot be

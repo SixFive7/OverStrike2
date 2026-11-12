@@ -24,7 +24,7 @@ static partial class Program
         // what the bridge keeps (state.json, votes.json), and who is on
         S = new State(); Likes = new(); Players.Clear(); PickConfirms.Clear(); HudSeen.Clear(); WhyOpen.Clear(); RefusedSaid.Clear();
         // the map change, the vote, the server's life, the crash watch, the empty server, the modes, the restarts
-        Pending = null; LoadPending = false; LoadUntil = default; LoadSentAt = default; LoadBehindDownload = false; MatchEndUntil = default;
+        Pending = null; LoadPending = false; LoadUntil = default; LoadSentAt = default; LoadBehindDownload = false; MatchEndUntil = default; EndScreenAt = null;
         Ballot = null; LastRound = 0; VoteWaitUntil = default;
         StartRollOwed = false; StartRollNeedsProof = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default; MaintenanceOn = false;
         ResetCrashWatch(); BeforeQuit = null; enteredOnThisMap.Clear(); timedOutOnThisMap.Clear();

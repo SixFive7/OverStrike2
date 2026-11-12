@@ -25,6 +25,15 @@ sealed partial class HudScreen
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { PutDelayBack("the next match's round has started"); return HookResult.Continue; });
         plugin.RegisterEventHandler<EventServerCvar>(OnServerCvar, HookMode.Pre);
         plugin.RegisterListener<Listeners.OnMapStart>(_ => { delayBack = null; cutSeq++; }); // the new map's cfg has set its own delay: nothing to put back, no check to make
+        plugin.AddCommand(MatchPhase.Command, "Over Strike 2: the game's phase - 5 while the match-end screen is up (the bridge's, before a restart of the match)", OnPhaseCommand);
+    }
+
+    /// <summary>os_phase: the game rules' phase, for the bridge (../../bridge/Shared/MatchPhase.cs). Not logged: the bridge asks at every press while a match's end is fresh.</summary>
+    void OnPhaseCommand(CCSPlayerController? caller, CommandInfo command)
+    {
+        if (caller != null) return; // the server console and RCON only
+        command.ReplyToCommand(Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault() is { IsValid: true, GameRules: { } rules }
+            ? MatchPhase.Reply(rules.GamePhase) : MatchPhase.NoRules);
     }
 
     void OnNextMatchCommand(CCSPlayerController? caller, CommandInfo command)
