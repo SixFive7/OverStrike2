@@ -101,9 +101,11 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     // Metamod:Source 2.0 dev build 1483: SourceHook API 18 and KHook, which CounterStrikeSharp 1.0.375+ and MultiAddonManager 1.6+ need
     // (1411 and older: API 17; 1460 segfaults on current CS2). Bump with CounterStrikeSharp.
     public const string MetamodVersion = "2.0.0-git1483";
-    // CounterStrikeSharp with its .NET runtime (Linux): schema 1.41.9.3, ConVar<T>, the client-authorization engine calls fixed (s2sdk's
-    // IVEngineServer2 slot fix); 1.0.374's library asked for an executable stack, 1.0.375 and later do not.
-    public const string CssVersion = "1.0.379";
+    // CounterStrikeSharp with its .NET runtime (Linux): ConVar<T>, the client-authorization engine calls fixed (s2sdk's IVEngineServer2
+    // slot fix); 1.0.374's library asked for an executable stack, 1.0.375 and later do not. 1.0.380 is its fix for CS2 1.41.9.7 (build 14197),
+    // the SDK's net messages as plain records: 1.0.379 segfaults at every map change on that build. Its managed API only adds to 1.0.379's, so the
+    // plugin, built against 1.0.379, loads and runs on it until the 1.0.380 package is published.
+    public const string CssVersion = "1.0.380";
     // MultiAddonManager, the SteamRT4 build for the image's runtime: hands the HUD's Workshop addon to every client; reads the server's addon
     // string and client list through the SDK; tracks the Workshop map when a level really loads, also after a ChangeLevel.
     public const string MamVersion = "1.7.3";
