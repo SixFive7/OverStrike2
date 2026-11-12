@@ -107,8 +107,9 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     // plugin, built against 1.0.379, loads and runs on it until the 1.0.380 package is published.
     public const string CssVersion = "1.0.380";
     // MultiAddonManager, the SteamRT4 build for the image's runtime: hands the HUD's Workshop addon to every client; reads the server's addon
-    // string and client list through the SDK; tracks the Workshop map when a level really loads, also after a ChangeLevel.
-    public const string MamVersion = "1.7.3";
+    // string and client list through the SDK; tracks the Workshop map when a level really loads, also after a ChangeLevel. 1.7.4 is its fix for
+    // CS2 1.41.9.7 (build 14197): 1.7.3 does not load on that build, and its main before the fix crashed the server at any client connect.
+    public const string MamVersion = "1.7.4";
 
     public static string MetamodUrl => $"https://github.com/alliedmodders/metamod-source/releases/download/{ReplaceFirst(MetamodVersion, "-git", ".")}/mmsource-{MetamodVersion}-linux.tar.gz";
     public static string CssUrl => $"https://github.com/roflmuffin/CounterStrikeSharp/releases/download/v{CssVersion}/counterstrikesharp-with-runtime-linux-{CssVersion}.zip";
