@@ -215,6 +215,19 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(!map.ScreenUp && map.Count == 0 && !map.TeamChanged(Ann, U), "teams: a map start - the vote's change - ends the screen with nothing to put back");
     map.MatchEnded([(Ann, T)]);
     Check(map.ScreenUp && map.Count == 1, "teams: ...and the next match end takes its snapshot as ever");
+    var instant = new TeamKeepPlan();
+    instant.MatchEnded([(Ann, T), (Ben, CT)]);
+    Check(instant.Kept(Ann) && !instant.Kept(Cas) && instant.TeamChanged(Ann, U) && instant.Back(Ann) == T && !instant.Kept(Ann) && instant.Back(Ann) == 0
+          && instant.Kept(Ben) && instant.Back(Ben) == CT,
+        "teams: the instant form - each kept human back the moment the game moves them, their snapshot taken out so the pass after it leaves them be");
+    Check(instant.Pass(new Dictionary<ulong, int> { [Ann] = U, [Ben] = U }).Count == 0 && !instant.ScreenUp && !instant.Kept(Ben) && instant.Back(Ben) == 0,
+        "teams: ...and the pass after it finds nobody left to put back; outside a screen nobody is kept");
+    var keepRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
+    var keepFile = Path.Combine(keepRoot, "plugin", "OverStrike2", "TeamKeep.cs");
+    var keepSource = File.Exists(keepFile) ? File.ReadAllText(keepFile) : "";
+    Check(keepSource.Contains("When when = When.SameFrame;", StringComparison.Ordinal) && keepSource.Contains("bool on = true, quiet, close;", StringComparison.Ordinal)
+          && !keepSource.Contains("ExecuteClientCommandFromServer", StringComparison.Ordinal),
+        "teams: as shipped - on, the pass in the same frame as the game's moves, quiet and close off (the live lab's), and no jointeam form: run on the server, it stranded the player");
 }
 
 // ---- the spawn cloak (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn hides its player; leaving it, an attack and a vote

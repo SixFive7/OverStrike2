@@ -296,11 +296,18 @@ such a screen with a reset of its own: it moves every human to Unassigned, kicks
 they picked a side again, the first pick setting off a second start. No convar keeps the sides (`sv_disable_teamselect_menu` leaves players Unassigned without a
 menu, `mp_force_pick_time` assigns nobody, `sv_human_autojoin_team` and `mp_humanteam` put everybody on one side), and the game ignores a restart while the screen is
 up. So at the match end the plugin notes the side of every human on T or CT - a switch to the other side during the screen moves it with them, spectating or
-leaving drops it - and when the game moves them to Unassigned it puts each of them back, a frame later and all in one pass (the game's `ChangeTeam`, the larger side
-first, then turn about), so the start the first of them sets off finds all of them on a side; the bots come back with them. Somebody who joined during the screen
-picks a side at the team select as ever. They are no joins for the fairness restart: no map starts, so the map's record of who joined stays. `os_keepteams` says
-where it stands; `os_keepteams change|jointeam|off`, the live lab's, sets how the pass puts players back - `ChangeTeam`, or each player's own `jointeam` run on the
-server - or switches it off until the plugin loads again.
+leaving drops it - and when the game moves them to Unassigned it puts each of them back, all in one pass (the game's `ChangeTeam`, the larger side first, then turn
+about), so the start the first of them sets off finds all of them on a side; the bots come back with them. Somebody who joined during the screen picks a side at the
+team select as ever. They are no joins for the fairness restart: no map starts, so the map's record of who joined stays.
+
+The pass goes in the frame the game moved them, after the entities' think (a frame later only if that look never came; the log says which). A frame later, as in
+plugin 5.16.0, left CS2's team menu open over the player in Arms Race and Deathmatch - alive on their side behind it - from the reset on: their reset waits for a
+first player, while Wingman's starts the next match at once and showed no menu. `os_keepteams` says where it stands; the live lab's settings, until the plugin
+loads again: `on`/`off`; `when sameframe|instant|nextframe` - instant puts each player back inside the game's own move; `quiet on|off` keeps the game's team menu
+message (`CCSUsrMsg_VGUIMenu`, name `team`) from the players being put back, from the match end until 3 s after the pass - everybody else gets it as ever, and one the
+pass could not put back gets it a second later; `close on|off` sends each player put back that message with show off. The message's id is found by name when quiet
+or close goes on and logged (the proto's 301 if the name finds nothing). The `jointeam` form is gone: run on the server, the game ignored it and left the player at
+the team select.
 
 ### The ballot
 

@@ -57,6 +57,13 @@ public sealed class TeamKeepPlan
     /// <summary>A human left for real: nothing of theirs to put back.</summary>
     public void Left(ulong id) => sides.Remove(id);
 
+    /// <summary>This human has a snapshot: the screen is up, and the pass would put them back.</summary>
+    public bool Kept(ulong id) => screen && sides.ContainsKey(id);
+
+    /// <summary>The instant form: the side to put this human back on now, as the game moves them to Unassigned - their snapshot taken out, so the pass
+    /// that follows leaves them be. 0: none (no screen, no snapshot).</summary>
+    public int Back(ulong id) => screen && sides.Remove(id, out var team) ? team : 0;
+
     /// <summary>A new map: no screen, nothing to put back - the screen ended in a map change, or a vote's change came during it.</summary>
     public void MapStarted()
     {
