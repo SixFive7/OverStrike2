@@ -142,6 +142,14 @@ static class PublishTests
               texts3.ContainsKey("search.json") && Node.Eq(O(texts3["search.json"]), O("{\"111\": \"a 111\", \"222\": \"b 222\", \"7\": \"q 7 deathmatch red walls\"}")) && texts3.Keys.SequenceEqual(["search.json"]));
         files3.Search = O(texts3["search.json"]);
         Check("publish: ...and then there is nothing to write", PublishPlan.Of(files3, st, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
+        // a map that had its text from a mode list (a Deathmatch map, say) and is now an Arms Race pass too keeps that text: the new listing must not
+        // rewrite it, or the merge check refuses the whole publish ("search.json: an existing text changed")
+        var fo = Files(maps, broken, "[]", "[]", "{\"111\": \"a 111\", \"222\": \"b 222\", \"902\": \"old 902 deathmatch\"}");
+        var (to, _) = PublishPlan.Of(fo, st, Outcomes(), [], true, details);
+        Check("publish: a new Arms Race listing that a mode list gave a text keeps that text, and the merge check passes",
+              A(to["maps.json"]).Any(e => Node.Int(e!["id"]) == 902) && Node.Str(O(to["search.json"])["902"]) == "old 902 deathmatch"
+              && Node.Str(O(to["search.json"])["901"]).Length > 0
+              && PublishPlan.MergeProblems("search.json", Encoding.UTF8.GetBytes(Node.File(fo.Search!, 0)), to["search.json"]).Count == 0);
     }
 
     // ---- the merge check: a publish only ever adds to the live files

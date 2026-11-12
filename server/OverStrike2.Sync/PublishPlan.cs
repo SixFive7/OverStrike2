@@ -175,7 +175,8 @@ public static class PublishPlan
             maps.Add(entry);
             listed[o.Id] = entry;
             S("listed").Add(Node.Array(o.Id, rankNow, entry["name"], entry["sizeMb"]));
-            if (search is not null)
+            // a map a mode list gave its text before it became an Arms Race listing keeps that text: a publish never rewrites one (MergeProblems)
+            if (search is not null && !search.ContainsKey(o.Id))
                 search[o.Id] = SearchBlob(Node.Str(entry["name"]), o.Id, Node.StrList(o.Rec["tags"]), Node.StrOr(o.Rec["description"]));
         }
         if (newAr.Count > 0)
