@@ -75,7 +75,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
 
     /// <summary>A map change disconnects everybody (NETWORK_DISCONNECT_SHUTDOWN and the loop's own reasons), and the HUD addon's download makes a joining game
     /// reconnect (LOOPSHUTDOWN): neither is leaving. Any other reason is.</summary>
-    internal static bool Reconnect(int reason)
+    static bool Reconnect(int reason)
     {
         var name = Enum.IsDefined(typeof(NetworkDisconnectionReason), reason) ? ((NetworkDisconnectionReason)reason).ToString() : "";
         return name.Contains("SHUTDOWN", StringComparison.Ordinal) || name.StartsWith("NETWORK_DISCONNECT_LOOP", StringComparison.Ordinal);

@@ -287,27 +287,11 @@ plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Share
 `m_flIntermissionStartTime`) plus `mp_match_restart_delay`, read as it goes - `m_flIntermissionEndTime` passes about 10 s into the screen and ends nothing - so the
 plugin sets the delay to the time the screen has been up plus the countdown, and puts the value it had back once the next match's round has started (2 s after the
 new end at the latest; a map change drops it, since the new map's cfg sets its own). CS2's own countdown on the screen follows it. There the game starts the next
-match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows. 2 s
-after the new end the plugin logs whether the next match did start. A plugin without the command, or a screen that ends sooner by itself, leaves it as it was: the
-window says "Closes in" for 8 s, and the screen runs out.
-
-**Everybody stays on their side** when a match-end screen runs out on the same map, cut short or after its 90 s (`TeamKeep.cs`, `TeamKeepPlan.cs`). The game ends
-such a screen with a reset of its own: it moves every human to Unassigned, kicks the bots and resets the match, and each player would sit at the team select until
-they picked a side again, the first pick setting off a second start. No convar keeps the sides (`sv_disable_teamselect_menu` leaves players Unassigned without a
-menu, `mp_force_pick_time` assigns nobody, `sv_human_autojoin_team` and `mp_humanteam` put everybody on one side), and the game ignores a restart while the screen is
-up. So at the match end the plugin notes the side of every human on T or CT - a switch to the other side during the screen moves it with them, spectating or
-leaving drops it - and when the game moves them to Unassigned it puts each of them back, all in one pass (the game's `ChangeTeam`, the larger side first, then turn
-about), so the start the first of them sets off finds all of them on a side; the bots come back with them. Somebody who joined during the screen picks a side at the
-team select as ever. They are no joins for the fairness restart: no map starts, so the map's record of who joined stays.
-
-The pass goes in the frame the game moved them, after the entities' think (a frame later only if that look never came; the log says which). A frame later, as in
-plugin 5.16.0, left CS2's team menu open over the player in Arms Race and Deathmatch - alive on their side behind it - from the reset on: their reset waits for a
-first player, while Wingman's starts the next match at once and showed no menu. `os_keepteams` says where it stands; the live lab's settings, until the plugin
-loads again: `on`/`off`; `when sameframe|instant|nextframe` - instant puts each player back inside the game's own move; `quiet on|off` keeps the game's team menu
-message (`CCSUsrMsg_VGUIMenu`, name `team`) from the players being put back, from the match end until 3 s after the pass - everybody else gets it as ever, and one the
-pass could not put back gets it a second later; `close on|off` sends each player put back that message with show off. The message's id is found by name when quiet
-or close goes on and logged (the proto's 301 if the name finds nothing). The `jointeam` form is gone: run on the server, the game ignored it and left the player at
-the team select.
+match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows. As at
+any such end, CS2 moves every player to Unassigned and kicks the bots: everybody picks a side again at CS2's team select - a play of the same map again is often
+for other teams - and the bots come back with the first pick. A player who picks a side again is no join for the fairness restart: no map starts, so the map's
+record of who joined stays. 2 s after the new end the plugin logs whether the next match did start. A plugin without the command, or a screen that ends sooner by
+itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out.
 
 ### The ballot
 
@@ -381,7 +365,7 @@ Anybody may change the length and press the two restarts, on the Game page or in
   down folds into it - one restart, at the same moment, and the banner and a line name them all: "Bob and Cas are in", "Bob, Cas, Dee and 2 more are in" - and so does a join
   in the 3 s after it went out, or while a player's Restart match counts down: each starts the newcomer over too. None while a vote is on, a map change counts down or loads,
   the server's restart counts down or the match-end screen is up (`os_phase`, as for Restart match: a next match on the same map takes its joins the moment it is on); the
-  minute a player's Restart match waits after a restart does not hold it. Players the plugin puts back on their sides after a match-end screen are no joins. It starts no such minute
+  minute a player's Restart match waits after a restart does not hold it. Players who pick a side again after a match-end screen on the same map are no joins. It starts no such minute
   itself: a player's Restart match may go right after it - only a pressed one makes the next wait 60 s. In Wingman a player who comes in within 30 s of a round's
   start, after the 60 s too, still plays it (its cfg's `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map
   stands, and `os_fair live`, the client harness's, starts the match running then and counts the next join as joining somebody, so a lone test game's spawn asks.

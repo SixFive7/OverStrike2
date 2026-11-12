@@ -251,7 +251,7 @@ static partial class Program
             phaseReply = MatchPhase.Reply(1);
             h.Run(12);
             ClearNotices(); Twice(alice, "!rematch");
-            Check("...also inside the 30 s: a next match 12 s after the end - the screen cut short and everybody back on their side - is no match that has just ended",
+            Check("...also inside the 30 s: a next match 12 s after the end - the screen cut short - is no match that has just ended",
                 RematchDue is { By: "Alice" });
             Fresh();
             h.MatchEnd(); EndBallot("the test's");

@@ -50,11 +50,11 @@ static partial class Program
         plan.Spawned(Ann, At(10), 0);
         plan.Spawned(Ben, At(20), 1);
         plan.MatchStarted(At(26), 2); // the fairness restart for Ben
-        // The match ends, and its screen runs out on the same map: the game moves Ann and Ben to Unassigned, the plugin puts them back on their sides
-        // (TeamKeep.cs), and the game's start finds both on a side. No map started: the map's record of who joined stays.
-        plan.MatchStarted(At(700), 2);
-        Check("Fairness: players put back on their sides after a match-end screen ran out on the same map are no joins - no map start, so the record of who joined stays",
-            !plan.Spawned(Ann, At(700), 1) && !plan.Spawned(Ben, At(700), 1) && plan.Running(At(710)) == 10);
+        // The match ends, and its screen runs out on the same map: CS2 moves Ann and Ben to Unassigned, and they pick their sides again at its team select -
+        // Ann first, whose pick starts the next match. No map started: the map's record of who joined stays.
+        plan.MatchStarted(At(700), 1);
+        Check("Fairness: players who pick a side again after a match-end screen ran out on the same map are no joins - no map start, so the record of who joined stays",
+            !plan.Spawned(Ann, At(700), 0) && !plan.Spawned(Ben, At(704), 1) && plan.Running(At(710)) == 10);
         Check("...while somebody who joined during that screen, and picks a side in the new match's first minute, is a join: the match restarts for them",
             plan.Spawned(Cas, At(730), 2));
         plan = Map();

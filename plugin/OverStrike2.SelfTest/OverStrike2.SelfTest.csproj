@@ -45,8 +45,6 @@
     <Compile Include="..\OverStrike2\ModePlan.cs" Link="ModePlan.cs" />
     <!-- Who may restart the game: our own Restart match and os_restart, never a map; and the loop of restarts we did not cause. -->
     <Compile Include="..\OverStrike2\RestartGuard.cs" Link="RestartGuard.cs" />
-    <!-- Everybody back on their side after a match-end screen ran out on the same map: the snapshot, the switches during the screen, the pass and its order. -->
-    <Compile Include="..\OverStrike2\TeamKeepPlan.cs" Link="TeamKeepPlan.cs" />
     <!-- The line to the bridge: no vote, pick or HUD check's click is dropped while it is full - it waits, one a player and kind - on a handed POST and clock. -->
     <Compile Include="..\OverStrike2\BridgeLink.cs" Link="BridgeLink.cs" />
     <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />

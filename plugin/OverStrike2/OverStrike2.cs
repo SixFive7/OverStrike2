@@ -17,7 +17,7 @@ namespace OverStrike2;
 /// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "5.16.1";
+    public const string Version = "5.16.2";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";
@@ -87,8 +87,6 @@ public class OverStrike2Plugin : BasePlugin
         // The fairness restart (EarlyJoinWatch.cs): every player who joins a match in its first minute while somebody else plays it starts it over, in every mode,
         // through the bridge's Restart match - a join while one counts down folds into it.
         new EarlyJoinWatch(this, Logger, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);
-        // Everybody stays on their side when a match-end screen runs out on the same map (TeamKeep.cs): the game moves them all to Unassigned, the plugin puts them back.
-        new TeamKeep(this, Logger).Load();
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // Vampire heals only from enemies, by catch-up's rule of who is one; takes only what catch-up's lifesteal leaves of the half a hit may

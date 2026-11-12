@@ -177,59 +177,6 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(SpawnRoomPlan.Plan([], 1).Add.Count == 0, "spawn room: a side with no spawn point at all gets none made (nowhere to put it)");
 }
 
-// ---- everybody back on their side after a match-end screen ran out on the same map (TeamKeepPlan.cs): the game moves every human to Unassigned and
-// resets the match; the plugin puts back each one who was on a side at the match end ----
-{
-    const ulong Ann = 101, Ben = 102, Cas = 103, Dee = 104, Eve = 105;
-    const int T = TeamKeepPlan.Terrorist, CT = TeamKeepPlan.CounterTerrorist, U = TeamKeepPlan.Unassigned, S = TeamKeepPlan.Spectator;
-    var keep = new TeamKeepPlan();
-    Check(!keep.TeamChanged(Ann, U) && !keep.ScreenUp, "teams: outside a match-end screen a move to Unassigned is nothing - no snapshot, no pass");
-    keep.MatchEnded([(Ann, T), (Ben, CT), (Cas, T), (0, CT), (Dee, S)]);
-    Check(keep.ScreenUp && keep.Count == 3, "teams: the match end's snapshot: the humans on T or CT - no bot (no SteamID), nobody spectating");
-    keep.MatchEnded([(Ann, CT), (Eve, T)]);
-    Check(keep.Count == 3, "teams: ...one snapshot a screen: the end's other words (win panel, intermission, round end) change nothing");
-    Check(!keep.TeamChanged(Cas, CT) && !keep.TeamChanged(Ben, S) && keep.Count == 2, "teams: during the screen a switch to the other side moves the snapshot, spectating drops it");
-    Check(!keep.TeamChanged(Eve, T) && !keep.TeamChanged(Eve, U) && keep.Count == 2, "teams: somebody who joined during the screen has no snapshot: their picks and moves change nothing - they keep the game's team select");
-    keep.Left(Cas);
-    Check(keep.Count == 1, "teams: a real departure drops the snapshot");
-
-    var plan2 = new TeamKeepPlan();
-    plan2.MatchEnded([(Ann, T), (Ben, CT), (Cas, T), (Dee, CT), (Eve, T)]);
-    Check(plan2.TeamChanged(Ann, U) && !plan2.TeamChanged(Ben, U) && !plan2.TeamChanged(Cas, U), "teams: the first move of a kept human to Unassigned is the game closing the screen: the pass is due, once");
-    var now = new Dictionary<ulong, int> { [Ann] = U, [Ben] = U, [Cas] = U, [Dee] = U, [Eve] = CT, [999] = U };
-    var order = plan2.Pass(now);
-    Check(order.SequenceEqual([(Ann, T), (Ben, CT), (Cas, T), (Dee, CT)]),
-        "teams: the pass puts back every kept human on Unassigned - not Eve, who picked a side already, nor somebody never kept - the larger side first, then turn about");
-    var sides = 0;
-    var ahead = order.Select(o => sides += o.Team == T ? 1 : -1).ToList();
-    Check(ahead.All(d => Math.Abs(d) <= 1), "teams: ...so no side is ever two ahead (mp_limitteams 1)");
-    Check(!plan2.ScreenUp && plan2.Count == 0 && plan2.Pass(now).Count == 0 && !plan2.TeamChanged(Ann, U), "teams: after the pass the screen is over: nothing kept, nothing due");
-    var three = new TeamKeepPlan();
-    three.MatchEnded([(Ann, CT), (Ben, CT), (Cas, T)]);
-    three.TeamChanged(Ann, U);
-    Check(three.Pass(new Dictionary<ulong, int> { [Ann] = U, [Ben] = U, [Cas] = U }).SequenceEqual([(Ann, CT), (Cas, T), (Ben, CT)]),
-        "teams: two CTs and a T: CT, T, CT - the larger side first");
-    var map = new TeamKeepPlan();
-    map.MatchEnded([(Ann, T)]);
-    map.MapStarted();
-    Check(!map.ScreenUp && map.Count == 0 && !map.TeamChanged(Ann, U), "teams: a map start - the vote's change - ends the screen with nothing to put back");
-    map.MatchEnded([(Ann, T)]);
-    Check(map.ScreenUp && map.Count == 1, "teams: ...and the next match end takes its snapshot as ever");
-    var instant = new TeamKeepPlan();
-    instant.MatchEnded([(Ann, T), (Ben, CT)]);
-    Check(instant.Kept(Ann) && !instant.Kept(Cas) && instant.TeamChanged(Ann, U) && instant.Back(Ann) == T && !instant.Kept(Ann) && instant.Back(Ann) == 0
-          && instant.Kept(Ben) && instant.Back(Ben) == CT,
-        "teams: the instant form - each kept human back the moment the game moves them, their snapshot taken out so the pass after it leaves them be");
-    Check(instant.Pass(new Dictionary<ulong, int> { [Ann] = U, [Ben] = U }).Count == 0 && !instant.ScreenUp && !instant.Kept(Ben) && instant.Back(Ben) == 0,
-        "teams: ...and the pass after it finds nobody left to put back; outside a screen nobody is kept");
-    var keepRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
-    var keepFile = Path.Combine(keepRoot, "plugin", "OverStrike2", "TeamKeep.cs");
-    var keepSource = File.Exists(keepFile) ? File.ReadAllText(keepFile) : "";
-    Check(keepSource.Contains("When when = When.SameFrame;", StringComparison.Ordinal) && keepSource.Contains("bool on = true, quiet, close;", StringComparison.Ordinal)
-          && !keepSource.Contains("ExecuteClientCommandFromServer", StringComparison.Ordinal),
-        "teams: as shipped - on, the pass in the same frame as the game's moves, quiet and close off (the live lab's), and no jointeam form: run on the server, it stranded the player");
-}
-
 // ---- the spawn cloak (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn hides its player; leaving it, an attack and a vote
 // freeze's start or end spend the cloak for the rest of the life ----
 {
