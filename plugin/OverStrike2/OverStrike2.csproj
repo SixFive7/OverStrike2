@@ -9,7 +9,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- CounterStrikeSharp 1.0.379 marks the ConVar class obsolete in favour of ConVar<T> (#935); it still works, unchanged. The settings
+    <!-- CounterStrikeSharp marks the ConVar class obsolete in favour of ConVar<T> (#935, 1.0.379 and 1.0.380); it still works, unchanged. The settings
          module finds and writes the game's own convars by name through it, so the warning is off until the move to ConVar<T>. -->
     <NoWarn>$(NoWarn);CS0618</NoWarn>
   </PropertyGroup>
@@ -17,7 +17,7 @@
   <ItemGroup>
     <!-- Pinned to the CounterStrikeSharp release os2-server installs (server/OverStrike2.Server/Install.cs). 1.0.376 is the first that keeps per-player HUD text after
          a join (#1434). -->
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.379" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.380" />
     <!-- The logic and the words live with the bridge, which tests them in its selftest: every file of bridge/Shared/, compiled in here as source. -->
     <Compile Include="..\..\bridge\Shared\*.cs" LinkBase="Shared" />
     <!-- The settings file: core's reader, compiled in as source like the bridge's files (no second DLL beside the plugin). -->

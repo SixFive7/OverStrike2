@@ -16,7 +16,7 @@ namespace OverStrike2;
 ///   - shooting: the next primary and secondary attack tick of every weapon a pawn carries stays HoldTicks ahead of the server's tick - a bot
 ///     cannot fire either - and is put back to the current tick when everybody is freed;
 ///   - damage: the player damage hook (Listeners.OnPlayerTakeDamagePre) answers Stop, so no hit, fall, fire or grenade thrown before the
-///     freeze hurts anybody. Registered first, before the bots' guard (BotGuard) and catch-up's hook: CounterStrikeSharp 1.0.379 calls the hooks in
+///     freeze hurts anybody. Registered first, before the bots' guard (BotGuard) and catch-up's hook: CounterStrikeSharp 1.0.380 (as 1.0.379) calls the hooks in
 ///     the order registered and returns at the first Stop, so neither of them sees a hit the freeze refused - catch-up spends no second chance and
 ///     ends no spawn protection on one. Handled, as it answered before, refused the hit too, but let the hooks after it run.
 ///

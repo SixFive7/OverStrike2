@@ -11,7 +11,7 @@ namespace OverStrike2;
 /// stored apart from vprof_think_limit). A convar whose name a build puts together at run time would be missed until convars.txt names it;
 /// there are none today.
 ///
-/// Why not the engine's own list (read on the same build, with CounterStrikeSharp 1.0.379, which has no native or API that lists convars):
+/// Why not the engine's own list (read on the same build, with CounterStrikeSharp 1.0.379; 1.0.380 has no native or API that lists convars either):
 ///   - Walking its access indexes (new ConVar(i), NativeAPI.IsConvarValid): CCvar::GetConVarData has no bounds check and the count is not
 ///     exposed, so an index past the end takes whatever follows on the heap for a pointer, and CounterStrikeSharp follows it.
 ///   - ICvar::FindFirstConVar and FindNextConVar (VEngineCvar007) by virtual call: two slots of a table this plugin would have to hard-code.

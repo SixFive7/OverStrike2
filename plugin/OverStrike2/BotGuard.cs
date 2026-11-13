@@ -13,7 +13,7 @@ namespace OverStrike2;
 ///     attack in that hide (CloakShield, CloakPlan.cs): a shot, a throw or a hit on somebody else ends it, though not the hide, so nobody hidden fights the
 ///     bots without the bots fighting back.
 /// A player's damage lands on everybody, hidden or not, and a bot's on a bot. The hook answers Stop, which ends the damage hooks there (CounterStrikeSharp
-/// 1.0.379 calls them in the order registered and returns at the first Stop): catch-up's hook after it never sees a hit that did not land, so no second
+/// 1.0.380, as 1.0.379, calls them in the order registered and returns at the first Stop): catch-up's hook after it never sees a hit that did not land, so no second
 /// chance or spawn protection is spent on one. Registered after the vote's freeze, whose own Stop comes first, and before catch-up. The first hit spared on a
 /// map is logged for each case, and how many at the map's end.</summary>
 sealed class BotGuard(BasePlugin plugin, ILogger log, Func<bool> war, Cloak cloak)

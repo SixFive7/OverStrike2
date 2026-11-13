@@ -515,7 +515,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(shield.Shields(3, 7), "cloak shield: a new map forgets every spent hide");
 }
 
-// ---- the player damage hooks' order (VoteFreeze.cs, BotGuard.cs, catch-up's CatchUpModule.cs): CounterStrikeSharp 1.0.379 calls them in the order they were
+// ---- the player damage hooks' order (VoteFreeze.cs, BotGuard.cs, catch-up's CatchUpModule.cs): CounterStrikeSharp 1.0.380 - as 1.0.379, its entity manager unchanged - calls them in the order they were
 // registered and returns at the first Stop (src/core/managers/entity_manager.cpp, Hook_OnTakeDamage_Alive_Pre: Stop returns at once with no damage, Handled
 // is kept while the rest still run). The freeze comes first and answers Stop, so nothing after it runs; the bots' guard next, Stop too; catch-up last ----
 {
@@ -558,8 +558,8 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         var freeze = Read("OverStrike2", "VoteFreeze.cs");
         Check(freeze.Contains("=> plan.Frozen ? HookResult.Stop : HookResult.Continue;", StringComparison.Ordinal) && !freeze.Contains("HookResult.Handled;", StringComparison.Ordinal),
             "damage hooks: the freeze answers Stop while everybody is frozen");
-        Check(Read("OverStrike2", "OverStrike2.csproj").Contains("<PackageReference Include=\"CounterStrikeSharp.API\" Version=\"1.0.379\" />", StringComparison.Ordinal),
-            "damage hooks: the order above is CounterStrikeSharp 1.0.379's, the version the plugin is built against - another version's dispatch is to be read again");
+        Check(Read("OverStrike2", "OverStrike2.csproj").Contains("<PackageReference Include=\"CounterStrikeSharp.API\" Version=\"1.0.380\" />", StringComparison.Ordinal),
+            "damage hooks: the order above is CounterStrikeSharp 1.0.380's (src/core/managers/entity_manager.cpp unchanged since 1.0.379), the version the plugin is built against - another version's dispatch is to be read again");
     }
     else Check(false, "damage hooks: the freeze, the bots' guard, catch-up and the host are read from their source");
 }
