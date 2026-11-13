@@ -222,6 +222,7 @@ public static class HudVote
         c.Add(("os_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
         c.Add((HudView.Screen, "vdone", done));                      // decided or kept: the limit's row goes, the second row counts down, the tiles dim but the winner
+        c.Add((HudView.Screen, "vall", v.Open && v.Inactivity > 0)); // everybody has voted: the one clock counts to the decision (content v4.13.0)
         c.Add((HudView.Screen, "vlow", v.Open && v.SecondsLeft <= LowSeconds));
         c.Add((HudView.Screen, "vpages", pages > 1));
         c.Add((HudView.Screen, "vmore", rest > 0));
@@ -244,6 +245,7 @@ public static class HudVote
             t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(who == "" ? "" : $"  ·  {who}")}"));
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
             t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
+            t.Add(($"{id}_num", o == null ? "" : o.N.ToString(CultureInfo.InvariantCulture))); // the vote's own number, the same for everybody: !vote <n> (content v4.13.0)
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
             t.Add(($"{id}_side", "")); // the browser's Wingman player count: none on the ballot, whose cards share the browser's panels
             c.Add((id, "sided", false));

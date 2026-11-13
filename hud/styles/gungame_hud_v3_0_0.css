@@ -822,12 +822,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 55 up it is newer than this one (v4.12.2), and the banner stays while it is. */
-.os-global.latest-55 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 56 up it is newer than this one (v4.13.0), and the banner stays while it is. */
 .os-global.latest-56 .os-outdated
 {
 	visibility: visible;
@@ -1048,7 +1043,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 53 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 54 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1115,6 +1110,11 @@ Label
 }
 
 .os-global.latest-53 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-54 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -2977,21 +2977,7 @@ Label
 	color: os-text;
 }
 
-/* the window lifted, so Valve's chat line has room under it (its open state's transform, moved 40 px up; the ballot's window never) */
-.os-screen.win-in.qhelp .os-win
-{
-	transform: translateY( -40px );
-}
-
-.HUD_CHAT_VISIBLE .os-screen.win-in.page-maps .os-win
-{
-	transform: translateY( -40px );
-}
-
-.HUD_CHAT_VISIBLE .os-screen.win-in.page-maps.voting .os-win
-{
-	transform: none;
-}
+/* No lift any more (content v4.13.0): MAPS docks right of Valve's chat, so its line has its room without one. */
 
 /* the pointer: beside Valve's chat line, which runs from x 18 to 571 at y 952-1000 at 1080 high (styles/hud/hudchat.css), pointing left at it */
 .os-chatptr
@@ -5511,6 +5497,12 @@ Label
 	visibility: visible;
 }
 
+/* The strip of where the votes go stays hidden from content v4.13.0 (vstrip and all): the cards' counts and bars say it, and the header's room is how to vote. */
+.os-screen.voting.vstrip .os-vstrip
+{
+	visibility: collapse;
+}
+
 .os-vstrip
 {
 	visibility: collapse;
@@ -5522,11 +5514,6 @@ Label
 	overflow: clip;
 	border-radius: 4px;
 	background-color: #FFFFFF0F;
-}
-
-.os-screen.voting.vstrip .os-vstrip
-{
-	visibility: visible;
 }
 
 .os-vseg
@@ -6720,23 +6707,41 @@ Label
 	horizontal-align: center;
 }
 
-/* -- the ballot (voting on os_screen): a bigger window, its header with the two clocks, then ten upright tiles, five across and two down, each in its place while the vote is open, the most votes first once it is decided.
-   The header and the tile words are the server's in every state: voting, everybody voted, decided or kept (vdone), the last 10 s (vlow) -- */
+/* -- MAPS docks right of CS2's chat (content v4.13.0): the chat stands at x 18-571 at every aspect (styles/hud/hudchat.css: 553 px and its margins), its line at y 952-1000
+   in a match and higher at a match end (y 674-722), and this window covered it there - nobody saw what they typed during a vote, nor the replies (the live lab's movie,
+   2026-11-13). Both of MAPS' sub-tabs, Vote and Browse, keep their left edge at about 600 (1080 high): 16:9 right-aligned, 16:10 and 4:3 scaled to fit there, 21:9 in
+   the middle of the room right of the chat. The other pages stay in the middle. -- */
+
+.os-screen.page-maps .os-win
+{
+	horizontal-align: right;
+	margin-right: 80px;
+}
+
+.AspectRatio16x10 .os-screen.page-maps .os-win
+{
+	ui-scale: 92%;
+	margin-right: 20px;
+}
+
+.AspectRatio4x3 .os-screen.page-maps .os-win
+{
+	ui-scale: 68%;
+	margin-right: 10px;
+}
+
+.AspectRatio21x9 .os-screen.page-maps .os-win
+{
+	margin-right: 360px;
+}
+
+/* -- the ballot (voting on os_screen): the window's 1,240 px, taller; its header with the vote's state, how to vote and one clock, then ten tiles, four across and three
+   down, each in its place while the vote is open, the most votes first once it is decided. The header and the tile words are the server's in every state: voting,
+   everybody voted (vall), decided or kept (vdone), the last 10 s (vlow) -- */
 
 .os-screen.voting .os-win
 {
-	width: 1760px;
 	height: 920px;
-}
-
-.AspectRatio16x10 .os-screen.voting .os-win
-{
-	ui-scale: 92%;
-}
-
-.AspectRatio4x3 .os-screen.voting .os-win
-{
-	ui-scale: 80%;
 }
 
 /* This window cannot be closed, so it does not close when idle either. */
@@ -6751,7 +6756,7 @@ Label
 	visibility: collapse;
 }
 
-/* 1,692 x 693 px inside: the header 92 and 6 under it, two rows of tiles 568 with their margins, the pager 26. */
+/* 1,172 x 693 px inside: the header 92 and 6 under it, three rows of tiles 567 with their margins, the pager 26. */
 .os-screen.voting .os-page-maps
 {
 	padding: 12px 34px 4px 34px;
@@ -6786,7 +6791,7 @@ Label
 .os-vhead-top
 {
 	width: 100%;
-	height: 36px;
+	height: 34px;
 	flow-children: right;
 }
 
@@ -6805,15 +6810,16 @@ Label
 .os-vhead-row
 {
 	width: 100%;
-	height: 40px;
+	height: 34px;
 	flow-children: right;
-	margin-top: 4px;
+	margin-top: 2px;
 }
 
 #os_v_random
 {
 	width: 160px;
-	height: 34px;
+	height: 30px;
+	vertical-align: center;
 	padding: 0px;
 }
 
@@ -6835,6 +6841,103 @@ Label
 	color: os-gold-hi;
 }
 
+/* The vote's state beside the title (content v4.13.0): Voting, Everybody voted (vall: the clock counts to the decision) or Decided (vdone) - gold, green, white. */
+.os-vchip
+{
+	height: 24px;
+	vertical-align: center;
+	margin-left: 16px;
+	padding: 0px 10px;
+	border-radius: 3px;
+	border: 1px solid os-gold;
+	background-color: #E9B44C24;
+}
+
+.os-vchip-text
+{
+	visibility: collapse;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: os-gold-hi;
+}
+
+.os-screen.voting .os-vchip-voting
+{
+	visibility: visible;
+}
+
+.os-screen.vall .os-vchip
+{
+	border: 1px solid #62CE78;
+	background-color: #2E6B3A80;
+}
+
+.os-screen.vall .os-vchip-text
+{
+	color: #D6F7DC;
+}
+
+.os-screen.vall .os-vchip-voting
+{
+	visibility: collapse;
+}
+
+.os-screen.vall .os-vchip-all
+{
+	visibility: visible;
+}
+
+.os-screen.vdone .os-vchip
+{
+	border: 1px solid #FFFFFF;
+	background-color: #FFFFFF1F;
+}
+
+.os-screen.vdone .os-vchip-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.vdone .os-vchip-voting
+{
+	visibility: collapse;
+}
+
+.os-screen.vdone .os-vchip-done
+{
+	visibility: visible;
+}
+
+/* How many have voted, before who has not (the limit's words, osvlim). */
+.os-vcount
+{
+	vertical-align: center;
+	margin-left: 16px;
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+/* How to vote, under it all while the vote is open: a click, or chat - the cards' numbers are the vote's own. */
+.os-vhow
+{
+	width: 100%;
+	height: 20px;
+	margin-top: 2px;
+	font-size: 13px;
+	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-screen.vdone .os-vhow
+{
+	visibility: collapse;
+}
+
 .os-screen.vdone .os-vhead-row .os-vwait
 {
 	font-size: 20px;
@@ -6843,10 +6946,10 @@ Label
 /* The two clocks, each a row: what it counts, the big digits, the bar, the words. */
 .os-clocks
 {
-	width: 760px;
+	width: 360px;
 	height: 100%;
 	flow-children: down;
-	padding-top: 2px;
+	padding-top: 24px;
 }
 
 .os-clock
@@ -6856,9 +6959,46 @@ Label
 	flow-children: right;
 }
 
+/* One clock at a time (content v4.13.0): the limit's while the vote is open, the time to the decision once everybody has voted (vall), the change's
+   countdown once decided (vdone) - the same clock, its key says which. */
+.os-clock-idle
+{
+	visibility: collapse;
+}
+
+.os-screen.vall .os-clock
+{
+	visibility: collapse;
+}
+
+.os-screen.vall .os-clock-idle
+{
+	visibility: visible;
+}
+
+.os-clock-key-done
+{
+	visibility: collapse;
+}
+
+.os-screen.vdone .os-clock-key-all
+{
+	visibility: collapse;
+}
+
+.os-screen.vdone .os-clock-key-done
+{
+	visibility: visible;
+}
+
+.os-screen.vdone .os-clocks
+{
+	padding-top: 2px;
+}
+
 .os-clock-key
 {
-	width: 150px;
+	width: 84px;
 	vertical-align: center;
 	font-size: 10px;
 	font-weight: bold;
@@ -6883,7 +7023,7 @@ Label
 
 .os-clock-bar
 {
-	width: 300px;
+	width: 160px;
 	height: 10px;
 	vertical-align: center;
 	border-radius: 5px;
@@ -6982,6 +7122,12 @@ Label
 	white-space: nowrap;
 }
 
+/* The words beside a clock are the header's now (os-vcount, os-vwait). */
+.os-screen.voting .os-clock-text
+{
+	visibility: collapse;
+}
+
 /* The last 10 s: the limit's digits turn red and pulse. */
 .os-screen.vlow .os-clock-big
 {
@@ -7012,8 +7158,8 @@ Label
 
 .os-screen.vdone .os-clock-big
 {
-	width: 120px;
-	font-size: 44px;
+	width: 100px;
+	font-size: 40px;
 }
 
 .os-screen.vdone .os-clock-bar
@@ -7021,20 +7167,20 @@ Label
 	height: 14px;
 }
 
-/* The tiles: the picture at nearly its full size, who voted and the count on it, the name, its line and every tag under it. The fifth of a row has no margin to wrap on: 5 x 330 + 4 x 10 fill the 1,692 px. */
+/* The tiles: the picture, who voted and the count on it, the name, its line and its tags in one row under it. The fourth of a row has no margin to wrap on: 4 x 285 + 3 x 10 fill the 1,172 px (content v4.13.0). */
 .os-screen.voting .os-mcard
 {
-	width: 330px;
-	height: 276px;
+	width: 285px;
+	height: 181px;
 	margin: 0px 10px 8px 0px;
 }
 
-.os-screen.voting #os_m5
+.os-screen.voting #os_m4
 {
 	margin-right: 0px;
 }
 
-.os-screen.voting #os_m10
+.os-screen.voting #os_m8
 {
 	margin-right: 0px;
 }
@@ -7053,13 +7199,13 @@ Label
 
 .os-screen.voting .os-mthumb
 {
-	width: 328px;
-	height: 185px;
+	width: 283px;
+	height: 112px;
 }
 
 .os-screen.voting .os-mthumb-shade
 {
-	height: 80px;
+	height: 60px;
 	vertical-align: bottom;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), to( #0A0D11E6 ) );
 }
@@ -7072,7 +7218,32 @@ Label
 .os-screen.voting .os-mmode
 {
 	vertical-align: top;
-	margin: 8px 0px 0px 8px;
+	margin: 8px 0px 0px 46px;
+}
+
+/* The vote's own number, top left on the picture (content v4.13.0): the option's number on the wire, the same for everybody and for the whole vote whatever
+   the order of the cards, so "!vote <n>" in chat votes for it. The mode's label stands right of it. Never in the browser. */
+.os-mnum
+{
+	visibility: collapse;
+}
+
+.os-screen.voting .os-mnum
+{
+	visibility: visible;
+	width: 32px;
+	height: 24px;
+	horizontal-align: left;
+	vertical-align: top;
+	margin: 6px 0px 0px 6px;
+	padding-top: 1px;
+	border-radius: 4px;
+	border: 1px solid os-gold;
+	background-color: #0A0D11E6;
+	text-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 17px;
+	color: os-gold-hi;
 }
 
 /* Who voted here, at the foot of the picture. */
@@ -7093,6 +7264,7 @@ Label
 .os-screen.voting .os-mnames
 {
 	visibility: visible;
+	width: 155px;
 }
 
 .os-screen.voting .os-mcard.broken .os-mnames
@@ -7114,8 +7286,8 @@ Label
 
 .os-screen.voting .os-mname
 {
-	height: 21px;
-	font-size: 17px;
+	height: 20px;
+	font-size: 16px;
 }
 
 .os-screen.voting .os-msize
@@ -7130,6 +7302,7 @@ Label
 
 .os-screen.voting .os-mtags
 {
+	height: 19px;
 	margin-top: 3px;
 }
 
@@ -7147,10 +7320,10 @@ Label
 .os-screen.voting .os-mvbar
 {
 	visibility: visible;
-	width: 328px;
+	width: 283px;
 	horizontal-align: left;
 	vertical-align: top;
-	margin-top: 184px;
+	margin-top: 111px;
 }
 
 /* A tile is one button: a click votes, a click on your own takes it back. The count stands on the picture's right like the game-end screen's, and the mouse on the tile shows
@@ -7184,11 +7357,11 @@ Label
 	width: 110px;
 	horizontal-align: right;
 	vertical-align: top;
-	margin-top: 134px;
+	margin-top: 72px;
 	margin-right: 10px;
 	text-align: right;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
-	font-size: 34px;
+	font-size: 30px;
 	color: #FFFFFF;
 }
 
@@ -7197,7 +7370,7 @@ Label
 	width: 110px;
 	horizontal-align: right;
 	vertical-align: top;
-	margin-top: 118px;
+	margin-top: 56px;
 	margin-right: 10px;
 	text-align: right;
 	font-size: 10px;
@@ -7284,12 +7457,12 @@ Label
 
 .os-mpop
 {
-	width: 328px;
-	height: 188px;
+	width: 283px;
+	height: 115px;
 	horizontal-align: left;
 	vertical-align: top;
 	flow-children: down;
-	padding: 10px 10px 0px 10px;
+	padding: 8px 10px 0px 10px;
 	background-color: #07090CED;
 }
 

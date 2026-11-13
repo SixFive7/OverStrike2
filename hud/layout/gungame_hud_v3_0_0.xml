@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.12.2 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.13.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -21,8 +21,8 @@
        is on, Start a vote, the vote in one line, the full menu, and at its foot Lately, the last three lines marked for the board;
     2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How
        it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
-       each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot grows the window and shows ten upright
-       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.12.2): its id tells the server which
+       each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot shows ten tiles, four across and three
+       down, each with the vote's own number. MAPS stands right of CS2's chat, so its line and replies show beside the window. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.13.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (os-banner), the status banner (os-ban), the outdated and
@@ -120,7 +120,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.12.2" class="os-close os-hudver">
+						<Button id="os_hudver_v4.13.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -197,20 +197,23 @@
 
 							<!-- Maps: the map browser - sort, filters, eight cards, pages. Everything in it is per player. -->
 							<Panel class="os-page os-page-maps">
-								<!-- The ballot's header: the title and who has not voted, Random and the strip of where the votes go, and the two clocks: the
-								     limit, and the inactivity timer once everybody has voted -->
+								<!-- The ballot's header (content v4.13.0): the title and the vote's state - Voting, Everybody voted, Decided - with who started it; Random, how many
+								     have voted and who has not; how to vote, by a click or in chat (the cards' numbers are the vote's own); one clock - the limit, once everybody has voted the
+								     time to the decision, once decided the change's countdown. The strip of where the votes go keeps its ids, hidden: the cards say it. -->
 								<Panel class="os-vhead">
 									<Panel class="os-vhead-main">
-										<Panel class="os-vhead-top"><Label class="os-vote-title" text="Vote for the next map" /><Label class="os-vwait" text="{s:osvstart}" /></Panel>
+										<Panel class="os-vhead-top"><Label class="os-vote-title" text="Vote for the next map" /><Panel class="os-vchip"><Label class="os-vchip-text os-vchip-voting" text="Voting" /><Label class="os-vchip-text os-vchip-all" text="Everybody voted" /><Label class="os-vchip-text os-vchip-done" text="Decided" /></Panel><Label class="os-vwait" text="{s:osvstart}" /></Panel>
 										<Panel class="os-vhead-row">
 											<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
 											<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
+											<Label class="os-vcount" text="{s:osvlim}" />
 											<Label class="os-vwait" text="{s:osvwait}" />
 										</Panel>
+										<Label class="os-vhow" text="Click a card to vote  ·  Or type !vote and the card's number  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 									</Panel>
 									<Panel class="os-clocks">
-										<Panel class="os-clock"><Label class="os-clock-key" text="Limit" /><Label class="os-clock-big" text="{s:osvlimn}" /><Panel id="os_vlim" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvlim}" /></Panel>
-										<Panel class="os-clock os-clock-idle"><Label class="os-clock-key" text="{s:osvidlek}" /><Label class="os-clock-big" text="{s:osvidlen}" /><Panel id="os_vidle" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvidle}" /></Panel>
+										<Panel class="os-clock"><Label class="os-clock-key" text="Ends in" /><Label class="os-clock-big" text="{s:osvlimn}" /><Panel id="os_vlim" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvlim}" /></Panel>
+										<Panel class="os-clock os-clock-idle"><Label class="os-clock-key os-clock-key-all" text="Decided in" /><Label class="os-clock-key os-clock-key-done" text="{s:osvidlek}" /><Label class="os-clock-big" text="{s:osvidlen}" /><Panel id="os_vidle" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvidle}" /></Panel>
 									</Panel>
 								</Panel>
 								<Panel class="os-mbar">
@@ -287,6 +290,7 @@
 												<Panel id="os_m1_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m1_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m1_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m1_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -320,6 +324,7 @@
 												<Panel id="os_m2_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m2_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m2_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m2_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -353,6 +358,7 @@
 												<Panel id="os_m3_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m3_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m3_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m3_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -386,6 +392,7 @@
 												<Panel id="os_m4_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m4_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m4_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m4_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -419,6 +426,7 @@
 												<Panel id="os_m5_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m5_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m5_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m5_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -452,6 +460,7 @@
 												<Panel id="os_m6_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m6_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m6_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m6_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -485,6 +494,7 @@
 												<Panel id="os_m7_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m7_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m7_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m7_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -518,6 +528,7 @@
 												<Panel id="os_m8_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m8_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m8_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m8_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -551,6 +562,7 @@
 												<Panel id="os_m9_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m9_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m9_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m9_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -584,6 +596,7 @@
 												<Panel id="os_m10_thumb" class="os-mthumb">
 													<Panel class="os-mthumb-shade" />
 													<Label id="os_m10_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m10_num" class="os-mnum" text="{s:text}" />
 													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
 													<Label id="os_m10_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
@@ -1310,7 +1323,7 @@
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Label class="os-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.12.2  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.13.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1374,7 +1387,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.12.2  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.13.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

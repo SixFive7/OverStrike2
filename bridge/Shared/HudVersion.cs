@@ -37,6 +37,7 @@ public static class HudVersion
         ("v4.12.0", 52), // no taking a vote back, a confirmed action's countdown in its button with Cancel, Wingman's player count on a card
         ("v4.12.1", 53), // the countdown's line starts from full after a cancel too: it rests in the layout, 0 px high, never collapsed
         ("v4.12.2", 54), // ...on a card's Play and on Previous too: there the line stays drawn while nothing is pending, clear by its colours alone
+        ("v4.13.0", 55), // MAPS right of CS2's chat; the ballot four across with the vote's own numbers, its state, how to vote and one clock
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older
@@ -73,7 +74,7 @@ public static class HudVersion
     public static List<(string Id, string Class, bool On)> Classes(int level) => [(HudView.Global, LatestClass(level), true)];
 
     /// <summary>A content's name for its level, as the banner says it: its line in Contents. os_hud level and content also ask for levels no line has. Above the
-    /// last line that is a name no content has, which reads as newer: the last version's next minors (55 is v4.13.0 while v4.12.2 is the last line). Between two lines
+    /// last line that is a name no content has, which reads as newer: the last version's next minors (56 is v4.14.0 while v4.13.0 is the last line). Between two lines
     /// it is the older of them, and below the first line the first.</summary>
     public static string OfLevel(int level)
     {

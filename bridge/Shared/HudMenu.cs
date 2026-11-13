@@ -122,6 +122,7 @@ public static class HudMenu
         c.Add(("os_q_search", "used", b.Query != ""));
         c.Add((HudView.Screen, "vdone", false)); // the vote's, still on from the last one: they would dim these cards (HudVote.Cards)
         c.Add((HudView.Screen, "vlow", false));
+        c.Add((HudView.Screen, "vall", false));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "on", b.Sort == sort));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "desc", b.Sort == sort && b.Descending));
         foreach (var (id, band) in HudBrowser.BandButtons) c.Add((id, "on", b.Size == band));
@@ -144,6 +145,7 @@ public static class HudMenu
             t.Add(($"{id}_votes", m == null ? "" : Likes(m)));
             t.Add(($"{id}_who", ""));   // the ballot's line under the name
             t.Add(($"{id}_score", "")); // the ballot's count
+            t.Add(($"{id}_num", ""));   // the ballot's number
             t.Add(($"{id}_warn", m == null ? "" : Record(m)));
             var side = m == null ? "" : SideText(m, PlayMode(m, b.Mode, serverMode)); // Wingman's player count on its picture (content v4.12.0)
             t.Add(($"{id}_side", side));

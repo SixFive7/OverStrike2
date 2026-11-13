@@ -319,6 +319,13 @@ static partial class Program
                 HudVote.StartLine(VoteState.Decode("mv\t9\topen\t8\t3\t0\tend\t0\t1\n")) == "Match over" && ClassOn(VoteState.Decode($"mv\t9\topen\t{HudVote.LowSeconds}\t3\t0\tmid\t0\t1\n"), HudView.Screen, "vlow")
                 && !ClassOn(VoteState.Decode($"mv\t9\topen\t{HudVote.LowSeconds + 1}\t3\t0\tmid\t0\t1\n"), HudView.Screen, "vlow") && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vlow")
                 && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, h.Clock).Classes is var browserPage && browserPage.Contains((HudView.Screen, "vdone", false)) && browserPage.Contains((HudView.Screen, "vlow", false)));
+            var numbered = VoteState.Decode("mv\t9\topen\t30\t3\t3\tmid\t0\t1\t4\t\t\t0\t0\nmvo\t1\tarmsrace\tkeep\t\tk\tKeep\t\t1\t\nmvo\t2\tarmsrace\trolled\t\tm2\tMap two\t\t1\t\nmvo\t3\tarmsrace\trolled\t\tm3\tMap three\t\t1\t\nmvv\t2001\t3\n");
+            Check("The ballot's cards carry the vote's own numbers (content v4.13.0): in this player's own order - their card first - each card its option's number, the same for everybody; an empty card none; vall while everybody has voted and the timer counts to the decision, not before, not once decided; the browser's page takes vall off and clears the numbers",
+                TextOf(numbered, "os_m1_num") == "3" && TextOf(numbered, "os_m2_num") == "1" && TextOf(numbered, "os_m3_num") == "2" && TextOf(numbered, "os_m4_num") == ""
+                && HudVote.Cards(numbered, 2002, null).Texts.Single(x => x.Id == "os_m1_num").Text == "1"
+                && ClassOn(numbered, HudView.Screen, "vall") && !ClassOn(VoteState.Decode("mv\t9\topen\t30\t3\t2\tmid\t0\t1\t0\n"), HudView.Screen, "vall")
+                && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vall")
+                && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, h.Clock) is var numberless && numberless.Classes.Contains((HudView.Screen, "vall", false)) && numberless.Texts.Contains(("os_m1_num", "")));
             Check("A risky card's lock, with its capitals: Locked - Click to unlock, then Click again - Vote anyway",
                 HudMenu.Locked == "Locked - Click to unlock" && HudMenu.Unlocked == "Click again - Vote anyway" && Capitals([HudMenu.Locked, HudMenu.Unlocked]));
             Check("The capitals rule leaves a map's own words alone: the dash in a marked title ends no section; everybody's run-end check reads every line of the vote's (MessagesCapitalsCheck)",
