@@ -25,6 +25,7 @@
 #   server.startMap   the same as the game image's CS2_STARTMAP
 #   bridge.url        how the game server and the sync reach the bridge
 #   bridge.discoveryStock   per mode, maps new to the server rolled ahead and downloaded in the background; 0 for none
+#   bridge.diceMaxMb  the most MB a map the dice roll may take to download (300); 0 for no cap
 #   hud.addon         required: the Over Strike 2 HUD on the Steam Workshop
 #   hud.tab           down: TAB puts the board down while held; off
 #   hud.check         off, warn, or enforce (disconnect a player whose game has not loaded the HUD)

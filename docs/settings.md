@@ -119,6 +119,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `bridge.secret` | string | (empty) | bridge, plugin, server, sync | The secret in the bridge's addresses (/log, /ready, /quitting, /removed, /reload ...): letters and digits. The image's CS2_LOG_HTTP_URL ends in /log/<it>. A secret: write it as a reference. |
 | `bridge.officialMaps` | string list | `["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]` | bridge | The official maps the votes and the random picks may offer. |
 | `bridge.discoveryStock` | integer, 0..40 | `10` | bridge, server, sync | The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set wants each of the stock's lanes this long. |
+| `bridge.diceMaxMb` | integer, 0..100000 | `300` | bridge | The most a map the dice roll may take to download, in MB: the start roll, the way back to Arms Race, Random and nobody voting, a replaced card, and the discovery stock's rolls. A map new to a player's game asks them to confirm its download, and a big one keeps them waiting. Official maps always fit; when no eligible map fits, the dice take the smallest. 0: no cap. |
 | `bridge.changeDelaySeconds` | integer, 0..120 | `8` | bridge | The countdown before a map change. |
 | `bridge.restartCooldownSeconds` | integer, 0..86400 | `300` | bridge | The least time between two !restart requests. |
 

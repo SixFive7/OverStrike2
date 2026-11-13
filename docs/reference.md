@@ -286,7 +286,18 @@ Every mode's cfg keeps the match-end screen up for 90 s (`mp_match_restart_delay
 plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The game ends the screen at its start (the game rules'
 `m_flIntermissionStartTime`) plus `mp_match_restart_delay`, read as it goes - `m_flIntermissionEndTime` passes about 10 s into the screen and ends nothing - so the
 plugin sets the delay to the time the screen has been up plus the countdown, and puts the value it had back once the next match's round has started (2 s after the
-new end at the latest; a map change drops it, since the new map's cfg sets its own). CS2's own countdown on the screen follows it. There the game starts the next
+new end at the latest; a map change drops it, since the new map's cfg sets its own). CS2's own countdown on the screen follows it.
+
+**CS2's corner counts with the vote.** Without the bridge the corner of the match-end screen counts the cfg's 90 s from the match end, beside a LIMIT of 60 s from
+the vote's open, and the two never agree. So the bridge has the plugin move the screen's end three times (`os_nextmatch`):
+- as a match end's vote opens - or a vote that was open becomes a match end's - to the vote's limit, the change's countdown and `ScreenMarginSeconds`
+  (2 s): the corner then reads LIMIT + 10 s, the latest next match or map;
+- at a decision to play the map again, to the countdown, 8 s, as above;
+- at a decision for another map, to the countdown and the 2 s, so the change goes out first and the game's own reset never races it - when that map is on the
+  server's disk (`OnTheDisk`). One still to download keeps the end the vote's open gave it.
+
+Everybody voting closes the vote early through its inactivity timer: that is its decision, and the screen is cut then. After every decision the corner and the
+window count within about a second of each other. There the game starts the next
 match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows. As at
 any such end, CS2 moves every player to Unassigned and kicks the bots: everybody picks a side again at CS2's team select - a play of the same map again is often
 for other teams - and the bots come back with the first pick. A player who picks a side again is no join for the fairness restart: no map starts, so the map's
@@ -438,7 +449,13 @@ player selected.
 **The popularity number**, per map among its mode's listed Workshop maps (`Popularity.cs`), is the mean of three families: **Rated**, its percentile
 by the Workshop's score; **Played**, the mean of its percentiles by subscribers, lifetime subscribers, favourites, lifetime favourites and views;
 **Hot**, its percentile in the 30-day trend order, the maps past the fetched list tied at the bottom. A family without data is left out. Valve's official
-maps of Deathmatch and Wingman and our own maps count as 0.75; a map with no data at all as 0.5. A map's download size plays no part.
+maps of Deathmatch and Wingman and our own maps count as 0.75; a map with no data at all as 0.5. A map's download size weighs nothing in the points.
+
+**The download cap:** a roll of the dice that changes the map or fills the stock takes no map over `bridge.diceMaxMb` (300 MB by default; 0: no cap): the start roll,
+the way back to Arms Race, Random and nobody voting, a card replaced by the dice, and the discovery stock's rolls (`Dice.cs`, `UnderCap`). An official map always fits.
+When no eligible map fits, the dice take the smallest, and the log says so. A map new to a player's game asks them to confirm its download (CS2's Confirm Workshop
+Download, seen for maps of 464 MB, 624 MB and 1.6 GB), and a big one keeps them waiting. The ballot's own cards show their size and are the players' to choose; a
+player's pick knows no cap. How it works says the default (`MapVote.DiceMaxMbDefault`): move the cap there, not only in the settings, so the page says it right.
 
 **Too big:** a map whose measured area class in `sizes.json` is XL, or that a player marked too big, comes up in 1 random pick in 100; the other 99 take
 one that is not; an empty group hands the pick to the other.

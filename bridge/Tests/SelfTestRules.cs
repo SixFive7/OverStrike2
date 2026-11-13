@@ -31,6 +31,7 @@ static partial class Program
             $"heals {Vampire.HitPercent}% of its damage", $"every kill {Vampire.KillHeal} more", $"up to {Vampire.Cap} health", $"Invisible for {Fun.GhostSeconds:0} seconds", // Vampire and Ghost
             $"{MapVote.Seconds} seconds", $"{MapVote.Seconds} s", $"takes {Modes.Wingman.MaxPlayers} players at most", $"up to {Modes.Wingman.MaxPlayers} players", // the vote (VoteRound.cs), the modes (Modes.cs)
             $"{MapVote.WaitSeconds / 60} minutes after a vote", $"{MapVote.WaitSeconds / 60} minutes before the next", // the wait before the next vote
+            $"over {MapVote.DiceMaxMbDefault} MB", // the dice's download cap (Dice.cs)
         ];
     }
 

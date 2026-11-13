@@ -88,6 +88,13 @@
           "minimum": 0,
           "maximum": 40
         },
+        "diceMaxMb": {
+          "description": "The most a map the dice roll may take to download, in MB: the start roll, the way back to Arms Race, Random and nobody voting, a replaced card, and the discovery stock's rolls. A map new to a player's game asks them to confirm its download, and a big one keeps them waiting. Official maps always fit; when no eligible map fits, the dice take the smallest. 0: no cap.",
+          "type": "integer",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 100000
+        },
         "changeDelaySeconds": {
           "description": "The countdown before a map change.",
           "type": "integer",

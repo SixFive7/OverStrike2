@@ -698,13 +698,20 @@ static partial class Program
             h.MatchEnd();
             Check("A match that ends during a vote a player started: it runs on as a match end's - its Keep card is Play this map again",
                 Ballot is { Open: true, MatchEnded: true } && LiveVote() is { MatchEnded: true } me && me.Options.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again");
+            Check($"...and the match-end screen ends with its limit, a change's countdown and {ScreenMarginSeconds} s: the plugin's {NextMatch.Line(MapVote.Seconds + ChangeDelay + ScreenMarginSeconds)}, so CS2's corner says the latest next map",
+                h.Sent.Contains(NextMatch.Line(MapVote.Seconds + ChangeDelay + ScreenMarginSeconds)));
             h.Run(MapVote.Seconds);
-            Check("...and nobody voting is Random then, not Keep", Pending is { By: "the vote" } && h.Said("Nobody voted - Rolling the dice"));
+            Check($"...and nobody voting is Random then, not Keep - a map of {DiceMaxMb} MB or less (the dice's download cap)",
+                Pending is { By: "the vote" } p0 && p0.Map.SizeMb <= DiceMaxMb && h.Said("Nobody voted - Rolling the dice"));
+            Check($"...its change, a map on the disk, cuts the screen to the countdown and {ScreenMarginSeconds} s: {NextMatch.Line(ChangeDelay + ScreenMarginSeconds)} - the change goes out first, and CS2's corner counts with the window",
+                h.Sent.Contains(NextMatch.Line(ChangeDelay + ScreenMarginSeconds)) && Pending is { } p1 && OnTheDisk(p1.Map));
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land();
             h.MatchEnd();
             var again = OptOf(o => o.Source == VoteSource.Keep);
+            Check($"A match end's vote: the screen ends with the vote's limit, a change's countdown and {ScreenMarginSeconds} s ({NextMatch.Line(MapVote.Seconds + ChangeDelay + ScreenMarginSeconds)})",
+                h.Sent.Contains(NextMatch.Line(MapVote.Seconds + ChangeDelay + ScreenMarginSeconds)));
             h.Quiet();
             Click(alice, again); Click(bob, again); Click(cara, again);
             Check("Play this map again wins at a match end: no change - the server's next match is on the same map (mp_match_end_restart)",
@@ -736,6 +743,22 @@ static partial class Program
                 h.Sent.Contains(NextMatch.Line(ChangeDelay)) && Ballot is { NextMatch: false, KeptUntil: { } keptUntil } && keptUntil == h.Clock.AddSeconds(MapVote.KeptSeconds) && h.Said("again (3 of 3) - Its next match starts on it")
                 && !h.Said("The next match starts in") && uncut is { Kept: true, NextMatch: false } && HudVote.DoneKey(uncut) == "Closes in" && uncut.DoneSeconds == MapVote.KeptSeconds
                 && HudVote.DoneLine(uncut).EndsWith("again (3 of 3) - Its next match starts on it", StringComparison.Ordinal) && MatchEndUntil > keptUntil);
+            Fresh();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            Ask(alice, m[4]); Land();
+            h.MatchEnd();
+            Pick(alice, m[7]); Click(bob, OptOf(o => o.Map == m[7])); Click(cara, OptOf(o => o.Map == m[7]));
+            Check("A match end's vote won by a map the server has on its disk: the screen is cut to the countdown and the margin, as the change goes out",
+                Pending is { } toDisk && toDisk.Map == m[7] && h.Sent.Contains(NextMatch.Line(ChangeDelay + ScreenMarginSeconds)));
+            Fresh();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            Ask(alice, m[4]); Land();
+            h.MatchEnd();
+            (ReadyAt, CoveredIds, ReadyIds) = (h.Clock, [Key(m[8])], []); // the watcher's report: m[8] is not on the disk yet
+            Pick(alice, m[8]); Click(bob, OptOf(o => o.Map == m[8])); Click(cara, OptOf(o => o.Map == m[8]));
+            Check("...one still to download keeps the screen the vote's open gave it: no cut to the countdown",
+                Pending is { } toLoad && toLoad.Map == m[8] && !OnTheDisk(m[8]) && !h.Sent.Contains(NextMatch.Line(ChangeDelay + ScreenMarginSeconds)));
+            (ReadyAt, CoveredIds, ReadyIds) = (default, [], []);
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land();

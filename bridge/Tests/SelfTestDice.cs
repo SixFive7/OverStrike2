@@ -49,6 +49,26 @@ static partial class Program
         Check("...end to end: the dice's line names the map, and fits", Pending is { Auto: true } && Told.Any(t => t.StartsWith("Match over - Rolling the dice: ", StringComparison.Ordinal) && t.Length <= Messages.TopMax));
         Fresh(); Maps = fixtures;
 
+        // ---- the download cap (bridge.diceMaxMb): a roll takes no map over it; an official map always fits; none fitting, the smallest ----
+        Fresh();
+        var sized = new List<MapInfo> { new(1, 7_100_001, "small_one", 40), new(2, 7_100_002, "at_cap", MapVote.DiceMaxMbDefault), new(3, 7_100_003, "contact", 1566), new(4, 7_100_004, "scholar", 600) };
+        Maps = sized;
+        Check($"The download cap is the settings' default, {MapVote.DiceMaxMbDefault} MB, the one How it works says", DiceMaxMb == MapVote.DiceMaxMbDefault && BridgeConfig.Values.DiceMaxMb == MapVote.DiceMaxMbDefault);
+        var capped = Rolls(2000);
+        var nextCapped = Enumerable.Range(0, 2000).Select(_ => RandomNext()!).ToList();
+        Check($"...the dice take no map over {MapVote.DiceMaxMbDefault} MB - over the whole list (RandomPick) and over the server's disk (RandomNext: the start roll, Random, nobody voting, a replaced card) - and every map at or under it comes up",
+            capped.All(m => m.SizeMb <= DiceMaxMb) && capped.Contains(sized[0]) && capped.Contains(sized[1]) && nextCapped.All(m => m.SizeMb <= DiceMaxMb) && nextCapped.Contains(sized[0]) && nextCapped.Contains(sized[1]));
+        Maps = [sized[2], sized[3]];
+        Check("...no eligible map under it: the smallest, every time, over the whole list and over the disk", Rolls(200).All(m => m == sized[3]) && Enumerable.Range(0, 200).All(_ => RandomNext() == sized[3]));
+        Check("...an official map always fits, whatever size is on record: nothing to download", UnderDiceCap(new MapInfo(0, 0, "de_dust2", 5000, true)) && !UnderDiceCap(sized[3]) && UnderDiceCap(sized[1]));
+        Check("...UnderCap leaves an empty list empty, keeps what fits, and hands back the smallest alone when nothing does",
+            UnderCap([], "none").Count == 0 && UnderCap(sized, "these").SequenceEqual([sized[0], sized[1]]) && UnderCap([sized[2], sized[3]], "these").SequenceEqual([sized[3]]));
+        DiceMaxMb = 0;
+        Maps = sized;
+        Check("...a cap of 0 is none: every map comes up again", Rolls(4000) is var uncapped && Maps.All(uncapped.Contains));
+        DiceMaxMb = MapVote.DiceMaxMbDefault;
+        Fresh(); Maps = fixtures;
+
         // ---- too big: XL in sizes.json, or a too-big vote; 1 random pick in 100 ----
         var xl = Maps.Take(4).ToList();
         Sizes = xl.ToDictionary(Key, _ => new SizeEntry(20000, "XL"));

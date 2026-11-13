@@ -192,13 +192,18 @@ static partial class Program
         if (LoadPending) { Log("match end: the next map is still loading - that was the old map's match"); return; }
         if (Ballot is { Open: true } running)
         {
-            if (!running.MatchEnded) { running.MatchEnded = true; Log("match end: the vote that is open decides as a match end's from now (Play this map again; nobody voting is Random)"); }
+            if (!running.MatchEnded)
+            {
+                running.MatchEnded = true;
+                Log("match end: the vote that is open decides as a match end's from now (Play this map again; nobody voting is Random)");
+                ScreenToVote(running, now); // VoteRound.cs: the screen ends with its limit and a change, where CS2's corner can say it
+            }
             return;
         }
         if (InMaintenance()) { Log("match end: maintenance flag set - no automatic change"); return; }
         var humans = Humans();
         if (humans <= 0) { Log("match end: nobody on - nothing to do"); return; }
-        if (HudActive() && OpenBallot(now, humans, matchEnd: true)) return; // VoteRound.cs
+        if (HudActive() && OpenBallot(now, humans, matchEnd: true)) { if (Ballot is { } opened) ScreenToVote(opened, now); return; } // VoteRound.cs
         if (!AutoRoll("Match over")) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
     }
 

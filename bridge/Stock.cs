@@ -74,7 +74,7 @@ static partial class Program
     {
         var lane = LaneOf(mode);
         var have = lane.Select(e => e.Key).ToHashSet();
-        var all = PoolOf(mode).Where(m => StockCandidate(m, have)).ToList();
+        var all = UnderCap(PoolOf(mode).Where(m => StockCandidate(m, have)).ToList(), $"the {mode.Name} stock's candidates"); // Dice.cs: the download cap
         if (all.Count == 0) return false;
         var fresh = all.Where(IsFresh).ToList();
         var wantFresh = fresh.Count > 0 && lane.Count(e => e.Fresh) < (StockSize + 1) / 2;
@@ -156,7 +156,7 @@ static partial class Program
     static MapInfo? RandomNext(Modes.Mode? inMode = null, ISet<string>? exclude = null)
     {
         inMode ??= CurrentMode;
-        var pool = OnDiskPool(inMode, exclude);
+        var pool = UnderCap(OnDiskPool(inMode, exclude), $"{inMode.Name} on the server's disk"); // Dice.cs: the download cap
         if (RollIn(pool) is not { } r)
         {
             Log($"dice: nothing of {inMode.Name} on the server's disk is eligible - the dice roll over every eligible map");

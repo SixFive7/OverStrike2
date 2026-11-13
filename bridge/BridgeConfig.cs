@@ -35,6 +35,7 @@ sealed record BridgeValues
     public string Check { get; init; } = "";    // HudCheck.Parse reads it
     public List<string> OfficialMaps { get; init; } = [];
     public int DiscoveryStock { get; init; }
+    public int DiceMaxMb { get; init; }
 
     /// <summary>The settings' values (paths.bridgeData is an absolute path in the container, so its files are joined with '/').</summary>
     public static BridgeValues FromFile(CoreSettings s) => new()
@@ -54,5 +55,6 @@ sealed record BridgeValues
         Check = s.Hud.Check,
         OfficialMaps = [.. s.Bridge.OfficialMaps],
         DiscoveryStock = s.Bridge.DiscoveryStock,
+        DiceMaxMb = s.Bridge.DiceMaxMb,
     };
 }

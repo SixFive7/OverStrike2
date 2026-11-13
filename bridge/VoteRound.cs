@@ -449,12 +449,27 @@ static partial class Program
     /// <summary>A match end's vote played the map again: the plugin ends the match-end screen this many seconds from now, and the next match starts then
     /// (NextMatch.cs) - true when it says it has. A plugin without the command (5.14.2 and older), a screen that ends sooner by itself or no answer: false, and
     /// the screen runs out as before.</summary>
-    static bool CutMatchEnd(int seconds)
+    static bool CutMatchEnd(int seconds, string why)
     {
         var reply = Send(NextMatch.Line(seconds));
-        Log($"vote: {NextMatch.Line(seconds)} -> {reply ?? "(rcon failed)"}");
+        Log($"vote: {why}: {NextMatch.Line(seconds)} -> {reply ?? "(rcon failed)"}");
         return NextMatch.Read(reply) == NextMatch.Result.Set;
     }
+
+    /// <summary>How long a match-end screen lasts past a map change's countdown: the change goes out at the countdown's end, and the game's own end of the
+    /// screen - a reset of the match on the old map - comes after it, never with it.</summary>
+    public const int ScreenMarginSeconds = 2;
+
+    /// <summary>A match end's vote is open - opened by the match end, or a vote that was open turned a match end's: the match-end screen is set to end with the
+    /// vote's limit, a change's countdown and ScreenMarginSeconds. CS2's own corner then counts to the latest next match or map, the vote's LIMIT plus 10 s,
+    /// where it counted the cfg's 90 s from the match end and never agreed with LIMIT (the live lab's movie of release 214, clips a and c). The decision cuts
+    /// it again (CloseBallot): to the countdown, after which the corner and the window agree.</summary>
+    static void ScreenToVote(BallotState b, DateTime now) =>
+        CutMatchEnd(Math.Max(1, (int)Math.Ceiling((VoteEnds(b) - now).TotalSeconds)) + ChangeDelay + ScreenMarginSeconds, "the match-end screen to the vote's limit and a change");
+
+    /// <summary>A map the server has on its disk now, so its change loads at once: an official map, a kept one, or one the watcher's report names (a ballot's
+    /// map, a stock entry).</summary>
+    static bool OnTheDisk(MapInfo m) => m.Official || Downloaded(Key(m)) || KeptOnDisk(m);
 
     /// <summary>The vote is decided: Keep shows that for MapVote.KeptSeconds and the map plays on; anything else goes out through the usual countdown. Everybody stays
     /// frozen until then. A match end's Keep - Play this map again - counts down the change's ChangeDelay instead, at whose end the plugin ends the match-end
@@ -486,7 +501,7 @@ static partial class Program
         {
             b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40));
             Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
-            b.NextMatch = b.MatchEnded && CutMatchEnd(ChangeDelay);
+            b.NextMatch = b.MatchEnded && CutMatchEnd(ChangeDelay, "the vote plays the map again");
             var keptFor = b.NextMatch ? ChangeDelay : MapVote.KeptSeconds;
             b.KeptUntil = now.AddSeconds(keptFor);
             if (b.NextMatch)
@@ -522,6 +537,9 @@ static partial class Program
             _ => $"The vote chose {M.A(shown)} ({count}) - Changing in {delay}",
         };
         StartChange(change, Fit(Words($"{Label(target)}{Detail(target, MapTags.WhyWords(TagsOf(target), picked: false))}{ModeTag(target)}"), Words($"{Clip(Label(target), 40)}{ModeTag(target)}")), Messages.VoteDecided);
+        // A match end's: the screen ends ScreenMarginSeconds after the change goes out - when the map is on the disk, so it loads at once. One still to download
+        // keeps the screen the vote's open gave it.
+        if (b.MatchEnded && OnTheDisk(target)) CutMatchEnd(ChangeDelay + ScreenMarginSeconds, "the vote changes the map");
     }
 
     /// <summary>Drops a vote without a change: a restart, a map start nobody asked for, the server emptied. Everybody unfreezes.</summary>

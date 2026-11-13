@@ -56,6 +56,14 @@ static partial class Program
             Check("...and a state.json from before it reads: its random queues and the new-maps setting are left aside",
                 JsonSerializer.Deserialize("""{"newMaps": "half", "randomQueues": {"armsrace-new": [{"key": "1", "weight": 1, "big": false}]}, "roundMinutes": 60}""", Ctx.Default.State) is { Stock.Count: 0, RoundMinutes: 60 });
 
+            // ---- the download cap: the stock rolls no map over bridge.diceMaxMb ----
+            Fresh();
+            Maps = Maps.Select(m => m.Rank % 4 == 0 ? m : m with { SizeMb = 2000 }).ToList(); // three in four of Arms Race's maps far over the cap
+            FillStock();
+            Check($"The stock rolls no map over the download cap ({DiceMaxMb} MB): Arms Race's lane is full, of the quarter of its maps under it only",
+                Lane(Modes.ArmsRace).Count == StockSize && Lane(Modes.ArmsRace).All(e => Maps.First(m => Key(m) == e.Key).SizeMb <= DiceMaxMb));
+            Fresh(); FillStock(); // the lanes, and queues.json, as the checks below read them
+
             // ---- queues.json, version 2: the watcher reads "ballot" first, then the stock's lanes, one per mode by its name ----
             var file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
             Check("queues.json: version 2, a lane per mode under its name - the keep set's lanes, each the mode's own - the length, a time, nothing on the ballot without a vote",

@@ -20,8 +20,8 @@ public static class NextMatch
     /// <summary>The convar the game ends the screen by, counted from its start.</summary>
     public const string Delay = "mp_match_restart_delay";
 
-    /// <summary>The seconds it takes: 1 up to a minute.</summary>
-    public const int LeastSeconds = 1, MostSeconds = 60;
+    /// <summary>The seconds it takes: 1 up to two minutes - the vote's limit, a change's countdown and the margin fit (the bridge's ScreenToVote).</summary>
+    public const int LeastSeconds = 1, MostSeconds = 120;
 
     /// <summary>How long after the new end the plugin looks whether the next match started, and puts the delay back if the next match's round start has not.</summary>
     public const int CheckSeconds = 2;
