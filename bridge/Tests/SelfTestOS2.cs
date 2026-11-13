@@ -83,10 +83,11 @@ static partial class Program
         Check($"Chat: every one of the {ChatCommands.All.Length} commands parses as itself (none Unknown or a usage line), words unique",
             parsed.All(x => x.Item2.Kind is not (ChatCommands.Kind.Unknown or ChatCommands.Kind.None or ChatCommands.Kind.Usage))
             && ChatCommands.All.Select(c => c.Word).Distinct().Count() == ChatCommands.All.Length);
-        Check("Chat: what a command sends the bridge is a click the bridge takes (Hud.IsAction) - !next is the board's Next for the player",
-            parsed.Where(x => x.Item2.Kind == ChatCommands.Kind.Bridge && x.Item2.Arg != "next").All(x => Hud.IsAction(x.Item2.Arg))
+        var refusedArgs = parsed.Where(x => x.Item2.Kind == ChatCommands.Kind.Bridge && x.Item2.Arg != "next" && !Hud.IsAction(x.Item2.Arg)).Select(x => x.Item2.Arg).ToList();
+        Check($"Chat: what a command sends the bridge is a click the bridge takes (Hud.IsAction) - !next is the board's Next for the player{(refusedArgs.Count > 0 ? "; not " + string.Join(" | ", refusedArgs) : "")}",
+            refusedArgs.Count == 0
             && ChatCommands.Parse("!like 12") is { Kind: ChatCommands.Kind.Bridge, Arg: "!up 12" } && Hud.IsAction("!up 12")
-            && ChatCommands.Parse("!cancel 7") is { Kind: ChatCommands.Kind.Unknown } && ChatCommands.Parse("!done") is { Kind: ChatCommands.Kind.Bridge, Arg: "next" });
+            && ChatCommands.Parse("!cancel 7") is { Kind: ChatCommands.Kind.Usage } && ChatCommands.Parse("!cancel") is { Kind: ChatCommands.Kind.Bridge, Arg: Hud.CancelMine } && ChatCommands.Parse("!done") is { Kind: ChatCommands.Kind.Bridge, Arg: "next" });
         Check("Chat: a line that is no command is nothing, an unknown word says so, a command missing its argument gets its usage",
             ChatCommands.Parse("hello !play 1") is { Kind: ChatCommands.Kind.None } && ChatCommands.Parse("!") is { Kind: ChatCommands.Kind.None }
             && ChatCommands.Parse("!fly") is { Kind: ChatCommands.Kind.Unknown, Name: "!fly" } && ChatCommands.Parse("!vote 99") is { Kind: ChatCommands.Kind.Usage }

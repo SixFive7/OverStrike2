@@ -479,4 +479,176 @@ static class RunTests
               looked == ("queued", "queued") && marked == ("known", "skipped"));
         (State, Work, Data) = saved;
     }
+
+    /// <summary>A CS:GO-era upload as the state holds one: the Workshop names a file for it, so the queue leaves it out.</summary>
+    static JsonObject OldUpload(string status, string file, string title, string tag, params (string Key, JsonNode Value)[] extra)
+    {
+        var o = O($$"""
+            {"status": "{{status}}", "why": "new", "ws": "ok", "app": 730, "tags": ["{{tag}}"], "subs": 3, "lifetime": 3, "size": 1000, "created": {{T0 - 3000 * 86400}},
+             "title": "{{title}}", "filename": "{{file}}", "preview": "p", "description": "an old one", "first": "2026-11-01", "attempts": 0, "tests": 0}
+            """);
+        if (status == "skipped")
+            o["evidence"] = $"a CS:GO-era upload (its Workshop file is {file}): no CS2 map, not downloaded";
+        foreach (var (k, v) in extra)
+            o[k] = v.DeepClone();
+        return o;
+    }
+
+    // ---- the CS:GO-era uploads the queue leaves out: published as non-maps through the sync's own publish - broken.json's packs, kind legacy,
+    // identified from their Workshop file - the ones it skipped before as much as one it leaves out now; never one a list knows, an excluded
+    // author's or the owner's own; the merge check as strict as ever, however many at once; the dashboard's counts of what was tested and the
+    // history leave them out
+    internal static void CsgoEra()
+    {
+        FakeWorld();
+        var root = Dir("csgo-era");
+        var saved = (State, Work, Data);
+        (State, Work, Data) = (Path.Combine(root, "state"), Path.Combine(root, "work"), Path.Combine(root, "data"));
+        try
+        {
+            Directory.CreateDirectory(Data);
+            Json(Path.Combine(Data, "maps.json"), A("""[{"rank": 1, "id": 31, "name": "a", "sizeMb": 1}]"""));
+            Json(Path.Combine(Data, "maps-deathmatch.json"), A("""[{"rank": 1, "id": 45, "name": "listed by hand", "sizeMb": 1}]"""));
+            var scrape = O("""
+                {"id": 50, "name": "found by the scrape", "kind": "legacy", "evidence": "identified from its Workshop file", "phrase": null,
+                 "detail": "a CS:GO-era upload: its Workshop file is mymaps/s.bsp, a CS:GO map - CS2 cannot load it (Workshop details 2026-11-01)", "list": "scrape",
+                 "formerRank": null, "spareRank": null, "preview": "", "description": ""}
+                """);
+            var liveBroken = Node.File(new JsonObject
+            {
+                ["schema"] = "x", ["fields"] = O("""{"packs": "the doc"}"""), ["maps"] = new JsonArray(), ["packs"] = new JsonArray(scrape), ["removed"] = new JsonArray(),
+                ["blocked"] = new JsonArray(),
+            }, 2);
+            File.WriteAllText(Path.Combine(Data, "broken.json"), liveBroken);
+            Json(Path.Combine(Data, "search.json"), O("""{"31": "a 31", "45": "listed by hand 45 deathmatch"}"""));
+            var items = new JsonObject
+            {
+                ["41"] = OldUpload("skipped", "mymaps/de_old.bsp", "Old CS:GO map", "Deathmatch"),
+                ["42"] = OldUpload("queued", "mymaps/aim_new.bsp", "Found today", "Armsrace"),
+                ["43"] = OldUpload("queued", "preview_square.png", "Not a bsp", "Wingman"),
+                ["44"] = OldUpload("skipped", "mymaps/own.bsp", "An excluded author's", "Armsrace", ("creator", "7"), ("evidence", "listed by hand (its author is in sync.excludeCreators)")),
+                ["45"] = OldUpload("skipped", "mymaps/dm.bsp", "Listed by hand", "Deathmatch"),
+                ["46"] = O("""{"status": "skipped", "verdict": "pass", "why": "changed", "evidence": "listed by hand", "decided": "2026-11-01", "ws": "ok", "app": 0, "tags": ["Armsrace"], "title": "the owner's own", "detail": {"level": "x", "mode": "armsrace"}}"""),
+                ["50"] = OldUpload("skipped", "mymaps/s.bsp", "Found by the scrape", "Deathmatch"),
+                ["60"] = O($$"""{"status": "tested", "verdict": "nonmap", "decided": "{{C(new FakeClock(T0 + 20 * 86400)).Day()}}", "why": "new", "ws": "ok", "app": 730, "tags": ["Armsrace"], "title": "a pack it tested", "detail": {"kind": "pack", "detail": "models only"}, "preview": "", "description": ""}"""),
+            };
+            for (var i = 1000; i < 1060; i++)
+                items[$"{i}"] = OldUpload("skipped", $"mymaps/old_{i}.bsp", $"old {i}", "Wingman");
+            Json(Path.Combine(State, "state.json"), new JsonObject { ["schema"] = 1, ["items"] = items, ["baseline"] = new JsonObject(), ["downloads"] = new JsonObject() });
+            var cfg = Cfg();
+            (cfg.DownloadPause, cfg.ExcludeCreators) = (0, ["7"]);
+            var fc = new FakeClock(T0 + 20 * 86400);
+            var day = C(fc).Day();
+            var run = W.Run(cfg, fc);
+            var rep = run.Run();
+            var bt = File.ReadAllText(Path.Combine(Data, "broken.json"));
+            var packs = Node.Arr(O(bt)["packs"]).OfType<JsonObject>().ToList();
+            var ids = packs.Select(p => Node.Str(p["id"])).ToList();
+            var byId = packs.ToDictionary(p => Node.Str(p["id"]));
+            Check($"csgo-era: one the queue skipped before is published as a non-map - broken.json's packs, kind legacy, identified from its Workshop file, found by the sync ({(byId.TryGetValue("41", out var e41) ? Node.Compact(e41) : "none")})",
+                  e41 is not null && Node.Eq(e41, O($$"""
+                      {"id": 41, "name": "Old CS:GO map", "kind": "legacy", "evidence": "identified from its Workshop file", "phrase": null,
+                       "detail": "a CS:GO-era upload: its Workshop file is mymaps/de_old.bsp, a CS:GO map - CS2 cannot load it (workshop sync {{day}})", "list": "sync",
+                       "formerRank": null, "spareRank": null, "preview": "p", "description": "an old one"}
+                      """)));
+            Check("csgo-era: one the queue leaves out in this run has its verdict at once and goes too; a Workshop file that is no .bsp is no CS2 map all the same",
+                  byId.ContainsKey("42") && Node.Str(byId["42"]["detail"]).Contains("mymaps/aim_new.bsp, a CS:GO map")
+                  && byId.TryGetValue("43", out var e43) && Node.Str(e43["detail"]).Contains("its Workshop file is preview_square.png, no CS2 map - CS2 cannot load it") && Node.Str(e43["kind"]) == "legacy");
+            Check($"csgo-era: the live list kept in front, then the sync's own test and the CS:GO-era ones in the state's order - never an excluded author's, an id a mode "
+                  + $"list or broken.json has already, nor the owner's own map ({ids.Count} entries)",
+                  ids.SequenceEqual(new[] { "50", "41", "42", "43", "60" }.Concat(Enumerable.Range(1000, 60).Select(i => $"{i}"))) && Node.Eq(packs[0], scrape)
+                  && Node.Str(byId["60"]["evidence"]) == "confirmed by test" && Node.Str(byId["60"]["list"]) == "sync");
+            Check($"csgo-era: 64 entries added in one publish, and the merge check as strict as ever - the live broken.json plus additions only, nothing refused ({Show(Node.StrList(rep["errors"]))})",
+                  PublishPlan.MergeProblems("broken.json", System.Text.Encoding.UTF8.GetBytes(liveBroken), bt).Count == 0 && Node.Arr(rep["errors"]).Count == 0
+                  && Node.StrList(Node.Get(rep["published"], "files")).Contains("broken.json") && Node.Arr(Node.Get(rep["published"], "packs")).Count == 64);
+            var st = run.State;
+            string StatusOf(string wid) => Node.Str(st.Item(wid)!["status"]);
+            Check("csgo-era: each published one is marked so, with its verdict; the excluded author's, the listed one, the scrape's and the owner's own stay as they were",
+                  new[] { "41", "42", "43", "1059" }.All(w => StatusOf(w) == "published" && Node.Str(st.Item(w)!["verdict"]) == "nonmap")
+                  && new[] { "44", "45", "50" }.All(w => StatusOf(w) == "skipped" && st.Item(w)!["verdict"] is null)
+                  && StatusOf("46") == "skipped" && Node.Str(st.Item("46")!["verdict"]) == "pass");
+            var text = File.ReadAllText(Node.Str(rep["report_path"])[..^5] + ".txt");
+            Check("csgo-era: the report says how many the queue had left out before now, names the first 40 entries and counts the rest",
+                  Node.Int(rep["csgo_era"]) == 61 && text.Contains("61 CS:GO-era upload(s) the queue had left out before now") && text.Contains("broken.json packs  Old CS:GO map (41): legacy")
+                  && text.Contains("broken.json packs  ... and 24 more") && rep["mail"] is not null && Node.Arr(rep["issues"]).Count == 0);
+            var status = Read(Path.Combine(Data, "sync-status.json"))!;
+            var events = Node.Arr(status["history"]!["maps"]).Select(e => Node.Str(e!["id"])).ToList();
+            Check($"csgo-era: the dashboard counts what was tested - the pack and the owner's map, none of them - and only the tested pack is a map event ({Show(events)})",
+                  (Node.Int(status["totals"]!["tested"]), Node.Int(status["totals"]!["nonmap"]), Node.Int(status["today"]!["rejected"])) == (2, 1, 1) && events.SequenceEqual(["60"]));
+            var again = W.Run(cfg, new FakeClock(T0 + 21 * 86400));
+            var rep2 = again.Run();
+            Check("csgo-era: the next run finds nothing more to give or publish - broken.json as it was",
+                  rep2["csgo_era"] is null && Node.Get(rep2["published"], "files") is null && File.ReadAllText(Path.Combine(Data, "broken.json")) == bt);
+        }
+        finally
+        {
+            (State, Work, Data) = saved;
+        }
+    }
+
+    // ---- the week's full walk in a whole run with the key: discovery walks every page when it is due - inside the run's Web API limits, its
+    // calls through the one door and booked in the ledger - records it in the state and says it in the report, which says the last and the
+    // next walk every run; a run within the week reads to the first page with nothing new, as before
+    internal static void WalkRun()
+    {
+        FakeWorld();
+        var root = Dir("walk-run");
+        var saved = (State, Work, Data, Hooks.WebApi);
+        (State, Work, Data) = (Path.Combine(root, "state"), Path.Combine(root, "work"), Path.Combine(root, "data"));
+        try
+        {
+            Directory.CreateDirectory(Data);
+            Json(Path.Combine(Data, "maps.json"), A("""[{"rank": 1, "id": 31, "name": "a", "sizeMb": 1}]"""));
+            Json(Path.Combine(Data, "broken.json"), O("""{"schema": "x", "maps": [], "packs": [], "removed": [], "blocked": []}"""));
+            Json(Path.Combine(State, "state.json"), O("""{"schema": 1, "items": {"703": {"status": "published", "why": "new", "ws": "ok", "title": "seen", "tags": ["Armsrace"]}}, "baseline": {}}"""));
+            var asked = new List<string>();
+            Hooks.WebApi = r =>
+            {
+                if (!r.Url.StartsWith(SteamApi.QueryUrl, StringComparison.Ordinal))
+                    return new ApiAnswer(200, "{\"response\": {}}"u8.ToArray());
+                var cursor = Uri.UnescapeDataString(r.Url.Split("cursor=")[1].Split('&')[0]);
+                asked.Add(cursor);
+                var page = cursor switch { "*" => CheckTests.Page([701, 702], "c2"), "c2" => CheckTests.Page([703], "c3"), _ => CheckTests.Page([704], "") };
+                return new ApiAnswer(200, System.Text.Encoding.UTF8.GetBytes(page.ToJsonString()));
+            };
+            var cfg = Cfg();
+            (cfg.WebApiKey, cfg.Ratings, cfg.DownloadPause) = (Key, false, 0);
+            cfg.Lower(O("{\"api\": true}"));
+            var t1 = T0 + 30 * 86400;
+            var r1 = W.Run(cfg, new FakeClock(t1));
+            var rep1 = r1.Run();
+            var d1 = Node.Obj(rep1["discovery"]);
+            var walk = Node.Obj(r1.State.Data["walk"]);
+            Check($"walk run: due with none recorded - discovery reads every page, on past page 2 with nothing new ({Show(asked)}, {Node.Str(d1["stop"])})",
+                  asked.SequenceEqual(["*", "c2", "c3"]) && Node.Str(d1["walk"]) == "whole" && Node.StrList(d1["new"]) is ["701", "702", "704"]);
+            var calls = Node.Arr(Read(Path.Combine(State, "api-ledger.json"))!["calls"]).Select(c => (Time: Node.Float(c![0]), Api: Node.Str(c[1]))).ToList();
+            Check($"walk run: inside the run's Web API limits - 3 calls of its 500, each booked in the ledger, 2 s apart through the one door ({Show(calls.Select(c => c.Time - t1))})",
+                  Node.Int(Node.Get(rep1["limits"], "api_run")) == 3 && Node.Int(Node.Get(rep1["limits"], "api_run_cap")) == 500 && calls.Count == 3
+                  && calls.All(c => c.Api == "QueryFiles") && calls.Zip(calls.Skip(1)).All(p => p.Second.Time - p.First.Time >= 2.0));
+            var c1 = C(new FakeClock(t1));
+            Check($"walk run: the state records when it ran and what it read ({Node.Compact(walk)})",
+                  Node.Float(walk["at"]) >= t1 && Node.Float(walk["at"]) < t1 + 60 && Node.Int(walk["pages"]) == 3 && Node.Int(walk["new"]) == 3 && Node.Str(walk["day"]) == c1.Day());
+            var text1 = File.ReadAllText(Node.Str(rep1["report_path"])[..^5] + ".txt");
+            var next = C(new FakeClock(Node.Float(walk["at"]) + 7 * 86400));
+            Check("walk run: the report says this was the walk, when it ran and when the next is due",
+                  text1.Contains("This was the week's full walk: every page, not only to the first with nothing new.")
+                  && text1.Contains($"The full walk, at most once a week: the last {c1.Day()} {c1.Hm(Node.Float(walk["at"]))} (3 page(s), 3 new, 0 back), the next due {next.Day()} {next.Hm()}."));
+            asked.Clear();
+            var r2 = W.Run(cfg, new FakeClock(t1 + 86400));
+            var rep2 = r2.Run();
+            var text2 = File.ReadAllText(Node.Str(rep2["report_path"])[..^5] + ".txt");
+            Check("walk run: a day later the default run - the first page with nothing new ends it, 1 call; its report names the last walk and the next",
+                  asked.SequenceEqual(["*"]) && Node.Get(rep2["discovery"], "walk") is null && Node.Int(Node.Get(rep2["limits"], "api_run")) == 1
+                  && text2.Contains($"the last {c1.Day()} ") && text2.Contains($"the next due {next.Day()} ") && !text2.Contains("This was the week's full walk"));
+            asked.Clear();
+            var r3 = W.Run(cfg, new FakeClock(t1 + 8 * 86400));
+            var rep3 = r3.Run();
+            Check("walk run: a week on it walks again, every page, and the state has the new one",
+                  asked.SequenceEqual(["*", "c2", "c3"]) && Node.Str(Node.Get(rep3["discovery"], "walk")) == "whole" && Node.Float(Node.Get(r3.State.Data["walk"], "at")) >= t1 + 8 * 86400);
+        }
+        finally
+        {
+            (State, Work, Data, Hooks.WebApi) = saved;
+        }
+    }
 }

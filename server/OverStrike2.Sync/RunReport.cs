@@ -117,6 +117,13 @@ public static class RunReport
             W($"   skipped: {S(d["skipped"])}");
         else
             W($"   {N(d, "pages")} page(s), {N(d, "seen")} item(s) seen, {Node.Arr(d["new"]).Count} new ({Or(d["stop"], "-")}); the Workshop holds {Or(d["total"], "?")} items with these tags.");
+        if (Node.Truthy(d["walk"]))
+            W($"   This was the week's full walk: every page, not only to the first with nothing new{(S(d["walk"]) == "whole" ? "" : " - cut short, so the next run that asks the Workshop walks again")}"
+              + $"{(Node.Arr(d["back"]).Count > 0 ? $"; {Node.Arr(d["back"]).Count} queued map(s) the check had found gone are back on the Workshop" : "")}.");
+        var walk = Node.Obj(r["walk"]);
+        W(Node.Truthy(walk["last"])
+            ? $"   The full walk, at most once a week: the last {S(walk["last"])} ({N(walk, "pages")} page(s), {N(walk, "new")} new, {N(walk, "back")} back), the next due {S(walk["next"])}."
+            : "   The full walk, at most once a week: none yet - the next run that asks the Workshop walks every page.");
         var c = Node.Obj(r["check"]);
         W("2. Check the listed maps (ISteamRemoteStorage/GetPublishedFileDetails, no key):");
         if (Node.Truthy(c["skipped"]))
@@ -179,6 +186,8 @@ public static class RunReport
         if (Node.Truthy(t["stop"]))
             W($"   stopped: {S(t["stop"])}");
         W("5. Published into the bridge's data:");
+        if (Node.Truthy(r["csgo_era"]))
+            W($"   {I(r["csgo_era"])} CS:GO-era upload(s) the queue had left out before now (the Workshop names a CS:GO file for each; never downloaded) got their verdict: not maps, for broken.json's packs.");
         if (Node.Truthy(pub["skipped"]))
             W($"   skipped: {S(pub["skipped"])}");
         else if (!Node.Truthy(pub["files"]) && !Node.Truthy(pub["verdicts"]))

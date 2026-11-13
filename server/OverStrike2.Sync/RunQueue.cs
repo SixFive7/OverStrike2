@@ -9,8 +9,8 @@ public sealed partial class SyncRun
     /// <summary>The download queue, best first: items created in the last 14 days (newest first), then listed maps changed since we last saw
     /// them, then everything else we have seen (most subscribed first) - and before all of them, best score first, a waiting map whose Workshop
     /// score would put it among its mode's best (the keep set's top lists), so the maps that will stay on the server are tested before the
-    /// rest. It marks what it leaves out for good - listed already (known), an excluded author's or a CS:GO-era upload (skipped) - unless it is
-    /// asked only to look (mark false: the status picture).</summary>
+    /// rest. It marks what it leaves out for good - listed already (known), an excluded author's or a CS:GO-era upload (skipped; the latter with
+    /// its verdict, a non-map the publish puts on broken.json: LeaveOutCsgoEra) - unless it is asked only to look (mark false: the status picture).</summary>
     public List<string> Queue(IReadOnlyDictionary<string, string> known, bool mark = true)
     {
         var items = State.Items;
@@ -43,7 +43,7 @@ public sealed partial class SyncRun
             if (Node.Truthy(rec["filename"]))
             {
                 if (mark)
-                    (rec["status"], rec["evidence"]) = ("skipped", $"a CS:GO-era upload (its Workshop file is {Text.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded");
+                    LeaveOutCsgoEra(wid, rec, known);
                 continue;
             }
             if (!Node.StrList(rec["tags"]).Any(tags.Contains))
@@ -87,6 +87,40 @@ public sealed partial class SyncRun
             ordered = top.Concat(ordered.Where(w => !QTop.Contains(w))).ToList();
         Backlog = Verdicts.BacklogStats(items, ordered, Pace());
         return ordered;
+    }
+
+    /// <summary>A CS:GO-era upload left out for good: the Workshop names a file for it, which no CS2 upload has, so it is skipped and never
+    /// downloaded - and given its verdict (Verdicts.WorkshopFile), a non-map decided today that the publish puts on broken.json's packs like the
+    /// sync's own verdicts, so a player who types its id is refused. None for an id the bridge's lists know already.</summary>
+    void LeaveOutCsgoEra(string wid, JsonObject rec, IReadOnlyDictionary<string, string> known)
+    {
+        (rec["status"], rec["evidence"]) = ("skipped", $"a CS:GO-era upload (its Workshop file is {Text.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded");
+        if (!known.ContainsKey(wid))
+            (rec["verdict"], rec["decided"], rec["detail"]) = ("nonmap", Day0, Verdicts.WorkshopFile(Node.Str(rec["filename"]), Day0));
+    }
+
+    /// <summary>The CS:GO-era uploads the queue left out before it gave them a verdict (it used to skip them only, and no list had them, so a
+    /// player who typed one's id was not refused): each skipped one with a Workshop file and no verdict yet gets it at a run's start, and the
+    /// run's publish puts it on broken.json's packs. Not an excluded author's, not an id the bridge's lists know already, and with a run-now's
+    /// only_ids only those. Returns how many.</summary>
+    public int CsgoEraVerdicts(IReadOnlyDictionary<string, string> known)
+    {
+        var given = 0;
+        foreach (var (wid, node) in State.Items)
+        {
+            if (node is not JsonObject rec || Node.Str(rec["status"]) != "skipped" || !Node.Truthy(rec["filename"]) || Node.Truthy(rec["verdict"])
+                || known.ContainsKey(wid) || (Node.Truthy(rec["creator"]) && Cfg.ExcludeCreators.Contains(Node.Str(rec["creator"])))
+                || (Cfg.OnlyIds is { } only && !only.Contains(wid)))
+                continue;
+            (rec["verdict"], rec["decided"], rec["detail"]) = ("nonmap", Day0, Verdicts.WorkshopFile(Node.Str(rec["filename"]), Day0));
+            given++;
+        }
+        if (given > 0)
+        {
+            State.Save();
+            L($"CS:GO-era uploads: {given} left out by the queue before now given their verdict - not maps, identified from their Workshop file; the publish puts them on broken.json's packs");
+        }
+        return given;
     }
 
     /// <summary>{Workshop tag: (the score and the subscriptions a map needs to be among its mode's top by that list - null: the list is

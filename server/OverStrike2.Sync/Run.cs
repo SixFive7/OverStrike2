@@ -261,8 +261,11 @@ public sealed partial class SyncRun
         var listed = files.Listed();
         L($"start: {listed.Count} listed map(s), {known.Count} id(s) known, {State.Items.Count} item(s) in the state, deadline {Clock.Hm(Deadline)}{(Manual ? " (manual run)" : "")}");
         TakeHandVerdicts(known);                            // <state>/adopt.json (RunAdopt.cs): published below, like the sync's own verdicts
+        var csgoEra = CsgoEraVerdicts(known);               // the CS:GO-era uploads skipped before they had a verdict (RunQueue.cs): published below too
+        if (csgoEra > 0)
+            Report["csgo_era"] = csgoEra;
         var key = Cfg.WebApiKey.Length > 0 ? Cfg.WebApiKey : null;
-        var api = new SteamApi(Ledger, Day0, door, key, SteamApi.HttpSend, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
+        var api = new SteamApi(Ledger, Day0, door, key, Seams.WebApi, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
         Api = api;
         var lastApi = Node.Float(State.Data["last_api"]);
         var apiDue = (Cfg.ForceApi || Clock.Now() - lastApi >= Cfg.ApiEvery || !Service.BacklogWaits(State.Data)) && !Cfg.SkipApi;
@@ -306,11 +309,13 @@ public sealed partial class SyncRun
             var outcomes = ScanAndTest();
             Worked += Clock.Now() - tBatch;
             Decided += outcomes.Count;
-            // this batch's verdicts and any earlier one that could not be published then
+            // this batch's verdicts and any earlier one that could not be published then; and the CS:GO-era uploads the queue left out, skipped
+            // with their verdict (RunQueue.cs)
             Phase("publish");
             var decided = new HashSet<string>(outcomes.Select(o => o.Id));
             foreach (var (wid, node) in State.Items)
-                if (!decided.Contains(wid) && node is JsonObject rec && Node.Truthy(rec["verdict"]) && Node.Str(rec["status"]) is "tested" or "downloaded")
+                if (!decided.Contains(wid) && node is JsonObject rec && Node.Truthy(rec["verdict"])
+                    && (Node.Str(rec["status"]) is "tested" or "downloaded" || (Node.Str(rec["status"]) == "skipped" && Verdicts.FromWorkshopFile(rec))))
                     outcomes.Add(new Verdicts.Outcome(wid, Node.Str(rec["verdict"]), Node.Obj(rec["detail"]), rec));
             var before = Report["published"] as JsonObject;
             before = (JsonObject?)before?.DeepClone();
@@ -417,6 +422,7 @@ public sealed partial class SyncRun
         {
             L($"backlog not counted: {Text.Of(e)}");
         }
+        Report["walk"] = WalkReport();                       // the week's full walk: the last and the next, in every report
         Report["ended"] = Clock.Stamp();
         Report["ended_hm"] = Clock.Hm();
         if (!Report.ContainsKey("limits"))

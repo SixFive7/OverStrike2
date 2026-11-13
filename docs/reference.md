@@ -187,39 +187,119 @@ in which only `!help` is Lime. Every section of a line starts with a capital, an
 
 | Command | What it does | Aliases |
 |---|---|---|
-| `!play <number, name or Workshop ID>` | Put a map to the vote, with your vote on it; while a vote is open, onto that ballot | `!map` `!p` `!nominate` `!load` `!go` `!pick` |
-| `!find <words>` | Search the maps: the menu opens on the matches | `!search` `!s` `!lookup`, and `!maps <words>` |
-| `!maps` | Open the map browser | `!browse` `!list` `!maplist` `!m` `!top` (sorted by likes) |
-| `!next` | Start a vote for the next map, Keep playing on it; while a vote is open, back to it | `!n` `!rtv` `!change` `!skipmap` `!skip` `!voteskip` `!vs` `!boo` `!done` `!finish` `!end` `!release` `!letgo` `!over` `!new` |
-| `!random` | The same vote, with your vote on Random; while a vote is open, your vote on Random | `!roll` `!dice` `!rand` `!any` `!shuffle` |
-| `!back` | The map before this one, to the vote | `!previous` `!prev` `!last` `!undo` `!again` |
-| `!up [number]` | Like the map that is on, or that map | `!like` `!+` `!good` `!love` `!thumbsup` |
-| `!down [number] [reason]` | Dislike it, and why ([Likes and dislikes](#likes-and-dislikes)) | `!dislike` `!-` `!bad` `!meh` `!thumbsdown` |
-| `!vote` | Back to the vote for the next map: a vote is a click on its card | `!v` `!mv` `!choose` |
-| `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!randomize` `!funrandom` `!defaults` `!fundefault` |
-| `!nades <on\|off>` | Grenade drops on or off (`!drops on\|off` is the setting's own word) | `!grenades` `!nade` `!he` `!boom` |
-| `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` |
-| `!time [10\|60]` | Match length in minutes, this match too - Wingman's in rounds, 8 or 16 - Alone it switches | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
-| `!restart` | Restart a stuck server - Twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
-| `!rematch` | Restart the match - Twice to confirm | `!restartmatch` `!matchrestart` `!restartgame` `!rr` |
-| `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` |
-| `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` |
-| `!how` | How it works: every rule of the vote and every chance of a random pick | `!howitworks` `!odds` `!chances` `!why` `!explain` `!rules` `!rule` `!r` `!fair` `!howto` `!policy` |
-| `!sync` | The Sync page: what the map sync does now, its queue and its history | `!status` `!dashboard` |
+| `!play <number, name or Workshop ID>` | Put a map to the vote, with your vote on it; while a vote is open, onto that ballot | `!map` `!p` `!nominate` `!load` `!go` `!pick` `!download` `!dl` `!workshop` `!playmap` |
+| `!find <words>` | Search the maps: the menu opens on the matches | `!search` `!s` `!lookup` `!f` `!findmap` `!searchmap` `!mapsearch` `!look` `!seek`, and `!maps <words>` |
+| `!maps` | Open the map browser | `!browse` `!list` `!maplist` `!m` `!top` `!browser` `!allmaps` `!mapmenu` `!catalog` `!library` (`!top` sorted by likes) |
+| `!next` | Start a vote for the next map, Keep playing on it; while a vote is open, back to it | `!n` `!rtv` `!change` `!skipmap` `!skip` `!voteskip` `!vs` `!boo` `!done` `!finish` `!end` `!release` `!letgo` `!over` `!new` `!rockthevote` `!votemap` `!mapvote` `!changemap` `!startvote` `!callvote` |
+| `!random` | The same vote, with your vote on Random; while a vote is open, your vote on Random | `!roll` `!dice` `!rand` `!any` `!shuffle` `!randommap` `!rollmap` `!randomvote` |
+| `!back` | The map before this one, to the vote | `!previous` `!prev` `!last` `!undo` `!again` `!lastmap` `!prevmap` `!previousmap` `!goback` `!before` |
+| `!up [number]` | Like the map that is on, or that map | `!like` `!+` `!good` `!love` `!thumbsup` `!upvote` `!likemap` `!+1` `!great` `!fav` |
+| `!down [number] [reason]` | Dislike it, and why ([Likes and dislikes](#likes-and-dislikes)) | `!dislike` `!-` `!bad` `!meh` `!thumbsdown` `!downvote` `!dislikemap` `!-1` `!hate` `!boring` |
+| `!vote [number]` | Vote for the card with that number; alone, back to the vote for the next map | `!v` `!mv` `!choose` `!ballot` `!votes` `!cast` `!votefor` |
+| `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!funmenu` `!funpage` `!modifiers` `!mods` |
+| `!nades <on\|off>` | Grenade drops on or off (`!drops on\|off` is the setting's own word) | `!grenades` `!nade` `!he` `!boom` `!grenade` |
+| `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` `!rubberband` `!handicap` `!underdog` |
+| `!bots [number, preset, kick or default]` | The Bots page; `!bots 4`, `!bots zombies`, `!bots kick`, `!bots default`, `!bots <setting> <choice>` | `!bot` `!botmenu` `!ai` `!npc` `!npcs` `!botpage` `!addbots` `!addbot` `!botcount` |
+| `!time [10\|60]` | Match length in minutes, this match too - Wingman's in rounds, 8 or 16 - Alone it switches | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` `!matchlength` `!matchtime` `!mins` `!rounds` |
+| `!restart` | Restart a stuck server - Twice to confirm | `!reboot` `!unstuck` `!stuck` `!restartserver` `!serverrestart` `!rebootserver` `!serverreboot` |
+| `!rematch` | Restart the match - Twice to confirm | `!restartmatch` `!matchrestart` `!restartgame` `!rr` `!newmatch` `!resetmatch` `!matchreset` `!newgame` |
+| `!cancel` | Stop your own countdown, the newest: a pick, Previous, Restart match or the server's restart | `!stop` `!abort` `!nvm` `!nevermind` `!hold` `!wait` `!norestart` `!norematch` |
+| `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` `!mainmenu` `!overstrike` `!panel` `!home` `!window` |
+| `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` `!command` `!cmd` `!helpme` `!support` `!guide` |
+| `!how` | How it works: every rule of the vote and every chance of a random pick | `!howitworks` `!odds` `!chances` `!why` `!explain` `!rules` `!rule` `!r` `!fair` `!howto` `!policy` `!faq` |
+| `!players` | The Players page: who is on, their side, their HUD and time on | `!who` `!online` `!people` `!roster` `!playerlist` `!humans` |
+| `!sync` | The Sync page: what the map sync does now, its queue and its history | `!status` `!dashboard` `!syncstatus` `!downloads` `!mapsync` `!queue` `!progress` |
 
 One word depends on what follows it, by rule: `!maps` (and its aliases) with words is `!find`; and `!nades` is two things, `on` and `off`
 the grenade drops, `normal`, `big` and `huge` the blast of the grenades. The words players know from other servers are among the aliases:
-`!skip` and `!rtv` start the vote, and `!done` and `!new`, whose old meanings are gone, do the same and teach it. `!randomize` and
-`!funrandom` run `!fun random`, `!defaults` and `!fundefault` run `!fun default`, and teach them as every alias teaches its primary.
+`!skip` and `!rtv` start the vote, and `!done` and `!new`, whose old meanings are gone, do the same and teach it. No alias is a generic word
+that sets off something heavy: `!reset` resets the fun settings (a shortcut, below), and a restart of the server has only words that say so.
 
 While a vote is open `!play` - like a card's Play in the map browser - puts its map on the ballot for everybody, with that player's vote, and
 `!back` does the same with the map before this one; `!random` moves that player's vote to Random; `!next` and a bare `!vote` bring its window
-back. The cards have no numbers: a `!vote` with a number answers that a vote is a click on a card, and a bare number stays
-plain chat. The commands that do not touch the map stay as they are, `!restart` among them: a stuck server does not wait for a vote.
+back. **`!vote 3` votes for the card with number 3**, as a click on it would: every card has a number of its own for the whole vote, the same
+for everybody (the vote state's option number, `VoteState.Option.N`) - Keep is 1, the cards the ballot opens with follow in its order, and a
+card that comes later gets the next number the vote has not given yet, never one a card that left had. `!vote random` is Random's button.
+A bare number stays plain chat. The commands that do not touch the map stay as they are, `!restart` among them: a stuck server does not
+wait for a vote.
+
+**`!bots`** is the Bots page in chat. Alone it opens the page; `!bots 4` has four bots play beside the players, `!bots zombies` - or `duel`,
+`targets`, `copycats`, `war`, `pistols` - starts a preset, `!bots kick` (also `!bots off`) kicks every bot, and `!bots default` puts every bot
+setting back; `!bots botlevel hard` sets a row, `!bots level hard` too, and a choice only one row has names it alone: `!bots hard`. What the
+page refuses, chat refuses with the same words.
+
+**`!cancel`** stops the newest countdown of the player's own: a pick or Previous counting down, Restart match, or the server's restart
+(`Hud.CancelMine`, the bridge's `CancelMine`). Somebody else's countdown is not the chat's to stop; its button in the menu, which anybody may
+click, still is.
 
 **Each fun setting is a word of its own**, with the setting's id and its choices: `!gravity low`, `!vampire on`, `!bhop turbo`. A bare `!fun`
 opens the Fun page and writes the words in chat, for the settings the page shows in the game mode that is on. `!fun gravity low` still works
 and teaches the short word.
+
+**Shortcuts** are hidden words for a command with words of its own (`ChatCommands.Shortcuts`): `!toobig 12` runs `!down 12 big`, `!lowgrav`
+runs `!gravity low`, `!zombies` runs `!bots zombies`, `!reset` runs `!fun default`. What follows a shortcut takes the place the table gives it,
+or the shortcut's own choice when nothing follows: `!headshots` runs `!hs on`, `!headshots off` runs `!hs off`. Each teaches what it ran, as an
+alias does, and `!help` lists none. A setting's word alone, without its choice, answers with that setting's usage.
+
+| Shortcuts | Run |
+|---|---|
+| `!randomize` `!funrandom` `!chaos` `!surprise` `!randomfun` | `!fun random` |
+| `!defaults` `!fundefault` `!reset` `!vanilla` `!funreset` `!resetfun` | `!fun default` |
+| `!toobig` `!toolarge` `!bigmap` `!hugemap` `!oversized` | `!down big`; with a map's number, `!toobig 12` runs `!down 12 big` |
+| `!ads` `!ad` `!advert` `!adverts` `!advertising` | `!down ads`; with a map's number, `!ads 12` runs `!down 12 ads` |
+| `!toosmall` `!tiny` `!cramped` `!smallmap` `!tinymap` | `!down small`; with a map's number, `!toosmall 12` runs `!down 12 small` |
+| `!broken` `!bugged` `!buggy` `!glitched` `!glitchy` | `!down broken`; with a map's number, `!broken 12` runs `!down 12 broken` |
+| `!laggy` `!stutter` `!lowfps` `!slowmap` `!runsbadly` | `!down slow`; with a map's number, `!laggy 12` runs `!down 12 slow` |
+| `!grav` | `!gravity` with its choice: `!grav low` runs `!gravity low` |
+| `!lowgrav` `!lowgravity` | `!gravity low` |
+| `!moon` `!moongrav` | `!gravity moon` |
+| `!jumps` | `!jump` with its choice: `!jumps high` runs `!jump high` |
+| `!superjump` `!highjump` `!bigjump` `!jumphigh` | `!jump high` |
+| `!bunnyhop` `!bunnyhopping` `!bunny` `!autobhop` | `!bhop on`; what follows takes its place: `!bunnyhop off` runs `!bhop off` |
+| `!turbo` `!turbobhop` | `!bhop turbo` |
+| `!falldamage` `!falls` | `!fall` with its choice: `!falldamage off` runs `!fall off` |
+| `!nofall` `!nofalldamage` `!softlanding` | `!fall off` |
+| `!icefloor` `!icy` `!slippery` `!skate` `!skating` | `!ice on`; what follows takes its place: `!icefloor off` runs `!ice off` |
+| `!laser` `!lasers` `!laserguns` `!nospread` `!norecoil` | `!aim on`; what follows takes its place: `!laser off` runs `!aim off` |
+| `!infiniteammo` `!infammo` `!noreload` `!unlimitedammo` `!infinite` | `!ammo on`; what follows takes its place: `!infiniteammo off` runs `!ammo off` |
+| `!headshots` `!headshot` `!hsonly` `!onlyhs` `!headshotsonly` | `!hs on`; what follows takes its place: `!headshots off` runs `!hs off` |
+| `!vamp` `!vampires` `!lifesteal` `!leech` `!vampiric` | `!vampire on`; what follows takes its place: `!vamp off` runs `!vampire off` |
+| `!ghosts` `!invisible` `!invis` `!stealth` `!vanish` | `!ghost on`; what follows takes its place: `!ghosts off` runs `!ghost off` |
+| `!bignades` `!biggrenades` `!blast` | `!nades big` |
+| `!hugenades` `!kaboom` | `!nades huge` |
+| `!doubledamage` `!double` `!2x` `!dmg` `!doubledmg` | `!damage on`; what follows takes its place: `!doubledamage off` runs `!damage off` |
+| `!freeforall` `!allvsall` `!allvall` `!noteams` `!ffamode` | `!ffa on`; what follows takes its place: `!freeforall off` runs `!ffa off` |
+| `!friendlyfire` `!teamdamage` `!teamkill` `!tk` `!teamfire` | `!ff` with its choice: `!friendlyfire off` runs `!ff off` |
+| `!insta` `!onehit` `!oneshot` `!instakills` `!onehitkill` | `!instakill` with its choice: `!insta off` runs `!instakill off` |
+| `!teamnades` `!ffgrenades` `!nadetk` `!teamgrenades` `!ffnade` | `!ffnades` with its choice: `!teamnades on` runs `!ffnades on` |
+| `!nadedrops` `!grenadedrops` `!dropnades` `!dropgrenades` `!grenadedrop` | `!drops` with its choice: `!nadedrops off` runs `!drops off` |
+| `!botfill` `!fillto` `!fillbots` `!quota` `!botquota` | `!bots botfill` with its choice: `!botfill 8` runs `!bots botfill 8` |
+| `!botteam` `!botside` `!botsteam` | `!bots botteam` with its choice: `!botteam t` runs `!bots botteam t` |
+| `!botst` | `!bots botteam t` |
+| `!botsct` | `!bots botteam ct` |
+| `!botlevel` `!difficulty` `!botdiff` `!botskill` `!botdifficulty` | `!bots botlevel` with its choice: `!botlevel hard` runs `!bots botlevel hard` |
+| `!botweapons` `!botweapon` `!botguns` `!botgun` `!botloadout` | `!bots botweapons` with its choice: `!botweapons knives` runs `!bots botweapons knives` |
+| `!botchatter` `!botchat` | `!bots botchatter` with its choice: `!botchatter quiet` runs `!bots botchatter quiet` |
+| `!botradio` | `!bots botchatter radio` |
+| `!quietbots` `!silentbots` | `!bots botchatter quiet` |
+| `!botfire` | `!bots botfire` with its choice: `!botfire on` runs `!bots botfire on` |
+| `!holdfire` `!dontshoot` `!nobotfire` `!harmlessbots` | `!bots botfire on`; what follows takes its place: `!holdfire off` runs `!bots botfire off` |
+| `!botcrouch` `!botsduck` `!botduck` `!crouchbots` `!botsneak` | `!bots botcrouch on`; what follows takes its place: `!botcrouch off` runs `!bots botcrouch off` |
+| `!botmove` | `!bots botmove` with its choice: `!botmove walk` runs `!bots botmove walk` |
+| `!botwalk` `!walkbots` | `!bots botmove walk` |
+| `!botfreeze` `!freezebots` `!frozenbots` | `!bots botmove frozen` |
+| `!botmimic` `!mimic` `!botcopy` `!mimicbots` `!copybots` | `!bots botmimic on`; what follows takes its place: `!botmimic off` runs `!bots botmimic off` |
+| `!ignoreme` `!botsignore` `!ignoreplayers` `!botsignoreme` | `!bots botwar on`; what follows takes its place: `!ignoreme off` runs `!bots botwar off` |
+| `!bottag` `!botname` `!botprefix` `!botnames` | `!bots bottag` with its choice: `!bottag zombie` runs `!bots bottag zombie` |
+| `!zombietag` | `!bots bottag zombie` |
+| `!zombies` `!zombie` `!horde` `!zombiehorde` `!undead` | `!bots zombies` |
+| `!duel` `!sniperduel` `!awpduel` `!botduel` `!duelbot` | `!bots duel` |
+| `!targets` `!targetpractice` `!dummies` `!aimtrain` `!aimtraining` | `!bots targets` |
+| `!copycats` `!copycat` `!clones` `!mimics` `!clonebots` | `!bots copycats` |
+| `!botwar` `!botsfight` `!botfight` `!botbattle` `!botbrawl` | `!bots war` |
+| `!pistolparty` `!pistols` `!pistolbots` `!deagles` `!pistolsparty` | `!bots pistols` |
+| `!kickbots` `!kickbot` `!nobots` `!botkick` `!removebots` `!botsoff` | `!bots kick` |
+| `!botdefault` `!botsdefault` `!resetbots` `!botreset` `!botsnormal` | `!bots default` |
 
 The actions the menu sends the bridge (`/act/`) are a closed list (`Hud.IsAction`, `MapVote.IsAction`): nothing typed or clicked reaches the
 server console.
@@ -253,7 +333,7 @@ Any number of players plays on any Wingman map; its [spawn points](#wingman-and-
 
 Every vote opens everybody's window on the ballot and freezes everybody: nobody moves, shoots, takes damage or closes the window, bots
 included (`VoteFreeze.cs`). A player who joins meanwhile is frozen and counted. Everybody unfreezes at the same moment: when the vote keeps
-the map, once the window has said so for 8 s; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes;
+the map, once the window has said so for 8 s; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes - a winner still to download, while the window says so ([below](#voting));
 when it plays the map again at a match end, after that same countdown, as the next match starts ([below](#voting)). The plugin frees everybody by itself if the
 bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge never leaves anybody frozen.
 
@@ -281,7 +361,7 @@ map put on the ballot, a page, a sort, a filter or a search in the map browser -
 end. The window shows who started the vote, where the votes go, who has not voted yet and both timers, then what came of it and the countdown.
 Every vote - cast or moved - says in chat and on the board who voted and who still has to.
 
-**Play this map again starts the next match after the countdown a map change has** (`bridge.changeDelaySeconds`, 8 s): the window says "Next match in 8 s".
+**Play this map again starts the next match after the countdown a map change has** (`bridge.changeDelaySeconds`, 8 s): the window says "Next match in", to the screen's own end (below).
 Every mode's cfg keeps the match-end screen up for 90 s (`mp_match_restart_delay`), long enough for the vote, and as the vote decides, the bridge asks the
 plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The game ends the screen at its start (the game rules'
 `m_flIntermissionStartTime`) plus `mp_match_restart_delay`, read as it goes - `m_flIntermissionEndTime` passes about 10 s into the screen and ends nothing - so the
@@ -291,13 +371,24 @@ new end at the latest; a map change drops it, since the new map's cfg sets its o
 **CS2's corner counts with the vote.** Without the bridge the corner of the match-end screen counts the cfg's 90 s from the match end, beside a LIMIT of 60 s from
 the vote's open, and the two never agree. So the bridge has the plugin move the screen's end three times (`os_nextmatch`):
 - as a match end's vote opens - or a vote that was open becomes a match end's - to the vote's limit, the change's countdown and `ScreenMarginSeconds`
-  (2 s): the corner then reads LIMIT + 10 s, the latest next match or map;
+  (2 s): the corner then reads LIMIT + 10 s, the latest next match or map. A plugin that finds no match-end screen up yet - the game enters it a moment
+  after the line the vote opened on - is asked again a second later, 5 times at the most (`ScreenTries`);
 - at a decision to play the map again, to the countdown, 8 s, as above;
 - at a decision for another map, to the countdown and the 2 s, so the change goes out first and the game's own reset never races it - when that map is on the
-  server's disk (`OnTheDisk`). One still to download keeps the end the vote's open gave it.
+  server's disk (`OnTheDisk`). A map the bridge cannot say of (no fresh report of the watcher's names it) keeps the end the vote's open gave it.
 
-Everybody voting closes the vote early through its inactivity timer: that is its decision, and the screen is cut then. After every decision the corner and the
-window count within about a second of each other. There the game starts the next
+**The change or the next match starts as the window's countdown reaches 0**, whenever the decision came: at the limit, through the inactivity timer once
+everybody has voted, or by the dice when nobody voted. The plugin's reply says when the screen ends to a hundredth of a second - its whole-second
+`mp_match_restart_delay` ends it up to a second after the 8 s asked (`NextMatch.EndsIn`) - and the window counts to that end: "Next match in 9 s" for an
+end 8.42 s away, and the next match starts at its 0. A change to another map goes out at its 0, the screen's end 2 s behind it.
+
+**A winner still to download** - the watcher's fresh report says it is not on the server's disk (`ReportedMissing`), which a map put on the ballot late can
+be - has no countdown to a change that could not happen at its 0: its change goes out at once (`FetchChange`), the server fetches the map, taking over the
+watcher's background download of it, and loads it the moment it is in. The decision's line and the window say so - "Downloading: it changes the moment it
+is ready", no clock (`VoteState.Fetching`) - until the map starts. At a match end the screen holds for it, `os_nextmatch 120 hold` (`NextMatch.HoldSeconds`,
+sooner or later than it would end), so the next match never starts on the old map while the new one comes, and everybody stays on the scoreboard; a
+download that outlasts it lets the screen end there and the next match start on the old map, and the new map still comes the moment it is in. Mid-match the
+window says it for a change's countdown, then everybody plays on until it loads. There the game starts the next
 match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows. As at
 any such end, CS2 moves every player to Unassigned and kicks the bots: everybody picks a side again at CS2's team select - a play of the same map again is often
 for other teams - and the bots come back with the first pick. A player who picks a side again is no join for the fairness restart: no map starts, so the map's
@@ -321,10 +412,12 @@ card's fill still kept the place a cancel left it at.
 y 952-1000 in a match and higher at a match end (`.EndOfMatchChat`, y 674-722), so what a player types during a vote and every reply show beside the window. 16:10
 and 4:3 scale the window to fit there (`ui-scale` 92% and 68%), 21:9 sets it in the room right of the chat, and the other pages stay in the middle; the chat's own
 pointer for the search stays, and the window no longer lifts for it. The ballot shows its ten cards four across and three down, each with **the vote's own number** on
-its picture - the option's number on the wire, the same for everybody whatever the order of the cards (`os_m<k>_num`) - so `!vote <n>` in chat votes for it. Its
-header says the vote's state beside the title - Voting; Everybody voted (`vall` on `os_screen`, while the inactivity timer counts to the decision); Decided -, how
-many have voted and who has not, how to vote by a click or in chat, and **one clock**: the limit's while the vote is open, the time to the decision once everybody
-has voted, the change's countdown once decided. The strip of where the votes go is hidden (its panels stay for their ids): the cards' counts and bars say it.
+its picture - the option's number on the wire, the same for everybody whatever the order of the cards (`os_m<k>_num`) - so `!vote <n>` in chat votes for it. The
+badges and the how-to line's words about them show only while the server sends the numbers (`vnum` on `os_screen`, plugin 5.16.5 on), so a game that has the
+content before its server never shows an empty badge. Its header says the vote's state beside the title - Voting; Everybody voted (`vall`, while the inactivity
+timer counts to the decision); Decided; Downloading for a winner still to download (`vfetch`, `VoteState.Fetching`) -, how many have voted and who has not, how
+to vote by a click or in chat, and **one clock**: the limit's while the vote is open, the time to the decision once everybody has voted, the change's countdown
+once decided - and for a downloading winner no digits, its words instead: it changes the moment it is ready. The strip of where the votes go is hidden (its panels stay for their ids): the cards' counts and bars say it.
 
 Ten cards a page; the players' own maps add pages (48 cards at the most). The ballot opens with these (`OpenBallot`, `VoteRound.cs`):
 
@@ -484,7 +577,9 @@ no longer eligible, whose content changed untested, whose too-big mark changed, 
 down since its roll stays with the odds that left it. A liked surprise becomes a kept map.
 
 `queues.json` is what the watcher works from, version 2: `ballot`, the Workshop maps on the open ballot, the most votes first, which it downloads before
-anything else; and `stock`, a lane per mode under its name, `armsrace`, `deathmatch` and `wingman`. Every reader takes version 2 alone: a file of another
+anything else; and `stock`, a lane per mode under its name, `armsrace`, `deathmatch` and `wingman`. The watcher looks at it the second it changes, so a map
+put on the ballot starts downloading at once, and while a vote is open it fetches that vote's maps alone: Steam runs one download at a time and one running
+cannot be stopped, so a stock download started then would hold up a map a player puts on the ballot a moment later, which may win. Every reader takes version 2 alone: a file of another
 version - an older bridge's, for the seconds of a release before the new bridge writes its own - is nothing to fetch, and the keep set refuses it, so no
 map is deleted on it.
 
@@ -667,7 +762,7 @@ Thousands of community maps include some that break things, so every broken map 
   the dice then take the server to another map.
 - **A Workshop update lifts a mark**, a crash's or a player crash's: the author may have fixed it.
 - **`broken.json`** holds three lists: `maps` (maps that crash or freeze the server, or advertise: a pick asks for a second click, the dice never roll them, each says why), `packs` (Workshop items with
-  no map in them - skins, models, empty uploads: refused) and `blocked` (refused for good, each with a reason). **`blocked.json`** is a hand-made list of the same kind. The sync
+  no map in them - skins, models, empty uploads, CS:GO-era uploads: refused) and `blocked` (refused for good, each with a reason). **`blocked.json`** is a hand-made list of the same kind. The sync
   writes `broken.json` and only ever adds to it; a non-map it did not find itself comes in through it as well, as a hand verdict in its state folder ([server.md](server.md#hand-verdicts-adoptjson)).
 - **Maps gone from the Workshop.** Every 4 hours the sync checks every listed map through the public Web API and posts the verdicts to the bridge (`POST /removed/<secret>`, kept in `removed.json`): a
   map that is gone, private or banned is refused, leaves an open ballot, stops a countdown to it, and if it is the map that is on, the dice roll another, since nobody new could download it. A report
@@ -746,13 +841,19 @@ process in that state once nobody is on.
 starts whenever the server has had nobody on for `sync.quietMinutes` (10) and there is work, and lasts at most `sync.runHours` (3). A start of the service counts as somebody on, since it cannot know who just left. No run starts from 15 minutes before the daily restart to 10 after it, or with under 20 minutes
 left before that cut. Discovery, the check and the ratings run at most every `sync.apiEveryHours` (4); downloads, tests and publishing repeat in batches of `sync.batch`, so a long run publishes as it goes.
 
-1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API. It needs a Web API key (`sync.webApiKey`); without one the step is skipped.
+1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API, newest first, up to the first page with nothing new. It needs a Web API key (`sync.webApiKey`); without one the step is skipped.
+   **Once a week, the full walk:** every page instead (`sync.maxPages` at most), so it also finds what newest first never reaches - an item that was gone or hidden when its pages were read and is public again,
+   an old upload newly given one of the tags - and a queued map the check had found gone from the Workshop is queued again once it is public. A walk cut short (the run's clock, a stop of the Web API) does not count, and the
+   next run that asks the Workshop walks again; a run-now whose `max_pages` lowers the pages takes none. Its calls go through the same door, ledger and caps as every other (about 107 pages of 100 in November 2026). When the last walk ran
+   is in the state (`walk`), and every run's report says it and when the next is due.
 2. **Check** every listed map (gone, hidden, banned, updated) and hand the verdicts to the bridge. Once a day also fetch the Workshop's score and subscriptions of every listed map and every waiting one, and each mode's Most Popular
    order, into `ratings.json`. Write each listed map's Workshop numbers and the version the sync accepts into `workshop.json`.
 3. **Hand over** the maps the server keeps but lacks, and the ones it stores in an older version than one a test passed (`<work>/handover/`). A hand-over waits for SteamCMD's acf entry of its download, and a map already staged with one
    goes without a new download.
 4. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything
-   else strictly by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of deleted.
+   else strictly by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of deleted. A CS:GO-era upload - the Workshop names a file
+   for it, mostly `mymaps/<name>.bsp`, which no CS2 upload has - is never downloaded: it is a non-map by its Workshop file, and the publish puts it on `broken.json`'s packs (kind legacy, evidence identified from its
+   Workshop file), so a player who types its id is refused. Those the sync had skipped before it gave them that verdict get it at its first run with the rule (753 on the data of 2026-11-13).
 5. **Scan and load-test:** read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any commands that advertise another server or post a gambling ad, in its
    entity lumps - every KV3 format CS2's maps use: v5 and v4 with LZ4, and Zstandard - its cfgs and its map scripts, cs_script, since release 197; and its team spawn points, which
    Wingman's list carries), then load each map in a test copy of the server
@@ -768,7 +869,7 @@ day, until a version passes; a newer version is tested at once. One SteamCMD dow
 nobody on.
 
 The sync also writes `sync-status.json` into the bridge's data folder (schema 1) for the in-game status page: what it does now and why (`now.state` is one of idle, waiting, discovery, check, ratings, serve, download, test, publish, stopped),
-today's counts, the totals, the queue with its next maps in the order they are taken, the keep set's parts, and the history of runs and map events. It is written atomically at every phase change, at least every 15 s during a run and every
+today's counts, the totals (of what it tested: a CS:GO-era upload's verdict from its Workshop file is neither counted nor a map event), the queue with its next maps in the order they are taken, the keep set's parts, and the history of runs and map events. It is written atomically at every phase change, at least every 15 s during a run and every
 minute otherwise; fields may be added to it, never renamed or dropped.
 
 ### The dashboard

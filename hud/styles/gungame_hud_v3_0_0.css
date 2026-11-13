@@ -6911,6 +6911,28 @@ Label
 	visibility: visible;
 }
 
+/* A winner still to download (vfetch: VoteState.Fetching): Downloading, in blue, and no countdown - it changes the moment it is in. */
+.os-screen.vfetch .os-vchip
+{
+	border: 1px solid #5BA7E6;
+	background-color: #1F4E7A80;
+}
+
+.os-screen.vfetch .os-vchip-text
+{
+	color: #DCEEFF;
+}
+
+.os-screen.vfetch .os-vchip-done
+{
+	visibility: collapse;
+}
+
+.os-screen.vfetch .os-vchip-fetch
+{
+	visibility: visible;
+}
+
 /* How many have voted, before who has not (the limit's words, osvlim). */
 .os-vcount
 {
@@ -6921,7 +6943,8 @@ Label
 	color: #FFFFFF;
 }
 
-/* How to vote, under it all while the vote is open: a click, or chat - the cards' numbers are the vote's own. */
+/* How to vote, under it all while the vote is open: a click, or chat - the cards' numbers are the vote's own, and their words show only when the server sends the
+   numbers (vnum), so a game ahead of its server never reads of numbers it does not see. */
 .os-vhow
 {
 	width: 100%;
@@ -6931,6 +6954,21 @@ Label
 	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.os-vhow-num
+{
+	visibility: collapse;
+}
+
+.os-screen.vnum .os-vhow-num
+{
+	visibility: visible;
+}
+
+.os-screen.vnum .os-vhow-plain
+{
+	visibility: collapse;
 }
 
 .os-screen.vdone .os-vhow
@@ -7128,6 +7166,26 @@ Label
 	visibility: collapse;
 }
 
+/* ...but for a winner still to download: no digits and no bar, the clock's words - it changes the moment it is ready - in their place. */
+.os-screen.vfetch .os-clock-idle .os-clock-big
+{
+	visibility: collapse;
+}
+
+.os-screen.vfetch .os-clock-idle .os-clock-bar
+{
+	visibility: collapse;
+}
+
+.os-screen.voting.vfetch .os-clock-idle .os-clock-text
+{
+	visibility: visible;
+	width: 270px;
+	margin-left: 4px;
+	font-size: 14px;
+	white-space: normal;
+}
+
 /* The last 10 s: the limit's digits turn red and pulse. */
 .os-screen.vlow .os-clock-big
 {
@@ -7218,17 +7276,23 @@ Label
 .os-screen.voting .os-mmode
 {
 	vertical-align: top;
-	margin: 8px 0px 0px 46px;
+	margin: 8px 0px 0px 8px;
 }
 
 /* The vote's own number, top left on the picture (content v4.13.0): the option's number on the wire, the same for everybody and for the whole vote whatever
-   the order of the cards, so "!vote <n>" in chat votes for it. The mode's label stands right of it. Never in the browser. */
+   the order of the cards, so "!vote <n>" in chat votes for it. The mode's label stands right of it. Only when the server sends the numbers (vnum: a plugin
+   from 5.16.5 on), so a game that has the content before its server never shows an empty badge; never in the browser. */
 .os-mnum
 {
 	visibility: collapse;
 }
 
-.os-screen.voting .os-mnum
+.os-screen.voting.vnum .os-mmode
+{
+	margin: 8px 0px 0px 46px;
+}
+
+.os-screen.voting.vnum .os-mnum
 {
 	visibility: visible;
 	width: 32px;

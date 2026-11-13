@@ -160,13 +160,26 @@ public static class HudVote
     public readonly record struct ClockWords(string LimitNum, string Limit, string IdleKey, string IdleNum, string Idle);
 
     public static ClockWords Clocks(VoteState v) =>
-        !v.Open ? new("", "", DoneKey(v), $"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", "")
+        !v.Open && v.Fetching ? new("", "", DoneKey(v), "", FetchingNote)
+        : !v.Open ? new("", "", DoneKey(v), $"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", "")
         : new($"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", $"{v.Cast} of {v.Present} voted", "Inactivity timer",
             v.Inactivity > 0 ? $"{v.Inactivity.ToString(CultureInfo.InvariantCulture)} s" : "",
             v.Inactivity <= 0 ? "Starts when everybody has voted" : v.ResetBy != "" ? $"Reset by {Hud.Clean(v.ResetBy, 24)}" : "");
 
-    /// <summary>What the countdown of a decided vote counts to: the map change, the next match on the map played again (NextMatch.cs), or the window's close.</summary>
-    public static string DoneKey(VoteState v) => v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : "Changing in";
+    /// <summary>What the countdown of a decided vote counts to: the map change, the next match on the map played again (NextMatch.cs), or the window's close - or,
+    /// for a winner still to download, no countdown: the map changes the moment it is in (VoteState.Fetching).</summary>
+    public static string DoneKey(VoteState v) => v.Fetching ? "Downloading" : v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : "Changing in";
+
+    /// <summary>The first content with the cards' numbers (os_m&lt;k&gt;_num, content v4.13.0, level 55): a game whose HUD check named an older one gets none of them,
+    /// since it has no label for them and would log "Unable to find panel" for each (release 193); any other game gets them - the content it holds may be newer
+    /// than this code knows, and a game not checked yet is most likely on the newest. The classes for that content (vall, vnum) go to os_screen, which every content has.</summary>
+    public const int NumbersLevel = 55;
+
+    /// <summary>A card's number's text: os_m&lt;k&gt;_num.</summary>
+    public static bool IsNumber(string id) => id.StartsWith("os_m", StringComparison.Ordinal) && id.EndsWith("_num", StringComparison.Ordinal);
+
+    /// <summary>The second row's words while the winner downloads.</summary>
+    public const string FetchingNote = "It changes the moment it is ready";
 
     /// <summary>The last seconds of the limit, when its digits turn red and pulse (vlow on os_screen).</summary>
     public const int LowSeconds = 10;
@@ -210,7 +223,8 @@ public static class HudVote
         page = Math.Clamp(page, 0, pages - 1);
         var shown = PageOptions(v, page, perPage);
         var rest = maps.Count - (page + 1) * perPage;
-        t.Add(("os_m_count", done ? $"{DoneLine(v)} - {DoneKey(v)} {v.SecondsLeft} s"
+        t.Add(("os_m_count", done && v.Fetching ? $"{DoneLine(v)} - {DoneKey(v)}: {FetchingNote.ToLowerInvariant()}"
+            : done ? $"{DoneLine(v)} - {DoneKey(v)} {v.SecondsLeft} s"
             : v.Inactivity > 0 ? $"Everybody has voted  ·  {InactivityLine(v)}"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  Waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
         var counted = v.Options.Where(o => o.Votes > 0).ToList();
@@ -222,7 +236,9 @@ public static class HudVote
         c.Add(("os_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
         c.Add((HudView.Screen, "vdone", done));                      // decided or kept: the limit's row goes, the second row counts down, the tiles dim but the winner
-        c.Add((HudView.Screen, "vall", v.Open && v.Inactivity > 0)); // everybody has voted: the one clock counts to the decision (content v4.13.0)
+        c.Add((HudView.Screen, "vall", v.Open && v.Inactivity > 0)); // everybody has voted: the inactivity timer counts to the decision (content v4.13.0's state and clock)
+        c.Add((HudView.Screen, "vnum", true));                       // the cards' numbers (os_m<k>_num) are this vote's: content v4.13.0 shows them only then
+        c.Add((HudView.Screen, "vfetch", done && v.Fetching));       // a winner still to download: content v4.13.0's state says Downloading, its clock the note, no digits
         c.Add((HudView.Screen, "vlow", v.Open && v.SecondsLeft <= LowSeconds));
         c.Add((HudView.Screen, "vpages", pages > 1));
         c.Add((HudView.Screen, "vmore", rest > 0));
@@ -245,7 +261,7 @@ public static class HudVote
             t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(who == "" ? "" : $"  ·  {who}")}"));
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
             t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
-            t.Add(($"{id}_num", o == null ? "" : o.N.ToString(CultureInfo.InvariantCulture))); // the vote's own number, the same for everybody: !vote <n> (content v4.13.0)
+            t.Add(($"{id}_num", o == null ? "" : o.N.ToString(CultureInfo.InvariantCulture))); // the option's number, the same for everybody and for the whole vote: !vote <n> (content v4.13.0)
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
             t.Add(($"{id}_side", "")); // the browser's Wingman player count: none on the ballot, whose cards share the browser's panels
             c.Add((id, "sided", false));

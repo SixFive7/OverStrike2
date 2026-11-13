@@ -199,17 +199,19 @@
 							<Panel class="os-page os-page-maps">
 								<!-- The ballot's header (content v4.13.0): the title and the vote's state - Voting, Everybody voted, Decided - with who started it; Random, how many
 								     have voted and who has not; how to vote, by a click or in chat (the cards' numbers are the vote's own); one clock - the limit, once everybody has voted the
-								     time to the decision, once decided the change's countdown. The strip of where the votes go keeps its ids, hidden: the cards say it. -->
+								     time to the decision, once decided the change's countdown. The numbers and their words show only when the server sends them (vnum); a winner still to
+     download says Downloading and no countdown (vfetch). The strip of where the votes go keeps its ids, hidden: the cards say it. -->
 								<Panel class="os-vhead">
 									<Panel class="os-vhead-main">
-										<Panel class="os-vhead-top"><Label class="os-vote-title" text="Vote for the next map" /><Panel class="os-vchip"><Label class="os-vchip-text os-vchip-voting" text="Voting" /><Label class="os-vchip-text os-vchip-all" text="Everybody voted" /><Label class="os-vchip-text os-vchip-done" text="Decided" /></Panel><Label class="os-vwait" text="{s:osvstart}" /></Panel>
+										<Panel class="os-vhead-top"><Label class="os-vote-title" text="Vote for the next map" /><Panel class="os-vchip"><Label class="os-vchip-text os-vchip-voting" text="Voting" /><Label class="os-vchip-text os-vchip-all" text="Everybody voted" /><Label class="os-vchip-text os-vchip-done" text="Decided" /><Label class="os-vchip-text os-vchip-fetch" text="Downloading" /></Panel><Label class="os-vwait" text="{s:osvstart}" /></Panel>
 										<Panel class="os-vhead-row">
 											<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
 											<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
 											<Label class="os-vcount" text="{s:osvlim}" />
 											<Label class="os-vwait" text="{s:osvwait}" />
 										</Panel>
-										<Label class="os-vhow" text="Click a card to vote  ·  Or type !vote and the card's number  ·  !play and a map's name adds that map  ·  Y opens the chat" />
+										<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  Or type !vote and the card's number  ·  !play and a map's name adds that map  ·  Y opens the chat" />
+										<Label class="os-vhow os-vhow-plain" text="Click a card to vote  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 									</Panel>
 									<Panel class="os-clocks">
 										<Panel class="os-clock"><Label class="os-clock-key" text="Ends in" /><Label class="os-clock-big" text="{s:osvlimn}" /><Panel id="os_vlim" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvlim}" /></Panel>

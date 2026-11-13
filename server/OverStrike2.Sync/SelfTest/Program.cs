@@ -20,12 +20,15 @@ try
     LimitTests.LedgerChecks(root);
     LimitTests.Door(root);
     CheckTests.DiscoveryChecks(root);
+    CheckTests.WalkChecks(root);
     CheckTests.CheckStep(root);
     LimitTests.Downloads(root);
     ScanTests.ScanChecks(root);
     VerdictTests.VerdictChecks();
     PublishTests.Plan(root);
     ReportTests.MailAndBacklog();
+    ReportTests.CsgoEra();
+    ReportTests.Walk();
     PublishTests.MergeRule();
     PublishTests.Bridge(root);
     PublishTests.SpawnCounting(root);
@@ -43,6 +46,8 @@ try
     AdoptTests.Parse();
     AdoptTests.Plan();
     AdoptTests.InARun(root);
+    RunTests.CsgoEra();
+    RunTests.WalkRun();
     ServiceTests.Clock();
     HandOverTests.Acf(root);
     var kdata = HandOverTests.KData();

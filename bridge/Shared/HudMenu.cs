@@ -123,6 +123,8 @@ public static class HudMenu
         c.Add((HudView.Screen, "vdone", false)); // the vote's, still on from the last one: they would dim these cards (HudVote.Cards)
         c.Add((HudView.Screen, "vlow", false));
         c.Add((HudView.Screen, "vall", false));
+        c.Add((HudView.Screen, "vnum", false)); // the ballot's numbers are not these cards'
+        c.Add((HudView.Screen, "vfetch", false));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "on", b.Sort == sort));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "desc", b.Sort == sort && b.Descending));
         foreach (var (id, band) in HudBrowser.BandButtons) c.Add((id, "on", b.Size == band));

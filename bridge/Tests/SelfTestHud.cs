@@ -330,8 +330,10 @@ static partial class Program
                 var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
-                Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page)",
-                    sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
+                Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page); the cards' numbers go to this content's games and to no game known to hold one before it (HudVote.NumbersLevel)",
+                    sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text")
+                    && !HudVersion.IsBefore(HudVersion.Content, HudVote.NumbersLevel) && HudVersion.IsBefore(replaced, HudVote.NumbersLevel)
+                    && Enumerable.Range(1, HudMenu.Cards).All(k => HudVote.IsNumber($"{HudMenu.Card(k)}_num") && !last.Contains($"{HudMenu.Card(k)}_num")));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
                 // ...its own version button, and the vote's own number on every card (os_m<k>_num).
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
@@ -394,11 +396,18 @@ static partial class Program
                     Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 92 + 6 + 26 <= 693
                     && new[] { 4, 8 }.All(k => Regex.IsMatch(rules0, $@"(?m)^\.os-screen\.voting #os_m{k}\s*\{{\s*margin-right:\s*0px;")) && !Regex.IsMatch(rules0, @"#os_m(5|10)\s*\{")
                     && Enumerable.Range(1, HudMenu.Cards).All(k => noCommentsXml.Contains($"<Label id=\"{HudMenu.Card(k)}_rank\" class=\"os-mrank\" text=\"{{s:text}}\" />") && noCommentsXml.Contains($"<Label id=\"{HudMenu.Card(k)}_num\" class=\"os-mnum\" text=\"{{s:text}}\" />"))
-                    && Regex.IsMatch(rules0, @"(?m)^\.os-mnum\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mnum\s*\{\s*visibility:\s*visible;"));
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-mnum\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mnum\s*\{\s*visibility:\s*visible;")
+                    && !Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mnum\s*\{") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mmode\s*\{\s*margin:\s*8px 0px 0px 46px;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mmode\s*\{[^}]*margin:\s*8px 0px 0px 8px;")); // the badges and the step aside only with the numbers (vnum)
                 Check($"Content {HudVersion.Content}: the ballot's header - the vote's state beside the title (Voting, Everybody voted on vall, Decided on vdone), how many have voted, how to vote by a click or with !vote and the number, and one clock: the limit's, the decision's once everybody has voted, the change's once decided; the strip hidden",
                     new[] { ("os-vchip-voting", "Voting"), ("os-vchip-all", "Everybody voted"), ("os-vchip-done", "Decided") }.All(c => noCommentsXml.Contains($"<Label class=\"os-vchip-text {c.Item1}\" text=\"{c.Item2}\" />"))
                     && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vall \.os-vchip-all\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vdone \.os-vchip-done\s*\{\s*visibility:\s*visible;")
-                    && Regex.IsMatch(noCommentsXml, @"<Label class=""os-vhow"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />") && noCommentsXml.Contains($"<Label class=\"os-vcount\" text=\"{{s:{HudVote.LimitVar}}}\" />")
+                    && Regex.IsMatch(noCommentsXml, @"<Label class=""os-vhow os-vhow-num"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />")
+                    && Regex.IsMatch(noCommentsXml, @"<Label class=""os-vhow os-vhow-plain"" text=""Click a card to vote[^""!]*!play[^""]*"" />") && !Regex.IsMatch(noCommentsXml, @"os-vhow-plain"" text=""[^""]*number")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-vhow-num\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vnum \.os-vhow-num\s*\{\s*visibility:\s*visible;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vnum \.os-vhow-plain\s*\{\s*visibility:\s*collapse;")
+                    && noCommentsXml.Contains("<Label class=\"os-vchip-text os-vchip-fetch\" text=\"Downloading\" />") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vfetch \.os-vchip-fetch\s*\{\s*visibility:\s*visible;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vfetch \.os-clock-idle \.os-clock-bar\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vfetch \.os-clock-idle \.os-clock-text\s*\{\s*visibility:\s*visible;") && noCommentsXml.Contains($"<Label class=\"os-vcount\" text=\"{{s:{HudVote.LimitVar}}}\" />")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-clock-idle\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vall \.os-clock\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vall \.os-clock-idle\s*\{\s*visibility:\s*visible;")
                     && noCommentsXml.Contains("<Label class=\"os-clock-key os-clock-key-all\" text=\"Decided in\" />") && noCommentsXml.Contains($"<Label class=\"os-clock-key os-clock-key-done\" text=\"{{s:{HudVote.IdleKeyVar}}}\" />")
                     && noCommentsXml.Contains("<Label class=\"os-clock-key\" text=\"Ends in\" />") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vstrip \.os-vstrip\s*\{\s*visibility:\s*collapse;"));

@@ -228,7 +228,9 @@ public sealed partial class SyncRun
         foreach (var o in outcomes)
         {
             var (wid, kind, detail, rec) = (o.Id, o.Kind, o.Detail, o.Rec);
-            if ((listed.Contains(wid) || on.ContainsKey(wid)) && Node.Str(rec["status"]) != "published")
+            // a CS:GO-era upload's verdict from its Workshop file is no map event: the sync never downloaded it, and the first publish with that
+            // verdict brings ~750 at once, which would push every other event out of the dashboard's history
+            if ((listed.Contains(wid) || on.ContainsKey(wid)) && Node.Str(rec["status"]) != "published" && !Verdicts.FromWorkshopFile(rec))
             {
                 if (kind == "pass" && listed.Contains(wid))
                     Event(wid, "listed", $"It passed its test: it loads as {Node.StrOr(detail["level"], "its own map")}.");

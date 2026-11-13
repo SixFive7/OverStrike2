@@ -8,7 +8,10 @@ namespace OverStrike2.Server;
 /// anybody asks - downloaded with MultiAddonManager's mm_download_addon, one at a time, also while people play, and silently (the download
 /// line is for downloads somebody waits for). Never while a download somebody waits for runs, nor in a process whose downloads are broken
 /// (a stuck result marks it, for the download restart). Every look, and at least every ReportEvery, the bridge hears which of them are on disk (POST
-/// /ready), and which one downloads now with its progress (the report's "current" line); its random picks take what is on disk first.</summary>
+/// /ready), and which one downloads now with its progress (the report's "current" line); its random picks take what is on disk first. A change of
+/// queues.json is looked at the next second, not LookEvery later: a map put on the open ballot starts downloading at once. While a vote is open
+/// (queues.json names its maps, "ballot") only its maps are fetched: Steam runs one download at a time and one running cannot be stopped, so a stock
+/// download started then would hold up a map a player puts on the ballot a moment later - which may win.</summary>
 public sealed class ReadyMaps(WorkshopJobs ws)
 {
     public const double LookEvery = 20;         // seconds between two looks at queues.json and the cache
@@ -23,6 +26,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
     (string Key, double At)? reported;                              // what was reported, and when
     (DateTime, long)? queuesStamp;
     List<string> queuesIds = [];
+    HashSet<string> ballotIds = [];                                 // the open ballot's maps, of what queues.json names
     (DateTime, long)? acfStamp;
     Dictionary<string, long> acfInstalled = [];
     public int DownloadCount { get; private set; }
@@ -62,6 +66,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
             var ids = new List<string>();
             if (data?["ballot"] is JsonArray ballot)
                 ids.AddRange(ballot.Select(Node.Str).Where(Digits));
+            ballotIds = [.. ids];
             var lanes = data?["stock"] is JsonObject stock
                 ? stock.Select(kv => kv.Value is JsonArray a ? a.Select(Node.Str).Where(Digits).ToList() : null).Where(l => l != null).Select(l => l!).ToList()
                 : [];
@@ -74,6 +79,20 @@ public sealed class ReadyMaps(WorkshopJobs ws)
     }
 
     static bool Digits(string s) => s.Length > 0 && s.All(char.IsAsciiDigit);
+
+    /// <summary>Whether queues.json changed since a look last read it: a map put on the open ballot, a vote opened or over, the stock rolled on.</summary>
+    bool QueuesChanged()
+    {
+        try
+        {
+            var info = new FileInfo(Path.Combine(Config.Paths.BridgeData, "queues.json"));
+            return info.Exists && (info.LastWriteTimeUtc, info.Length) != queuesStamp;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     public Dictionary<string, long> Installed()
     {
@@ -191,7 +210,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
                 Current = null;
             }
         }
-        if (now < LookAt)
+        if (now < LookAt && !QueuesChanged())
             return;
         LookAt = now + LookEvery;
         var wanted = Wanted();
@@ -201,6 +220,8 @@ public sealed class ReadyMaps(WorkshopJobs ws)
         var ready = wanted.Where(x => installed.ContainsKey(x) && Directory.Exists(Path.Combine(Config.Paths.Content, x))).ToHashSet();
         var missing = wanted.Where(x => !ready.Contains(x)).ToList();
         var todo = missing.Where(x => !FailedIds.TryGetValue(x, out var f) || (f.Tries < Tries && now >= f.NotBefore)).ToList();
+        if (ballotIds.Count > 0)
+            todo = todo.Where(ballotIds.Contains).ToList(); // a vote is open: its maps alone (the class summary)
         var why = Current is null && todo.Count > 0 ? Gate() : null;
         var reply = Report(now, ready, wanted.Count, force: Current is null && todo.Count > 0 && why is null);
         if (Current is not null || todo.Count == 0)

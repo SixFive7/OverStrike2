@@ -12,7 +12,11 @@ public sealed partial class SyncRun
         var items = State.Items;
         var day = Clock.Day();
         var book = Node.Obj(Node.Get(State.Data["downloads"], day));
-        var decided = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Str(r["decided"]) == day && Node.Truthy(r["verdict"])).ToList();
+        // what this sync tested: a hand verdict (RunAdopt.cs) is on its lists, but no test of its; nor is a CS:GO-era upload's verdict from its
+        // Workshop file (Verdicts.FromWorkshopFile), never downloaded
+        var tested = items.Select(kv => kv.Value).OfType<JsonObject>()
+            .Where(r => Node.Truthy(r["verdict"]) && Node.Str(r["why"]) != Adopt.Why && !Verdicts.FromWorkshopFile(r)).ToList();
+        var decided = tested.Where(r => Node.Str(r["decided"]) == day).ToList();
         var today = new JsonObject
         {
             ["downloads"] = Node.Int(book["items"]), ["bytes"] = Node.Int(book["bytes"]), ["pass"] = decided.Count(r => Node.Str(r["verdict"]) == "pass"),
@@ -21,9 +25,7 @@ public sealed partial class SyncRun
         };
         if (Node.Truthy(book["stop"]))
             today["stop"] = Text.Cut(Node.Str(book["stop"]), 200);
-        // what this sync tested: a hand verdict (RunAdopt.cs) is on its lists, but no test of its
-        var verdicts = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Truthy(r["verdict"]) && Node.Str(r["why"]) != Adopt.Why)
-            .Select(r => Node.Str(r["verdict"])).ToList();
+        var verdicts = tested.Select(r => Node.Str(r["verdict"])).ToList();
         BridgeData? files;
         try
         {

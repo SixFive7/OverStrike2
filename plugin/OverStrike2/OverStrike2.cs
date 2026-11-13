@@ -215,7 +215,7 @@ public class OverStrike2Plugin : BasePlugin
         var screen = hud;
         // A line that starts with ! or / does what the menu's click would, a frame later (not inside the player's own chat message: HudScreen's
         // summary), and answers in chat.
-        var command = ChatCommands.Parse(text, screen.VoteOpen);
+        var command = ChatCommands.Parse(text);
         if (command.Kind != ChatCommands.Kind.None)
             Server.NextFrame(() => { if (who.IsValid) screen.Chat(who, command); });
         else if (WorkshopCard.IdInChat(text) is { } id)

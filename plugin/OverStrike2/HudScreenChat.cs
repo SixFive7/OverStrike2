@@ -9,8 +9,8 @@ sealed partial class HudScreen
 {
     // ---- the chat commands (ChatCommands.cs) ----
 
-    /// <summary>A vote for the next map is open, a match end's or a player's (ChatCommands.Parse): a bare !vote brings its window back, and a !vote with anything after
-    /// it answers that a vote is a click. A bare number in chat is plain chat, as every line that is no command: the cards have no numbers.</summary>
+    /// <summary>A vote for the next map is open, a match end's or a player's: a bare !vote brings its window back, and !vote 3 votes for the card with number 3
+    /// (Chat). A bare number in chat is plain chat, as every line that is no command - on MAPS > Browse no search either (ChatCommands.SearchOf).</summary>
     public bool VoteOpen => vote is { Open: true, Round: > 0 };
 
     /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat, in its functional colours (Messages.CommandReply; the words are
@@ -53,11 +53,10 @@ sealed partial class HudScreen
                 FunTyped(player, cmd.Arg); // the same change as a click on the Fun page (HudScreenFun.cs)
                 return;
             case ChatCommands.Kind.Vote:
-                if (!vote.Open || vote.Round <= 0) { Say(ChatReply.NoVote); return; }
-                foreach (var line in ChatCommands.VoteOnlyLines()) Say(line); // a vote opened since the line was typed: still a click
+                VoteTyped(player, account, cmd.Arg, Say);
                 return;
-            case ChatCommands.Kind.VoteOnly:
-                foreach (var line in ChatCommands.VoteOnlyLines()) Say(line);
+            case ChatCommands.Kind.Bots:
+                BotsTyped(player, cmd.Arg); // the same change as a click on the Bots page (HudScreenBots.cs)
                 return;
             case ChatCommands.Kind.FunAll:
                 FunAll(player, cmd.Arg); // the Fun page's Random or Default
@@ -73,6 +72,20 @@ sealed partial class HudScreen
                 Say(ChatCommands.UnknownLine(cmd.Name));
                 return;
         }
+    }
+
+    /// <summary>!vote 3: the vote for the card with number 3 - the click a card sends (MapVote.Click), so the bridge counts it as one. Every card keeps its number for
+    /// the whole vote, the same for everybody (VoteState.Option.N); Random's is MapVote.RandomOption (!vote random). Nothing is sent for a number no card has, or
+    /// for the card this player's vote is on already (a vote never goes back).</summary>
+    void VoteTyped(CCSPlayerController player, long account, string arg, Action<string> say)
+    {
+        if (!vote.Open || vote.Round <= 0) { say(ChatReply.NoVote); return; }
+        var n = int.Parse(arg, CultureInfo.InvariantCulture);
+        if (vote.Numbered(n) is not { } card) { say(ChatReply.NoCard(n)); return; }
+        if (vote.ChoiceOf(account) == n) { say(ChatReply.VoteAlready(card.Label)); return; }
+        Typed(account);
+        Act(player, account, MapVote.Click(vote.Round, n), "chat");
+        say(ChatReply.YourVote(card.Label));
     }
 
     // ---- a chat line typed on MAPS > Browse: its search, when its words find a map (233) ----

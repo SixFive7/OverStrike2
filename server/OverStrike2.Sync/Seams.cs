@@ -25,6 +25,9 @@ public sealed class Seams
     /// <summary>Humans on the game server by A2S, null when it does not answer (which counts as somebody).</summary>
     public Func<SyncConfig, SyncClock, int?> HumansOn { get; set; } = Game.HumansOn;
 
+    /// <summary>One request to the Steam Web API as it goes out - the real HTTP, or a test's answers; the run's door, ledger and caps are the same.</summary>
+    public Func<ApiRequest, ApiAnswer> WebApi { get; set; } = SteamApi.HttpSend;
+
     /// <summary>The check: (the API, the ids, the deadline, now, log) - ({id: item}, ids not asked).</summary>
     public Func<IWorkshopApi, IReadOnlyList<string>, double, Func<double>, Action<string>, (Dictionary<string, JsonObject>, List<string>)> Check { get; set; } = Discovery.Check;
 

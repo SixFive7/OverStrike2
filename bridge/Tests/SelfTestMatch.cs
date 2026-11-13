@@ -223,6 +223,22 @@ static partial class Program
             ClearNotices(); Click(alice, "!cancel rematch");
             Check("...the fairness restart is no button's: a Cancel leaves it", RematchDue is { Fair: true } && h.Said("No restart of the match counts down"));
 
+            // ---- the chat's !cancel: the newest countdown of the player's own ----
+            Fresh();
+            Twice(alice, "!rematch");
+            ClearNotices(); Click(bob, Hud.CancelMine);
+            Check("The chat's !cancel (!cancel mine): Bob's stops nothing of Alice's - her restart of the match counts on - and he reads why",
+                RematchDue is { By: "Alice" } && h.Said("No countdown of yours runs - A countdown's own button in the menu stops anybody's"));
+            ClearNotices(); Click(alice, Hud.CancelMine);
+            Check("...Alice's stops her own, as its button's Cancel does, with the same news line", RematchDue == null && h.Said("Alice cancelled their restart of the match - It plays on"));
+            Fresh();
+            Twice(alice, "!restart");
+            ClearNotices(); Click(alice, Hud.CancelMine);
+            Check("...her restart of the server too", RestartDue == null && h.Said("Alice cancelled their restart of the server - It plays on"));
+            ApplyRestartNotice("os2-restart\t1\tdaily\tnow\t30");
+            ClearNotices(); Click(alice, Hud.CancelMine);
+            Check("...and never the watcher's, which is nobody's", RestartDue is { Kind: "daily" } && h.Said("No countdown of yours runs"));
+
             // ---- what Restart match refuses, and what ends it ----
             Fresh();
             Click(alice, "!restart"); Click(alice, "!restart");

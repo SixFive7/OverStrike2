@@ -8,23 +8,38 @@ namespace OverStrike2.Sync;
 public static class Discovery
 {
     public const int DetailsBatch = 100;
+    public const double WalkEvery = 7 * 86400;     // the full walk of every page: at most this often
+
+    /// <summary>Whether discovery's next pass is the full walk: none is recorded in the state ("walk"), or the last one started WalkEvery ago
+    /// or more - and the run's pages are the settings' own (a run-now's max_pages takes none).</summary>
+    public static bool WalkDue(SyncState state, SyncConfig cfg, double now) => !cfg.NoWalk && now - Node.Float(Node.Get(state.Data["walk"], "at")) >= WalkEvery;
 
     /// <summary>QueryFiles newest first; stops at the first page with nothing this tool has never seen (or a cap, or the clock). Returns
-    /// {"pages", "seen", "new": [ids], "total", "stop"}.</summary>
+    /// {"pages", "seen", "new": [ids], "total", "stop"}. Once a week (WalkDue) it is the full walk instead: every page to the last one, so the
+    /// items newest first never reaches are found too - one gone or hidden when its pages were read and public again now, an old upload newly
+    /// given one of the tags - and a queued map the check had found gone from the Workshop is queued again when it is back ("walk": whole or
+    /// cut short, "back": [ids]). A walk that read every page the Workshop has, or as many as sync.maxPages allows, is the week's: "walk" in the
+    /// state records it; one cut short (the clock, a stop of the Web API) is not, and the next pass walks again. Every call goes through the
+    /// same door, ledger and caps as any other.</summary>
     public static JsonObject Discover(IWorkshopApi api, SyncConfig cfg, IReadOnlyDictionary<string, string> known, SyncState state, string day,
                                       double deadline, Func<double> now)
     {
+        var started = now();
+        var walk = WalkDue(state, cfg, started);
         var pages = 0;
         var seen = 0L;
         var fresh = new List<string>();
+        var back = new List<string>();
         long? total = null;
         string stop;
+        var whole = false;                      // every page the Workshop has, or sync.maxPages of them
         var cursor = "*";
         while (true)
         {
             if (pages >= cfg.MaxPages)
             {
                 stop = $"sync.maxPages ({cfg.MaxPages})";
+                whole = true;
                 break;
             }
             if (now() >= deadline)
@@ -40,8 +55,17 @@ public static class Discovery
             foreach (var item in items)
             {
                 var wid = Node.StrOr(item["publishedfileid"]);
-                if (!Text.Digits(wid) || known.ContainsKey(wid) || state.Item(wid) is not null)
+                if (!Text.Digits(wid) || known.ContainsKey(wid))
                     continue;
+                if (state.Item(wid) is { } rec)
+                {
+                    // the walk: a queued map the check found gone from the Workshop drops out of the queue, and no check asks about it again;
+                    // public on this page, it is remembered anew, its verdict ok, and queued again
+                    if (walk && Node.Str(rec["ws"]) != "ok" && Node.Str(rec["status"]) is "queued" or "retry"
+                        && Node.Str(state.Remember(item, day, Node.StrOr(rec["why"], "new"))["ws"]) == "ok")
+                        back.Add(wid);
+                    continue;
+                }
                 if (cfg.ExcludeCreators.Contains(Node.StrOr(item["creator"])))
                     continue;                       // listed by hand (sync.excludeCreators): never a candidate, never "new"
                 state.Remember(item, day, "new");
@@ -51,9 +75,10 @@ public static class Discovery
             if (items.Count == 0)
             {
                 stop = "an empty page";
+                whole = true;
                 break;
             }
-            if (page.Count == 0)
+            if (page.Count == 0 && !walk)
             {
                 stop = $"page {pages} held nothing new";
                 break;
@@ -61,11 +86,23 @@ public static class Discovery
             if (next.Length == 0 || next == cursor)
             {
                 stop = "the last page";
+                whole = true;
                 break;
             }
             cursor = next;
         }
-        return new JsonObject { ["pages"] = pages, ["seen"] = seen, ["new"] = Node.Strings(fresh), ["total"] = total, ["stop"] = stop };
+        var result = new JsonObject { ["pages"] = pages, ["seen"] = seen, ["new"] = Node.Strings(fresh), ["total"] = total, ["stop"] = stop };
+        if (walk)
+        {
+            result["walk"] = whole ? "whole" : "cut short";
+            result["back"] = Node.Strings(back);
+            if (whole)
+                state.Data["walk"] = new JsonObject
+                {
+                    ["at"] = started, ["day"] = day, ["pages"] = pages, ["seen"] = seen, ["total"] = total, ["new"] = fresh.Count, ["back"] = back.Count, ["stop"] = stop,
+                };
+        }
+        return result;
     }
 
     /// <summary>GetPublishedFileDetails for `ids`, 100 a call. Returns ({id: item}, ids not asked because of the clock or given up).</summary>

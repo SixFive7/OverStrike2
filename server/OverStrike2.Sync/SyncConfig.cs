@@ -27,6 +27,7 @@ public sealed class SyncConfig
     public int ApiRunCap { get; set; }                             // sync.apiRunCap
     public double ApiGap { get; set; }                             // steam.apiGapSeconds
     public int MaxPages { get; set; }                              // sync.maxPages
+    public bool NoWalk { get; set; }                               // a run-now's max_pages below sync.maxPages: no full walk in that run
     public double DownloadPause { get; set; }                      // sync.downloadPauseSeconds
     public int Batch { get; set; }                                 // sync.batch
     public double Quiet { get; set; }                              // sync.quietMinutes, in seconds
@@ -141,13 +142,17 @@ public sealed class SyncConfig
 
     /// <summary>run-now may only lower a limit for its run, never raise one: api_run_cap, max_pages and batch (whole numbers from 0);
     /// publish false; discover false (no key: no discovery); api true (discovery, the check and the ratings this run, whatever their
-    /// cadence) or false (not at all in this run); only_ids (this run takes only these maps).</summary>
+    /// cadence) or false (not at all in this run); only_ids (this run takes only these maps). A max_pages that lowers discovery's pages
+    /// also leaves out the week's full walk: one that may not read every page is no walk.</summary>
     public void Lower(JsonObject overrides)
     {
         if (Node.Integer(overrides["api_run_cap"]) is { } runCap && runCap >= 0)
             ApiRunCap = (int)Math.Min(ApiRunCap, runCap);
         if (Node.Integer(overrides["max_pages"]) is { } pages && pages >= 0)
+        {
+            NoWalk |= pages < MaxPages;
             MaxPages = (int)Math.Min(MaxPages, pages);
+        }
         if (Node.Integer(overrides["batch"]) is { } batch && batch >= 0)
             Batch = (int)Math.Min(Batch, batch);
         if (IsFalse(overrides["publish"]))
