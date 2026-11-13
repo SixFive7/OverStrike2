@@ -61,7 +61,8 @@ static partial class Program
     /// confirm its download (CS2's Confirm Workshop Download, seen for maps of 464 MB, 624 MB and 1.6 GB), and a big one keeps them waiting - the live lab's movie of
     /// release 214 rolled 1.6 GB at a match end nobody voted at, and the empty server's start rolls of 2026-11-12 took 600, 993 and 363 MB maps. Every roll of the dice
     /// that changes the map, or fills the stock, keeps to it: RandomNext and RandomPick (the start roll, the way back to Arms Race, Random and nobody voting, a replaced
-    /// card) and RollIntoStock. The ballot's own cards show their size and are the players' to choose.</summary>
+    /// card) and RollIntoStock - the stock under the cap only, with no smallest-of-the-rest, and an entry over it goes (StockDrop). The ballot's own cards show
+    /// their size and are the players' to choose.</summary>
     public static int DiceMaxMb = BridgeConfig.Values.DiceMaxMb;
 
     /// <summary>Whether the dice may take this map under the cap: an official map always (nothing to download), a Workshop map of at most DiceMaxMb.</summary>

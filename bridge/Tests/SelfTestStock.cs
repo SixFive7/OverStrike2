@@ -62,6 +62,15 @@ static partial class Program
             FillStock();
             Check($"The stock rolls no map over the download cap ({DiceMaxMb} MB): Arms Race's lane is full, of the quarter of its maps under it only",
                 Lane(Modes.ArmsRace).Count == StockSize && Lane(Modes.ArmsRace).All(e => Maps.First(m => Key(m) == e.Key).SizeMb <= DiceMaxMb));
+            var grown = Lane(Modes.ArmsRace)[0].Key;
+            Maps = Maps.Select(m => Key(m) == grown ? m with { SizeMb = DiceMaxMb + 1 } : m).ToList(); // its download grew past the cap (or the cap came down)
+            FillStock();
+            Check("...an entry over it goes - rolled before the cap, or grown past it - and another under it takes its place",
+                Lane(Modes.ArmsRace).All(e => e.Key != grown) && Lane(Modes.ArmsRace).Count == StockSize && Lane(Modes.ArmsRace).All(e => Maps.First(m => Key(m) == e.Key).SizeMb <= DiceMaxMb));
+            Maps = Maps.Select(m => m with { SizeMb = DiceMaxMb + 1 }).ToList(); // nothing under it at all
+            FillStock();
+            Check("...and with nothing under it, the lane holds nothing over it: it empties rather than churn on the smallest of the rest",
+                Lane(Modes.ArmsRace).Count == 0);
             Fresh(); FillStock(); // the lanes, and queues.json, as the checks below read them
 
             // ---- queues.json, version 2: the watcher reads "ballot" first, then the stock's lanes, one per mode by its name ----

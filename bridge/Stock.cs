@@ -74,7 +74,7 @@ static partial class Program
     {
         var lane = LaneOf(mode);
         var have = lane.Select(e => e.Key).ToHashSet();
-        var all = UnderCap(PoolOf(mode).Where(m => StockCandidate(m, have)).ToList(), $"the {mode.Name} stock's candidates"); // Dice.cs: the download cap
+        var all = PoolOf(mode).Where(m => StockCandidate(m, have) && UnderDiceCap(m)).ToList(); // Dice.cs: under the download cap only - no smallest-of-the-rest here, or a lane would churn
         if (all.Count == 0) return false;
         var fresh = all.Where(IsFresh).ToList();
         var wantFresh = fresh.Count > 0 && lane.Count(e => e.Fresh) < (StockSize + 1) / 2;
@@ -93,6 +93,7 @@ static partial class Program
         if (!CanRoll(map)) return "it is no longer eligible (CanRoll)";
         if (S.Met.Contains(e.Key)) return "it was shown or played - a surprise is one once";
         if (TooBig(map) != e.Big) return "its too-big mark changed since it was rolled";
+        if (!UnderDiceCap(map)) return $"it is over the dice's download cap ({DiceMaxMb} MB) - rolled before it, or the cap moved";
         if (!ContentPassed(map)) return "its Workshop content changed, and the sync has not tested it yet";
         if (ReadyKnown && !Downloaded(e.Key) && (now - e.At).TotalHours > NotReadyDropHours) return $"it has not reached the server's disk in {NotReadyDropHours} h";
         return null;

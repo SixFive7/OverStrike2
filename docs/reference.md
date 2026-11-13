@@ -453,7 +453,8 @@ maps of Deathmatch and Wingman and our own maps count as 0.75; a map with no dat
 
 **The download cap:** a roll of the dice that changes the map or fills the stock takes no map over `bridge.diceMaxMb` (300 MB by default; 0: no cap): the start roll,
 the way back to Arms Race, Random and nobody voting, a card replaced by the dice, and the discovery stock's rolls (`Dice.cs`, `UnderCap`). An official map always fits.
-When no eligible map fits, the dice take the smallest, and the log says so. A map new to a player's game asks them to confirm its download (CS2's Confirm Workshop
+When no eligible map fits, the dice take the smallest, and the log says so. The stock rolls only maps under the cap - a lane stays short rather than hold a big one -
+and an entry over it, from before the cap or after a lower one, goes. A map new to a player's game asks them to confirm its download (CS2's Confirm Workshop
 Download, seen for maps of 464 MB, 624 MB and 1.6 GB), and a big one keeps them waiting. The ballot's own cards show their size and are the players' to choose; a
 player's pick knows no cap. How it works says the default (`MapVote.DiceMaxMbDefault`): move the cap there, not only in the settings, so the page says it right.
 
