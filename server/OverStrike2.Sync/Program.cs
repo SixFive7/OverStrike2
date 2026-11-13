@@ -11,7 +11,8 @@ public static class Program
 {
     const string Usage = """
         os2-sync <command> [options]
-          serve                   the service: a run whenever nobody plays and there is work (or at once: <state>/run-now)
+          serve                   the service: a run whenever nobody plays and there is work (or at once: <state>/run-now); a run
+                                  takes <state>/adopt.json first, hand verdicts on non-maps (docs/server.md)
           once [JSON]             one run now, then exit (the same rules); JSON lowers its limits, e.g. '{"batch": 3}' (api_run_cap,
                                   max_pages, batch; publish false; discover false; api true or false; only_ids [...])
           status                  the Web API ledger's counters and the state's totals

@@ -131,10 +131,14 @@ public static class PublishPlan
             }
             else if (kind == "nonmap" && !placed && !listed.ContainsKey(wid))
             {
+                // the sync's own test: "confirmed by test", found by the sync; a hand verdict (RunAdopt.cs) says its own evidence, list and phrase
                 Section("packs").Add(new JsonObject
                 {
-                    ["id"] = long.Parse(wid), ["name"] = name, ["kind"] = detail["kind"]?.DeepClone(), ["evidence"] = "confirmed by test", ["phrase"] = null,
-                    ["detail"] = detail["detail"]?.DeepClone(), ["list"] = "sync", ["formerRank"] = null, ["spareRank"] = null,
+                    ["id"] = long.Parse(wid), ["name"] = name, ["kind"] = detail["kind"]?.DeepClone(),
+                    ["evidence"] = Node.IsString(detail["evidence"]) ? detail["evidence"]?.DeepClone() : "confirmed by test",
+                    ["phrase"] = Node.IsString(detail["phrase"]) ? detail["phrase"]?.DeepClone() : null,
+                    ["detail"] = detail["detail"]?.DeepClone(), ["list"] = Node.IsString(detail["list"]) ? detail["list"]?.DeepClone() : "sync",
+                    ["formerRank"] = null, ["spareRank"] = null,
                     ["preview"] = Node.Truthy(rec["preview"]) ? rec["preview"]?.DeepClone() : "", ["description"] = Text.Clean(Node.StrOr(rec["description"]), 200),
                 });
                 on[wid] = "packs";

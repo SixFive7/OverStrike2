@@ -98,6 +98,19 @@ public static class RunReport
             W("server errors). The next day starts again from the ledger's counts.");
             W("");
         }
+        var ad = Node.Obj(r["adopt"]);
+        if (ad.Count > 0)
+        {
+            W($"0. Hand verdicts ({Adopt.FileName} in the state folder), taken into the state and published in step 5 like the sync's own:");
+            if (Node.Truthy(ad["refused"]))
+                W($"   not taken in: {S(ad["refused"])} - nothing in it was adopted.");
+            else
+                W($"   {Node.Arr(ad["adopted"]).Count} taken in, {Node.Arr(ad["skipped"]).Count} skipped.");
+            foreach (var row in Node.Arr(ad["skipped"]).Take(RowsShown).Select(Node.Arr))
+                W($"   skipped {S(row.ElementAtOrDefault(0))}: {S(row.ElementAtOrDefault(1))}");
+            if (Node.Truthy(ad["file"]))
+                W($"   The file is kept as {S(ad["file"])}.");
+        }
         var d = Node.Obj(r["discovery"]);
         W("1. Find new maps (IPublishedFileService/QueryFiles, the Web API key):");
         if (Node.Truthy(d["skipped"]))

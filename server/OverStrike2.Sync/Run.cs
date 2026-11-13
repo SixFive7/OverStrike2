@@ -260,6 +260,7 @@ public sealed partial class SyncRun
         var known = files.KnownIds(Cfg);
         var listed = files.Listed();
         L($"start: {listed.Count} listed map(s), {known.Count} id(s) known, {State.Items.Count} item(s) in the state, deadline {Clock.Hm(Deadline)}{(Manual ? " (manual run)" : "")}");
+        TakeHandVerdicts(known);                            // <state>/adopt.json (RunAdopt.cs): published below, like the sync's own verdicts
         var key = Cfg.WebApiKey.Length > 0 ? Cfg.WebApiKey : null;
         var api = new SteamApi(Ledger, Day0, door, key, SteamApi.HttpSend, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
         Api = api;

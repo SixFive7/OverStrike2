@@ -233,7 +233,9 @@ public sealed partial class SyncRun
                 if (kind == "pass" && listed.Contains(wid))
                     Event(wid, "listed", $"It passed its test: it loads as {Node.StrOr(detail["level"], "its own map")}.");
                 else if (on.ContainsKey(wid))
-                    Event(wid, "broken", new[] { detail["evidence"], detail["detail"], detail["reason"] }.FirstOrDefault(Node.Truthy) is { } why ? Node.Str(why) : kind);
+                    // a non-map says its detail (a hand verdict's evidence is only the kind of proof it rests on); a crasher and an advert their evidence
+                    Event(wid, "broken", (kind == "nonmap" ? new[] { detail["detail"], detail["evidence"] } : new[] { detail["evidence"], detail["detail"], detail["reason"] })
+                        .FirstOrDefault(Node.Truthy) is { } why ? Node.Str(why) : kind);
             }
             if (listed.Contains(wid) || on.ContainsKey(wid))
                 rec["status"] = "published";

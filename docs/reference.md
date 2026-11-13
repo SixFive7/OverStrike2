@@ -664,7 +664,8 @@ Thousands of community maps include some that break things, so every broken map 
   the dice then take the server to another map.
 - **A Workshop update lifts a mark**, a crash's or a player crash's: the author may have fixed it.
 - **`broken.json`** holds three lists: `maps` (maps that crash or freeze the server, or advertise: a pick asks for a second click, the dice never roll them, each says why), `packs` (Workshop items with
-  no map in them - skins, models, empty uploads: refused) and `blocked` (refused for good, each with a reason). **`blocked.json`** is a hand-made list of the same kind.
+  no map in them - skins, models, empty uploads: refused) and `blocked` (refused for good, each with a reason). **`blocked.json`** is a hand-made list of the same kind. The sync
+  writes `broken.json` and only ever adds to it; a non-map it did not find itself comes in through it as well, as a hand verdict in its state folder ([server.md](server.md#hand-verdicts-adoptjson)).
 - **Maps gone from the Workshop.** Every 4 hours the sync checks every listed map through the public Web API and posts the verdicts to the bridge (`POST /removed/<secret>`, kept in `removed.json`): a
   map that is gone, private or banned is refused, leaves an open ballot, stops a countdown to it, and if it is the map that is on, the dice roll another, since nobody new could download it. A report
   calling more than 10% of 50 or more ids gone is not believed. Without the sync nothing is ever marked gone.

@@ -1,6 +1,6 @@
 // The Workshop sync's self-test, a file a subject: the settings, the limits, discovery and the check, the scan, the verdicts, the publish,
-// the report and the problem mail, the JSON and the words, whole runs, the service, the hand-over, the processes, and a map's life over
-// days. Every check prints PASS, FAIL or SKIP; the exit code is the number of failures (0: all passed).
+// the report and the problem mail, the JSON and the words, whole runs, the hand verdicts, the service, the hand-over, the processes, and a
+// map's life over days. Every check prints PASS, FAIL or SKIP; the exit code is the number of failures (0: all passed).
 //   dotnet run --project server/OverStrike2.Sync/SelfTest
 // The checks on process groups, /proc, links and real processes need Linux and say SKIP elsewhere. The run that counts is the one in the
 // game image:
@@ -40,6 +40,9 @@ try
     RunTests.WorkshopJson();
     RunTests.ExportVerdicts();
     RunTests.PictureOnly();
+    AdoptTests.Parse();
+    AdoptTests.Plan();
+    AdoptTests.InARun(root);
     ServiceTests.Clock();
     HandOverTests.Acf(root);
     var kdata = HandOverTests.KData();

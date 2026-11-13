@@ -21,7 +21,9 @@ public sealed partial class SyncRun
         };
         if (Node.Truthy(book["stop"]))
             today["stop"] = Text.Cut(Node.Str(book["stop"]), 200);
-        var verdicts = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Truthy(r["verdict"])).Select(r => Node.Str(r["verdict"])).ToList();
+        // what this sync tested: a hand verdict (RunAdopt.cs) is on its lists, but no test of its
+        var verdicts = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Truthy(r["verdict"]) && Node.Str(r["why"]) != Adopt.Why)
+            .Select(r => Node.Str(r["verdict"])).ToList();
         BridgeData? files;
         try
         {

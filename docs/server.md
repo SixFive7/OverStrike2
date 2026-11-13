@@ -165,7 +165,7 @@ lumps, read once from the files of a listed map scanned before the scan counted 
 
 | Command | What it does |
 |---|---|
-| `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; after a run nothing stopped and that had nothing it could do, it waits for the next check or a new day; `<state>/run-now` starts a manual run at once. |
+| `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; after a run nothing stopped and that had nothing it could do, it waits for the next check or a new day; `<state>/run-now` starts a manual run at once; `<state>/adopt.json` hands it verdicts it did not reach itself ([below](#hand-verdicts-adoptjson)). |
 | `os2-sync once [JSON]` | One run now, then exit. JSON lowers its limits: `api_run_cap`, `max_pages`, `batch`; `publish` false; `discover` false; `api` true or false; `only_ids`. |
 | `os2-sync status` | The Web API ledger's counters and the state's totals. |
 | `os2-sync export` | What it has published, as entries a republish from the repository can merge, each with the sync's verdict on its map (`ws`: ok, removed, hidden or banned - the last check's, as the bridge keeps it in `removed.json`), and the discovery stock as `queues.json` holds it (`queues`), which the HUD's pictures take first. The pictures skip a map whose verdict is not ok. |
@@ -173,6 +173,28 @@ lumps, read once from the files of a listed map scanned before the scan counted 
 | `os2-sync version` | Its version. |
 
 Every command takes `--settings <file>`.
+
+### Hand verdicts (adopt.json)
+
+`broken.json` has one writer, the sync, and its publish only ever adds to it. A non-map found some other way than the sync's own test - an
+older sweep, a scan by hand - reaches its `packs` through the sync too: put `adopt.json` into the sync's state folder, and the next run
+takes it at its start ([`RunAdopt.cs`](../server/OverStrike2.Sync/RunAdopt.cs)), records each entry in its state as a verdict of its own
+(status `tested`, why `adopted`) and publishes it with its own verdicts - the same plan, the same merge check, the same backup and reload.
+`run-now` beside it takes it at once; with `{"api": false, "only_ids": []}` in it, that run takes the file and publishes, and downloads,
+tests and hands over nothing.
+
+```json
+{"nonmaps": [{"id": 3353017497, "name": "...", "kind": "pack", "evidence": "confirmed by test", "list": "tail", "phrase": null,
+              "detail": "no maps/<name>.vpk in its VPK, only 341 compiled models - an asset pack (sweep 2026-10-05)"}]}
+```
+
+`kind` (`pack`, `empty`, `stub`, `legacy`), `evidence` (`confirmed by test`, `identified from description`, `identified from its Workshop
+file`), `list` and `phrase` are `broken.json`'s packs fields; `detail` says what the verdict rests on, with its date; `preview`, optional,
+is an https URL. Not taken, each with its reason in the run's report: an entry that breaks one of those rules, an id named twice, an id the
+bridge's lists know (listed in any mode, on `broken.json` or `blocked.json`, excluded by the settings), one the sync has a verdict on, and
+one it is about to test itself. The file is then kept as `adopted/<time>.json`, so it is taken once; one that does not parse takes
+nothing, is kept as `adopted/<time>.refused.json`, and is a problem for the mail. The dashboard's totals count what the sync tested,
+not these.
 
 ```sh
 dotnet build server/OverStrike2.Sync
