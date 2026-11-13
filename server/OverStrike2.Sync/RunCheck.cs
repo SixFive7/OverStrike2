@@ -7,7 +7,8 @@ namespace OverStrike2.Sync;
 public sealed partial class SyncRun
 {
     /// <summary>Discovery: the Workshop's newest items in the sync's tags (QueryFiles, the Web API key), page by page until a page holds
-    /// nothing this sync has seen (Discovery.Discover); each new one queued for its test. Nothing without a key.</summary>
+    /// nothing this sync has seen (Discovery.Discover) - once a week every page, the full walk; each new one queued for its test. Nothing
+    /// without a key.</summary>
     void DiscoverStep(SteamApi api, IReadOnlyDictionary<string, string> known)
     {
         if (api.Key is null)
@@ -16,11 +17,13 @@ public sealed partial class SyncRun
             Report["discovery"] = new JsonObject { ["skipped"] = "no Web API key in the secret file" };
             return;
         }
+        var walk = Discovery.WalkDue(State, Cfg, Clock.Now());
         try
         {
             var d = Discovery.Discover(api, Cfg, known, State, Day0, Deadline - 1800, Clock.Now);
             Report["discovery"] = d;
-            L($"discovery: {Node.Str(d["pages"])} page(s), {Node.Str(d["seen"])} seen, {Node.Arr(d["new"]).Count} new ({Node.Str(d["stop"])})");
+            L($"discovery: {Node.Str(d["pages"])} page(s), {Node.Str(d["seen"])} seen, {Node.Arr(d["new"]).Count} new ({Node.Str(d["stop"])})"
+              + (Node.Truthy(d["walk"]) ? $" - the week's full walk, {Node.Str(d["walk"])}, {Node.Arr(d["back"]).Count} queued map(s) back on the Workshop" : ""));
         }
         catch (StopApiException stop)
         {
@@ -31,7 +34,24 @@ public sealed partial class SyncRun
         {
             Report["discovery"] = new JsonObject { ["skipped"] = $"failed: {e.Message}", ["failed"] = true };
         }
+        if (walk && Report["discovery"] is JsonObject cut && Node.Truthy(cut["skipped"]))
+            cut["walk"] = "cut short";              // what it read is remembered; the walk is not the week's, and the next discovery walks again
         State.Save();
+    }
+
+    /// <summary>The week's full walk for the run's report, whether this run walked or not: when the last one ran (the state's "walk"), what
+    /// it read and found, and when the next is due - local times; {} when none ran yet.</summary>
+    public JsonObject WalkReport()
+    {
+        var w = Node.Obj(State.Data["walk"]);
+        var at = Node.Float(w["at"]);
+        if (at <= 0)
+            return [];
+        return new JsonObject
+        {
+            ["last"] = $"{Clock.Day(at)} {Clock.Hm(at)}", ["pages"] = Node.Int(w["pages"]), ["new"] = Node.Int(w["new"]), ["back"] = Node.Int(w["back"]),
+            ["stop"] = Node.StrOr(w["stop"]), ["next"] = $"{Clock.Day(at + Discovery.WalkEvery)} {Clock.Hm(at + Discovery.WalkEvery)}",
+        };
     }
 
     /// <summary>The check: every listed map, then the head of the download queue, asked about (GetPublishedFileDetails, no key) - a listed

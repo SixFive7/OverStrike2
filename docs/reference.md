@@ -737,7 +737,11 @@ process in that state once nobody is on.
 starts whenever the server has had nobody on for `sync.quietMinutes` (10) and there is work, and lasts at most `sync.runHours` (3). A start of the service counts as somebody on, since it cannot know who just left. No run starts from 15 minutes before the daily restart to 10 after it, or with under 20 minutes
 left before that cut. Discovery, the check and the ratings run at most every `sync.apiEveryHours` (4); downloads, tests and publishing repeat in batches of `sync.batch`, so a long run publishes as it goes.
 
-1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API. It needs a Web API key (`sync.webApiKey`); without one the step is skipped.
+1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API, newest first, up to the first page with nothing new. It needs a Web API key (`sync.webApiKey`); without one the step is skipped.
+   **Once a week, the full walk:** every page instead (`sync.maxPages` at most), so it also finds what newest first never reaches - an item that was gone or hidden when its pages were read and is public again,
+   an old upload newly given one of the tags - and a queued map the check had found gone from the Workshop is queued again once it is public. A walk cut short (the run's clock, a stop of the Web API) does not count, and the
+   next run that asks the Workshop walks again; a run-now whose `max_pages` lowers the pages takes none. Its calls go through the same door, ledger and caps as every other (about 107 pages of 100 in November 2026). When the last walk ran
+   is in the state (`walk`), and every run's report says it and when the next is due.
 2. **Check** every listed map (gone, hidden, banned, updated) and hand the verdicts to the bridge. Once a day also fetch the Workshop's score and subscriptions of every listed map and every waiting one, and each mode's Most Popular
    order, into `ratings.json`. Write each listed map's Workshop numbers and the version the sync accepts into `workshop.json`.
 3. **Hand over** the maps the server keeps but lacks, and the ones it stores in an older version than one a test passed (`<work>/handover/`). A hand-over waits for SteamCMD's acf entry of its download, and a map already staged with one

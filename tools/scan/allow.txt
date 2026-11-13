@@ -52,6 +52,7 @@ clock-time server/OverStrike2.Server/SelfTest/*.cs 2001-01-01 12:\d\d|[01]\d/[0-
 clock-time server/OverStrike2.Server/SelfTest/*.cs 10/04/2026 - (?:07:0\d|15:00)  # the server program's self-test: the restart scenarios' designed clocks, around the 07:00 restart
 clock-time bridge/Tests/SelfTestMain.cs [01]\d/[0-3]\d/2001 - 12:\d\d  # the log parser's sample lines: made-up dates and times
 clock-time bridge/Tests/SelfTest*.cs 20\d\d-[01]\d-[0-3]\d[ T](?:12|00):00|[01]\d/[0-3]\d/20\d\d - 12:00  # self-test fixtures: made-up times, noon or midnight
+clock-time server/OverStrike2.Sync/SelfTest/*.cs 2001-[01]\d-[0-3]\d 12:00  # the sync program's self-test: the report's full walk, made-up dates and times (2001, noon)
 clock-time bridge/sizes.json 20\d\d-[01]\d-[0-3]\dT00:00  # the size list's generation date, its time zeroed
 
 # The published history (every commit is pushed, its old blobs included): files at the paths they had before the stage-3

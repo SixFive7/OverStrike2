@@ -265,7 +265,7 @@ public sealed partial class SyncRun
         if (csgoEra > 0)
             Report["csgo_era"] = csgoEra;
         var key = Cfg.WebApiKey.Length > 0 ? Cfg.WebApiKey : null;
-        var api = new SteamApi(Ledger, Day0, door, key, SteamApi.HttpSend, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
+        var api = new SteamApi(Ledger, Day0, door, key, Seams.WebApi, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
         Api = api;
         var lastApi = Node.Float(State.Data["last_api"]);
         var apiDue = (Cfg.ForceApi || Clock.Now() - lastApi >= Cfg.ApiEvery || !Service.BacklogWaits(State.Data)) && !Cfg.SkipApi;
@@ -422,6 +422,7 @@ public sealed partial class SyncRun
         {
             L($"backlog not counted: {Text.Of(e)}");
         }
+        Report["walk"] = WalkReport();                       // the week's full walk: the last and the next, in every report
         Report["ended"] = Clock.Stamp();
         Report["ended_hm"] = Clock.Hm();
         if (!Report.ContainsKey("limits"))

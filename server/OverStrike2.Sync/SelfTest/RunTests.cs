@@ -585,4 +585,70 @@ static class RunTests
             (State, Work, Data) = saved;
         }
     }
+
+    // ---- the week's full walk in a whole run with the key: discovery walks every page when it is due - inside the run's Web API limits, its
+    // calls through the one door and booked in the ledger - records it in the state and says it in the report, which says the last and the
+    // next walk every run; a run within the week reads to the first page with nothing new, as before
+    internal static void WalkRun()
+    {
+        FakeWorld();
+        var root = Dir("walk-run");
+        var saved = (State, Work, Data, Hooks.WebApi);
+        (State, Work, Data) = (Path.Combine(root, "state"), Path.Combine(root, "work"), Path.Combine(root, "data"));
+        try
+        {
+            Directory.CreateDirectory(Data);
+            Json(Path.Combine(Data, "maps.json"), A("""[{"rank": 1, "id": 31, "name": "a", "sizeMb": 1}]"""));
+            Json(Path.Combine(Data, "broken.json"), O("""{"schema": "x", "maps": [], "packs": [], "removed": [], "blocked": []}"""));
+            Json(Path.Combine(State, "state.json"), O("""{"schema": 1, "items": {"703": {"status": "published", "why": "new", "ws": "ok", "title": "seen", "tags": ["Armsrace"]}}, "baseline": {}}"""));
+            var asked = new List<string>();
+            Hooks.WebApi = r =>
+            {
+                if (!r.Url.StartsWith(SteamApi.QueryUrl, StringComparison.Ordinal))
+                    return new ApiAnswer(200, "{\"response\": {}}"u8.ToArray());
+                var cursor = Uri.UnescapeDataString(r.Url.Split("cursor=")[1].Split('&')[0]);
+                asked.Add(cursor);
+                var page = cursor switch { "*" => CheckTests.Page([701, 702], "c2"), "c2" => CheckTests.Page([703], "c3"), _ => CheckTests.Page([704], "") };
+                return new ApiAnswer(200, System.Text.Encoding.UTF8.GetBytes(page.ToJsonString()));
+            };
+            var cfg = Cfg();
+            (cfg.WebApiKey, cfg.Ratings, cfg.DownloadPause) = (Key, false, 0);
+            cfg.Lower(O("{\"api\": true}"));
+            var t1 = T0 + 30 * 86400;
+            var r1 = W.Run(cfg, new FakeClock(t1));
+            var rep1 = r1.Run();
+            var d1 = Node.Obj(rep1["discovery"]);
+            var walk = Node.Obj(r1.State.Data["walk"]);
+            Check($"walk run: due with none recorded - discovery reads every page, on past page 2 with nothing new ({Show(asked)}, {Node.Str(d1["stop"])})",
+                  asked.SequenceEqual(["*", "c2", "c3"]) && Node.Str(d1["walk"]) == "whole" && Node.StrList(d1["new"]) is ["701", "702", "704"]);
+            var calls = Node.Arr(Read(Path.Combine(State, "api-ledger.json"))!["calls"]).Select(c => (Time: Node.Float(c![0]), Api: Node.Str(c[1]))).ToList();
+            Check($"walk run: inside the run's Web API limits - 3 calls of its 500, each booked in the ledger, 2 s apart through the one door ({Show(calls.Select(c => c.Time - t1))})",
+                  Node.Int(Node.Get(rep1["limits"], "api_run")) == 3 && Node.Int(Node.Get(rep1["limits"], "api_run_cap")) == 500 && calls.Count == 3
+                  && calls.All(c => c.Api == "QueryFiles") && calls.Zip(calls.Skip(1)).All(p => p.Second.Time - p.First.Time >= 2.0));
+            var c1 = C(new FakeClock(t1));
+            Check($"walk run: the state records when it ran and what it read ({Node.Compact(walk)})",
+                  Node.Float(walk["at"]) >= t1 && Node.Float(walk["at"]) < t1 + 60 && Node.Int(walk["pages"]) == 3 && Node.Int(walk["new"]) == 3 && Node.Str(walk["day"]) == c1.Day());
+            var text1 = File.ReadAllText(Node.Str(rep1["report_path"])[..^5] + ".txt");
+            var next = C(new FakeClock(Node.Float(walk["at"]) + 7 * 86400));
+            Check("walk run: the report says this was the walk, when it ran and when the next is due",
+                  text1.Contains("This was the week's full walk: every page, not only to the first with nothing new.")
+                  && text1.Contains($"The full walk, at most once a week: the last {c1.Day()} {c1.Hm(Node.Float(walk["at"]))} (3 page(s), 3 new, 0 back), the next due {next.Day()} {next.Hm()}."));
+            asked.Clear();
+            var r2 = W.Run(cfg, new FakeClock(t1 + 86400));
+            var rep2 = r2.Run();
+            var text2 = File.ReadAllText(Node.Str(rep2["report_path"])[..^5] + ".txt");
+            Check("walk run: a day later the default run - the first page with nothing new ends it, 1 call; its report names the last walk and the next",
+                  asked.SequenceEqual(["*"]) && Node.Get(rep2["discovery"], "walk") is null && Node.Int(Node.Get(rep2["limits"], "api_run")) == 1
+                  && text2.Contains($"the last {c1.Day()} ") && text2.Contains($"the next due {next.Day()} ") && !text2.Contains("This was the week's full walk"));
+            asked.Clear();
+            var r3 = W.Run(cfg, new FakeClock(t1 + 8 * 86400));
+            var rep3 = r3.Run();
+            Check("walk run: a week on it walks again, every page, and the state has the new one",
+                  asked.SequenceEqual(["*", "c2", "c3"]) && Node.Str(Node.Get(rep3["discovery"], "walk")) == "whole" && Node.Float(Node.Get(r3.State.Data["walk"], "at")) >= t1 + 8 * 86400);
+        }
+        finally
+        {
+            (State, Work, Data, Hooks.WebApi) = saved;
+        }
+    }
 }

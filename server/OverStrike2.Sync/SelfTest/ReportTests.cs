@@ -102,6 +102,25 @@ static class ReportTests
         Hooks.HumansOn = real;
     }
 
+    // ---- the report's words for the week's full walk: every report says the last and the next, a run that walked says so
+    internal static void Walk()
+    {
+        var walked = With(R(), ("api_stop", null),
+                          ("discovery", O("""{"pages": 107, "seen": 10587, "new": ["1", "2", "3"], "total": 10587, "stop": "an empty page", "walk": "whole", "back": ["5"]}""")),
+                          ("walk", O("""{"last": "2001-01-06 12:00", "pages": 107, "new": 3, "back": 1, "stop": "an empty page", "next": "2001-01-13 12:00"}""")));
+        var (_, body) = RunReport.Summary(walked, Cfg());
+        Check("report: a run that walked says so, and what came back; every run says the last walk and the next",
+              body.Contains("   107 page(s), 10587 item(s) seen, 3 new (an empty page); the Workshop holds 10587 items with these tags.\n"
+                            + "   This was the week's full walk: every page, not only to the first with nothing new; 1 queued map(s) the check had found gone are back on the Workshop.\n"
+                            + "   The full walk, at most once a week: the last 2001-01-06 12:00 (107 page(s), 3 new, 1 back), the next due 2001-01-13 12:00.\n2. Check"));
+        var cut = With(walked, ("discovery", O("""{"skipped": "this run's cap of 500 Web API calls is reached", "walk": "cut short"}""")));
+        Check("report: a walk cut short says the next run that asks the Workshop walks again",
+              RunReport.Summary(cut, Cfg()).Body.Contains("This was the week's full walk: every page, not only to the first with nothing new - cut short, so the next run that asks the Workshop walks again."));
+        var (_, none) = RunReport.Summary(With(R(), ("api_stop", null), ("walk", new JsonObject())), Cfg());
+        Check("report: before the first walk it says none ran yet", none.Contains("   The full walk, at most once a week: none yet - the next run that asks the Workshop walks every page.")
+              && !none.Contains("This was the week's full walk"));
+    }
+
     // ---- the report's words for the CS:GO-era uploads the queue had left out before, given their verdict in a run
     internal static void CsgoEra()
     {
