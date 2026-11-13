@@ -449,14 +449,7 @@ player selected.
 **The popularity number**, per map among its mode's listed Workshop maps (`Popularity.cs`), is the mean of three families: **Rated**, its percentile
 by the Workshop's score; **Played**, the mean of its percentiles by subscribers, lifetime subscribers, favourites, lifetime favourites and views;
 **Hot**, its percentile in the 30-day trend order, the maps past the fetched list tied at the bottom. A family without data is left out. Valve's official
-maps of Deathmatch and Wingman and our own maps count as 0.75; a map with no data at all as 0.5. A map's download size weighs nothing in the points.
-
-**The download cap:** a roll of the dice that changes the map or fills the stock takes no map over `bridge.diceMaxMb` (300 MB by default; 0: no cap): the start roll,
-the way back to Arms Race, Random and nobody voting, a card replaced by the dice, and the discovery stock's rolls (`Dice.cs`, `UnderCap`). An official map always fits.
-When no eligible map fits, the dice take the smallest, and the log says so. The stock rolls only maps under the cap - a lane stays short rather than hold a big one -
-and an entry over it, from before the cap or after a lower one, goes. A map new to a player's game asks them to confirm its download (CS2's Confirm Workshop
-Download, seen for maps of 464 MB, 624 MB and 1.6 GB), and a big one keeps them waiting. The ballot's own cards show their size and are the players' to choose; a
-player's pick knows no cap. How it works says the default (`MapVote.DiceMaxMbDefault`): move the cap there, not only in the settings, so the page says it right.
+maps of Deathmatch and Wingman and our own maps count as 0.75; a map with no data at all as 0.5. A map's download size plays no part.
 
 **Too big:** a map whose measured area class in `sizes.json` is XL, or that a player marked too big, comes up in 1 random pick in 100; the other 99 take
 one that is not; an empty group hands the pick to the other.

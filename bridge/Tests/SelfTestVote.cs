@@ -702,8 +702,7 @@ static partial class Program
             Check($"...and the match-end screen ends with its limit, a change's countdown and {ScreenMarginSeconds} s: the plugin's {NextMatch.Line(MapVote.Seconds + ChangeDelay + ScreenMarginSeconds)}, so CS2's corner says the latest next map",
                 h.Sent.Contains(NextMatch.Line(MapVote.Seconds + ChangeDelay + ScreenMarginSeconds)));
             h.Run(MapVote.Seconds);
-            Check($"...and nobody voting is Random then, not Keep - a map of {DiceMaxMb} MB or less (the dice's download cap)",
-                Pending is { By: "the vote" } p0 && p0.Map.SizeMb <= DiceMaxMb && h.Said("Nobody voted - Rolling the dice"));
+            Check("...and nobody voting is Random then, not Keep", Pending is { By: "the vote" } && h.Said("Nobody voted - Rolling the dice"));
             Check($"...its change, a map on the disk, cuts the screen to the countdown and {ScreenMarginSeconds} s: {NextMatch.Line(ChangeDelay + ScreenMarginSeconds)} - the change goes out first, and CS2's corner counts with the window",
                 h.Sent.Contains(NextMatch.Line(ChangeDelay + ScreenMarginSeconds)) && Pending is { } p1 && OnTheDisk(p1.Map));
             Fresh();

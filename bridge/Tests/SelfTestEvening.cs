@@ -535,11 +535,11 @@ static partial class Program
             S.History = Maps.Take(12).ToList();
             Check("...and fall back to the whole pool when nothing else is", RandomPick() is not null);
             S.History = new();
-            Maps = [new MapInfo(1, 6_000_001, "big_liked", DiceMaxMb), new MapInfo(2, 6_000_002, "big", DiceMaxMb), new MapInfo(3, 6_000_003, "small", 10)];
+            Maps = [new MapInfo(1, 6_000_001, "huge_liked", 900), new MapInfo(2, 6_000_002, "huge", 900), new MapInfo(3, 6_000_003, "small", 10)];
             Likes = new() { [Key(Maps[0])] = new() { ["[U:1:1]"] = 1 } };
             var bigRolls = Enumerable.Range(0, 300).Select(_ => RandomPick()!.Name).ToHashSet();
-            Check($"Under the download cap a map's size is no reason either way: a {DiceMaxMb} MB map nobody liked is rolled like a 10 MB one",
-                bigRolls.Contains("big_liked") && bigRolls.Contains("big") && bigRolls.Contains("small"));
+            Check("A map's download size is no reason either way: a 900 MB map nobody liked is rolled like a 10 MB one",
+                bigRolls.Contains("huge_liked") && bigRolls.Contains("huge") && bigRolls.Contains("small"));
             Maps = realMaps; Likes = new();
 
             // ---- the guide on a real join, never on a map change's reconnect; nothing broadcast to greet a newcomer ----

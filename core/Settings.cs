@@ -496,8 +496,6 @@ public sealed class Settings
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
         Int("bridge.discoveryStock", B | S | Y, 10, 0, 40, "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set wants each of the stock's lanes this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
-        Int("bridge.diceMaxMb", B, 300, 0, 100000, "The most a map the dice roll may take to download, in MB: the start roll, the way back to Arms Race, Random and nobody voting, a replaced card, and the discovery stock's rolls. A map new to a player's game asks them to confirm its download, and a big one keeps them waiting. Official maps always fit; when no eligible map fits, the dice take the smallest. 0: no cap.",
-            s => s.Bridge.DiceMaxMb, (s, v) => s.Bridge.DiceMaxMb = v),
         Int("bridge.changeDelaySeconds", B, 8, 0, 120, "The countdown before a map change.",
             s => s.Bridge.ChangeDelaySeconds, (s, v) => s.Bridge.ChangeDelaySeconds = v),
         Int("bridge.restartCooldownSeconds", B, 300, 0, 86400, "The least time between two !restart requests.",
@@ -647,7 +645,6 @@ public sealed class BridgeSection
     public string Secret { get; set; } = "";
     public List<string> OfficialMaps { get; set; } = ["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"];
     public int DiscoveryStock { get; set; } = 10;
-    public int DiceMaxMb { get; set; } = 300;
     public int ChangeDelaySeconds { get; set; } = 8;
     public int RestartCooldownSeconds { get; set; } = 300;
 }

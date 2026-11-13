@@ -10,7 +10,6 @@ using System.Globalization;
 public static class MapVote
 {
     public const int Seconds = 60;        // the vote's limit, the safety net for somebody away; everybody having voted ends it sooner (InactivitySeconds)
-    public const int DiceMaxMbDefault = 300; // bridge.diceMaxMb's default, the dice's download cap (Dice.cs): How it works says it (Hud.How), so move it here, not in the settings
     public const int PageCards = 10;      // one page of the ballot: ten cards, two columns of five. The ballot fills one page; a second only when what must be on it does not fit
     public const int MaxMaps = 48;        // a ballot's cards at the most - six pages - however many maps players put on it; Random comes on top
     public const int MaxOptions = MaxMaps + 1;

@@ -102,8 +102,8 @@ static partial class Program
             var eligible = Maps.ToList(); // the dice over every eligible map take the whole ranked list (Dice.cs: RandomPick)
             var draws = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();
             Check($"A roll only ever lands on a ranked map ({eligible.Count} of {Maps.Count} eligible)", draws.All(m => m.Rank > 0 && !m.Official && Maps.Contains(m)));
-            Check($"The download cap: no roll lands on a map over {DiceMaxMb} MB ({draws.Count(m => m.SizeMb > DiceMaxMb)} of 4000 rolls, {eligible.Count(m => m.SizeMb > DiceMaxMb)} such maps on the list)",
-                draws.All(m => m.SizeMb <= DiceMaxMb) && eligible.Count(m => m.SizeMb > DiceMaxMb) > 0);
+            Check($"A map's download size plays no part: maps of 400 MB and up come up too ({draws.Count(m => m.SizeMb >= 400)} of 4000 rolls, {eligible.Count(m => m.SizeMb >= 400)} such maps eligible)",
+                draws.Any(m => m.SizeMb >= 400) && eligible.Count(m => m.SizeMb >= 400) > 0);
             Check($"A roll spreads over the table ({draws.Select(m => m.Rank).Distinct().Count()} distinct maps in 4000 rolls)", draws.Select(m => m.Rank).Distinct().Count() > eligible.Count / 2);
             S.Map = eligible[0];                                                    // the map now loaded
             foreach (var m in eligible.Skip(1).Take(200)) S.Crashes[Key(m)] = 1;     // 200 maps that have crashed the server

@@ -132,7 +132,7 @@ public static class Hud
             "Workshop popularity (rating, players, trend) gives up to 4 points, each Like a point (up to 5 Likes), and each Dislike or Too big takes 2.",
             "A card shown and not chosen loses 1 point, 2 at most, fading to nothing over 28 days.",
             "One mark per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The opposite one takes it back first.",
-            $"Nothing else counts, but the download: the dice never roll a map over {MapVote.DiceMaxMbDefault} MB. An official map always fits; with none under it, the smallest."]),
+            "Nothing else counts: a map's download size never makes it more or less likely."]),
         new("Never rolled", [
             "The map that is on, and the last 10 maps played (while others are left).",
             "Maps that crashed the server or are on the broken list, blocked maps, and maps gone from the Workshop. A Workshop update lifts a crash mark.",
