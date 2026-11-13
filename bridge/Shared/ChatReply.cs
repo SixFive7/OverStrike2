@@ -27,6 +27,20 @@ public static class ChatReply
 
     public static string YourVote(string label) => M.Done($"Your vote: {M.A(Hud.Clean(label, 40))}");
 
+    /// <summary>!vote 3 when the card the vote shows is the one with this player's vote already: nothing to send.</summary>
+    public static string VoteAlready(string label) => $"Your vote is on {M.A(Hud.Clean(label, 40))} already";
+
+    /// <summary>!vote with a number no card of this vote has: every card keeps its number for the whole vote, the same for everybody.</summary>
+    public static string NoCard(int n) => M.Refused($"No card in this vote has the number {M.V(n.ToString(System.Globalization.CultureInfo.InvariantCulture))}");
+
+    // ---- the Bots page's refusals, for a click and for !bots alike (HudScreenBots.cs) ----
+
+    public static readonly string NoBots = M.Refused("No bot plays: nothing to kick");
+
+    public static string PresetRefused(Bots.Preset p, string why) => M.Refused($"{M.A(p.Title)}: {why}");
+
+    public static string BotRefused(Fun.Setting s, Fun.Choice c, string why) => M.Refused($"{M.A(s.Title)} cannot be {M.V(c.Label)} here: {why}");
+
     public static string NotInMode(Fun.Setting s, string mode) => M.Refused($"{M.A(s.Title)} is Arms Race's own - Not in {M.V(mode)}");
 
     public static string Already(Fun.Setting s, Fun.Choice c) => $"{M.A(s.Title)}: {M.V(c.Label)} already";

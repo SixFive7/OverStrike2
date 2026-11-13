@@ -54,19 +54,19 @@ static partial class Program
         (BridgeWire.Downloads, "Stuck map downloads", "Back in a minute"),
     ];
 
-    /// <summary>A restart coming, the watcher's or a player's: its kind, at the match's end or now, who pressed it (a player's alone), the seconds it gave, when it came, and the moment it
-    /// goes once that is known (now: at once; match-end: at the match's end).</summary>
+    /// <summary>A restart coming, the watcher's or a player's: its kind, at the match's end or now, who pressed it and their SteamID (a player's alone), the seconds it gave, when it
+    /// came, and the moment it goes once that is known (now: at once; match-end: at the match's end).</summary>
     sealed class RestartNotice
     {
-        public string Kind = "", When = "", By = "";
+        public string Kind = "", When = "", By = "", ById = "";
         public int Seconds;
         public DateTime NoticeAt;
         public DateTime? GoesAt;
     }
 
     /// <summary>Restart match counting down: who pressed it, and the moment it goes. Fair: the fairness restart's (EarlyJoin, FairRestart) - By is then the player
-    /// who came in late, not who pressed it.</summary>
-    sealed record Rematch(string By, DateTime At, bool Fair = false);
+    /// who came in late, not who pressed it. SteamId: who pressed it, for the chat's !cancel (CancelMine); none for the fairness restart.</summary>
+    sealed record Rematch(string By, DateTime At, bool Fair = false, string SteamId = "");
 
     /// <summary>Who a fairness restart that counts down names, first in first (FairRestart): a join meanwhile folds into it.</summary>
     static readonly List<string> FairNames = new();
@@ -238,7 +238,7 @@ static partial class Program
         RestartConfirmBy = ""; RestartConfirmUntil = default;
         Withdraw(steamId, IsRestartAsk); // confirmed: the ask is settled
         RestartCooldownUntil = now.AddSeconds(RestartCooldown);
-        var due = new RestartNotice { Kind = PlayerKind, When = AtOnce, By = Clip(by, 32), Seconds = PressedSeconds, NoticeAt = now, GoesAt = now.AddSeconds(PressedSeconds) };
+        var due = new RestartNotice { Kind = PlayerKind, When = AtOnce, By = Clip(by, 32), ById = steamId, Seconds = PressedSeconds, NoticeAt = now, GoesAt = now.AddSeconds(PressedSeconds) };
         RestartDue = due;
         RematchDue = null;
         EndBallot("the server restarts");
@@ -312,7 +312,7 @@ static partial class Program
         RematchConfirmBy = ""; RematchConfirmUntil = default;
         Withdraw(steamId, IsRematchAsk); // confirmed: the ask is settled
         RematchWaitUntil = now.AddSeconds(RematchWaitSeconds);
-        var due = new Rematch(Clip(by, 32), now.AddSeconds(PressedSeconds));
+        var due = new Rematch(Clip(by, 32), now.AddSeconds(PressedSeconds), SteamId: steamId);
         RematchDue = due;
         Log($"rematch: {by} presses Restart match - the restart goes in {PressedSeconds} s");
         Post(Messages.MatchRestart, $"{M.N(due.By)} is restarting the match in {M.V(MapVote.Left(PressedSeconds))} - {RematchWords()}", seconds: PressedSeconds);

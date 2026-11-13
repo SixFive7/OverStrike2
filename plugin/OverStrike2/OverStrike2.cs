@@ -17,7 +17,7 @@ namespace OverStrike2;
 /// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "5.16.4";
+    public const string Version = "5.16.5";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";
@@ -215,7 +215,7 @@ public class OverStrike2Plugin : BasePlugin
         var screen = hud;
         // A line that starts with ! or / does what the menu's click would, a frame later (not inside the player's own chat message: HudScreen's
         // summary), and answers in chat.
-        var command = ChatCommands.Parse(text, screen.VoteOpen);
+        var command = ChatCommands.Parse(text);
         if (command.Kind != ChatCommands.Kind.None)
             Server.NextFrame(() => { if (who.IsValid) screen.Chat(who, command); });
         else if (WorkshopCard.IdInChat(text) is { } id)

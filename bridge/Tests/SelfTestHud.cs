@@ -271,16 +271,22 @@ static partial class Program
             Check($"Layout: the eight cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
                 ids.Count == ids.Distinct().Count() && !Regex.IsMatch(xml, @"<root>\s*<styles>.*?</styles>\s*<Panel\b[^>]*\bid=", RegexOptions.Singleline));
-            var unknownText = sentTexts.Where(id => !fed.Contains(id)).Distinct().ToList();
-            Check($"Layout: every text the plugin sends lands on a {{s:text}} label ({sentTexts.Distinct().Count()}){(unknownText.Count > 0 ? ": missing " + string.Join(", ", unknownText) : "")}", unknownText.Count == 0);
+            // Ahead of the content: what the plugin sends for HUD content v4.13.0, which ships after this plugin as a content update - the cards' numbers (os_m<k>_num) and the
+            // ballot's two states on os_screen (vall: everybody has voted; vnum: the numbers are this vote's). The shipped content has no label and no rule for them, and a game
+            // holding it does nothing with them; only these may be missing, and only while the content lacks them: once its layout has them, this list goes.
+            string[] aheadTexts = [.. Enumerable.Range(1, HudMenu.Cards).Select(k => $"os_m{k}_num")], aheadClasses = ["vall", "vnum"];
+            Check($"Layout: what is sent ahead of the content ({string.Join(", ", aheadClasses)} and the {aheadTexts.Length} card numbers, for v4.13.0) is only what this content lacks - none of it has a label or a rule here yet",
+                aheadTexts.All(id => !fed.Contains(id) && !ids.Contains(id)) && aheadClasses.All(c => !Regex.IsMatch(css, $@"\.{Regex.Escape(c)}\b")));
+            var unknownText = sentTexts.Where(id => !fed.Contains(id) && !aheadTexts.Contains(id)).Distinct().ToList();
+            Check($"Layout: every text the plugin sends lands on a {{s:text}} label ({sentTexts.Distinct().Count()}), but the ones ahead of the content{(unknownText.Count > 0 ? ": missing " + string.Join(", ", unknownText) : "")}", unknownText.Count == 0);
             var unfed = fed.Where(id => !sentTexts.Contains(id)).ToList();
             Check($"Layout: every {{s:text}} label is fed by the plugin ({fed.Count}){(unfed.Count > 0 ? ": never set " + string.Join(", ", unfed) : "")}", unfed.Count == 0);
             var unknownPanels = sentClasses.Select(c => c.Id).Concat([HudView.Global, HudView.Screen]).Concat(buttons).Where(id => !ids.Contains(id)).Distinct().ToList();
             Check($"Layout: every panel the plugin sets a class on, and every button it listens to, exists - nothing goes to a panel this content lacks, so its game's console stays quiet{(unknownPanels.Count > 0 ? ": missing " + string.Join(", ", unknownPanels) : "")}", unknownPanels.Count == 0);
             Check("Layout: the buttons are Buttons", buttons.All(b => Regex.IsMatch(xml, $@"<Button\b[^>]*\bid=""{b}""")));
             var classes = sentClasses.Select(c => c.Class).Concat(screenClasses).Distinct().ToList();
-            var unstyled = classes.Where(c => !Regex.IsMatch(css, $@"\.{Regex.Escape(c)}\b")).ToList();
-            Check($"Stylesheet: every class the plugin sets has a rule ({classes.Count}){(unstyled.Count > 0 ? ": none for " + string.Join(", ", unstyled) : "")}", unstyled.Count == 0);
+            var unstyled = classes.Where(c => !Regex.IsMatch(css, $@"\.{Regex.Escape(c)}\b") && !aheadClasses.Contains(c)).ToList();
+            Check($"Stylesheet: every class the plugin sets has a rule ({classes.Count}), but the ones ahead of the content{(unstyled.Count > 0 ? ": none for " + string.Join(", ", unstyled) : "")}", unstyled.Count == 0);
             Check("Layout: only Panel, Label, Image and Button (anything else makes the host refuse the whole layout)",
                 Regex.Matches(xml, @"<([A-Za-z]+)\b").Select(x => x.Groups[1].Value).All(t => t is "root" or "styles" or "include" or "Panel" or "Label" or "Image" or "Button"));
             Check("Layout: no inline style attribute and no scaling attribute (each silently kills the layout in CS2)", !Regex.IsMatch(xml, @"\s(style|scaling)="));
@@ -330,8 +336,9 @@ static partial class Program
                 var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
-                Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page)",
-                    sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
+                Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither, and the cards' numbers ahead of the content go only to a game not known to hold it (HudVote.NumbersLevel) - and the Previous button stays (on the Maps page)",
+                    sent.Where(id => !aheadTexts.Contains(id)).All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text")
+                    && HudVersion.IsBefore(HudVersion.Content, HudVote.NumbersLevel) && aheadTexts.All(HudVote.IsNumber));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
                 // ...its own version button alone: the countdown's line resting in the layout is the stylesheet's.
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();

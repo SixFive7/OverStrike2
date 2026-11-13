@@ -60,13 +60,28 @@ static partial class Program
         return HudSeen.Where(kv => present.Contains(kv.Key) && AccountId(kv.Key) > 0).ToDictionary(kv => AccountId(kv.Key), kv => kv.Value);
     }
 
-    /// <summary>!cancel restart, !cancel rematch, !cancel previous or !cancel pick &lt;key&gt;: a click on a button whose countdown runs stops it (Restarts.cs, Picks.cs).</summary>
+    /// <summary>!cancel restart, !cancel rematch, !cancel previous or !cancel pick &lt;key&gt;: a click on a button whose countdown runs stops it (Restarts.cs, Picks.cs);
+    /// !cancel mine, the chat's !cancel, the newest countdown of the player's own (CancelMine).</summary>
     static void Cancel(string name, string steamId, string what)
     {
-        if (what == "restart") CancelRestart(name, steamId);
+        if ($"!cancel {what}" == Hud.CancelMine) CancelMine(name, steamId);
+        else if (what == "restart") CancelRestart(name, steamId);
         else if (what == "rematch") CancelRematch(name, steamId);
         else if (what == "previous") CancelPick(name, steamId, what);
         else if (what.StartsWith("pick ", StringComparison.Ordinal)) CancelPick(name, steamId, what[5..]);
+    }
+
+    /// <summary>The chat's !cancel: the newest countdown this player started stops - a pick or Previous counting down, Restart match, Restart the server - as its
+    /// button's Cancel stops it, with the same news line. Somebody else's countdown is not the chat's to stop: its button, which anybody may click, still is.</summary>
+    static void CancelMine(string name, string steamId)
+    {
+        var now = Now();
+        var mine = new List<(DateTime Since, Action Stop)>();
+        foreach (var p in PicksDue.Values.Where(p => p.SteamId == steamId && p.At > now)) mine.Add((p.At.AddSeconds(-PickCountdownSeconds), () => CancelPick(name, steamId, Key(p.Map))));
+        if (RematchDue is { Fair: false } r && r.SteamId == steamId && r.At > now) mine.Add((r.At.AddSeconds(-PressedSeconds), () => CancelRematch(name, steamId)));
+        if (RestartDue is { Kind: PlayerKind, GoesAt: { } goes } d && d.ById == steamId && goes > now) mine.Add((d.NoticeAt, () => CancelRestart(name, steamId)));
+        if (mine.Count == 0) { Tell(steamId, M.Refused("No countdown of yours runs - A countdown's own button in the menu stops anybody's")); return; }
+        mine.MaxBy(x => x.Since).Stop();
     }
 
     // ---- the menu's actions: what a click asks for (HudAct), written like the chat commands they stand for ----

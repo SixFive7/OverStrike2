@@ -21,7 +21,7 @@ sealed partial class HudScreen
     void NextMatchLoad()
     {
         plugin.AddCommand(NextMatch.Command,
-            "Over Strike 2: the next match starts in <seconds> - the match-end screen ends then: os_nextmatch <seconds> [start] (the bridge's, when the vote plays the map again)", OnNextMatchCommand);
+            "Over Strike 2: the next match starts in <seconds> - the match-end screen ends then: os_nextmatch <seconds> [start|hold] (the bridge's, when the vote decides)", OnNextMatchCommand);
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { PutDelayBack("the next match's round has started"); return HookResult.Continue; });
         plugin.RegisterEventHandler<EventServerCvar>(OnServerCvar, HookMode.Pre);
         plugin.RegisterListener<Listeners.OnMapStart>(_ => { delayBack = null; cutSeq++; }); // the new map's cfg has set its own delay: nothing to put back, no check to make
@@ -40,15 +40,16 @@ sealed partial class HudScreen
     {
         if (caller != null) return; // the server console and RCON only
         var reply = int.TryParse(command.GetArg(1), out var seconds) && seconds is >= NextMatch.LeastSeconds and <= NextMatch.MostSeconds
-            ? CutMatchEnd(seconds, command.GetArg(2) == "start")
-            : NextMatch.Reply(NextMatch.Result.Refused, $"{NextMatch.Command} <seconds, {NextMatch.LeastSeconds} to {NextMatch.MostSeconds}> [start]");
+            ? CutMatchEnd(seconds, command.GetArg(2) == "start", command.GetArg(2) == NextMatch.HoldWord)
+            : NextMatch.Reply(NextMatch.Result.Refused, $"{NextMatch.Command} <seconds, {NextMatch.LeastSeconds} to {NextMatch.MostSeconds}> [start|{NextMatch.HoldWord}]");
         log.LogInformation("Over Strike 2: {Reply}", reply);
         command.ReplyToCommand(reply);
     }
 
-    /// <summary>The screen ends seconds from now, if it is up and would end later: the delay becomes the time it has been up plus the seconds (NextMatch.NewDelay),
-    /// or, with moveStart, its start moves to now + seconds - the delay. The reply names the game rules' clocks as they were.</summary>
-    string CutMatchEnd(int seconds, bool moveStart)
+    /// <summary>The screen ends seconds from now, if it is up and would end later - or, with hold, also when it would end sooner: the delay becomes the time it has been
+    /// up plus the seconds (NextMatch.NewDelay), or, with moveStart, its start moves to now + seconds - the delay. The reply says when it ends then, to a hundredth
+    /// of a second (the whole-second convar ends it up to a second after the seconds asked: the bridge counts to that), and the game rules' clocks as they were.</summary>
+    string CutMatchEnd(int seconds, bool moveStart, bool hold = false)
     {
         var proxy = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault();
         if (proxy is not { IsValid: true } || proxy.GameRules is not { } rules) return NextMatch.Reply(NextMatch.Result.Refused, "no game rules");
@@ -62,9 +63,10 @@ sealed partial class HudScreen
             return NextMatch.Reply(NextMatch.Result.Refused, $"no {NextMatch.Delay} to read ({clocks})");
         if (start <= 0 || start > now) return NextMatch.Reply(NextMatch.Result.Refused, $"the screen's start is not known ({clocks})");
         var left = start + delay - now;
-        if (NextMatch.NewDelay(now, start, delay, seconds, whole: cv.Type is not (ConVarType.Float32 or ConVarType.Float64)) is not { } value)
+        if (NextMatch.NewDelay(now, start, delay, seconds, whole: cv.Type is not (ConVarType.Float32 or ConVarType.Float64), hold) is not { } value)
             return NextMatch.Reply(NextMatch.Result.Sooner, string.Create(CultureInfo.InvariantCulture, $"the screen ends in {left:0.0} s by itself, nothing changed ({clocks})"));
         string what;
+        var endsIn = moveStart ? seconds : start + value - now; // the convar ends it at the screen's start plus the new delay
         if (moveStart)
         {
             rules.IntermissionStartTime = (float)(now + seconds - delay);
@@ -79,8 +81,8 @@ sealed partial class HudScreen
             what = $"{NextMatch.Delay} {delay.ToString(CultureInfo.InvariantCulture)} -> {cv.StringValue}";
         }
         var seq = ++cutSeq;
-        plugin.AddTimer(seconds + NextMatch.CheckSeconds, () => CheckCut(seq), TimerFlags.STOP_ON_MAPCHANGE);
-        return NextMatch.Reply(NextMatch.Result.Set, string.Create(CultureInfo.InvariantCulture, $"the screen, up {now - start:0.0} s, ends in {seconds} s, not {left:0.0} s: {what} ({clocks})"));
+        plugin.AddTimer((float)endsIn + NextMatch.CheckSeconds, () => CheckCut(seq), TimerFlags.STOP_ON_MAPCHANGE);
+        return NextMatch.Reply(NextMatch.Result.Set, string.Create(CultureInfo.InvariantCulture, $"the screen, up {now - start:0.0} s, ends in {endsIn:0.00} s, not {left:0.0} s{(hold ? ", held" : "")}: {what} ({clocks})"));
     }
 
     /// <summary>NextMatch.CheckSeconds after the new end: did the next match start? Logged either way, and the delay goes back if it has not yet - a screen still

@@ -122,6 +122,7 @@ public sealed class HudFrame
         var vv = VoteView(p, vote, perPage);
         var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
         if (vote.Round <= 0 || browsing) screen.Class(HudView.Screen, "voting", false, slot);
+        if (vote.Round <= 0 || browsing) { screen.Class(HudView.Screen, "vall", false, slot); screen.Class(HudView.Screen, "vnum", false, slot); } // the ballot's own (HudVote.Cards)
         screen.Class(HudView.Screen, "vbrowse", browsing, slot);       // MAPS, Browse: the map browser adds to the vote
         screen.Class(HudView.Screen, "vlock", w.VoteLocked, slot);     // a vote that freezes everybody has no close button
         if (browsing) screen.Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), slot);
@@ -166,7 +167,8 @@ public sealed class HudFrame
             _ => (null, null),
         };
         if (texts == null || classes == null) return;
-        foreach (var (id, text) in texts) screen.Text(id, text, slot);
+        var numbers = !HudVersion.IsBefore(h.Version, HudVote.NumbersLevel); // the cards' numbers: not to a game known to hold a content without their labels
+        foreach (var (id, text) in texts) if (numbers || !HudVote.IsNumber(id)) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in classes) screen.Class(id, cls, on, slot);
         if (page != HudSlots.Page.Maps) return;
         if (ballot) { screen.Pictures(slot, HudVote.Thumbs(vote, w.Catalog, p.VoteView.Page, perPage, h.Account)); return; }

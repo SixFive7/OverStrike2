@@ -29,21 +29,45 @@ sealed partial class HudScreen
         var (slot, account) = (player.Slot, Account(player));
         if (click.All is { } all)
         {
-            if (all == Bots.KickWord && Bots.Quota(FunValue) == 0) BotsRefuse(slot, account, buttonId, null, M.Refused("No bot plays: nothing to kick"));
+            if (all == Bots.KickWord && Bots.Quota(FunValue) == 0) BotsRefuse(slot, account, buttonId, null, ChatReply.NoBots);
             else BotsAll(player, all);
         }
         else if (click.Preset is { } preset)
         {
-            if (Bots.Unavailable(preset, mode) is { } why) BotsRefuse(slot, account, buttonId, null, M.Refused($"{M.A(preset.Title)}: {why}"));
+            if (Bots.Unavailable(preset, mode) is { } why) BotsRefuse(slot, account, buttonId, null, ChatReply.PresetRefused(preset, why));
             else BotsPreset(player, preset);
         }
         else if (click is { Setting: { } setting, Choice: { } choice } && Fun.Showing(setting, FunValue).Id != choice.Id) // a lit choice: nothing to do
         {
-            if (Bots.Unavailable(setting, choice, mode) is { } why) BotsRefuse(slot, account, buttonId, setting, M.Refused($"{M.A(setting.Title)} cannot be {M.V(choice.Label)} here: {why}"));
+            if (Bots.Unavailable(setting, choice, mode) is { } why) BotsRefuse(slot, account, buttonId, setting, ChatReply.BotRefused(setting, choice, why));
             else FunChange(player, setting, Bots.For(choice, slot), line => BotsRefuse(slot, account, buttonId, setting, line));
         }
         Server.NextFrame(Frame);
         return true;
+    }
+
+    /// <summary>!bots typed (ChatCommands' Kind.Bots): Kick all bots, Default, a preset or a row's choice, as the page's click makes it, with the same refusals - said
+    /// in that player's chat, since no button was clicked. A choice that names its player (Copycats) is made for the player who typed it.</summary>
+    void BotsTyped(CCSPlayerController player, string arg)
+    {
+        var (slot, account) = (player.Slot, Account(player));
+        void Reply(string line) => Post(Messages.CommandReply, line, account);
+        if (arg is Bots.KickWord or Bots.DefaultWord)
+        {
+            if (arg == Bots.KickWord && Bots.Quota(FunValue) == 0) Reply(ChatReply.NoBots);
+            else BotsAll(player, arg);
+            return;
+        }
+        if (Bots.FindPreset(arg) is { } preset)
+        {
+            if (Bots.Unavailable(preset, mode) is { } why) Reply(ChatReply.PresetRefused(preset, why));
+            else BotsPreset(player, preset);
+            return;
+        }
+        if (arg.Split(' ') is not [var id, var pick] || Bots.Find(id) is not { } setting || Fun.Find(setting, pick) is not { } choice) return;
+        if (Fun.Showing(setting, FunValue).Id == choice.Id) Reply(ChatReply.Already(setting, choice));
+        else if (Bots.Unavailable(setting, choice, mode) is { } why) Reply(ChatReply.BotRefused(setting, choice, why));
+        else FunChange(player, setting, Bots.For(choice, slot), Reply);
     }
 
     /// <summary>A click refused: the bubble at that button and its row's line say why for a while (a preset's and a top button's: its own words), and that player's chat and board.</summary>

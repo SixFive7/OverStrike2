@@ -357,8 +357,20 @@ static class WorkshopTests
         Ws("[x] [AppID 730] Download item 900 requested by app", "[x] [AppID 730] Download item 900 result : OK");
         Landed("900");
         s.Step(25);
-        Check($"background downloads: one at a time - after its result the next missing one, in play order (903, not 902): {Show(Fetches(s))}",
-              Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 903"]));
+        Check($"background downloads: while a vote is open (queues.json names its maps), nothing but its maps starts - its 900 is in, and no stock download goes: {Show(Fetches(s))}",
+              Fetches(s).SequenceEqual(["mm_download_addon 900"]));
+        File.WriteAllText(Path.Combine(j9, "queues.json"), "{\"version\": 2, \"ballot\": [\"906\", \"900\"], \"stock\": {\"armsrace\": [\"901\", \"905\"], "
+                                                           + "\"deathmatch\": [\"903\", \"902\", \"de_dust2\"], \"wingman\": [\"904\"]}}");
+        s.Step(2);
+        Check($"background downloads: a map put on the open ballot starts downloading within the second queues.json changes, not at the next look {ReadyMaps.LookEvery} s on: {Show(Fetches(s))}",
+              Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 906"]));
+        Ws("[x] [AppID 730] Download item 906 result : OK");
+        Landed("906");
+        File.WriteAllText(Path.Combine(j9, "queues.json"), "{\"version\": 2, \"ballot\": [], \"stock\": {\"armsrace\": [\"901\", \"905\"], "
+                                                           + "\"deathmatch\": [\"903\", \"902\", \"de_dust2\"], \"wingman\": [\"904\"]}}");
+        s.Step(3);
+        Check($"background downloads: one at a time - the vote over, the next missing one, in play order (903, not 902): {Show(Fetches(s))}",
+              Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 906", "mm_download_addon 903"]));
         s.Eng.Write("[Workshop] Updating 903: state 1");
         s.Step(10);
         Check($"background downloads: a player's pick of the map it is fetching: the line shows it ({Show(s.Eng.Notices.TakeLast(1))})", s.Eng.Notices.Any(x => x.Text.Contains("903")));
@@ -367,7 +379,7 @@ static class WorkshopTests
         s.Eng.Write("[Workshop] Loading custom game \"903\" with map \"x\"");
         s.Eng.Write("[Workshop] Updating 999: state 1");
         s.Step(30);
-        Check($"background downloads: while a download somebody waits for runs, nothing new starts: {Show(Fetches(s))}", Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 903"]));
+        Check($"background downloads: while a download somebody waits for runs, nothing new starts: {Show(Fetches(s))}", Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 906", "mm_download_addon 903"]));
         s.Eng.Write("[Workshop] Updating 999: state 5");
         s.Step(25);
         Check($"background downloads: ... and once it is done, the next: {Show(Fetches(s))}", Fetches(s)[^1] == "mm_download_addon 904");

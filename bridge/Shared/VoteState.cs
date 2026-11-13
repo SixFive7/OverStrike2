@@ -21,6 +21,7 @@ public sealed class VoteState
     public int DoneSeconds;                           // decided: how long that countdown runs in all (its bar's full length)
     public bool MatchEnded;                           // the match is over: Keep reads "Play this map again", and nobody voting is Random
     public bool NextMatch;                            // decided, the map played again, and the next match starts as the countdown ends: the plugin ends the match-end screen then (NextMatch.cs)
+    public bool Fetching;                             // decided for a map still to download: its change has gone out, no countdown - the map changes the moment it is in
     public bool Freeze;                               // everybody frozen: the vote is open, or its result counts down - to a map change, or to the window's close
     public int Inactivity;                            // everybody has voted: the inactivity timer's seconds left, never more than SecondsLeft (MapVote.InactivitySeconds; 0: not counting)
     public long EndsAtMs, InactivityAtMs, WaitUntilMs; // the end times behind SecondsLeft, Inactivity and WaitFor, unix milliseconds (0: none): the change-driven text carries these (AsOf)
@@ -55,7 +56,9 @@ public sealed class VoteState
 
     /// <summary>The lines, to append to HudState's text (no header of their own). endTimes: the change-driven text - end times in place of the
     /// seconds that count down (HudTransport.cs). The plugin reads mv and mvo by place, so a field nothing reads any more keeps its place, empty:
-    /// mv's 7th (0) and mvo's 4th ("").</summary>
+    /// mv's 7th (0) and mvo's 4th (""); and a field comes at the end of its line, so a plugin that reads fewer reads what it knows (mv's 15th, Fetching, from
+    /// 216). An option's number (mvo's first field, Option.N) is the card's for the whole vote and the same for everybody: !vote &lt;n&gt; and the cards'
+    /// numbers (os_m&lt;k&gt;_num) are it. Everybody having voted, mvt's second field is when the inactivity timer decides (InactivityAtMs), 0 before.</summary>
     public string Encode(bool endTimes = false)
     {
         var s = new StringBuilder();
@@ -63,7 +66,7 @@ public sealed class VoteState
         if (WaitFor > 0 && endTimes) Line("mvwaitat", WaitUntilMs);
         else if (WaitFor > 0) Line("mvwait", WaitFor);
         if (Round <= 0) return s.ToString();
-        Line("mv", Round, Open ? "open" : "done", endTimes ? 0 : SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", 0, Freeze ? 1 : 0, endTimes ? (Inactivity > 0 ? 1 : 0) : Inactivity, Hud.Clean(ResetBy, 24), Hud.Clean(StarterName, 24), DoneSeconds, NextMatch ? 1 : 0);
+        Line("mv", Round, Open ? "open" : "done", endTimes ? 0 : SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", 0, Freeze ? 1 : 0, endTimes ? (Inactivity > 0 ? 1 : 0) : Inactivity, Hud.Clean(ResetBy, 24), Hud.Clean(StarterName, 24), DoneSeconds, NextMatch ? 1 : 0, Fetching ? 1 : 0);
         if (endTimes) Line("mvt", EndsAtMs, Inactivity > 0 ? InactivityAtMs : 0);
         foreach (var o in Options) Line("mvo", o.N, o.Mode, Source(o.Source), "", o.Key, Hud.Clean(o.Label, 40), o.Size, o.Votes, o.Who, MapTags.Clean(o.Tags));
         foreach (var (account, n) in Choices) Line("mvv", account, n);
@@ -89,8 +92,8 @@ public sealed class VoteState
                 case "mvwaitat" when Long(f, 1) > 0: (v.WaitFor, v.WaitUntilMs) = (1, Long(f, 1)); break;
                 case "mvt": (v.EndsAtMs, v.InactivityAtMs) = (Math.Max(0, Long(f, 1)), Math.Max(0, Long(f, 2))); break;
                 case "mv" when Long(f, 1) > 0:
-                    (v.Round, v.Open, v.SecondsLeft, v.Present, v.Cast, v.MatchEnded, v.Freeze, v.Inactivity, v.ResetBy, v.StarterName, v.DoneSeconds, v.NextMatch) =
-                        (Long(f, 1), Str(f, 2) == "open", Int(f, 3), Int(f, 4), Int(f, 5), Str(f, 6) == "end", Int(f, 8) == 1, Math.Max(0, Int(f, 9)), Str(f, 10), Str(f, 11), Math.Max(0, Int(f, 12)), Int(f, 13) == 1);
+                    (v.Round, v.Open, v.SecondsLeft, v.Present, v.Cast, v.MatchEnded, v.Freeze, v.Inactivity, v.ResetBy, v.StarterName, v.DoneSeconds, v.NextMatch, v.Fetching) =
+                        (Long(f, 1), Str(f, 2) == "open", Int(f, 3), Int(f, 4), Int(f, 5), Str(f, 6) == "end", Int(f, 8) == 1, Math.Max(0, Int(f, 9)), Str(f, 10), Str(f, 11), Math.Max(0, Int(f, 12)), Int(f, 13) == 1, Int(f, 14) == 1);
                     break;
                 case "mvo" when Int(f, 1) > 0 && Source(Str(f, 3)) is { } src && v.Options.Count < MapVote.MaxOptions:
                     v.Options.Add(new Option(Int(f, 1), Str(f, 2), src, Str(f, 5), Str(f, 6), Str(f, 7), Int(f, 8), Str(f, 9), MapTags.Clean(Str(f, 10))));
@@ -101,7 +104,7 @@ public sealed class VoteState
                 case "mvr" when Int(f, 1) > 0: v.Result = new Outcome(Int(f, 1), Str(f, 2), Str(f, 3)); break;
             }
         }
-        if (v.Round <= 0) { v.Options.Clear(); v.Choices.Clear(); v.Voters.Clear(); v.Waiting.Clear(); v.Result = null; v.Freeze = false; v.Inactivity = 0; v.ResetBy = ""; v.StarterName = ""; v.DoneSeconds = 0; v.NextMatch = false; } // option lines without a vote line are not a vote
+        if (v.Round <= 0) { v.Options.Clear(); v.Choices.Clear(); v.Voters.Clear(); v.Waiting.Clear(); v.Result = null; v.Freeze = false; v.Inactivity = 0; v.ResetBy = ""; v.StarterName = ""; v.DoneSeconds = 0; v.NextMatch = false; v.Fetching = false; } // option lines without a vote line are not a vote
         return v;
     }
 

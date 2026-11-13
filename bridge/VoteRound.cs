@@ -72,6 +72,8 @@ static partial class Program
         public Change? Change;                                    // what the result started
         public DateTime? KeptUntil;                               // the vote kept the map: the window shows that until then, everybody still frozen
         public bool NextMatch;                                    // ...at a match end, and the plugin ends the match-end screen then: the next match starts as the window closes (NextMatch.cs)
+        public DateTime? FetchUntil;                              // the winner is still downloading, its change gone out: the window says so until the map starts, or until then (FetchChange)
+        public int Countdown;                                     // decided: the whole seconds its countdown runs (the bar's full length)
         public string Starter = "", StarterName = "";             // who called it ("" at a match end)
         public bool MatchEnded;                                   // the match is over: Keep is "Play this map again", nobody voting is Random
         public bool ServerStart;                                  // a server start with players on: the vote in place of the start roll, nobody voting is Random
@@ -416,6 +418,7 @@ static partial class Program
         if (!b.Open)
         {
             if (b.KeptUntil is { } until) { if (now >= until) Ballot = null; return; } // everybody unfreezes, every window closes, at the same moment (the plugin)
+            if (b.FetchUntil is { } fetch) { if (now >= fetch || !LoadPending) Ballot = null; return; } // its map started (OnMapStart drops it), or the screen it held ended
             if (Pending == null || Pending != b.Change || (now - b.DoneAt).TotalSeconds > ChangeDelay + 5) Ballot = null;
             return;
         }
@@ -446,15 +449,22 @@ static partial class Program
     /// <summary>The map that is on, where it starts a section: "... stays": its label, or plain words when the bridge does not know which map it is.</summary>
     static string OnWords() => CurrentKey != "" ? Clip(CurrentLabel(), 40) : "The map";
 
-    /// <summary>A match end's vote played the map again: the plugin ends the match-end screen this many seconds from now, and the next match starts then
-    /// (NextMatch.cs) - true when it says it has. A plugin without the command (5.14.2 and older), a screen that ends sooner by itself or no answer: false, and
-    /// the screen runs out as before.</summary>
-    static bool CutMatchEnd(int seconds, string why)
+    /// <summary>The plugin ends the match-end screen this many seconds from now (NextMatch.cs), or holds it that long (hold): what it says it did, and - when it
+    /// did - the seconds until the screen ends, as its reply says them (the whole-second convar ends it up to a second after the seconds asked; a plugin before
+    /// 5.16.5 says the seconds asked). A plugin without the command (5.14.2 and older), a screen that ends sooner by itself or no answer: no end, and the screen
+    /// runs out as before.</summary>
+    static (NextMatch.Result? Result, double? EndsIn) CutMatchEnd(int seconds, string why, bool hold = false)
     {
-        var reply = Send(NextMatch.Line(seconds));
-        Log($"vote: {why}: {NextMatch.Line(seconds)} -> {reply ?? "(rcon failed)"}");
-        return NextMatch.Read(reply) == NextMatch.Result.Set;
+        var line = hold ? NextMatch.HoldLine(seconds) : NextMatch.Line(seconds);
+        var reply = Send(line);
+        Log($"vote: {why}: {line} -> {reply ?? "(rcon failed)"}");
+        var result = NextMatch.Read(reply);
+        return (result, result == NextMatch.Result.Set ? Math.Max(seconds, NextMatch.EndsIn(reply) ?? seconds) : null);
     }
+
+    /// <summary>How often the vote's open asks again, a second apart, when the plugin finds no match-end screen up yet (ScreenToVote): the game may enter it
+    /// a moment after the line the bridge opened the vote on.</summary>
+    const int ScreenTries = 5;
 
     /// <summary>How long a match-end screen lasts past a map change's countdown: the change goes out at the countdown's end, and the game's own end of the
     /// screen - a reset of the match on the old map - comes after it, never with it.</summary>
@@ -464,8 +474,12 @@ static partial class Program
     /// vote's limit, a change's countdown and ScreenMarginSeconds. CS2's own corner then counts to the latest next match or map, the vote's LIMIT plus 10 s,
     /// where it counted the cfg's 90 s from the match end and never agreed with LIMIT (the live lab's movie of release 214, clips a and c). The decision cuts
     /// it again (CloseBallot): to the countdown, after which the corner and the window agree.</summary>
-    static void ScreenToVote(BallotState b, DateTime now) =>
-        CutMatchEnd(Math.Max(1, (int)Math.Ceiling((VoteEnds(b) - now).TotalSeconds)) + ChangeDelay + ScreenMarginSeconds, "the match-end screen to the vote's limit and a change");
+    static void ScreenToVote(BallotState b, DateTime now, int tries = 0)
+    {
+        var (result, _) = CutMatchEnd(Math.Max(1, (int)Math.Ceiling((VoteEnds(b) - now).TotalSeconds)) + ChangeDelay + ScreenMarginSeconds, "the match-end screen to the vote's limit and a change");
+        if (result == NextMatch.Result.NotEnded && tries + 1 < ScreenTries) // no screen up yet: the game enters it a moment later - ask again, while the vote is that one, open
+            After(1000, () => { if (Ballot == b && b is { Open: true, MatchEnded: true }) ScreenToVote(b, Now(), tries + 1); });
+    }
 
     /// <summary>A map the server has on its disk now, so its change loads at once: an official map, a kept one, or one the watcher's report names (a ballot's
     /// map, a stock entry).</summary>
@@ -501,19 +515,23 @@ static partial class Program
         {
             b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40));
             Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
-            b.NextMatch = b.MatchEnded && CutMatchEnd(ChangeDelay, "the vote plays the map again");
-            var keptFor = b.NextMatch ? ChangeDelay : MapVote.KeptSeconds;
-            b.KeptUntil = now.AddSeconds(keptFor);
+            // A match end's: the screen ends with the countdown - at the plugin's own end of it, which its whole-second convar puts up to a second later: the window
+            // counts to that, so the next match starts as it reaches 0, however soon the vote decided (everybody voted, the inactivity timer).
+            var ends = b.MatchEnded ? CutMatchEnd(ChangeDelay, "the vote plays the map again").EndsIn : null;
+            b.NextMatch = ends != null;
+            var keptFor = ends ?? MapVote.KeptSeconds;
+            b.KeptUntil = (ends != null ? Now() : now).AddSeconds(keptFor);
+            b.Countdown = (int)Math.Ceiling(keptFor - 0.001);
             if (b.NextMatch)
             {
                 if (MatchEndUntil > b.KeptUntil) MatchEndUntil = b.KeptUntil.Value; // the match that starts then is no match that has just ended: a join restarts it for fairness, Restart match may go
-                After(keptFor * 1000 + 50, () => BallotTick(Now())); // the window closes and everybody unfreezes as the match starts, not at the next second's tick
+                After((int)Math.Ceiling(keptFor * 1000) + 50, () => BallotTick(Now())); // the window closes and everybody unfreezes as the match starts, not at the next second's tick
             }
             Save();
             var kept = M.A(OnWords());
             Post(Messages.VoteKept, how == "none" ? $"Nobody voted - {kept} stays"
-                : how == "tie" ? $"The vote kept {kept} ({count}) - A tie, drawn by the dice{(b.NextMatch ? $" - The next match starts in {M.V($"{keptFor} s")}" : "")}"
-                : b.NextMatch ? $"The vote: {kept} again ({count}) - The next match starts in {M.V($"{keptFor} s")}"
+                : how == "tie" ? $"The vote kept {kept} ({count}) - A tie, drawn by the dice{(b.NextMatch ? $" - The next match starts in {M.V($"{b.Countdown} s")}" : "")}"
+                : b.NextMatch ? $"The vote: {kept} again ({count}) - The next match starts in {M.V($"{b.Countdown} s")}"
                 : b.MatchEnded ? $"The vote: {kept} again ({count}) - Its next match starts on it"
                 : $"The vote kept {kept} ({count})");
             if (!b.Options.Contains(o)) Ballot = null; // no card for it: the bridge does not know which map is on, so there is nothing to show - everybody unfreezes at once
@@ -528,18 +546,45 @@ static partial class Program
         Save();
         Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {o.N}. {OptionLabel(b, o)} -> {Label(target)} in {ModeOf(target).Name}");
         var delay = M.V($"{ChangeDelay} s");
+        var fetching = !OnTheDisk(target) && ReportedMissing(Key(target)); // the watcher looked and it is still to download: its change goes out now, and the map changes the moment it is in (FetchChange)
+        string Then(string comma) => fetching ? $" - {FetchingWords}" : $"{comma}{delay}";
         string Words(string shown) => how switch
         {
-            "none" => $"Nobody voted - Rolling the dice: {M.A(shown)}, changing in {delay}",
-            _ when o.Source == VoteSource.Random => $"The vote chose Random ({count}) - Rolling the dice: {M.A(shown)}, changing in {delay}",
-            "tie" => $"A tie at {M.V($"{votes}")} vote{(votes == 1 ? "" : "s")} each, drawn by the dice: {M.A(shown)}, changing in {delay}",
-            "all" => $"Everybody has voted: {M.A(shown)} ({count}) - Changing in {delay}",
-            _ => $"The vote chose {M.A(shown)} ({count}) - Changing in {delay}",
+            "none" => $"Nobody voted - Rolling the dice: {M.A(shown)}{Then(", changing in ")}",
+            _ when o.Source == VoteSource.Random => $"The vote chose Random ({count}) - Rolling the dice: {M.A(shown)}{Then(", changing in ")}",
+            "tie" => $"A tie at {M.V($"{votes}")} vote{(votes == 1 ? "" : "s")} each, drawn by the dice: {M.A(shown)}{Then(", changing in ")}",
+            "all" => $"Everybody has voted: {M.A(shown)} ({count}){Then(" - Changing in ")}",
+            _ => $"The vote chose {M.A(shown)} ({count}){Then(" - Changing in ")}",
         };
-        StartChange(change, Fit(Words($"{Label(target)}{Detail(target, MapTags.WhyWords(TagsOf(target), picked: false))}{ModeTag(target)}"), Words($"{Clip(Label(target), 40)}{ModeTag(target)}")), Messages.VoteDecided);
-        // A match end's: the screen ends ScreenMarginSeconds after the change goes out - when the map is on the disk, so it loads at once. One still to download
-        // keeps the screen the vote's open gave it.
+        var words = Fit(Words($"{Label(target)}{Detail(target, MapTags.WhyWords(TagsOf(target), picked: false))}{ModeTag(target)}"), Words($"{Clip(Label(target), 40)}{ModeTag(target)}"));
+        if (fetching) { FetchChange(b, change, words); return; }
+        b.Countdown = ChangeDelay;
+        StartChange(change, words, Messages.VoteDecided);
+        // A match end's: the screen ends ScreenMarginSeconds after the change goes out, so the change - a map on the disk, which loads at once - goes out at the
+        // window's 0 and the game's own end of the screen never races it. A map the bridge cannot say of (no fresh report of the watcher's names it) keeps the
+        // screen the vote's open gave it.
         if (b.MatchEnded && OnTheDisk(target)) CutMatchEnd(ChangeDelay + ScreenMarginSeconds, "the vote changes the map");
+    }
+
+    /// <summary>What the window and the decision's line say while the winner downloads: no countdown, since the map changes the moment it is in.</summary>
+    public const string FetchingWords = "Downloading: it changes the moment it is ready";
+
+    /// <summary>The winner is not on the server's disk yet - the watcher's fresh report says so (ReportedMissing): no countdown to a change that could not happen at its 0 - the change goes out at once, and the
+    /// server fetches the map, taking over the background download of it if that runs (the restart watcher started it as the map went on the ballot), and loads it the
+    /// moment it is in. The window says so (VoteState.Fetching, HudVote) until the map starts - at a match end, where the screen holds for it (NextMatch.HoldSeconds
+    /// from now, also when it would end sooner: the next match never starts on the old map while the server fetches the new one), at most until the screen ends;
+    /// mid-match, where everybody plays on while it downloads, for a change's countdown. A download that takes longer lets the screen end: the next match starts on
+    /// the old map, and the new one comes the moment it is in, as ever (LoadBehindDownloadMinutes).</summary>
+    static void FetchChange(BallotState b, Change change, string words)
+    {
+        var held = b.MatchEnded ? CutMatchEnd(NextMatch.HoldSeconds, "the vote's map is still to download - the match-end screen holds for it", hold: true).EndsIn : null;
+        b.FetchUntil = Now().AddSeconds(held ?? ChangeDelay);
+        b.Countdown = 0;
+        Save();
+        Log($"vote: {Label(change.Map)} is not on the server's disk - its change goes out now, and the window says it downloads until the map starts{(held != null ? $" or the held screen ends in {held:0.0} s" : $" for {ChangeDelay} s")}");
+        Post(Messages.VoteDecided, words);
+        Pending = change; change.FiresAt = Now();
+        FireChange(change); // MapChange.cs: Pending clears, the load is awaited - behind its download
     }
 
     /// <summary>Drops a vote without a change: a restart, a map start nobody asked for, the server emptied. Everybody unfreezes.</summary>
@@ -573,13 +618,13 @@ static partial class Program
         if (Ballot is not { Open: true } && now < VoteWaitUntil) (v.WaitFor, v.WaitUntilMs) = ((int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds), HudState.Ms(VoteWaitUntil));
         if (Ballot is not { } b) return v;
         var count = VotePresent(b, now);
-        v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded; v.NextMatch = b.NextMatch && b.KeptUntil != null;
+        v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded; v.NextMatch = b.NextMatch && b.KeptUntil != null; v.Fetching = !b.Open && b.FetchUntil != null;
         v.StarterName = b.StarterName;
-        var counting = b.Open ? VoteEnds(b) : b.KeptUntil ?? (Pending is { } p && p == b.Change ? p.FiresAt : (DateTime?)null);
-        v.Freeze = b.Open || b.KeptUntil != null || (Pending != null && Pending == b.Change);
+        var counting = b.Open ? VoteEnds(b) : b.KeptUntil ?? (Pending is { } p && p == b.Change ? p.FiresAt : (DateTime?)null); // fetching: none - the map changes the moment it is in
+        v.Freeze = b.Open || b.KeptUntil != null || b.FetchUntil != null || (Pending != null && Pending == b.Change);
         v.SecondsLeft = counting is { } at ? Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)) : 0;
         v.EndsAtMs = counting is { } at2 ? HudState.Ms(at2) : 0; // the plugin counts down from these (HudTransport.cs)
-        v.DoneSeconds = b.Open ? 0 : b.KeptUntil != null && !b.NextMatch ? MapVote.KeptSeconds : ChangeDelay;
+        v.DoneSeconds = b.Open ? 0 : b.Countdown > 0 ? b.Countdown : b.KeptUntil != null && !b.NextMatch ? MapVote.KeptSeconds : ChangeDelay;
         if (b.Open && MapVote.InactivitySeconds > 0 && b.EverybodySince != null)
         {
             (v.Inactivity, v.ResetBy) = (Math.Min(Math.Max(1, (int)Math.Ceiling((SettleEnd(b) - now).TotalSeconds)), Math.Max(1, v.SecondsLeft)), b.LastBy);
