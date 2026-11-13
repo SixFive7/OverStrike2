@@ -25,12 +25,15 @@ static partial class Program
     static bool Draws(string? query) => !(query ?? "").TrimStart('?').Split('&').Contains($"{Hud.DrawQuery}=0");
 
     /// <summary>After every piece of work on the event loop, before the state is published (Program.cs): the menu's map list again when its
-    /// version moved, so the plugin that reads a new version in the state fetches that version's list - never the one before it.</summary>
+    /// version moved, so the plugin that reads a new version in the state fetches that version's list - never the one before it. The search
+    /// index follows the modes the list has each map in (SearchIndex.cs), before the state names its version too.</summary>
     static void RefreshCatalog()
     {
         if (catalogBuilt == CatalogVersion) return;
-        CatalogText = BuildCatalog().Encode();
+        var catalog = BuildCatalog();
+        CatalogText = catalog.Encode();
         catalogBuilt = CatalogVersion;
+        FollowModes(catalog);
     }
 
     /// <summary>The menu's map list: every listed and official map with its size, the broken-list verdict, the live crash counter and

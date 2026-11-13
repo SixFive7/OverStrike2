@@ -353,17 +353,18 @@ static partial class Program
         var tmp = Path.Combine(Path.GetTempPath(), $"os-search-{Environment.ProcessId}.json");
         try
         {
-            File.WriteAllText(tmp, JsonSerializer.Serialize(new Dictionary<string, string> { ["3084291314"] = "AIM Map: classic deathmatch", ["123"] = "Claim the hill" }, Ctx.Default.DictionaryStringString));
+            File.WriteAllText(tmp, JsonSerializer.Serialize(new Dictionary<string, string> { ["3084291314"] = "AIM Map: classic custom", ["123"] = "Claim the hill" }, Ctx.Default.DictionaryStringString));
+            SearchModes = new(); // no menu here: the texts as written, with no mode words to follow (they follow the mode lists: SelfTestSearch.cs)
             var said = ReloadSearch(tmp);
             Check("search.json loads: an object of map key -> text, served on /search as the plugin reads it",
-                said.Contains("2 maps indexed") && Search.Count == 2 && HudSearch.Decode(SearchText) is { Count: 2 } served && served.TextOf("3084291314") == "aim map classic deathmatch");
+                said.Contains("2 maps indexed") && Search.Count == 2 && HudSearch.Decode(SearchText) is { Count: 2 } served && served.TextOf("3084291314") == "aim map classic custom");
             var version = Search.Version;
             File.WriteAllText(tmp, "[not an object]");
             Check("A search.json that is not an object keeps the index it had", ReloadSearch(tmp).Contains("kept") && Search.Count == 2 && Search.Version == version);
             File.WriteAllText(tmp, """{"1":"x"}""");
             Check("A new one moves the version, so the plugin fetches it again", ReloadSearch(tmp).Contains("1 maps") && Search.Version > version);
         }
-        finally { File.Delete(tmp); Search = new(); SearchText = new HudSearch().Encode(); }
+        finally { File.Delete(tmp); Search = new(); SearchText = new HudSearch().Encode(); SearchStored = new(); SearchModes = new(); SearchStale = default; }
 
         // ---- the committed index's writer and checker (SearchIndexFile.cs, --search-index): the file as Python wrote it, byte for byte; a new
         // map's text by core's SearchText, whose rule core's self-test holds and the sync's runs every code point through, the sync's way and this ----
@@ -389,15 +390,20 @@ static partial class Program
             try
             {
                 ReloadSearch("search.json");
-                var unindexed = Maps.Where(m => Search.TextOf(Key(m)) == null).Select(m => m.Rank).ToList();
-                var probe = new HudBrowser { Query = "wingman" };
                 var listed = new HudCatalog();
                 foreach (var m in Maps) listed.Maps.Add(new HudCatalog.Entry(Key(m), ArgOf(m), m.Rank, m.Id, m.Name, m.SizeMb, false, -1, 0, 0, 0));
-                var byText = probe.Matches(listed, 0, Search).Count(m => !HudSearch.Normal(m.Name).Contains("wingman"));
-                Check($"search.json indexes every listed map ({Search.Count} of {Maps.Count}{(unindexed.Count > 0 ? ", missing ranks " + string.Join(",", unindexed.Take(5)) : "")}), and a word finds maps by their tags, not only by name ({byText} for 'wingman')",
-                    unindexed.Count == 0 && byText > 0);
+                FollowModes(listed); // the menu of the committed lists: maps.json's maps, all of them Arms Race's (the repository has no other mode's list)
+                var unindexed = Maps.Where(m => Search.TextOf(Key(m)) == null).Select(m => m.Rank).ToList();
+                int ByText(string word) => new HudBrowser { Query = word }.Matches(listed, 0, Search).Count(m => !HudSearch.Normal(m.Name).Contains(word));
+                var (byTag, byArmsRace, byWingman) = (ByText("classic"), new HudBrowser { Query = "armsrace" }.Matches(listed, 0, Search).Count, ByText("wingman"));
+                Check($"search.json indexes every listed map ({Search.Count} of {Maps.Count}{(unindexed.Count > 0 ? ", missing ranks " + string.Join(",", unindexed.Take(5)) : "")}), and a word finds maps by their tags, not only by name ({byTag} for 'classic')",
+                    unindexed.Count == 0 && byTag > 0);
+                int Bit(string mode) => 1 << Array.IndexOf(ModeWords, mode);
+                var (lacking, saying) = (SearchStored.Values.Count(s => (s.Said & Bit(Modes.ArmsRaceId)) == 0), SearchStored.Values.Count(s => (s.Said & Bit(Modes.WingmanId)) != 0));
+                Check($"...and its mode words are the list's: armsrace finds all {Maps.Count} maps ({byArmsRace}), the {lacking} whose texts lack the word among them; wingman finds none by its text ({byWingman}) where {saying} texts say it - the repository has no Wingman list",
+                    byArmsRace == Maps.Count && byWingman == 0);
             }
-            finally { Search = new(); SearchText = new HudSearch().Encode(); }
+            finally { Search = new(); SearchText = new HudSearch().Encode(); SearchStored = new(); SearchModes = new(); SearchStale = default; }
         }
         else Console.WriteLine("skip the committed search.json check: no search.json or no maps beside the selftest");
     }

@@ -361,6 +361,7 @@ static partial class Program
         DashSelfTest(Check); // SelfTestDash.cs: the Sync page's block, its words out of the sync's file, the website's data, the layout's labels
         TabSelfTest(Check);
         GuiSelfTest(Check);
+        SearchModesSelfTest(Check); // SelfTestSearch.cs: the search index's mode words follow the mode lists, every other word as written
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
         FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings
         BotsSelfTest(Check); // SelfTestBots.cs: the Bots page - its rows and convars, what a mode cannot make, the presets, the page and its clicks

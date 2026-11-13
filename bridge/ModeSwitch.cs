@@ -53,7 +53,7 @@ static partial class Program
     {
         var path = ModeMapsPath(mode);
         var had = ModeMaps.GetValueOrDefault(mode.Id) ?? [];
-        if (!File.Exists(path)) { ModeMaps[mode.Id] = []; return $"{mode.Id} maps: {path} not found - {mode.Name} has Valve's {mode.Official.Length} official maps only"; }
+        if (!File.Exists(path)) { ModeMaps[mode.Id] = []; CatalogVersion++; return $"{mode.Id} maps: {path} not found - {mode.Name} has Valve's {mode.Official.Length} official maps only"; }
         List<MapInfo>? list;
         try { list = JsonSerializer.Deserialize(File.ReadAllText(path), Ctx.Default.ListMapInfo); }
         catch (Exception e) { return $"{mode.Id} maps: {path} unreadable ({Clip(e.Message, 120)}) - kept the {had.Count} loaded"; }
@@ -63,6 +63,7 @@ static partial class Program
         if (!force && before > 0 && workshop * 2 < before)
             return $"{mode.Id} maps: {path} has {workshop} Workshop maps, less than half of the {before} loaded - kept them";
         ModeMaps[mode.Id] = good;
+        CatalogVersion++; // the menu's map list follows, and the search index's mode words with it (SearchIndex.cs) - as for maps.json
         ExpireMarks(); // CrashWatch.cs: a map's Workshop update lifts its crash mark
         return $"{mode.Id} maps: {workshop} Workshop maps + {good.Count - workshop} official extra(s) from {path} (were {before}), {PoolOf(mode).Count} in the {mode.Name} pool";
     }

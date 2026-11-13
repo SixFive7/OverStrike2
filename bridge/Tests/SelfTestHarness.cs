@@ -18,6 +18,7 @@ static partial class Program
         // the lists, as the run loaded them, and what is worked out of them
         Maps = SelfTestMaps; ModeMaps.Clear(); Broken = new(); BrokenReasons = new(); NonMaps = new(); BlockedOwn = new(); BlockedInBroken = new(); Blocked = new();
         WorkshopCheck = new(); Removed = new(); Sizes = new(); SizeBounds = default; Ours = new(); Search = new(); SearchText = Search.Encode();
+        SearchStored = new(); SearchModes = new(); SearchStale = default;
         RatingScores = new(); RatingTrend = new(); RatingsFetched = 0; WorkshopInfo = new(); NumbersStamp++;
         knownFor = null; knownByKey = new(); updatedByKey = new(); popularityFor = null; popularity.Clear(); keptFor = null; kept = new(); wingmanIndex = (null, new());
         CatalogVersion++; // the menu's map list is made again

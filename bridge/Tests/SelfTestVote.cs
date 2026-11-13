@@ -480,6 +480,7 @@ static partial class Program
             Click(alice, Ballot!.Options.First(o => o.Source == VoteSource.Rolled).N); // a vote open, Bob still to vote: its clock runs
             string EndTimesText() => BuildHud(h.Clock).Encode(endTimes: true) + BuildVoteState(h.Clock).Encode(endTimes: true);
             string SecondsText() => BuildHud(h.Clock).Encode() + BuildVoteState(h.Clock).Encode();
+            RefreshCatalog(); // as the loop does after every piece of work (AfterWork): the menu's list, the search index's mode words with it (SearchIndex.cs)
             var (t1, l1) = (EndTimesText(), SecondsText());
             h.Run(1);
             var (t2, l2) = (EndTimesText(), SecondsText());

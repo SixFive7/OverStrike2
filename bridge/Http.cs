@@ -65,7 +65,7 @@ static partial class Program
             $"maps {Maps.Count} + {Officials.Count} official; broken {Broken.Count}, non-maps {NonMaps.Count}, gone from the Workshop {Removed.Count}, blocked {Blocked.Count}",
             $"map {CurrentLabel()}",
             $"crash watch: spawn {(SpawnSeen?.ToString() ?? "not read yet")}, {S.Crashes.Count} map(s) with crashes",
-            $"search: {Search.Count} maps indexed, version {Search.Version}",
+            $"search: {Search.Count} maps indexed, version {Search.Version}; {SearchModesLine()}",
             SelectionHealth(),
             NumbersHealth(),
             StockHealth(),

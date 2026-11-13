@@ -5,7 +5,8 @@
 // (SearchIndex.cs) and serves it to the plugin, and HudSearch.cs matches the typed words against the name first, then this text. On a server
 // the Workshop sync adds a text for every map it publishes, of every mode; this command keeps the repository's file in step with the
 // repository's maps.json (the Arms Race list: the other modes' maps get theirs on the server). os2-deploy data copies it to a server that has
-// none yet.
+// none yet. A known text is kept as it is, mode words and all: the bridge serves every text with the mode words of the lists its map is on now
+// in place of the ones the tags gave it (SearchIndex.cs), so a text never has to change for its map's modes.
 //
 // A new map's text follows core's SearchText, the one rule the sync follows when it adds a text on a server (the Python sync's: each part
 // cleaned as the sync cleans a title, then Python's str.lower() and str.split()). The file is written as Python wrote it, because every
