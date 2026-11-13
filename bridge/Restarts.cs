@@ -38,6 +38,10 @@ static partial class Program
     public const int PressedSeconds = HudMenu.PendingSeconds; // Restart the server and Restart match count down this long after their second click: their buttons count it
     public const int RematchWaitSeconds = 60;     // the least time between two Restart matches, from one's second click: anyone may press it
     public const string PlayerKind = HudState.PlayerRestartKind; // Restart the server: the watcher has no such kind (RestartKinds), and may not name it
+    /// <summary>The two restarts' first-click asks begin so (RestartServer, RestartMatch): Withdraw knows them by it.</summary>
+    public const string RestartAsk = "A restart kicks everyone for about a minute", RematchAsk = "This starts the match over for everybody";
+    static bool IsRestartAsk(string note) => note.StartsWith(RestartAsk, StringComparison.Ordinal);
+    static bool IsRematchAsk(string note) => note.StartsWith(RematchAsk, StringComparison.Ordinal);
     const string GameUpdateKind = BridgeWire.GameUpdate;
     const string AtMatchEnd = BridgeWire.AtMatchEnd, AtOnce = BridgeWire.AtOnce; // a restart's when, as the watcher's notice says it and the live state carries it
 
@@ -226,11 +230,13 @@ static partial class Program
         }
         if (RestartConfirmBy != steamId || now > RestartConfirmUntil)
         {
+            if (RestartConfirmBy != "" && RestartConfirmBy != steamId) Withdraw(RestartConfirmBy, IsRestartAsk); // this click takes the window over: theirs is gone
             RestartConfirmBy = steamId; RestartConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds);
-            Tell(steamId, $"A restart kicks everyone for about a minute - Click or type it again within {HudBrowser.ConfirmSeconds:0} s to confirm", HudBrowser.ConfirmSeconds);
+            Tell(steamId, $"{RestartAsk} - Click or type it again within {HudBrowser.ConfirmSeconds:0} s to confirm", HudBrowser.ConfirmSeconds);
             return;
         }
         RestartConfirmBy = ""; RestartConfirmUntil = default;
+        Withdraw(steamId, IsRestartAsk); // confirmed: the ask is settled
         RestartCooldownUntil = now.AddSeconds(RestartCooldown);
         var due = new RestartNotice { Kind = PlayerKind, When = AtOnce, By = Clip(by, 32), Seconds = PressedSeconds, NoticeAt = now, GoesAt = now.AddSeconds(PressedSeconds) };
         RestartDue = due;
@@ -298,11 +304,13 @@ static partial class Program
         if (RematchRefusal(now) is { } no) { Tell(steamId, M.Refused(no)); return; }
         if (RematchConfirmBy != steamId || now > RematchConfirmUntil)
         {
+            if (RematchConfirmBy != "" && RematchConfirmBy != steamId) Withdraw(RematchConfirmBy, IsRematchAsk); // this click takes the window over: theirs is gone
             RematchConfirmBy = steamId; RematchConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds);
-            Tell(steamId, $"This starts the match over for everybody - Click or type it again within {HudBrowser.ConfirmSeconds:0} s to confirm", HudBrowser.ConfirmSeconds);
+            Tell(steamId, $"{RematchAsk} - Click or type it again within {HudBrowser.ConfirmSeconds:0} s to confirm", HudBrowser.ConfirmSeconds);
             return;
         }
         RematchConfirmBy = ""; RematchConfirmUntil = default;
+        Withdraw(steamId, IsRematchAsk); // confirmed: the ask is settled
         RematchWaitUntil = now.AddSeconds(RematchWaitSeconds);
         var due = new Rematch(Clip(by, 32), now.AddSeconds(PressedSeconds));
         RematchDue = due;

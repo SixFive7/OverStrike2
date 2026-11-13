@@ -345,7 +345,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   `mp_maxrounds` when a match ends - a kept map's next match starts without a load -, right before its Restart match, and 2 s after every Wingman load. The Game page shows
   Wingman's row from HUD content v4.11.0 on, its buttons saying 8 and 16 rounds: the contents up to v4.10.0 collapse it there, and their buttons say minutes.
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms - 0.5 s or more after the click before it, so a double
-  click never does (`HudBrowser.DoubleClick`, as for a risky map's Play) - then 10 s count down on the countdown banner with the player's name and in the button
+  click never does (`HudBrowser.DoubleClick`, as for a risky map's Play). The first click's note asking for the second goes the moment it is settled: at the
+  confirm, or when another player's first click takes the window over (the same for Restart the server and a risky map's Play) - then 10 s count down on the countdown banner with the player's name and in the button
   itself, where a click by anybody cancels it (`!cancel rematch`; the news line says who, and the next one may be pressed at once - the fairness restart has no button),
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the

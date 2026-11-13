@@ -43,6 +43,15 @@ static partial class Program
     /// <summary>The answer to what this player clicked: for them alone, for a few seconds in their window; a newer one replaces it.</summary>
     static void Tell(string steamId, string text, double? seconds = null) => Post(Messages.Answer, text, steamId, seconds: seconds);
 
+    /// <summary>This player's note goes now, if it is still the ask isIt knows: the confirmation it asked for is settled - confirmed, or made moot by another
+    /// player's first click on the same button, which takes the window over - so it would only mislead for the rest of its seconds (the live lab's movie of
+    /// release 214, clip e1). A newer note of theirs stays.</summary>
+    static void Withdraw(string steamId, Func<string, bool> isIt)
+    {
+        var account = AccountId(steamId);
+        if (account > 0 && NoteFor.TryGetValue(account, out var note) && isIt(note.Text)) NoteFor.Remove(account);
+    }
+
     /// <summary>A plain news item for everybody.</summary>
     static void Announce(string text, double? seconds = null) => Post(Messages.News, text, seconds: seconds);
 

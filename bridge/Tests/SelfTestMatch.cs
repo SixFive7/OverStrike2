@@ -42,6 +42,8 @@ static partial class Program
             Check("Restart the server: the first click asks, to that player alone, and nothing counts down", NoteFor.ContainsKey(4001) && h.Said("Click or type it again within 30 s") && RestartDue == null && !h.Sent.Contains("quit"));
             Click(alice, "!restart");
             var pressed = Live();
+            Check("...and its ask goes with the second click: no note is left telling her to click again for the rest of its 30 s",
+                !NoteFor.TryGetValue(4001, out var restartNote) || !restartNote.Text.StartsWith(RestartAsk, StringComparison.Ordinal));
             Check("...the second click starts the countdown of a restart of kind player, naming who pressed it, in the live state as the plugin reads it",
                 pressed is { RestartKind: PlayerKind, RestartWhen: "now", RestartBy: "Alice", RestartIn: PressedSeconds } && pressed.RestartAfter == "Back in a minute - Reconnect then (console: retry)" && !h.Sent.Contains("quit"));
             Check("...the countdown banner, the same as the restart counting down: the logo, who pressed it, what to do afterwards, the seconds",
@@ -166,6 +168,8 @@ static partial class Program
             Check("Restart match: the first click asks, to that player alone, and nothing counts down", NoteFor.ContainsKey(4001) && h.Said("Click or type it again within 30 s") && RematchDue == null && Live().RematchIn == -1);
             Click(alice, "!rematch");
             var rematch = Live();
+            Check("...and its ask goes with the second click: no note is left telling her to click again for the rest of its 30 s",
+                !NoteFor.TryGetValue(4001, out var rematchNote) || !rematchNote.Text.StartsWith(RematchAsk, StringComparison.Ordinal));
             Check("...the second click starts its countdown, on the wire and in the banner: the logo, who pressed it, the seconds",
                 rematch is { RematchBy: "Alice", RematchIn: PressedSeconds } && rematch.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(PressedSeconds)) && !h.Sent.Contains(RematchCommand)
                 && HudView.CountdownOf(rematch) is { Eyebrow: "Match", Title: "Alice is restarting the match", Line: "The whole match starts over", Logo: true, Seconds: PressedSeconds });
@@ -188,6 +192,21 @@ static partial class Program
             h.Run(RematchWaitSeconds);
             Click(bob, "!rematch");
             Check("...and then it may be pressed again, by anyone", RematchConfirmBy == bob.Item2);
+
+            // ---- another player's first click takes the confirmation over: the first one's ask goes with it ----
+            Fresh();
+            Click(alice, "!rematch");
+            Click(bob, "!rematch");
+            Check("Restart match: Bob's first click after Alice's takes the window over - her ask goes, his stands",
+                !NoteFor.ContainsKey(4001) && NoteFor.TryGetValue(4002, out var bobAsk) && bobAsk.Text.StartsWith(RematchAsk, StringComparison.Ordinal) && RematchConfirmBy == bob.Item2);
+            Click(alice, "!rematch");
+            Check("...and her next click asks again, taking it back - his ask goes, and nothing counts down",
+                NoteFor.TryGetValue(4001, out var aliceAgain) && aliceAgain.Text.StartsWith(RematchAsk, StringComparison.Ordinal) && !NoteFor.ContainsKey(4002) && RematchDue == null);
+            Fresh();
+            Click(alice, "!restart");
+            Click(bob, "!restart");
+            Check("Restart the server: the same - Bob's first click takes the window over, and Alice's ask goes",
+                !NoteFor.ContainsKey(4001) && NoteFor.TryGetValue(4002, out var bobRestart) && bobRestart.Text.StartsWith(RestartAsk, StringComparison.Ordinal) && RestartConfirmBy == bob.Item2);
 
             // ---- the countdown's Cancel: Restart match ----
             Fresh();

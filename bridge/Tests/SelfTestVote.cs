@@ -581,8 +581,12 @@ static partial class Program
             var bobs = m.Skip(4).First(x => Ballot!.Options.All(o => o.Map != x));
             ClearNotices(); Pick(alice, m[3]);
             Check("A risky pick during a vote asks that player a second time first", h.Said($"Click again within {PickConfirmSeconds} s to vote anyway") && Ballot!.Options.All(o => o.Map != m[3]) && !Ballot.Choices.ContainsKey(alice.Item2));
-            Pick(bob, bobs); Pick(alice, m[3]);
+            Pick(bob, bobs);
+            Check("...her ask stands through another player's pick", NoteFor.TryGetValue(2001, out var askBefore) && askBefore.Text.EndsWith(" to vote anyway", StringComparison.Ordinal));
+            Pick(alice, m[3]);
             var hud3 = BuildHud(h.Clock);
+            Check("...and goes with her second click: no note is left telling her to click again for the rest of its 30 s",
+                !NoteFor.TryGetValue(2001, out var askAfter) || !askAfter.Text.EndsWith(" to vote anyway", StringComparison.Ordinal));
             Check($"...another player's pick between leaves her confirm standing: her second click confirms it - it counts down {PickCountdownSeconds} s to the vote, in the live state for everybody's button; not on the ballot yet",
                 PicksDue.TryGetValue(Key(m[3]), out var due3) && due3.SteamId == alice.Item2 && !due3.Previous && Ballot!.Options.All(o => o.Map != m[3]) && Ballot.Options.Any(o => o.Map == bobs)
                 && hud3.PicksDue is [var pd3] && pd3.Key == Key(m[3]) && pd3.By == "Alice" && !pd3.Previous && pd3.AtMs == HudState.Ms(h.Clock.AddSeconds(PickCountdownSeconds))

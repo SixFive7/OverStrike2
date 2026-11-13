@@ -38,6 +38,9 @@ static partial class Program
 
     const int PickConfirmSeconds = (int)HudBrowser.ConfirmSeconds; // the window of Restart's second click too: one confirmation idiom, one number to remember
 
+    /// <summary>A risky pick's ask (PickConfirmNote), as its plain note ends: Withdraw knows it by it.</summary>
+    static bool IsPickAsk(string note) => note.EndsWith(" to vote anyway", StringComparison.Ordinal);
+
     /// <summary>The note that asks for the confirmation: which map, what is on record, and how to agree to it, in the words of the card's lock (HudMenu.Unlocked; Previous
     /// is a button of its own). The label is clipped at 34 characters, so the "click it again" half always fits however long the map is called.</summary>
     static string PickConfirmNote(MapInfo map, string record, string again = "Play")
@@ -52,7 +55,12 @@ static partial class Program
     static string? ConfirmGate(MapInfo map, string steamId, DateTime now, string again = "Play")
     {
         if (RecordWords(map) is not { } record) { PickConfirms.Remove(steamId); return null; }                                   // nothing on record: straight through
-        if (PickConfirms.TryGetValue(steamId, out var armed) && armed.Key == Key(map) && now <= armed.Until) { PickConfirms.Remove(steamId); return null; } // confirmed in time
+        if (PickConfirms.TryGetValue(steamId, out var armed) && armed.Key == Key(map) && now <= armed.Until) // confirmed in time: the ask is settled
+        {
+            PickConfirms.Remove(steamId);
+            Withdraw(steamId, IsPickAsk);
+            return null;
+        }
         PickConfirms[steamId] = (Key(map), now.AddSeconds(PickConfirmSeconds));
         return PickConfirmNote(map, record, again);
     }
