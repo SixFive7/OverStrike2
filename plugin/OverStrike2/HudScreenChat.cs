@@ -9,7 +9,8 @@ sealed partial class HudScreen
 {
     // ---- the chat commands (ChatCommands.cs) ----
 
-    /// <summary>The end-of-match vote is open: a bare number in chat is a vote (ChatCommands.Parse).</summary>
+    /// <summary>A vote for the next map is open, a match end's or a player's (ChatCommands.Parse): a bare !vote brings its window back, and a !vote with anything after
+    /// it answers that a vote is a click. A bare number in chat is plain chat, as every line that is no command: the cards have no numbers.</summary>
     public bool VoteOpen => vote is { Open: true, Round: > 0 };
 
     /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat, in its functional colours (Messages.CommandReply; the words are
