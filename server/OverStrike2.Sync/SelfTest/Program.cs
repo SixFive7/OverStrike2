@@ -26,6 +26,7 @@ try
     VerdictTests.VerdictChecks();
     PublishTests.Plan(root);
     ReportTests.MailAndBacklog();
+    ReportTests.CsgoEra();
     PublishTests.MergeRule();
     PublishTests.Bridge(root);
     PublishTests.SpawnCounting(root);
@@ -43,6 +44,7 @@ try
     AdoptTests.Parse();
     AdoptTests.Plan();
     AdoptTests.InARun(root);
+    RunTests.CsgoEra();
     ServiceTests.Clock();
     HandOverTests.Acf(root);
     var kdata = HandOverTests.KData();

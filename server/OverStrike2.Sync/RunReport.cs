@@ -179,6 +179,8 @@ public static class RunReport
         if (Node.Truthy(t["stop"]))
             W($"   stopped: {S(t["stop"])}");
         W("5. Published into the bridge's data:");
+        if (Node.Truthy(r["csgo_era"]))
+            W($"   {I(r["csgo_era"])} CS:GO-era upload(s) the queue had left out before now (the Workshop names a CS:GO file for each; never downloaded) got their verdict: not maps, for broken.json's packs.");
         if (Node.Truthy(pub["skipped"]))
             W($"   skipped: {S(pub["skipped"])}");
         else if (!Node.Truthy(pub["files"]) && !Node.Truthy(pub["verdicts"]))

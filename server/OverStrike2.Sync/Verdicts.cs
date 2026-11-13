@@ -91,6 +91,27 @@ public static class Verdicts
         });
     }
 
+    /// <summary>broken.json's evidence for a non-map known from its Workshop details alone, never downloaded or tested (its "fields" doc).</summary>
+    public const string WorkshopFileEvidence = "identified from its Workshop file";
+
+    /// <summary>The verdict on a CS:GO-era upload, from its Workshop details alone: the Workshop names a file for it (mostly a CS:GO map,
+    /// mymaps/&lt;name&gt;.bsp), which no CS2 upload has, so it holds no CS2 map - every one whose download was looked into held only that file,
+    /// as &lt;n&gt;_legacy.bin (Scan.cs). The queue never downloads one; this is the detail the publish puts on broken.json's packs, so a player
+    /// who types its id is refused: kind legacy, evidence identified from its Workshop file.</summary>
+    public static JsonObject WorkshopFile(string file, string day) => new()
+    {
+        ["kind"] = "legacy", ["evidence"] = WorkshopFileEvidence,
+        ["detail"] = $"a CS:GO-era upload: its Workshop file is {Text.Cut(file, 80)}, "
+                     + $"{(file.EndsWith(".bsp", StringComparison.OrdinalIgnoreCase) ? "a CS:GO map" : "no CS2 map")} - CS2 cannot load it (workshop sync {day})",
+    };
+
+    /// <summary>Whether a record's verdict is the sync's own from its Workshop file (WorkshopFile), not from a test: it is published like one,
+    /// but the dashboard's counts of what was tested leave it out, and it makes no map event. A hand verdict (RunAdopt.cs) may rest on the same
+    /// evidence; it is the hand's, adopted, and keeps its event.</summary>
+    public static bool FromWorkshopFile(JsonNode? rec) =>
+        Node.Str(Node.Get(rec, "verdict")) == "nonmap" && Node.Str(Node.Get(Node.Get(rec, "detail"), "evidence")) == WorkshopFileEvidence
+        && Node.Str(Node.Get(rec, "why")) != Adopt.Why;
+
     /// <summary>Most subscribed first, then most subscribed ever, then the oldest id.</summary>
     public static (long, long, long) PopularityKey(JsonNode? rec, string wid) =>
         (-Node.Int(Node.Get(rec, "subs")), -Node.Int(Node.Get(rec, "lifetime")), long.TryParse(wid, out var n) ? n : 0);

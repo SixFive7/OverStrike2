@@ -658,7 +658,7 @@ Thousands of community maps include some that break things, so every broken map 
   the dice then take the server to another map.
 - **A Workshop update lifts a mark**, a crash's or a player crash's: the author may have fixed it.
 - **`broken.json`** holds three lists: `maps` (maps that crash or freeze the server, or advertise: a pick asks for a second click, the dice never roll them, each says why), `packs` (Workshop items with
-  no map in them - skins, models, empty uploads: refused) and `blocked` (refused for good, each with a reason). **`blocked.json`** is a hand-made list of the same kind. The sync
+  no map in them - skins, models, empty uploads, CS:GO-era uploads: refused) and `blocked` (refused for good, each with a reason). **`blocked.json`** is a hand-made list of the same kind. The sync
   writes `broken.json` and only ever adds to it; a non-map it did not find itself comes in through it as well, as a hand verdict in its state folder ([server.md](server.md#hand-verdicts-adoptjson)).
 - **Maps gone from the Workshop.** Every 4 hours the sync checks every listed map through the public Web API and posts the verdicts to the bridge (`POST /removed/<secret>`, kept in `removed.json`): a
   map that is gone, private or banned is refused, leaves an open ballot, stops a countdown to it, and if it is the map that is on, the dice roll another, since nobody new could download it. A report
@@ -743,7 +743,9 @@ left before that cut. Discovery, the check and the ratings run at most every `sy
 3. **Hand over** the maps the server keeps but lacks, and the ones it stores in an older version than one a test passed (`<work>/handover/`). A hand-over waits for SteamCMD's acf entry of its download, and a map already staged with one
    goes without a new download.
 4. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything
-   else strictly by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of deleted.
+   else strictly by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of deleted. A CS:GO-era upload - the Workshop names a file
+   for it, mostly `mymaps/<name>.bsp`, which no CS2 upload has - is never downloaded: it is a non-map by its Workshop file, and the publish puts it on `broken.json`'s packs (kind legacy, evidence identified from its
+   Workshop file), so a player who types its id is refused. Those the sync had skipped before it gave them that verdict get it at its first run with the rule (753 on the data of 2026-11-13).
 5. **Scan and load-test:** read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any commands that advertise another server or post a gambling ad, in its
    entity lumps - every KV3 format CS2's maps use: v5 and v4 with LZ4, and Zstandard - its cfgs and its map scripts, cs_script, since release 197; and its team spawn points, which
    Wingman's list carries), then load each map in a test copy of the server
@@ -759,7 +761,7 @@ day, until a version passes; a newer version is tested at once. One SteamCMD dow
 nobody on.
 
 The sync also writes `sync-status.json` into the bridge's data folder (schema 1) for the in-game status page: what it does now and why (`now.state` is one of idle, waiting, discovery, check, ratings, serve, download, test, publish, stopped),
-today's counts, the totals, the queue with its next maps in the order they are taken, the keep set's parts, and the history of runs and map events. It is written atomically at every phase change, at least every 15 s during a run and every
+today's counts, the totals (of what it tested: a CS:GO-era upload's verdict from its Workshop file is neither counted nor a map event), the queue with its next maps in the order they are taken, the keep set's parts, and the history of runs and map events. It is written atomically at every phase change, at least every 15 s during a run and every
 minute otherwise; fields may be added to it, never renamed or dropped.
 
 ### The dashboard

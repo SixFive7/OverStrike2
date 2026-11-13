@@ -102,6 +102,14 @@ static class ReportTests
         Hooks.HumansOn = real;
     }
 
+    // ---- the report's words for the CS:GO-era uploads the queue had left out before, given their verdict in a run
+    internal static void CsgoEra()
+    {
+        var (_, era) = RunReport.Summary(With(R(), ("api_stop", null), ("csgo_era", 753)), Cfg());
+        Check("report: the CS:GO-era uploads the queue had left out before, given their verdict in this run, are counted under the publish",
+              era.Contains("5. Published into the bridge's data:\n   753 CS:GO-era upload(s) the queue had left out before now (the Workshop names a CS:GO file for each; never downloaded) got their verdict: not maps, for broken.json's packs."));
+    }
+
     public static readonly JsonObject Quiet = O("""
         {"day": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00",
          "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)", "stop_kind": "routine"},
