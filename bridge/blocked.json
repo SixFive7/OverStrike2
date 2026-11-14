@@ -20,6 +20,13 @@
       "map": "awp_lego_fps",
       "reason": "posts a gambling advert in chat (2026-11-09)",
       "since": "2026-11-09"
+    },
+    {
+      "id": 3201173924,
+      "name": "[TTT]Afterglow",
+      "map": "",
+      "reason": "crashed 2 of 3 test loads (2026-10-05)",
+      "since": "2026-11-14"
     }
   ]
 }
