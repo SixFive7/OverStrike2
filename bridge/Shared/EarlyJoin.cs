@@ -14,9 +14,11 @@
 //     counts down, or the match has just ended;
 //   - while anybody is still joining - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered),
 //     downloading the map or loading it, as everybody does after a map change - the restart waits for them, so the players in already start over once for
-//     all of them, not once each; HoldMostSeconds at the most, so a joiner stuck there does not hold it for good. Who is joining: the bridge's log stream
-//     ("connected", not yet "entered the game") and the plugin's os_joining (its controllers connecting, and its record of sign-ons not complete: SignOns).
-//     Their own join, as they come in, folds into it.
+//     all of them, not once each; HoldMostSeconds at the most, so a joiner stuck there does not hold it for good. Who is joining (the bridge's FairWait):
+//     the plugin's os_joining (its controllers connecting or reconnecting), the server's own client list (status: everybody not yet active) and the bridge's
+//     log stream ("connected", not yet "entered the game"). The prompt's joiner shows only in the last two: the game hears of a client only once it has
+//     every addon, so the plugin has no callback and no controller for it, and CS2's drop of it at PromptSeconds writes no "disconnected" line - status no
+//     longer listing it ends it, and SignOnMostSeconds after its "connected" in any case. Their own join, as they come in, folds into it.
 //
 // Shared like Hud.cs: the plugin feeds it the game (plugin/OverStrike2/EarlyJoinWatch.cs) and the bridge's --selftest drives it on a handed clock. Plain BCL only.
 public sealed class EarlyJoin
@@ -60,22 +62,64 @@ public sealed class EarlyJoin
         return names;
     }
 
-    /// <summary>The plugin's record of sign-ons not complete: a client from its connect (CounterStrikeSharp's OnClientConnect - the moment the server logs
-    /// "connected") until it is in the game (OnClientPutInServer) or gone (OnClientDisconnect). The live lab's client at CS2's prompt to confirm a first Workshop
-    /// download had no controller that said connecting, while the connect itself had come; this sees that state. A map start forgets them all: whoever reconnects
-    /// connects again. Older than HoldMostSeconds x 5 and still not in: no sign-on any more (a disconnect the plugin missed).</summary>
-    public sealed class SignOns
+    /// <summary>How long CS2 keeps a client in the connected sign-on state - at its prompt to confirm a first Workshop download, unanswered - before it drops it
+    /// (NETWORK_DISCONNECT_TIMEDOUT): 120 s, measured twice by the live lab, with MultiAddonManager's own time-out off. The drop writes no "disconnected" line.</summary>
+    public const int PromptSeconds = 120;
+
+    /// <summary>How long the bridge counts a joiner only its log stream knows of ("connected", and no "entered the game" or "disconnected" since) when the server's
+    /// own client list cannot say: the prompt's PromptSeconds and a margin. Whoever gets further connects again, or shows in status and os_joining.</summary>
+    public const int SignOnMostSeconds = PromptSeconds + 30;
+
+    /// <summary>The plugin's server command for the fairness restart's state (EarlyJoinWatch): os_fair says where the map stands, os_fair live starts the match
+    /// running now, and os_fair bridge is the bridge telling it whom its log stream has signing on (BridgeViewCommand), which os_fair then shows (ViewLine).</summary>
+    public const string FairCommand = "os_fair";
+    public const string BridgeWord = "bridge";
+
+    /// <summary>A human in the server's own client list (status's players table): the name, and the state as the server has it - "active" once in the game,
+    /// "connecting" from the connect until then (CS2's first-download prompt, the download, the map's load, a map change's reconnect).</summary>
+    public sealed record StatusClient(string Name, string State)
     {
-        readonly Dictionary<int, (string Name, DateTime At)> open = new();
+        public bool Joining => State != "active";
+    }
 
-        public void Connected(int slot, string name, DateTime now) => open[slot] = (name, now);
-        public void InGame(int slot) => open.Remove(slot);
-        public void Gone(int slot) => open.Remove(slot);
-        public void MapStarted() => open.Clear();
+    static readonly System.Text.RegularExpressions.Regex StatusRow = new(@"^\s*(\d+)\s+(\S+)\s+\d+\s+\d+\s+([a-z]+)\s+\d+\s*\S*\s+'(.*)'\s*$");
 
-        /// <summary>The names of the sign-ons still open, the oldest first; isBot: a slot whose controller turned out a bot (bots connect too).</summary>
-        public List<string> Names(DateTime now, Func<int, bool>? isBot = null) =>
-            [.. open.Where(kv => (now - kv.Value.At).TotalSeconds <= HoldMostSeconds * 5 && isBot?.Invoke(kv.Key) != true).OrderBy(kv => kv.Value.At).Select(kv => kv.Value.Name)];
+    /// <summary>The humans in status's players table ("---------players--------", its header, a line a client, "#end"), as CS2 writes it: the bots (time BOT)
+    /// and the handshake's placeholder (65535 [NoChan] challenging) left out. null when the reply has no such table: no answer, an error, a short status.</summary>
+    public static List<StatusClient>? ReadStatus(string? reply)
+    {
+        if (reply == null) return null;
+        var lines = reply.Replace("\r", "").Split('\n');
+        var at = Array.FindIndex(lines, l => l.Trim() == "---------players--------");
+        if (at < 0) return null;
+        var clients = new List<StatusClient>();
+        foreach (var line in lines.Skip(at + 1))
+        {
+            if (line.StartsWith("#end", StringComparison.Ordinal)) break;
+            if (StatusRow.Match(line) is not { Success: true } m || m.Groups[2].Value is "BOT" or "[NoChan]") continue;
+            clients.Add(new(m.Groups[4].Value, m.Groups[3].Value));
+        }
+        return clients;
+    }
+
+    /// <summary>The bridge's word to the plugin: os_fair bridge and the names its log stream has signing on, each the hex of its UTF-8, so no name can end or
+    /// change the command (a ';', a '"', "//"). 16 at the most.</summary>
+    public static string BridgeViewCommand(IEnumerable<string> names) =>
+        string.Join(' ', new[] { FairCommand, BridgeWord }.Concat(names.Take(16).Select(n => Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(Hud.Clean(n, 32))))));
+
+    /// <summary>The names in os_fair bridge's arguments, after the word; one that is not hex is left out.</summary>
+    public static List<string> ReadBridgeView(IEnumerable<string> args) =>
+        [.. args.Select(a => { try { return System.Text.Encoding.UTF8.GetString(Convert.FromHexString(a)); } catch (FormatException) { return null; } }).OfType<string>()];
+
+    /// <summary>os_fair's last part: what the plugin heard of connects on this map (CounterStrikeSharp's OnClientConnect - which comes only once a client has
+    /// every addon, so never for one at the prompt), and whom the bridge's log stream has signing on, as it last said and how long ago.</summary>
+    public static string ViewLine((IReadOnlyList<string> Names, DateTime At)? bridge, (string Name, DateTime At)? lastConnect, int connects, DateTime now)
+    {
+        static string Ago(DateTime at, DateTime now) => $"{Math.Max(0, (int)(now - at).TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)} s ago";
+        var plugin = connects == 0 || lastConnect is not { } c ? "the plugin's connects this map: 0" : $"the plugin's connects this map: {connects} (the last: {c.Name}, {Ago(c.At, now)})";
+        var told = bridge is not { } b ? "the bridge's log stream: not told yet"
+            : $"the bridge's log stream: {(b.Names.Count == 0 ? "nobody" : string.Join(", ", b.Names))} signing on (told {Ago(b.At, now)})";
+        return $"{plugin}; {told}";
     }
 
     /// <summary>The line for everybody as the restart begins to wait for those still joining: who is in, and who it waits for.</summary>

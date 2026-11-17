@@ -505,9 +505,12 @@ Anybody may change the length and press the two restarts, on the Game page or in
   says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. **While anybody is
   still joining** - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered), downloading the map or loading it,
   as everybody does after a map change - it waits for them first, so the players in already start over once for all of them, not once each. It counts as joining
-  whoever either of two sources names: its own log stream - a human the server logged as connected and not yet as entered the game, as at that prompt, where no
-  controller says connecting; the HUD addon's reconnect does not end it - and the plugin's `os_joining`, which names the humans whose controller is still
-  connecting or reconnecting and those it saw connect that are not in the game yet. The bridge asks as the restart would count down and every second while it
+  whoever any of three names: the plugin's `os_joining` (the humans whose controller is still connecting or reconnecting), the server's own client list (`status`:
+  every human not yet active) and the bridge's log stream (a human logged as connected and not yet as entered the game; the HUD addon's reconnect does not end
+  it). A joiner at that prompt shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no controller and no
+  callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list no longer having them ends it, and 150 s after their
+  "connected" in any case (`EarlyJoin.SignOnMostSeconds`). `os_fair` shows the bridge's view beside the plugin's (`os_fair bridge`, the names as hex, from the
+  bridge whenever they change). The bridge asks as the restart would count down and every second while it
   waits, says once in chat and on the board whom it waits for ("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"), and counts
   down once nobody is left joining - their own joins fold into it - or after **120 s** at the most (`EarlyJoin.HoldMostSeconds`), so a joiner stuck there does
   not hold it for good. A vote, a restart of the match or of the server, the match's end or a map start meanwhile ends the wait; a plugin without `os_joining`
