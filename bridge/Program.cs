@@ -120,7 +120,7 @@ static partial class Program
 
     static Func<DateTime> Now = () => DateTime.UtcNow; // --selftest hands its own clock
 
-    static string Clip(string text, int n) => text.Length <= n ? text : text[..(n - 1)] + "~";
+    static string Clip(string text, int n) => text.Length <= n ? text : text[..(n - 1)] + "…"; // an ellipsis, as Hud.Clean's: no stray "~" in chat or on the HUD
     static string Names(IEnumerable<string> names) => names.ToList() is var l && l.Count <= 1 ? l.FirstOrDefault() ?? "" : string.Join(", ", l.SkipLast(1)) + " and " + l[^1];
 
     // ---- the clock: once a second ----

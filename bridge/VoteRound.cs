@@ -75,6 +75,7 @@ static partial class Program
         public bool NextMatch;                                    // ...at a match end, and the plugin ends the match-end screen then: the next match starts as the window closes (NextMatch.cs)
         public DateTime? ChangedUntil;                            // its change has gone out (ChangeNow): the window shows it until the map starts, or until then
         public bool Fetching;                                     // ...and the winner is still to download: the window says so
+        public string KeepLabel = "";                             // the map it opened on, by name: Keep's card says it to the end - a change gone out at once has the next map on already
         public int Countdown;                                     // decided: the whole seconds its countdown runs (the bar's full length)
         public string Starter = "", StarterName = "";             // who called it ("" at a match end)
         public bool MatchEnded;                                   // the match is over: Keep is "Play this map again", nobody voting is Random
@@ -180,8 +181,8 @@ static partial class Program
     /// <summary>What a vote on this card says: Bob voted for #12 aim_x; on Keep, what keeping means now.</summary>
     static string VotedWords(BallotState b, string by, BallotOption o) => o.Source switch
     {
-        VoteSource.Keep when b.MatchEnded => $"{VoterMark(by)} voted to play {M.A(Clip(CurrentLabel(), 32))} again",
-        VoteSource.Keep => $"{VoterMark(by)} voted to keep {M.A(Clip(CurrentLabel(), 32))}",
+        VoteSource.Keep when b.MatchEnded => $"{VoterMark(by)} voted to play {M.A(Clip(KeptLabel(b), 32))} again",
+        VoteSource.Keep => $"{VoterMark(by)} voted to keep {M.A(Clip(KeptLabel(b), 32))}",
         VoteSource.Random => $"{VoterMark(by)} voted for {M.A("Random")}",
         _ => $"{VoterMark(by)} voted for {M.A(Clip(Label(o.Map!), 32))}{ModeTag(o.Map!)}",
     };
@@ -243,7 +244,7 @@ static partial class Program
         var players = Math.Max(present, humans);
         var round = Math.Max(new DateTimeOffset(now).ToUnixTimeSeconds(), LastRound + 1);
         var b = new BallotState { Round = round, Opened = now, Ends = now.AddSeconds(MapVote.Seconds), PresentAtOpen = present > 0 ? 0 : humans,
-            Starter = starter, StarterName = starterName, MatchEnded = matchEnd, ServerStart = serverStart };
+            Starter = starter, StarterName = starterName, MatchEnded = matchEnd, ServerStart = serverStart, KeepLabel = CurrentKey != "" ? CurrentLabel() : "" };
         b.FillMode = ModeSuits(CurrentMode, players) ? CurrentMode : Modes.Default; // a mode that does not suit the players on (ModeSuits): its random cards and Random come from Arms Race
         var taken = new HashSet<string>();
         if (CurrentKey != "") { b.Options.Add(new BallotOption(VoteSource.Keep, S.Map, CurrentMode, KeepOrder, S.Map is { } on ? TagsOf(on) : "")); taken.Add(CurrentKey); }
@@ -294,7 +295,11 @@ static partial class Program
 
     static string KeepWords(BallotState b) => b.MatchEnded ? "Play this map again" : "Keep playing this map";
 
-    static string OptionLabel(BallotState b, BallotOption o) => o.Source == VoteSource.Keep ? $"{KeepWords(b)} ({CurrentLabel()})" : o.Map is { } m ? Label(m) + ModeTag(m) : "Random";
+    static string OptionLabel(BallotState b, BallotOption o) => o.Source == VoteSource.Keep ? $"{KeepWords(b)} ({KeptLabel(b)})" : o.Map is { } m ? Label(m) + ModeTag(m) : "Random";
+
+    /// <summary>The map the ballot opened on, by name: what its Keep card keeps, until the window closes - CurrentLabel names the next map the moment a change
+    /// goes out (ChangeNow), while the window still shows the decided ballot (the review of release 218's films, its finding 14).</summary>
+    static string KeptLabel(BallotState b) => b.KeepLabel != "" ? b.KeepLabel : CurrentLabel();
 
     /// <summary>Start a vote (the board's button, !next; !random with this player's vote on Random): a vote without a map of the caller's own, Keep
     /// on it as on every ballot. While a vote is open, !random moves this player's vote to Random.</summary>
@@ -522,8 +527,8 @@ static partial class Program
         var count = M.V($"{votes} of {present}");
         if (o.Source == VoteSource.Keep)
         {
-            b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40));
-            Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
+            b.Result = new VoteState.Outcome(o.N, how, Clip(KeptLabel(b), VoteState.LabelMax));
+            Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {KeptLabel(b)}");
             // A match end's: the next match starts at once - the screen ends AgainSeconds from now, at the plugin's own end of it, which its whole-second convar puts
             // up to a second later: the window counts to that, and closes as the next match starts.
             var ends = b.MatchEnded ? CutMatchEnd(AgainSeconds, "the vote plays the map again").EndsIn : null;
@@ -549,7 +554,7 @@ static partial class Program
         target ??= RandomNext(b.FillMode); // Random - or a card whose map has become unplayable since: the dice over the maps on the disk (Stock.cs)
         if (target == null) { Log("vote: nothing eligible to load - the map stays"); Ballot = null; return; }
         var change = new Change(target, "the vote");
-        b.Result = new VoteState.Outcome(o.N, how, Clip(Label(target), 40));
+        b.Result = new VoteState.Outcome(o.N, how, Clip(Label(target), VoteState.LabelMax));
         b.Change = change;
         Save();
         Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {o.N}. {OptionLabel(b, o)} -> {Label(target)} in {ModeOf(target).Name}");
@@ -643,8 +648,8 @@ static partial class Program
         {
             var keep = o.Source == VoteSource.Keep;
             v.Options.Add(new VoteState.Option(o.N, o.Mode.Id, o.Source, OptionKey(o),
-                keep ? KeepWords(b) : o.Map is { } l ? Clip(Label(l), 40) : "Random",
-                keep ? Clip(CurrentLabel(), 40) : o.Map is { Official: false, Rank: > 0 } s ? Size(s) : "",
+                keep ? KeepWords(b) : o.Map is { } l ? Clip(Label(l), VoteState.LabelMax) : "Random",
+                keep ? Clip(KeptLabel(b), VoteState.LabelMax) : o.Map is { Official: false, Rank: > 0 } s ? Size(s) : "",
                 VotesOn(o), Names(o.Pickers.Select(x => Clip(x.Name, 16)).Distinct()), o.Tags));
         }
         foreach (var (id, n) in b.Choices) if (AccountId(id) is >= 0 and var account) v.Choices[account] = n;

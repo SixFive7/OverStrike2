@@ -31,7 +31,7 @@ static partial class Program
         Check("Vote codec: what goes out comes back - the vote (a match end's, everybody frozen), its cards (Keep, Random last), the choices and the result",
             back.Round == codec.Round && !back.Open && back.SecondsLeft == 7 && back.Present == 5 && back.Cast == 4 && back.MatchEnded && back.Freeze && back.WaitFor == 0 && back.StarterName == "Alice B" && back.DoneSeconds == 8 && back.NextMatch
             && back.Options.Count == 4 && back.Options[0] is { N: 1, Mode: "armsrace", Source: VoteSource.Picked, Key: "3070000012", Size: "17 MB", Votes: 2, Who: "Alice and Bob" }
-            && back.Options[0].Label.Length <= 40 && !back.Options[0].Label.Contains('\t') && back.Options[2] is { Source: VoteSource.Keep, Label: "Play this map again" }
+            && back.Options[0].Label.Length <= VoteState.LabelMax && !back.Options[0].Label.Contains('\t') && back.Options[2] is { Source: VoteSource.Keep, Label: "Play this map again" }
             && back.Options[3] is { Source: VoteSource.Random, N: MapVote.RandomOption } && back.Maps.Count == 3 && back.Random?.N == MapVote.RandomOption
             && back.Choices.Count == 4 && back.ChoiceOf(2003) == 2 && back.ChoiceOf(9) == 0 && back.Result is { N: 1, How: "most", Label: "#12 aim x" });
         var lines = codec.Encode(endTimes: true).Split('\n');
@@ -185,8 +185,8 @@ static partial class Program
             Check("The live state carries it: the vote (a match end's, nobody's call, everybody frozen), its cards with their modes and how they got there",
                 hud.Round == Ballot.Round && hud.Open && hud.MatchEnded && hud.Freeze && hud.StarterName == "" && hud.SecondsLeft == MapVote.Seconds && hud.Present == 3
                 && hud.Waiting.SequenceEqual(["Alice", "Bob", "Cara"]) && hud.Voters.Count == 0 && hud.Options.Count == MapVote.PageCards + 1
-                && hud.Options[0] is { Source: VoteSource.Keep, Label: "Play this map again" } keepCard && keepCard.Key == Key(m[0]) && keepCard.Size == Clip(Label(m[0]), 40)
-                && hud.Options[^1] is { Source: VoteSource.Random, Label: "Random", Key: "" } && hud.Options.Skip(1).Take(MapVote.PageCards - 1).All(o => o.Source == VoteSource.Rolled && o.Key != "" && o.Label.Length <= 40));
+                && hud.Options[0] is { Source: VoteSource.Keep, Label: "Play this map again" } keepCard && keepCard.Key == Key(m[0]) && keepCard.Size == Clip(Label(m[0]), VoteState.LabelMax)
+                && hud.Options[^1] is { Source: VoteSource.Random, Label: "Random", Key: "" } && hud.Options.Skip(1).Take(MapVote.PageCards - 1).All(o => o.Source == VoteSource.Rolled && o.Key != "" && o.Label.Length <= VoteState.LabelMax));
 
             // ---- fewer maps eligible than a page: the ballot holds what the dice find, never a map twice ----
             Fresh();
@@ -260,6 +260,20 @@ static partial class Program
             h.Join(alice);
             h.MatchEnd(); Click(alice, 1);
             Check("Alone, one vote ends it at once - and its change goes out at once", Ballot is { Open: false, Result.How: "all" } && ChangeGone() != null && S.PickedBy == "the vote");
+            Fresh();
+            h.Join(alice);
+            Ask(alice, m[4]); Land(); Settle();
+            var openedOn = CurrentLabel();
+            h.MatchEnd(); Click(alice, OptOf(o => o.Source != VoteSource.Keep && o.Map != null && OnTheDisk(o.Map)));
+            Check("...and its Keep card still names the map the ballot opened on while the change loads - not the next map, which the server has on already "
+                + "(the review of release 218's films, finding 14: CHANGING NOW showed the next map's name on Keep)",
+                ChangeGone() != null && CurrentLabel() != openedOn && LiveVote().Maps.Single(o => o.Source == VoteSource.Keep).Size == Clip(openedOn, VoteState.LabelMax));
+            var longName = new string('x', 70);
+            Check($"The bridge cuts a long text with an ellipsis, never a \"~\", and a card's or the result's map label goes on the wire {VoteState.LabelMax} characters long, "
+                + "for the HUD to cut at the card's real width (finding 3)",
+                Clip(longName, 40) == new string('x', 39) + "…" && Clip("short", 40) == "short"
+                && VoteState.Decode(new VoteState { Round = 1, Options = { new(1, "armsrace", VoteSource.Picked, "k", longName, "", 0, "") }, Result = new(1, "all", longName) }
+                    .Encode()) is { } onWire && onWire.Options[0].Label.Length == VoteState.LabelMax && onWire.Result!.Label.Length == VoteState.LabelMax);
 
             // ---- a vote moves as often as a player likes and never goes back; a player's own card stays; the settle time ----
             Fresh();

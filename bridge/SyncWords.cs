@@ -230,7 +230,7 @@ static class SyncWords
 
     /// <summary>The background download in words: "Background download: Lake Aim, 63%" - its title, else its Workshop id.</summary>
     public static string BackgroundWords(Program.Download d) =>
-        $"Background download: {(d.Title != "" ? (d.Title.Length <= 36 ? d.Title : d.Title[..35] + "~") : $"Workshop item {d.Id}")}{(d.Percent is { } p ? $", {p}%" : ", starting")}";
+        $"Background download: {(d.Title != "" ? (d.Title.Length <= 36 ? d.Title : d.Title[..35] + "…") : $"Workshop item {d.Id}")}{(d.Percent is { } p ? $", {p}%" : ", starting")}";
 
     // ---- the website's data ----
 

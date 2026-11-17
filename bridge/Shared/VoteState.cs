@@ -9,6 +9,10 @@ public enum VoteSource { Picked, Rolled, Random, Keep }
 /// <summary>The vote as the plugin reads it off the live state. See docs/reference.md for every field.</summary>
 public sealed class VoteState
 {
+    /// <summary>The most characters of a card's or the result's map label on the wire: the HUD's own stylesheet cuts the rest, with its ellipsis, at the card's or
+    /// the line's real width (the review of release 218's films: the labels came cut at 40 with a "~" before the HUD could).</summary>
+    public const int LabelMax = 60;
+
     /// <summary>One card, or Random: Tags are the map's tags (MapTags) as the ballot showed them when the card went on it, PICKED first for a
     /// player's pick - the screen adds the vote's own (next, lead, tie).</summary>
     public sealed record Option(int N, string Mode, VoteSource Source, string Key, string Label, string Size, int Votes, string Who, string Tags = "");
@@ -68,11 +72,11 @@ public sealed class VoteState
         if (Round <= 0) return s.ToString();
         Line("mv", Round, Open ? "open" : "done", endTimes ? 0 : SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", 0, Freeze ? 1 : 0, endTimes ? (Inactivity > 0 ? 1 : 0) : Inactivity, Hud.Clean(ResetBy, 24), Hud.Clean(StarterName, 24), DoneSeconds, NextMatch ? 1 : 0, Fetching ? 1 : 0);
         if (endTimes) Line("mvt", EndsAtMs, Inactivity > 0 ? InactivityAtMs : 0);
-        foreach (var o in Options) Line("mvo", o.N, o.Mode, Source(o.Source), "", o.Key, Hud.Clean(o.Label, 40), o.Size, o.Votes, o.Who, MapTags.Clean(o.Tags));
+        foreach (var o in Options) Line("mvo", o.N, o.Mode, Source(o.Source), "", o.Key, Hud.Clean(o.Label, LabelMax), o.Size, o.Votes, o.Who, MapTags.Clean(o.Tags));
         foreach (var (account, n) in Choices) Line("mvv", account, n);
         foreach (var (n, names) in Voters) if (names.Count > 0) Line(["mvn", n, .. names.Select(x => (object)Hud.Clean(x, 24))]);
         if (Waiting.Count > 0) Line(["mvw", .. Waiting.Select(x => (object)Hud.Clean(x, 24))]);
-        if (Result is { } r) Line("mvr", r.N, r.How, Hud.Clean(r.Label, 40));
+        if (Result is { } r) Line("mvr", r.N, r.How, Hud.Clean(r.Label, LabelMax));
         return s.ToString();
     }
 
