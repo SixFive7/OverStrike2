@@ -431,7 +431,10 @@ from just above its typing line (y 944, 1080 high) up toward the radar, there wi
 player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one player), joins, leaves and team
 changes - and draws each player's newest 18, the newest at the bottom, solid over CS2's whole chat area so none of CS2's own lines shows twice: down to y 1000
 with the chat closed (CS2 drops its lines 56 px when its typing line is hidden), its foot at y 944 with the chat open (`HUD_CHAT_VISIBLE`, CS2's own class), so
-CS2's typing line stays free; above CS2's area its background fades upward. CS2's own chat cannot be made taller or kept on
+CS2's typing line stays free; over CS2's area it is fully opaque, above it its background fades upward. When it shows is the server's (`HudChat.Route`, the
+owner's 277): always (a1, the default), only while our window is open (c), or never (d) - `os_hud chat always|window|off` until the plugin reloads; the stylesheet
+is the same for all three, so a change needs no content update. After a hot reload a running game shows the new entity's HUD only once its input capture
+changes, so the plugin's first frame turns each player's capture on, and the next frame's own puts it back. CS2's own chat cannot be made taller or kept on
 screen: its history box is 327 px high in its own stylesheet, which ours cannot reach, and no setting a server may change keeps its lines. The column shows only
 while its feed is live and it has a line for that player (`chaton` on `os_screen`: no failed poll in a row and an answer within 60 s - the bridge's long poll
 answers every 25 s at the least) and beats (`hb`, on and off by turns every 10 s, each turn restarting a

@@ -2,6 +2,7 @@
 // (../../bridge/Shared/HudFrame.cs, which --selftest runs too) onto the entity (HudScreenSend.cs).
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Extensions;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 
@@ -50,8 +51,9 @@ sealed partial class HudScreen
         foreach (var p in humans) drawing[p.Slot] = p;
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
             FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs), // the bars a step ahead (HudVote.BarLeadMs)
-            chat, ChatLive(now), MatchScreen(), download is { } d && now < d.Until ? d.Download : null);
+            chat, ChatLive(now), MatchScreen(), download is { } d && now < d.Until ? d.Download : null, chatRoute);
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
+        if (reloadPulse && humans.Count > 0) PulseCapture(humans);
         MarkChanged();
     }
 
@@ -71,6 +73,23 @@ sealed partial class HudScreen
     }
 
     CCSGameRulesProxy? rulesProxy;
+
+    /// <summary>The chat column's route (HudChat.Route): the plugin's default, or os_hud chat's until the plugin reloads.</summary>
+    HudChat.Route chatRoute = HudChat.Default;
+
+    /// <summary>After a hot reload the new entity's HUD stays off in a running game until its input capture changes (the live lab, release 218: the column came back
+    /// only when the window opened, or in the next game session): the first frame with humans on turns each one's capture on, and the next frame's own Capture puts
+    /// it back - one frame of cursor, once per reload.</summary>
+    bool reloadPulse;
+
+    void PulseCapture(List<CCSPlayerController> humans)
+    {
+        reloadPulse = false;
+        foreach (var p in humans)
+            if (!captured.GetValueOrDefault(p.Slot)) { entity!.SetInputCaptureEnabled(p, true); captured[p.Slot] = true; }
+        playerDirty = true;
+        log.LogInformation("Over Strike 2 HUD: after the reload, each player's capture pulsed once ({Count})", humans.Count); // the next regular frame puts it back
+    }
 
     /// <summary>A human on the server as the frame needs them: the HUD their game showed, the check's clock, their time on, TAB's cursor, the hold.</summary>
     HudFrame.Human Human(CCSPlayerController p, DateTime now)

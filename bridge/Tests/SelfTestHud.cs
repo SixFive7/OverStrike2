@@ -395,10 +395,10 @@ static partial class Program
                 //      how to vote and one clock ----
                 Check($"Content {HudVersion.Content}: every page docks right of CS2's chat - right-aligned 80 px from the edge at 16:9 (its 1,240 px from x 600), scaled to fit at 16:10 and 4:3, in the room right of the chat at 21:9; no page moves the window",
                     Regex.IsMatch(rules0, @"(?m)^\.os-screen \.os-win\s*\{\s*horizontal-align:\s*right;\s*margin-right:\s*80px;") && Regex.IsMatch(rules0, @"(?m)^\.os-win\s*\{[^}]*width:\s*1240px;")
-                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio16x10 \.os-screen \.os-win\s*\{\s*ui-scale:\s*92%;") && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio4x3 \.os-screen \.os-win\s*\{\s*ui-scale:\s*68%;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio16x10 \.os-screen \.os-win\s*\{\s*ui-scale:\s*92%;\s*margin-right:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio4x3 \.os-screen \.os-win\s*\{\s*ui-scale:\s*68%;")
                     && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio21x9 \.os-screen \.os-win\s*\{\s*margin-right:\s*360px;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-win\s*\{\s*height:\s*920px;\s*\}")
                     && !Regex.IsMatch(rules0, @"\.os-screen\.page-\w+ \.os-win\s*\{[^}]*(horizontal-align|margin)")
-                    && 1920 - 80 - 1240 >= 571 + 25 && 1728 - 20 - 0.92 * 1240 >= 571 - 5 && 1440 - 10 - 0.68 * 1240 >= 571 + 5 && !Regex.IsMatch(rules0, @"\.os-screen\.voting \.os-win\s*\{[^}]*width:"));
+                    && 1920 - 80 - 1240 >= 571 + 25 && 1728 - 8 - 0.92 * 1240 >= 571 + 6 && 1440 - 10 - 0.68 * 1240 >= 571 + 5 && !Regex.IsMatch(rules0, @"\.os-screen\.voting \.os-win\s*\{[^}]*width:"));
                 Check($"Content {HudVersion.Content}: the ballot's tiles four across and three down - 4 x 285 + 3 x 10 in its 1,172 px, the fourth and eighth without the margin to wrap on - each with the vote's own number on its picture (os_m<k>_num), never in the browser",
                     Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 92 + 6 + 26 <= 693
                     && new[] { 4, 8 }.All(k => Regex.IsMatch(rules0, $@"(?m)^\.os-screen\.voting #os_m{k}\s*\{{\s*margin-right:\s*0px;")) && !Regex.IsMatch(rules0, @"#os_m(5|10)\s*\{")
@@ -454,7 +454,8 @@ static partial class Program
             Check($"Content v4.14.0: the chat column - {HudChat.Lines} lines in a panel at CS2's chat's place, solid over CS2's whole chat area (route a1): down to y 1000 with the chat closed, its foot at 944 with it open (HUD_CHAT_VISIBLE) so CS2's typing line stays free, lifted with CS2's chat at a match end (meos: 722 and 666); under everything else on the screen; shown only while chaton, and kept by a beat (hb) that restarts an animation of 35 s, more than three of HudChat.BeatSeconds",
                 Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat"" hittest=""false"">")
                 && Enumerable.Range(1, HudChat.Lines).All(k => noComments.Contains($"<Panel id=\"{HudChat.Line(k)}\" class=\"os-chat-line\" hittest=\"false\"><Panel hittest=\"false\" /><Label id=\"{HudChat.Words(k)}\" hittest=\"false\" text=\"{{s:text}}\" /></Panel>"))
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{[^}]*visibility:\s*collapse;[^}]*width:\s*553px;[^}]*margin:\s*0px 0px 80px 18px;[^}]*opacity:\s*0;[^}]*color-stop\(\s*0\.36,\s*#0A0D11F7\s*\),\s*to\(\s*#0A0D11F7\s*\)")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{[^}]*visibility:\s*collapse;[^}]*width:\s*553px;[^}]*margin:\s*0px 0px 80px 18px;[^}]*opacity:\s*0;[^}]*color-stop\(\s*0\.36,\s*#0A0D11FF\s*\),\s*to\(\s*#0A0D11FF\s*\)")
+                && !Regex.IsMatch(noCommentsCss, @"\.os-chat\s*\{[^}]*#0A0D11F7") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win \.os-chat\s*\{[^}]*color-stop\(\s*0\.36,\s*#0A0D11FF\s*\),\s*to\(\s*#0A0D11FF\s*\)") // fully opaque over CS2's area: at 97% its newest lines read through
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat\s*\{\s*margin-bottom:\s*136px;") && 1080 - 80 == 1000 && 1080 - 136 == 944 && 600 * (1 - 0.36) >= 1000 - 617
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton\.hb \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-a;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-b;\s*animation-duration:\s*35s;") && 35 > 3 * HudChat.BeatSeconds
@@ -478,6 +479,9 @@ static partial class Program
                 && column.Classes.Contains((HudChat.Line(1), "used", false)) && column.Classes.Contains((HudChat.Line(HudChat.Lines), "used", true))
                 && HudChat.Text(tView.Single(e => e.Kind == HudChat.Kind.Team)) == "(Team) Bob: rush b" && HudChat.Look(tView.Single(e => e.Kind == HudChat.Kind.Team)).SetEquals(["k-t", "k-team"])
                 && HudChat.Joined("Cara") == "Cara joined the game" && HudChat.Left("Cara") == "Cara left the game" && HudChat.TeamChanged("Cara", "CT") == "Cara joined the Counter-Terrorists");
+            Check("The chat column's route is the server's (the owner's 277): always (a1), only while the window is open (c), never (d) - the same stylesheet for all, so no content update; a1 by default",
+                HudChat.Default == HudChat.Route.Always && HudChat.Shows(HudChat.Route.Always, false) && HudChat.Shows(HudChat.Route.Always, true) && !HudChat.Shows(HudChat.Route.Window, false)
+                && HudChat.Shows(HudChat.Route.Window, true) && !HudChat.Shows(HudChat.Route.Never, true));
             Check("The chat column's words go only to a game whose HUD check named v4.14.0 or later (HudChat.Feeds): none before the check, none to v4.13.0 or an unknown content - they would log \"Unable to find panel\" (the live lab, release 218: 36 of them)",
                 HudChat.Feeds("v4.14.0") && HudChat.Feeds("v4.15.0") && !HudChat.Feeds("") && !HudChat.Feeds("v4.13.0") && !HudChat.Feeds(HudVersion.Unknown) && !HudChat.Feeds(HudVersion.Older));
             var many = new HudChat();

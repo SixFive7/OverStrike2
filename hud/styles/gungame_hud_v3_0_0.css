@@ -6552,7 +6552,7 @@ Label
 .AspectRatio16x10 .os-screen .os-win
 {
 	ui-scale: 92%;
-	margin-right: 20px;
+	margin-right: 8px;
 }
 
 .AspectRatio4x3 .os-screen .os-win
@@ -8213,7 +8213,8 @@ Label
    (route a1, the live lab's film of release 218: CS2's own lines showed through a fading background, and below the column): with the chat closed CS2 draws its
    lines down to y 1000 (1080 high; its typing line hidden, the history drops 56 px), so the column reaches there; with it open (HUD_CHAT_VISIBLE, CS2's class) its
    history stands at y 617-944 over the typing line at 952-1000, so the column stops at 944 and the typing line stays free. Above CS2's area its background fades
-   upward. The newest line at the bottom; a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour. It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that
+   upward. Over CS2's area it is fully opaque: at 97% CS2's newest lines still read through it for their 15 s (the live lab's re-film, release 218). The newest
+   line at the bottom; a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour. It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that
    hides the column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. At a match end CS2 lifts its chat (to y 674-722),
    and the column follows (meos). With the window closed its background fades away upward, so it covers the game less -- */
 @keyframes 'os-chat-beat-a'
@@ -8241,7 +8242,7 @@ Label
 	overflow: clip;
 	opacity: 0;
 	border-radius: 4px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.3, #0A0D11B3 ), color-stop( 0.36, #0A0D11F7 ), to( #0A0D11F7 ) );
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.3, #0A0D11B3 ), color-stop( 0.36, #0A0D11FF ), to( #0A0D11FF ) );
 }
 
 .HUD_CHAT_VISIBLE .os-screen .os-chat
@@ -8283,7 +8284,7 @@ Label
 
 .os-screen.win .os-chat
 {
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D11A6 ), color-stop( 0.36, #0A0D11F7 ), to( #0A0D11F7 ) );
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D11A6 ), color-stop( 0.36, #0A0D11FF ), to( #0A0D11FF ) );
 }
 
 .os-chat-lines

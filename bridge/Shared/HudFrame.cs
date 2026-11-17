@@ -35,7 +35,8 @@ public sealed class HudFrame
     /// the bridge's.</summary>
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
         bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs,
-        VoteState? BarVote = null, HudState? BarState = null, HudChat? Chat = null, bool ChatLive = false, bool MatchScreen = false, HudVote.Download? Download = null);
+        VoteState? BarVote = null, HudState? BarState = null, HudChat? Chat = null, bool ChatLive = false, bool MatchScreen = false, HudVote.Download? Download = null,
+        HudChat.Route ChatRoute = HudChat.Default);
     // Chat, ChatLive: the chat column's lines and whether its feed is live - the plugin's frames run and the bridge answers (content v4.14.0, HudChat); MatchScreen:
     // the match-end screen is up (the game's phase), when CS2 lifts its chat and the column follows; Download: a winner's download, as the watcher's line says it.
     // BarVote, BarState: the vote and the state as of HudVote.BarLeadMs from now, for the countdowns' bars alone (their words stay as of now); null: as of now.
@@ -111,7 +112,7 @@ public sealed class HudFrame
         foreach (var (id, text) in HudView.LatelyTexts(s, account, w.BridgeNowMs)) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in HudView.LatelyClasses(s, account)) screen.Class(id, cls, on, slot);
         screen.Class(HudView.Screen, "vcheck", h.Version is "" or HudVersion.Unknown, slot); // the window's X is the version button
-        ChatColumn(w, h, screen);
+        ChatColumn(w, h, screen, view.Window);
         screen.Class(HudView.Screen, "wback", view.Window && view.Returning, slot);           // the welcome page's line about the map that is on
         CatchUp(p, now, slot, screen);
         if (s.Why.TryGetValue(account, out var asked)) screen.Var(HudView.Screen, HudVote.WhyVar, asked.Map, slot); // the map the popup asks about: its label inherits it
@@ -199,12 +200,12 @@ public sealed class HudFrame
     /// shows (chaton: its feed is live), its beat (hb, on and off by turns every HudChat.BeatSeconds, which keeps the stylesheet's animation from hiding it) and the
     /// match-end screen (meos: CS2's chat stands higher then, and the column with it). Only a game whose HUD check named v4.14.0 or later gets the column's words
     /// (HudChat.Feeds) - any other the classes on os_screen alone, which every content has - and the column shows only once it has a line for that player.</summary>
-    static void ChatColumn(World w, Human h, IScreen screen)
+    static void ChatColumn(World w, Human h, IScreen screen, bool windowOpen)
     {
         var slot = h.Slot;
-        var fed = w.Chat != null && HudChat.Feeds(h.Version);
+        var fed = w.Chat != null && HudChat.Feeds(h.Version) && w.ChatRoute != HudChat.Route.Never;
         var shown = fed ? w.Chat!.For(h.Account, h.Team) : [];
-        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && shown.Count > 0, slot); // no line yet (a plugin just loaded): CS2's own chat shows meanwhile
+        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && shown.Count > 0 && HudChat.Shows(w.ChatRoute, windowOpen), slot); // no line yet (a plugin just loaded): CS2's own chat shows meanwhile
         screen.Class(HudView.Screen, "hb", HudChat.BeatA(w.Now), slot);
         screen.Class(HudView.Screen, "meos", w.MatchScreen, slot);
         if (!fed) return;

@@ -13,6 +13,14 @@ sealed partial class HudScreen
         return tabOverride == null ? "TAB: back to hud.tab from the bridge" : $"TAB: {HudTab.Name(tabOverride.Value)} until the plugin reloads";
     }
 
+    /// <summary>os_hud chat always|window|off: the chat column's route until the plugin reloads (HudChat.Route: a1, c, d); bare, the route it has.</summary>
+    public string SetChatRoute(string? word)
+    {
+        if (word is "always" or "window" or "off") chatRoute = word == "always" ? HudChat.Route.Always : word == "window" ? HudChat.Route.Window : HudChat.Route.Never;
+        Server.NextFrame(Frame);
+        return $"chat column: {chatRoute switch { HudChat.Route.Always => "always (a1)", HudChat.Route.Window => "while the window is open (c)", _ => "off (d)" }}{(chatRoute == HudChat.Default ? "" : " until the plugin reloads")}";
+    }
+
     /// <summary>os_hud release: every window closed and every cursor given back - the way out if one ever sticks.</summary>
     public string ReleaseAll()
     {

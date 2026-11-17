@@ -290,6 +290,12 @@ public class OverStrike2Plugin : BasePlugin
             command.ReplyToCommand(arg is "off" or "down" ? $"os_hud: {hud.SetTab(arg)}" : arg == "bridge" ? $"os_hud: {hud.SetTab(null)}" : "os_hud: tab off | down | bridge");
             return;
         }
+        if (verb == "chat")
+        {
+            var arg = command.ArgCount > 2 ? command.GetArg(2).ToLowerInvariant() : "";
+            command.ReplyToCommand(arg is "always" or "window" or "off" or "" ? $"os_hud: {hud.SetChatRoute(arg == "" ? null : arg)}" : "os_hud: chat always | window | off");
+            return;
+        }
         if (verb == "release")
         {
             command.ReplyToCommand($"os_hud: {hud.ReleaseAll()}");
