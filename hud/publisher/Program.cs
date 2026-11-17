@@ -60,7 +60,9 @@ static class Program
         "player adds - it never takes another card's place, adding one votes for it, and adding another later swaps it -, a map of each other game mode (Deathmatch and Wingman), " +
         "a fresh Workshop map, a surprise new to the server, and favourites to fill the page; Random is a button of its own. Every card shows its mode, its tags and its votes, and " +
         "every card but a player's own pick is on the server's disk, so the winner loads at once.\n" +
-        "Click a card to vote, another to change it; once you have voted your vote stays, and moves only when you vote for another card. Your own card comes first in your view, " +
+        "Click a card to vote, another to change it, or type !vote and the number on its picture - the vote's own, the same for everybody; once you have voted your vote " +
+        "stays, and moves only when you vote for another card. The ballot stands beside the chat, so you see what you type and every reply, and one clock says when it " +
+        "ends. Your own card comes first in your view, " +
         "with a white YOUR VOTE badge; the others sort by their votes as they come in, and you see who still has to vote. A confirmed Previous or risky map counts 10 seconds " +
         "down in its button, and a click cancels it. The most votes win and a tie is drawn; no votes keeps the map mid-match and is Random at a match's end. After a vote, 2 minutes pass before the next can be called. The server is back on Arms Race after a restart " +
         "or 10 minutes with nobody on.\n\n" +

@@ -238,6 +238,7 @@ public static class HudVote
         c.Add((HudView.Screen, "vdone", done));                      // decided or kept: the limit's row goes, the second row counts down, the tiles dim but the winner
         c.Add((HudView.Screen, "vall", v.Open && v.Inactivity > 0)); // everybody has voted: the inactivity timer counts to the decision (content v4.13.0's state and clock)
         c.Add((HudView.Screen, "vnum", true));                       // the cards' numbers (os_m<k>_num) are this vote's: content v4.13.0 shows them only then
+        c.Add((HudView.Screen, "vfetch", done && v.Fetching));       // a winner still to download: content v4.13.0's state says Downloading, its clock the note, no digits
         c.Add((HudView.Screen, "vlow", v.Open && v.SecondsLeft <= LowSeconds));
         c.Add((HudView.Screen, "vpages", pages > 1));
         c.Add((HudView.Screen, "vmore", rest > 0));

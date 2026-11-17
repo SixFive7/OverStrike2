@@ -408,6 +408,17 @@ button itself runs the countdown, lit red, with a line at its foot that drains a
 cancel starts from full too; from v4.12.2 a card's line and Previous's stay drawn at rest, at their full 3 px and opacity, clear by their colours alone - at 0 px a
 card's fill still kept the place a cancel left it at.
 
+**The chat beside the window** (v4.13.0): MAPS - Browse and the ballot - stands right of CS2's chat, which sits at x 18-571 (1080 high) at every aspect, its line at
+y 952-1000 in a match and higher at a match end (`.EndOfMatchChat`, y 674-722), so what a player types during a vote and every reply show beside the window. 16:10
+and 4:3 scale the window to fit there (`ui-scale` 92% and 68%), 21:9 sets it in the room right of the chat, and the other pages stay in the middle; the chat's own
+pointer for the search stays, and the window no longer lifts for it. The ballot shows its ten cards four across and three down, each with **the vote's own number** on
+its picture - the option's number on the wire, the same for everybody whatever the order of the cards (`os_m<k>_num`) - so `!vote <n>` in chat votes for it. The
+badges and the how-to line's words about them show only while the server sends the numbers (`vnum` on `os_screen`, plugin 5.16.5 on), so a game that has the
+content before its server never shows an empty badge. Its header says the vote's state beside the title - Voting; Everybody voted (`vall`, while the inactivity
+timer counts to the decision); Decided; Downloading for a winner still to download (`vfetch`, `VoteState.Fetching`) -, how many have voted and who has not, how
+to vote by a click or in chat, and **one clock**: the limit's while the vote is open, the time to the decision once everybody has voted, the change's countdown
+once decided - and for a downloading winner no digits, its words instead: it changes the moment it is ready. The strip of where the votes go is hidden (its panels stay for their ids): the cards' counts and bars say it.
+
 Ten cards a page; the players' own maps add pages (48 cards at the most). The ballot opens with these (`OpenBallot`, `VoteRound.cs`):
 
 1. **Keep**: Keep playing this map while the match is on, Play this map again once it is over;

@@ -333,6 +333,10 @@ static partial class Program
                 && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vall")
                 && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, h.Clock) is var numberless && numberless.Classes.Contains((HudView.Screen, "vall", false))
                 && numberless.Classes.Contains((HudView.Screen, "vnum", false)) && numberless.Texts.Contains(("os_m1_num", "")));
+            var fetchingState = VoteState.Decode("mv\t9\tdone\t0\t3\t3\tend\t0\t1\t0\t\t\t0\t0\t1\nmvo\t1\tarmsrace\tkeep\t\tk\tKeep\t\t0\t\nmvo\t2\tarmsrace\trolled\t\tm2\tMap two\t\t3\t\nmvr\t2\tall\tMap two\n");
+            Check("A winner still to download (VoteState.Fetching) puts vfetch on os_screen - content v4.13.0's state says Downloading and its clock the note, no digits; a decided vote that counts down, an open one and the browser's page have it off",
+                fetchingState is { Fetching: true, Open: false } && ClassOn(fetchingState, HudView.Screen, "vfetch") && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vfetch")
+                && !ClassOn(numbered, HudView.Screen, "vfetch") && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, h.Clock).Classes.Contains((HudView.Screen, "vfetch", false)));
             Check("A risky card's lock, with its capitals: Locked - Click to unlock, then Click again - Vote anyway",
                 HudMenu.Locked == "Locked - Click to unlock" && HudMenu.Unlocked == "Click again - Vote anyway" && Capitals([HudMenu.Locked, HudMenu.Unlocked]));
             Check("The capitals rule leaves a map's own words alone: the dash in a marked title ends no section; everybody's run-end check reads every line of the vote's (MessagesCapitalsCheck)",

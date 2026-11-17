@@ -122,7 +122,7 @@ public sealed class HudFrame
         var vv = VoteView(p, vote, perPage);
         var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
         if (vote.Round <= 0 || browsing) screen.Class(HudView.Screen, "voting", false, slot);
-        if (vote.Round <= 0 || browsing) { screen.Class(HudView.Screen, "vall", false, slot); screen.Class(HudView.Screen, "vnum", false, slot); } // the ballot's own (HudVote.Cards)
+        if (vote.Round <= 0 || browsing) { screen.Class(HudView.Screen, "vall", false, slot); screen.Class(HudView.Screen, "vnum", false, slot); screen.Class(HudView.Screen, "vfetch", false, slot); } // the ballot's own (HudVote.Cards)
         screen.Class(HudView.Screen, "vbrowse", browsing, slot);       // MAPS, Browse: the map browser adds to the vote
         screen.Class(HudView.Screen, "vlock", w.VoteLocked, slot);     // a vote that freezes everybody has no close button
         if (browsing) screen.Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), slot);

@@ -292,7 +292,7 @@ static partial class DocShots
 
         // ---- a fresh, real join first: any click ends the HUD check
         R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick: "HUD check: Click to play",
-          today: "the window's X (os_hudver_v4.12.2, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+          today: "the window's X (os_hudver_v4.13.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
           steps: [Con("disconnect"), Pause(3), Mark(), Con($"connect {Host}:{Port}"), WaitIngame(), Pause(4), Con("jointeam 2 1", 1500), Pause(5), Shoot()],
           when: "5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
           crop: CX, masks: [MGreetBack], names: Greeting + Unseen);
