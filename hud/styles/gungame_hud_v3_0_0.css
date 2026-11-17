@@ -399,13 +399,19 @@ Label
 
 /* ---- 2. the card stack: centre, under the crosshair ------------------------------------------------------------------- */
 
-/* Its bottom edge at y 730 (1,080 - 350), just above CS2's centre boxes, growing upward: the layout's first panel lies lowest. It draws above the window. */
+/* Its bottom edge at y 730 (1,080 - 350), just above CS2's centre boxes, growing upward: the layout's first panel lies lowest. Not while the window is open
+   (content v4.14.0): it would lie over the window's cards - now playing comes at a map's first spawn, and catch-up's lines are in the chat column too. */
 .os-cardstack
 {
 	horizontal-align: center;
 	vertical-align: bottom;
 	margin-bottom: 350px;
 	flow-children: up;
+}
+
+.os-screen.win .os-cardstack
+{
+	visibility: collapse;
 }
 
 /* 3c, now playing: the map's own picture, what kind (the eyebrow), the map, its votes, a hint. Its margin parts it from a card above it, and goes when it collapses. */
@@ -576,7 +582,9 @@ Label
 
 /* ---- 3. the top stack: top centre, under CS2's timer ---------------------------------------------------------------------- */
 
-/* Each panel collapses while it is not on, and the ones under it move up. Above the open window (which starts at y 130) there is room for one line. */
+/* Each panel collapses while it is not on, and the ones under it move up. While the window is open none of it shows (content v4.14.0, the review of 218r4:
+   the window starts at y 80, where the top line stood over its head): the banners never did, and every kind of top-line news has a chat copy (Messages.cs),
+   which the chat column beside the window shows. */
 .os-topstack
 {
 	horizontal-align: center;
@@ -587,7 +595,7 @@ Label
 
 .os-screen.win .os-topstack
 {
-	margin-top: 84px;
+	visibility: collapse;
 }
 
 /* 6b, a change counting down: the picture, the eyebrow, the map, who picked it, the gold seconds. */
@@ -1204,12 +1212,19 @@ Label
 
 /* ---- 4. the window -------------------------------------------------------------------------------------------------- */
 
+/* The dim behind the open window (content v4.14.0, the review of 218r4): 80 %, so what of CS2's HUD stands outside the window and the chat column - the radar's
+   top, the weapon list, the top-centre tile, a match end's award card - lies behind them rather than reading as cut by them (at 50 % it read as cut). It starts
+   right of the chat's strip (x 579), never over it: with the column up the column covers CS2's chat there and the dock dims above and under it itself
+   (os-chat-top, os-chat-under), never CS2's typing line in the slot between them; without the column (route d, or before its first line) CS2's own chat shows
+   there undimmed, its typing line too. */
+
 .os-dim
 {
 	visibility: collapse;
 	width: 100%;
 	height: 100%;
-	background-color: #05070A80;
+	margin-left: 579px;
+	background-color: #05070ACC;
 	opacity: 0;
 	transition-property: opacity;
 	transition-duration: 0.25s;
@@ -1232,7 +1247,8 @@ Label
 	width: 1240px;
 	height: 920px;
 	horizontal-align: center;
-	vertical-align: center;
+	vertical-align: bottom;
+	margin-bottom: 80px;
 	flow-children: down;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #141A21F4 ), to( #0A0D11F7 ) );
 	background-image: url( "s2r://panorama/images/backgrounds/bluedots_large_png.vtex" );
@@ -1541,7 +1557,7 @@ Label
 .os-wback
 {
 	visibility: collapse;
-	width: 100%;
+	width: 721px;
 	flow-children: down;
 	margin-top: 12px;
 	padding: 9px 16px 10px 14px;
@@ -1610,7 +1626,7 @@ Label
 
 .os-step
 {
-	width: 238px;
+	width: 231px;
 	height: 176px;
 	margin-right: 14px;
 	flow-children: down;
@@ -2344,6 +2360,31 @@ Label
 .os-page-game
 {
 	flow-children: down;
+}
+
+/* Each setting in a frame (the review of 218r4: two bare settings on an empty page); the page holds no more than these two. */
+.os-page-game .os-set
+{
+	width: 100%;
+	margin-bottom: 18px;
+	border: 1px solid #FFFFFF12;
+	border-radius: 5px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0A ), to( #FFFFFF03 ) );
+}
+
+.os-page-game .os-set-head
+{
+	margin: 18px 0px 6px 20px;
+}
+
+.os-page-game #os_set_time_now
+{
+	margin-left: 36px;
+}
+
+.os-page-game .os-set-btns
+{
+	margin: 12px 0px 22px 20px;
 }
 
 .os-set
@@ -3438,22 +3479,21 @@ Label
 
 .os-fcol
 {
-	width: 50%;
+	width: 572px;
 	flow-children: down;
-	padding-right: 14px;
 }
 
 .os-fcol-right
 {
-	padding-right: 0px;
-	padding-left: 14px;
+	margin-left: 28px;
 }
 
-/* A row: its title and its choices on one line, its words under them across the column. */
+/* A row: its title and its choices on one line, its words under them across the column - 572 px with its padding and its mark, the column's width (a width of
+   100 % took the padding and the mark on top, and the right column's rows ran 15 px past the page: the review of 218r4). */
 .os-frow
 {
 	visibility: collapse;
-	width: 100%;
+	width: 572px;
 	height: 60px;
 	flow-children: down;
 	margin-bottom: 1px;
@@ -3622,7 +3662,15 @@ Label
 /* A bot row's choices: up to five, narrower than the Fun page's three. */
 .os-botb
 {
-	width: 72px;
+	width: 80px;
+	margin-right: 4px;
+}
+
+.os-botb .os-setb-text
+{
+	max-width: 72px;
+	font-size: 12px;
+	letter-spacing: 1px;
 }
 
 /* Kick all bots: red-edged and wider; greyed while no bot plays. */
@@ -4088,10 +4136,10 @@ Label
 	margin-left: 12px;
 	vertical-align: center;
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
-	font-size: 20px;
+	font-size: 22px;
 	letter-spacing: 1px;
 	text-transform: uppercase;
-	color: os-faint;
+	color: #FFFFFF;
 }
 
 .os-ddot
@@ -4903,9 +4951,16 @@ Label
 {
 	visibility: collapse;
 	width: 100%;
-	height: 25px;
-	flow-children: right;
+	height: 40px;
+	flow-children: down;
 	border-bottom: 1px solid #FFFFFF0A;
+}
+
+.os-dmtop
+{
+	width: 100%;
+	height: 21px;
+	flow-children: right;
 }
 
 .os-dmat
@@ -4931,7 +4986,7 @@ Label
 
 .os-dmname
 {
-	max-width: 180px;
+	width: fill-parent-flow( 1 );
 	vertical-align: center;
 	font-size: 13px;
 	font-weight: bold;
@@ -4942,9 +4997,7 @@ Label
 
 .os-dmwhy
 {
-	width: fill-parent-flow( 1 );
-	margin-left: 10px;
-	vertical-align: center;
+	width: 100%;
 	font-size: 12px;
 	color: os-dim;
 	text-overflow: ellipsis;
@@ -5371,7 +5424,7 @@ Label
 
 .os-screen.voting.vmore .os-vmore
 {
-	visibility: visible;
+	visibility: collapse;
 }
 
 .os-ours-wrap
@@ -5876,8 +5929,7 @@ Label
 	margin-bottom: 10px;
 	font-size: 12px;
 	font-weight: bold;
-	letter-spacing: 2px;
-	text-transform: uppercase;
+	letter-spacing: 0.5px;
 	color: os-gold;
 }
 
@@ -5894,7 +5946,6 @@ Label
 	width: 100%;
 	height: 29px;
 	flow-children: right;
-	border-bottom: 1px solid #FFFFFF0A;
 }
 
 .os-pname
@@ -5982,6 +6033,11 @@ Label
 	color: os-faint;
 }
 
+.os-phead .os-phud
+{
+	height: fit-children;
+}
+
 .os-plegend
 {
 	margin-top: 10px;
@@ -5990,12 +6046,14 @@ Label
 }
 
 /* -- the cards, upright from content v4.14.0 (below): before it, on their side: the band of the mode, the picture, then the name and every tag that applies in two lines; the browser's eight are
-   577 x 110 with a 196 x 110 picture (two of them and 14 px between fill the page's 1,172 px, borders and all). The ballot's ten stand upright, below -- */
+   577 x 110 with a 196 x 110 picture (two of them and 14 px between fill the page's 1,172 px, borders and all). The ballot's ten stand upright, below. Four to a
+   row, each row a panel of its own that never wraps (the review of 218r4: one row of twelve that wrapped put three to a row at 4:3, where 68 % rounds the four
+   cards and their margins past the 1,172 px) -- */
 
 .os-grid-row
 {
 	width: 100%;
-	flow-children: right-wrap;
+	flow-children: right;
 	margin-bottom: 0px;
 }
 
@@ -6055,7 +6113,7 @@ Label
 {
 	width: 196px;
 	height: 100%;
-	background-color: gradient( linear, 0% 0%, 100% 100%, from( #1C2530 ), to( #0D1218 ) );
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #34404D ), color-stop( 0.55, #1C2530 ), to( #121820 ) );
 	background-size: cover;
 	background-position: 50% 50%;
 	background-repeat: no-repeat;
@@ -6283,7 +6341,7 @@ Label
 
 .os-mcard.now .os-mtag-now
 {
-	visibility: visible;
+	visibility: collapse;
 }
 
 .os-mcard.big .os-mtag-big
@@ -6548,8 +6606,10 @@ Label
 
 /* -- Every page beside CS2's chat (content v4.14.0; MAPS alone in v4.13.0): the chat's box stands at x 10-579 at every aspect (styles/hud/hudchat.css: 553 px and
    its margins), its line at y 952-1000 in a match and higher at a match end (y 674-722), and the chat column over it (os-chat, x 0-579). The window never moves
-   from page to page and is 920 high on every one, centred: y 80-1000 at 16:9. Its left edge stays at about 600 (1080 high) - 16:9 right-aligned, 16:10 and 4:3
-   scaled to fit there (90 %: 604; 68 %: 587), 21:9 in the middle of the room right of the chat. -- */
+   from page to page and is 920 high on every one, its foot at y 1000 at every aspect, where the chat column's is (the review of 218r4: centred, the two ended
+   apart outside 16:9): y 80-1000 at 16:9 and 21:9, 172-1000 at 16:10 (90 %), 384-1000 at 4:3 (67 %). Its left edge stays at about 600 (1080 high) - 16:9
+   right-aligned, 16:10 and 4:3 scaled to fit there (90 %: 604; 67 %: 599 - at 68 % it stood 8 px from the column, the review of 218r4), 21:9 in the middle of
+   the room right of the chat. -- */
 
 .os-screen .os-win
 {
@@ -6565,7 +6625,7 @@ Label
 
 .AspectRatio4x3 .os-screen .os-win
 {
-	ui-scale: 68%;
+	ui-scale: 67%;
 	margin-right: 10px;
 }
 
@@ -7153,11 +7213,12 @@ Label
 
 /* The player's own vote: a 3 px white frame with a white glow and a white tint - white is no other state's (gold is Arms Race's, LEADING's,
    TIE's and NEXT MAP's), and it reads by its brightness, not its hue, so a colour-blind player sees it as clearly - and the badge on the
-   picture (os-mmine), which says it in words and with a check. The small YOUR VOTE above the count goes: the badge says it. */
+   picture (os-mmine), which says it in words and with a check. The small YOUR VOTE above the count goes: the badge says it. The tint is opaque
+   (the review of 218r4: the glow showed through a see-through card and turned it light grey), and the badge stays once it is decided. */
 .os-screen.voting .os-mcard.confirm
 {
 	border: 3px solid #FFFFFF;
-	background-color: #FFFFFF14;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #2A3036 ), to( #1E2329 ) );
 	box-shadow: #FFFFFF59 0px 0px 18px 0px;
 }
 
@@ -7296,6 +7357,18 @@ Label
 	opacity: 1;
 	border: 2px solid os-gold;
 	box-shadow: #E9B44C66 0px 0px 24px 0px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #2B2719 ), to( #1A1813 ) );
+}
+
+/* Decided: the winner's words show on the own vote's card too (Next map, Kept, Server downloading), and the badge keeps its check under the mouse. */
+.os-screen.vdone .os-mcard.confirm .os-mplay-text
+{
+	visibility: visible;
+}
+
+.os-screen.vdone .os-mcard.confirm .os-mplay:hover .os-mtick
+{
+	visibility: visible;
 }
 
 .os-screen.voting .os-pager
@@ -7304,7 +7377,8 @@ Label
 }
 
 /* -- Play asks first, a browser card's: a risky map's whole picture locks (risky); the first click (confirm) opens the padlock and starts a line that runs out over the 30 s
-   the click stays armed. When they pass, the class goes: the padlock shuts, the line is full again. The padlock is a picture in the addon, as the knife -- */
+   the click stays armed. When they pass, the class goes: the padlock shuts, the line is full again. The padlock is a picture in the addon, as the knife. It is
+   44 px in the picture's top half (y 12-56; 64 px at its middle before the review of 218r4), clear of what a click does under it (from y 61 on a broken card) -- */
 
 .os-mlock
 {
@@ -7329,8 +7403,8 @@ Label
 	height: 100%;
 	background-color: #0A0D11B8;
 	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/lock_shut.vtex" );
-	background-size: 64px 64px;
-	background-position: 50% 38%;
+	background-size: 44px 44px;
+	background-position: 50% 18%;
 	background-repeat: no-repeat;
 	opacity: 1;
 	transition-property: opacity;
@@ -7339,8 +7413,8 @@ Label
 
 .os-mlock-open
 {
-	width: 64px;
-	height: 64px;
+	width: 44px;
+	height: 44px;
 	horizontal-align: center;
 	margin-top: 10px;
 	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/lock_open.vtex" );
@@ -7561,7 +7635,7 @@ Label
 {
 	visibility: collapse;
 	width: 100%;
-	height: 34px;
+	height: 46px;
 	vertical-align: bottom;
 	flow-children: right;
 	padding: 0px 16px 0px 14px;
@@ -7858,6 +7932,16 @@ Label
 }
 
 .os-pgb.off
+{
+	animation-name: none;
+}
+
+#os_pg_next.off
+{
+	animation-name: none;
+}
+
+#os_pg_prev.off
 {
 	animation-name: none;
 }
@@ -8236,10 +8320,12 @@ Label
    at 97 % CS2's lines read through it (the live lab's film of release 218) - and its foot is y 1000 with CS2's chat closed, in a match and at a match end alike
    (no typing line there; CS2's lines are covered at either height, also in the second before CS2 lifts them), and with it open just above the typing line's box:
    y 952 in a match, 674 at a match end (meos: the plugin's ChatLift; or the game's own classes for its end screen with the scoreboard, the moment CS2 lifts it).
-   The dock sets the top: the window's, 80 at 16:9 and 21:9 (920 high, centred), 126 at 16:10 (90 %), 227 at 4:3 (68 %). The newest line at the bottom, as many
+   The dock sets the top: the window's, 80 at 16:9 and 21:9, 172 at 16:10 (90 %), 384 at 4:3 (67 %) - the window's foot at 1000 as the column's. The newest line at the bottom, as many
    as fit (the rest are clipped at the top); a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour.
    It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that hides the
-   column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again -- */
+   column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. On the default route (chatwin) the dock fades in and
+   out with the window (it came half a second before it). With the window open the dock dims above and under the column itself, as the dim does right of it; the
+   slot for CS2's typing line, under the column while CS2's chat is open, is never dimmed, and the column's shadow goes then so it does not shade that line -- */
 @keyframes 'os-chat-beat-a'
 {
 	0% { opacity: 1; }
@@ -8262,20 +8348,42 @@ Label
 	flow-children: down;
 }
 
+.os-screen.chatwin.win .os-chat-dock
+{
+	opacity: 0;
+	transition-property: opacity;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.os-screen.chatwin.win-in .os-chat-dock
+{
+	opacity: 1;
+}
+
+.os-screen.win-in.chaton .os-chat-top
+{
+	background-color: #05070ACC;
+}
+
 .os-chat-top
 {
 	width: 100%;
 	height: 80px;
+	background-color: #05070A00;
+	transition-property: background-color;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
 }
 
 .AspectRatio16x10 .os-chat-top
 {
-	height: 126px;
+	height: 172px;
 }
 
 .AspectRatio4x3 .os-chat-top
 {
-	height: 227px;
+	height: 384px;
 }
 
 /* The column, framed as the window is (.os-win, .os-win-rule): its border, its corners, its shadow, the gold rule on top and the dots - fully opaque, as CS2's
@@ -8296,6 +8404,11 @@ Label
 	box-shadow: #000000b3 0px 24px 72px 0px;
 }
 
+.HUD_CHAT_VISIBLE .os-screen .os-chat
+{
+	box-shadow: #00000000 0px 0px 0px 0px;
+}
+
 .os-chat-rule
 {
 	width: 100%;
@@ -8306,9 +8419,9 @@ Label
 }
 
 /* Whole rows only: a row is 24 px (21 and its gap of 3, under it), and the clip - the column less its border (2), the rule (3), the lift and its margins - is a whole
-   number of rows in every state. Its top margin sets that by the aspect (16:9 and 21:9: 920 - 2 - 3 - 15 - 12 = 888, 37 rows; 16:10, from 126: 840, 35; 4:3, from
-   227: 744, 31); CS2's chat open takes the foot up 48 px, two rows (35, 33, 29); at a match end 326 px more, which the lift's 10 px rounds to 14 rows (23, 21, 17).
-   A row a pixel or two too many shows its gap only, never its words. */
+   number of rows in every state. Its top margin sets that by the aspect (16:9 and 21:9: 920 - 2 - 3 - 15 - 12 = 888, 37 rows; 16:10, from 172: 792, 33; 4:3,
+   from 384, rows of 16 px (15 and 1) in 12 px type, as the window there is at 67 %: 576, 36); CS2's chat open takes the foot up 48 px (35, 31, 33); at a match end
+   326 px more, which the lift's 10 px rounds to whole rows (23, 19, 15). A row a pixel or two too many shows its gap only, never its words. */
 .os-chat-lift
 {
 	width: 100%;
@@ -8335,18 +8448,19 @@ Label
 
 .AspectRatio16x10 .os-chat-clip
 {
-	margin-top: 17px;
+	margin-top: 19px;
 }
 
 .AspectRatio4x3 .os-chat-clip
 {
-	margin-top: 12px;
+	margin-top: 23px;
 }
 
 .os-chat-foot
 {
 	width: 100%;
 	height: 80px;
+	flow-children: down;
 }
 
 .HUD_CHAT_VISIBLE .os-screen .os-chat-foot
@@ -8362,6 +8476,33 @@ Label
 .HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE.HUD_CHAT_VISIBLE .os-screen .os-chat-foot
 {
 	height: 406px;
+}
+
+/* The foot: the slot of CS2's typing line (48 px while CS2's chat is open, none while it is closed), then the rest to the screen's foot, dimmed with the window open. */
+.os-chat-slot
+{
+	width: 100%;
+	height: 0px;
+}
+
+.HUD_CHAT_VISIBLE .os-screen .os-chat-slot
+{
+	height: 48px;
+}
+
+.os-chat-under
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	background-color: #05070A00;
+	transition-property: background-color;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.os-screen.win-in.chaton .os-chat-under
+{
+	background-color: #05070ACC;
 }
 
 .os-screen.chaton .os-chat
@@ -8387,10 +8528,10 @@ Label
 
 .os-chat-lines
 {
-	width: 100%;
+	width: 543px;
 	vertical-align: bottom;
 	flow-children: down;
-	padding: 0px 16px 0px 18px;
+	margin-left: 18px;
 }
 
 .os-chat-line
@@ -8428,10 +8569,11 @@ Label
 	white-space: nowrap;
 }
 
-/* a line's later rows: no mark of their own, in its place */
+/* a line's later rows: its mark on them too, the row's whole height, so a line's mark runs down all its rows (the review of 218r4: on its first row alone) */
 .os-chat-line.k-cont Panel
 {
-	opacity: 0;
+	height: 21px;
+	margin-top: 0px;
 }
 
 .os-chat-line.k-ct Panel
@@ -8478,4 +8620,152 @@ Label
 {
 	font-size: 15px;
 	color: os-dim;
+}
+
+/* -- the review of 218r4 (content v4.14.0): what the stylesheet's earlier rules cannot say -- */
+
+/* Decided: LEADING goes - the map to come is the one that stands out (it said LEADING beside NEXT MAP). */
+.os-screen.vdone .os-mcard.vlead .os-mtag-lead
+{
+	visibility: collapse;
+}
+
+/* The last 10 s: the limit's bar turns red with its digits (it stayed gold); the decided countdown's stays gold, as its digits do. */
+.os-screen.vlow .os-clock-fill
+{
+	background-color: #F07C6B;
+}
+
+.os-screen.vlow .os-clock-idle .os-clock-fill
+{
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( os-gold-deep ), to( os-gold ) );
+}
+
+/* The logo's picture stays loaded: one pixel of it always on, so the window's head never opens without its logo (it did for a moment). */
+.os-preload
+{
+	width: 1px;
+	height: 1px;
+	opacity: 0.01;
+}
+
+/* -- 4:3: the window is at 67 %, so its smallest words came out at about 7 px; there they are 2 px larger (about 8 px on screen), within their boxes -- */
+.AspectRatio4x3 .os-win .os-mmode
+{
+	font-size: 12px;
+}
+
+.AspectRatio4x3 .os-win .os-mside
+{
+	font-size: 12px;
+}
+
+.AspectRatio4x3 .os-win .os-mtag
+{
+	font-size: 12px;
+}
+
+.AspectRatio4x3 .os-win .os-mwarn
+{
+	font-size: 13px;
+}
+
+.AspectRatio4x3 .os-win .os-mplay-text
+{
+	font-size: 13px;
+}
+
+.AspectRatio4x3 .os-screen.voting .os-mplay-text
+{
+	width: 130px;
+	font-size: 12px;
+	letter-spacing: 1px;
+}
+
+.AspectRatio4x3 .os-screen.vfetch .os-mcard.now .os-mplay-text
+{
+	width: 190px;
+}
+
+.AspectRatio4x3 .os-win .os-mpop-title
+{
+	font-size: 12px;
+}
+
+.AspectRatio4x3 .os-win .os-clock-key
+{
+	width: 100px;
+	font-size: 12px;
+	letter-spacing: 1px;
+}
+
+.AspectRatio4x3 .os-win .os-vdl .os-vdl-key
+{
+	width: 170px;
+}
+
+.AspectRatio4x3 .os-screen.vfetch .os-clock-key-done
+{
+	width: 170px;
+}
+
+.AspectRatio4x3 .os-win .os-mbar-label
+{
+	font-size: 13px;
+}
+
+.AspectRatio4x3 .os-win #os_q_prev_text
+{
+	font-size: 13px;
+}
+
+.AspectRatio4x3 .os-win .os-pgb-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-phead .os-phl
+{
+	font-size: 13px;
+}
+
+.AspectRatio4x3 .os-win .os-foot-ver
+{
+	font-size: 13px;
+}
+
+.AspectRatio4x3 .os-win .os-drain-word
+{
+	font-size: 13px;
+}
+
+/* 4:3: the column's rows are 16 px (15 and 1) in 12 px type, closer to the window's at 67 % (17 px type was twice its size: the review of 218r4). The plugin's
+   rows are made for 17 px, so a long line's rows end short of the edge here. */
+.AspectRatio4x3 .os-chat-line
+{
+	height: 15px;
+	margin-bottom: 1px;
+}
+
+.AspectRatio4x3 .os-chat-line Panel
+{
+	height: 11px;
+	margin: 2px 8px 0px 0px;
+}
+
+.AspectRatio4x3 .os-chat-line.k-cont Panel
+{
+	height: 15px;
+	margin-top: 0px;
+}
+
+.AspectRatio4x3 .os-chat-line Label
+{
+	height: 15px;
+	font-size: 12px;
+}
+
+.AspectRatio4x3 .os-chat-line.k-evt Label
+{
+	font-size: 11px;
 }

@@ -44,12 +44,15 @@
 	</styles>
 
 	<Panel class="os-root" hittest="false">
+		<!-- One pixel of the logo, always on, so its picture stays loaded: the window's head opened a moment without it (the review of 218r4) -->
+		<Panel class="os-logo os-preload" hittest="false" />
 		<Panel id="os_global" class="os-global" hittest="false">
 			<Panel id="os_screen" class="os-screen" hittest="false">
 				<!-- The chat column (content v4.14.0): our own chat history beside the open window - the plugin's lines (HudChat), the newest at the bottom - over the whole
 				     of CS2's chat, from the window's top down to just above CS2's typing line, framed as the window is: its border, corners and shadow, the gold rule on top.
 				     The dock's two spacers set its top (the window's, by the aspect) and its foot (y 1000 with CS2's chat closed; just above its typing line with it open,
-				     higher once CS2 lifts it for a match end). Its rows are whole: one row of type each (a long line runs on in the rows under it), and the clip's height a whole
+				     higher once CS2 lifts it for a match end). The foot holds the slot of CS2's typing line and the rest under it: with the window open the dock dims
+				     above and under the column, never that slot. Its rows are whole: one row of type each (a long line runs on in the rows under it), and the clip's height a whole
 				     number of rows in every state, the lift spacer taking up the rest at a match end. A row's words are its panel's own text, which its label shows. It shows
 				     only while its feed is live (chaton) and beats (hb): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. -->
 				<Panel class="os-chat-dock" hittest="false">
@@ -102,7 +105,10 @@
 							</Panel>
 						</Panel>
 					</Panel>
-					<Panel class="os-chat-foot" hittest="false" />
+					<Panel class="os-chat-foot" hittest="false">
+						<Panel class="os-chat-slot" hittest="false" />
+						<Panel class="os-chat-under" hittest="false" />
+					</Panel>
 				</Panel>
 
 				<!-- 1. The board: TAB. A click action panel while the TAB cursor is on (HUD_TAB down): vote, Next, the queue, the menu. -->
@@ -264,7 +270,7 @@
 									</Panel>
 								</Panel>
 								<Panel class="os-vhowbar">
-									<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  Or type !vote and the card's number  ·  !play and a map's name adds that map  ·  Y opens the chat" />
+									<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  !vote and the card's number votes too  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 									<Label class="os-vhow os-vhow-plain" text="Click a card to vote  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 								</Panel>
 								<Panel class="os-mbar">
@@ -471,6 +477,8 @@
 												<Button id="os_m4_down" class="os-mvote os-mvote-down"><Panel class="os-chev os-chev-down" /></Button>
 											</Panel>
 										</Panel>
+									</Panel>
+									<Panel class="os-grid-row">
 										<Panel id="os_m5" class="os-mcard os-mcard-l">
 											<Panel class="os-mrow">
 												<Panel class="os-mband" />
@@ -607,6 +615,8 @@
 												<Button id="os_m8_down" class="os-mvote os-mvote-down"><Panel class="os-chev os-chev-down" /></Button>
 											</Panel>
 										</Panel>
+									</Panel>
+									<Panel class="os-grid-row">
 										<Panel id="os_m9" class="os-mcard os-mcard-l">
 											<Panel class="os-mrow">
 												<Panel class="os-mband" />
@@ -1343,14 +1353,14 @@
 											</Panel>
 										</Panel>
 										<Panel class="os-dlist">
-											<Panel class="os-dmrow os-dm1"><Label class="os-dmat" text="{s:osdm1a}" /><Label class="os-dmev" text="{s:osdm1b}" /><Label class="os-dmname" text="{s:osdm1c}" /><Label class="os-dmwhy" text="{s:osdm1d}" /></Panel>
-											<Panel class="os-dmrow os-dm2"><Label class="os-dmat" text="{s:osdm2a}" /><Label class="os-dmev" text="{s:osdm2b}" /><Label class="os-dmname" text="{s:osdm2c}" /><Label class="os-dmwhy" text="{s:osdm2d}" /></Panel>
-											<Panel class="os-dmrow os-dm3"><Label class="os-dmat" text="{s:osdm3a}" /><Label class="os-dmev" text="{s:osdm3b}" /><Label class="os-dmname" text="{s:osdm3c}" /><Label class="os-dmwhy" text="{s:osdm3d}" /></Panel>
-											<Panel class="os-dmrow os-dm4"><Label class="os-dmat" text="{s:osdm4a}" /><Label class="os-dmev" text="{s:osdm4b}" /><Label class="os-dmname" text="{s:osdm4c}" /><Label class="os-dmwhy" text="{s:osdm4d}" /></Panel>
-											<Panel class="os-dmrow os-dm5"><Label class="os-dmat" text="{s:osdm5a}" /><Label class="os-dmev" text="{s:osdm5b}" /><Label class="os-dmname" text="{s:osdm5c}" /><Label class="os-dmwhy" text="{s:osdm5d}" /></Panel>
-											<Panel class="os-dmrow os-dm6"><Label class="os-dmat" text="{s:osdm6a}" /><Label class="os-dmev" text="{s:osdm6b}" /><Label class="os-dmname" text="{s:osdm6c}" /><Label class="os-dmwhy" text="{s:osdm6d}" /></Panel>
-											<Panel class="os-dmrow os-dm7"><Label class="os-dmat" text="{s:osdm7a}" /><Label class="os-dmev" text="{s:osdm7b}" /><Label class="os-dmname" text="{s:osdm7c}" /><Label class="os-dmwhy" text="{s:osdm7d}" /></Panel>
-											<Panel class="os-dmrow os-dm8"><Label class="os-dmat" text="{s:osdm8a}" /><Label class="os-dmev" text="{s:osdm8b}" /><Label class="os-dmname" text="{s:osdm8c}" /><Label class="os-dmwhy" text="{s:osdm8d}" /></Panel>
+											<Panel class="os-dmrow os-dm1"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm1a}" /><Label class="os-dmev" text="{s:osdm1b}" /><Label class="os-dmname" text="{s:osdm1c}" /></Panel><Label class="os-dmwhy" text="{s:osdm1d}" /></Panel>
+											<Panel class="os-dmrow os-dm2"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm2a}" /><Label class="os-dmev" text="{s:osdm2b}" /><Label class="os-dmname" text="{s:osdm2c}" /></Panel><Label class="os-dmwhy" text="{s:osdm2d}" /></Panel>
+											<Panel class="os-dmrow os-dm3"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm3a}" /><Label class="os-dmev" text="{s:osdm3b}" /><Label class="os-dmname" text="{s:osdm3c}" /></Panel><Label class="os-dmwhy" text="{s:osdm3d}" /></Panel>
+											<Panel class="os-dmrow os-dm4"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm4a}" /><Label class="os-dmev" text="{s:osdm4b}" /><Label class="os-dmname" text="{s:osdm4c}" /></Panel><Label class="os-dmwhy" text="{s:osdm4d}" /></Panel>
+											<Panel class="os-dmrow os-dm5"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm5a}" /><Label class="os-dmev" text="{s:osdm5b}" /><Label class="os-dmname" text="{s:osdm5c}" /></Panel><Label class="os-dmwhy" text="{s:osdm5d}" /></Panel>
+											<Panel class="os-dmrow os-dm6"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm6a}" /><Label class="os-dmev" text="{s:osdm6b}" /><Label class="os-dmname" text="{s:osdm6c}" /></Panel><Label class="os-dmwhy" text="{s:osdm6d}" /></Panel>
+											<Panel class="os-dmrow os-dm7"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm7a}" /><Label class="os-dmev" text="{s:osdm7b}" /><Label class="os-dmname" text="{s:osdm7c}" /></Panel><Label class="os-dmwhy" text="{s:osdm7d}" /></Panel>
+											<Panel class="os-dmrow os-dm8"><Panel class="os-dmtop"><Label class="os-dmat" text="{s:osdm8a}" /><Label class="os-dmev" text="{s:osdm8b}" /><Label class="os-dmname" text="{s:osdm8c}" /></Panel><Label class="os-dmwhy" text="{s:osdm8d}" /></Panel>
 											<Label class="os-dempty os-dmempty" text="{s:osdmnone}" />
 										</Panel>
 									</Panel>
@@ -1470,7 +1480,7 @@
 						<Button id="os_why_5" class="os-whyb"><Label class="os-whyb-text" text="{s:oswhys5}" /><Label class="os-whyb-word" text="{s:oswhyw5}" /></Button>
 						<Button id="os_why_6" class="os-whyb"><Label class="os-whyb-text" text="{s:oswhys6}" /><Label class="os-whyb-word" text="{s:oswhyw6}" /></Button>
 					</Panel>
-					<Label class="os-why-hint" text="Optional - Hold TAB and click, or type !down and its word" />
+					<Label class="os-why-hint" text="Optional - Click a reason, or type !down and its word" />
 					<Panel class="os-why-track"><Panel class="os-why-fill" /></Panel>
 				</Panel>
 

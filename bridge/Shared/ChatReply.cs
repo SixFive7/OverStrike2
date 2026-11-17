@@ -23,7 +23,7 @@ public static class ChatReply
 
     public static string NoMatch(string words) => M.Refused($"No map matches \"{M.A(Hud.Clean(words, 40))}\" - Other words, a number, or a Workshop ID");
 
-    public static string Matches(int count) => $"{M.V(count.ToString(System.Globalization.CultureInfo.InvariantCulture))} maps match - The menu shows them: click {M.A("Play")} on one";
+    public static string Matches(int count) => $"{M.V(count.ToString(System.Globalization.CultureInfo.InvariantCulture))} maps match - The menu shows them: click one to put it to the vote";
 
     public static string YourVote(string label) => M.Done($"Your vote: {M.A(Hud.Clean(label, 40))}");
 

@@ -86,8 +86,8 @@ public static class Hud
     public static readonly Group[] Help =
     [
         new("Maps", [
-            new("Maps  ·  Play", "Put any map to the vote: a vote opens, your vote on that map"),
-            new("Search  ·  !find", "On Browse, press Y and type a map name - Or !find anywhere"),
+            new("Maps  ·  Any card", "Click any map's card: it goes to the vote, your vote on it"),
+            new("Search  ·  !find", "On Maps, press Y and type a map name - Or !find anywhere"),
             new("Start a vote", "On the board or in the menu: a vote for the next map"),
             new("Previous  ·  !back", "On the Maps page: the map before this one, to the vote")]),
         new("The vote", [
@@ -101,13 +101,13 @@ public static class Hud
             new("Maps  ·  Arrows", "Like or dislike any map's card: up likes, down dislikes"),
             new("Sort  ·  Likes", "The most liked maps first")]),
         new("Game", [
-            new("Fun", "Gravity, friendly fire, grenade drops, catch-up, bots"),
-            new("Server  ·  Game", "Match length: 10 or 60 minutes, Wingman 8 or 16 rounds"),
-            new("Restart", "Server  ·  Game: the match or the whole server - Click twice to confirm")]),
+            new("Fun  ·  Bots", "Gravity, friendly fire, grenades, catch-up, the bots"),
+            new("Game", "Match length: 10 or 60 minutes, Wingman 8 or 16 rounds"),
+            new("Restart", "On Game: the match or the whole server - Click twice to confirm")]),
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
-            new("Help  ·  Server", "How it works under Help; who is on, the game and the map sync under Server"),
+            new("Players  ·  Sync", "Who is on under Players, the map sync under Sync, the rules under How it works"),
             new("Chat  ·  !help", "Every action has a chat command too - !help lists them")]),
     ];
 
@@ -118,7 +118,7 @@ public static class Hud
     public static readonly Rule[] How =
     [
         new("The vote", [
-            "Play on a card puts its map to the vote, with your vote on it. While a vote is on, it goes on that ballot. Start a vote calls one without a map.",
+            "A click on a map's card puts it to the vote, with your vote on it. While a vote is on, it goes on that ballot. Start a vote calls one without a map.",
             "A vote freezes everybody (no moving, shooting or closing it) until all have voted, 60 s at the most. Most votes win; a tie is drawn.",
             "Click a card to vote, another to move your vote: a vote is never taken back. A map you put on it is your own card; your next one takes its place.",
             "A match end opens a vote by itself. After a vote, 2 minutes before the next one on that map. No votes: mid-match the map stays, at a match end Random."]),
@@ -147,8 +147,8 @@ public static class Hud
     /// <summary>The start page: three steps, each a title, where to click and a few words.</summary>
     public static readonly (string Title, string Command, string Words)[] Steps =
     [
-        ("Pick a map", "Maps", "Every map with its picture; Play puts it to the vote."),
-        ("Vote", "Maps  ·  Vote", "Everybody votes; the most votes win."),
+        ("Pick a map", "Maps", "Every map with its picture; a click on its card puts it to the vote."),
+        ("Vote", "The Vote tab", "Everybody votes; the most votes win."),
         ("Like it", "Like  Dislike", "Your likes steer the random maps."),
     ];
 
@@ -163,14 +163,21 @@ public static class Hud
     /// (U+2060) in front keeps it plain - the same fix CS2KZ ships. The plugin passes every text through this.</summary>
     public static string Plain(string text) => text.StartsWith('#') ? "⁠" + text : text;
 
-    /// <summary>One line, no tab, no newline - the codec's separators - and never longer than max.</summary>
+    /// <summary>One line, no tab, no newline - the codec's separators - and never longer than max: a longer one is cut, never inside a surrogate pair, and
+    /// ends in an ellipsis (U+2026; "~" before content v4.14.0's review, which a player took for a stray mark).</summary>
     public static string Clean(string? text, int max = 80)
     {
         var s = new StringBuilder();
         foreach (var ch in text ?? "") s.Append(ch is '\t' or '\r' or '\n' || char.IsControl(ch) ? ' ' : ch);
         var t = s.ToString().Trim();
-        return t.Length <= max ? t : t[..(max - 1)].TrimEnd() + "~";
+        if (t.Length <= max) return t;
+        var cut = max - 1;
+        if (cut > 0 && char.IsHighSurrogate(t[cut - 1])) cut--;
+        return t[..cut].TrimEnd() + Ellipsis;
     }
+
+    /// <summary>The mark at the end of a cut text: a real ellipsis.</summary>
+    public const string Ellipsis = "\u2026";
 
     /// <summary>Steam account id from "[U:1:123]", a bare account id, or a SteamID64; -1 when unrecognised. Same rules as the bridge's AccountId.</summary>
     public static long AccountId(string? text)

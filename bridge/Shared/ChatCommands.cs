@@ -381,10 +381,11 @@ public static class ChatCommands
     /// <summary>What chat says for a word that is no command of ours.</summary>
     public static string UnknownLine(string word) => M.Refused($"Unknown command {M.A(Hud.Clean(word, 40))} - {M.C("!help")} lists them (and the menu: hold TAB, press E)");
 
-    /// <summary>Whether a name as a line shows it is this player's: whole, or clipped with a ~ at its end (Clip, Hud.Clean), a " in it said as ' (the plugin's fun lines). Chat's team colour goes by it.</summary>
+    /// <summary>Whether a name as a line shows it is this player's: whole, or clipped with an ellipsis at its end (Hud.Clean, the bridge's Clip; a ~ before content
+    /// v4.14.0's review), a " in it said as ' (the plugin's fun lines). Chat's team colour goes by it.</summary>
     public static bool IsName(string shown, string name)
     {
         var whole = Hud.Clean(name, 64).Replace('"', '\'');
-        return shown == whole || (shown.Length > 1 && shown.EndsWith('~') && whole.StartsWith(shown[..^1], StringComparison.Ordinal));
+        return shown == whole || (shown.Length > 1 && (shown.EndsWith('~') || shown.EndsWith(Hud.Ellipsis, StringComparison.Ordinal)) && whole.StartsWith(shown[..^1], StringComparison.Ordinal));
     }
 }

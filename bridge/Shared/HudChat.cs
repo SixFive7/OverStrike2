@@ -33,7 +33,7 @@ public sealed class HudChat
     /// spare for a wider guess, and the label still ends in an ellipsis rather than take a second row.</summary>
     public const double RowUnits = 48;
 
-    /// <summary>At most this many rows a line; the last ends in "..." when the words run on.</summary>
+    /// <summary>At most this many rows a line; the last ends in an ellipsis when the words run on.</summary>
     public const int MaxRows = 4;
 
     /// <summary>A character's width in units, a little generous: narrow letters and marks, wide ones, capitals, digits; East Asian and other wide characters
@@ -55,8 +55,8 @@ public sealed class HudChat
     /// <summary>A text's width in units (Width).</summary>
     public static double Units(string s) => s.Sum(Width);
 
-    /// <summary>A line's words in rows of at most RowUnits, broken at spaces (a word longer than a row breaks inside), at most MaxRows - the last ending in "..." when
-    /// there is more. Every row is one row on screen.</summary>
+    /// <summary>A line's words in rows of at most RowUnits, broken at spaces (a word longer than a row breaks inside), at most MaxRows - the last ending in an ellipsis
+    /// (Hud.Ellipsis) when there is more. Every row is one row on screen.</summary>
     public static List<string> Rows(string text)
     {
         var rows = new List<string>();
@@ -66,9 +66,9 @@ public sealed class HudChat
             var (row, next) = Take(rest);
             if (rows.Count == MaxRows - 1 && next != "")
             {
-                while (row.Length > 0 && Units(row) + 3 * Width('.') > RowUnits) row = row[..^1];
+                while (row.Length > 0 && Units(row) + Units(Hud.Ellipsis) > RowUnits) row = row[..^1];
                 if (row.Length > 0 && char.IsHighSurrogate(row[^1])) row = row[..^1];
-                rows.Add(row.TrimEnd() + "...");
+                rows.Add(row.TrimEnd() + Hud.Ellipsis);
                 break;
             }
             rows.Add(row);
@@ -134,7 +134,11 @@ public sealed class HudChat
     public IReadOnlyList<Entry> All => entries;
 
     /// <summary>A player's chat line as CS2 shows it: to everybody, or to the sender's team alone.</summary>
-    public void Say(string name, string team, string text, bool teamOnly) => Add(new(0, teamOnly ? Kind.Team : Kind.Chat, Hud.Clean(name, 32), TeamOf(team), Hud.Clean(text, 127), 0));
+    public void Say(string name, string team, string text, bool teamOnly) => Add(new(0, teamOnly ? Kind.Team : Kind.Chat, Hud.Clean(name, 32), TeamOf(team), Hud.Clean(text, SayMax), 0));
+
+    /// <summary>A player's words kept whole up to this many characters (127 before content v4.14.0's review: a longer line ended in a cut word and a mark); Rows
+    /// runs them on over at most MaxRows.</summary>
+    public const int SayMax = 200;
 
     /// <summary>A line of the server's own: for everybody (to 0) or for one account.</summary>
     public void Server(string text, long to = 0) => Add(new(0, Kind.Server, "", "", Hud.Clean(text, 160), to));

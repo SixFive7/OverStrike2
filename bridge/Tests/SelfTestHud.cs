@@ -398,10 +398,10 @@ static partial class Program
                 //      how to vote and one clock ----
                 Check($"Content {HudVersion.Content}: every page docks right of CS2's chat - right-aligned 80 px from the edge at 16:9 (its 1,240 px from x 600), scaled to fit at 16:10 and 4:3, in the room right of the chat at 21:9, clear of the chat column's x 579; no page moves the window, 920 high on every one",
                     Regex.IsMatch(rules0, @"(?m)^\.os-screen \.os-win\s*\{\s*horizontal-align:\s*right;\s*margin-right:\s*80px;") && Regex.IsMatch(rules0, @"(?m)^\.os-win\s*\{[^}]*width:\s*1240px;\s*height:\s*920px;")
-                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio16x10 \.os-screen \.os-win\s*\{\s*ui-scale:\s*90%;\s*margin-right:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio4x3 \.os-screen \.os-win\s*\{\s*ui-scale:\s*68%;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio16x10 \.os-screen \.os-win\s*\{\s*ui-scale:\s*90%;\s*margin-right:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio4x3 \.os-screen \.os-win\s*\{\s*ui-scale:\s*67%;")
                     && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio21x9 \.os-screen \.os-win\s*\{\s*margin-right:\s*360px;") && !Regex.IsMatch(rules0, @"\.os-screen\.voting \.os-win\s*\{")
                     && !Regex.IsMatch(rules0, @"\.os-screen\.page-\w+ \.os-win\s*\{[^}]*(horizontal-align|margin)")
-                    && 1920 - 80 - 1240 >= 579 + 20 && 1728 - 8 - 0.90 * 1240 >= 579 + 20 && 1440 - 10 - 0.68 * 1240 >= 579 + 5);
+                    && 1920 - 80 - 1240 >= 579 + 20 && 1728 - 8 - 0.90 * 1240 >= 579 + 20 && 1440 - 10 - 0.67 * 1240 >= 579 + 20);
                 Check($"Content {HudVersion.Content}: the ballot's tiles four across and three down - 4 x 285 + 3 x 10 in its 1,172 px, the fourth and eighth without the margin to wrap on - each with the vote's own number on its picture (os_m<k>_num), never in the browser",
                     Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 34 + 8 + 20 + 10 + 34 <= 920 - 3 - 76 - 49 - 45 - 28
                     && new[] { 4, 8 }.All(k => Regex.IsMatch(rules0, $@"(?m)^\.os-screen\.voting #os_m{k}\s*\{{\s*margin-right:\s*0px;")) && !Regex.IsMatch(rules0, @"#os_m(5|10)\s*\{")
@@ -455,14 +455,15 @@ static partial class Program
                 && Enumerable.Range(1, HudMenu.Cards).All(k => noComments.Contains($"text=\"{{s:{HudVote.HoverVar(k)}}}\"")));
             // ---- content v4.14.0: the chat column, the pager's pulse on its buttons, the decided state without a countdown, the download, the browser's cards ----
             var noCommentsCss = rules;
-            Check($"Content v4.14.0: the chat column - {HudChat.Lines} rows, one id each, in a dock from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to just above CS2's typing line, x 0-579 over CS2's whole chat box; framed as the window is - its border, corners and shadow, the gold rule on top, the dots - and fully opaque: down to y 1000 with CS2's chat closed, in a match and at a match end; with it open its foot at 952 and at 674 at a match end (meos, or the game's own classes for its end screen with the scoreboard); shown only while chaton, kept by a beat (hb); the pointer to CS2's line above it, pointing down, at a match end too",
+            Check($"Content v4.14.0: the chat column - {HudChat.Lines} rows, one id each, in a dock from the window's top (80 at 16:9 and 21:9, 172 at 16:10, 384 at 4:3: the window's foot at 1000 at every aspect, as the column's) down to just above CS2's typing line, x 0-579 over CS2's whole chat box; framed as the window is - its border, corners and shadow, the gold rule on top, the dots - and fully opaque: down to y 1000 with CS2's chat closed, in a match and at a match end; with it open its foot at 952 and at 674 at a match end (meos, or the game's own classes for its end screen with the scoreboard); shown only while chaton, kept by a beat (hb); the pointer to CS2's line above it, pointing down, at a match end too",
                 Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat-dock"" hittest=""false"">\s*<Panel class=""os-chat-top"" hittest=""false"" />\s*<Panel class=""os-chat"" hittest=""false"">\s*<Panel class=""os-chat-rule"" hittest=""false"" />\s*<Panel class=""os-chat-lift"" hittest=""false"" />\s*<Panel class=""os-chat-clip"" hittest=""false"">\s*<Panel class=""os-chat-lines"" hittest=""false"">")
-                && Regex.IsMatch(noComments, @"</Panel>\s*</Panel>\s*</Panel>\s*<Panel class=""os-chat-foot"" hittest=""false"" />\s*</Panel>")
+                && Regex.IsMatch(noComments, @"</Panel>\s*</Panel>\s*</Panel>\s*<Panel class=""os-chat-foot"" hittest=""false"">\s*<Panel class=""os-chat-slot"" hittest=""false"" />\s*<Panel class=""os-chat-under"" hittest=""false"" />\s*</Panel>\s*</Panel>")
                 && Enumerable.Range(1, HudChat.Lines).All(k => noComments.Contains($"<Panel id=\"{HudChat.Line(k)}\" class=\"os-chat-line\" hittest=\"false\"><Panel hittest=\"false\" /><Label hittest=\"false\" text=\"{{s:text}}\" /></Panel>"))
                 && !noComments.Contains($"id=\"{HudChat.Line(HudChat.Lines + 1)}\"") && !Regex.IsMatch(noComments, @"os_chat_\d+_t")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-dock\s*\{\s*width:\s*579px;\s*height:\s*100%;\s*horizontal-align:\s*left;\s*flow-children:\s*down;")
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-top\s*\{\s*width:\s*100%;\s*height:\s*80px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio16x10 \.os-chat-top\s*\{\s*height:\s*126px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-top\s*\{\s*height:\s*227px;")
-                && (1080 - 920) / 2 == 80 && Math.Abs((1080 - 0.90 * 920) / 2 - 126) < 0.5 && Math.Abs((1080 - 0.68 * 920) / 2 - 227) < 0.5
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-top\s*\{\s*width:\s*100%;\s*height:\s*80px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio16x10 \.os-chat-top\s*\{\s*height:\s*172px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-top\s*\{\s*height:\s*384px;")
+                && 1000 - 920 == 80 && Math.Abs(1000 - 0.90 * 920 - 172) < 0.5 && Math.Abs(1000 - 0.67 * 920 - 384) < 0.5
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-win\s*\{[^}]*vertical-align:\s*bottom;\s*margin-bottom:\s*80px;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-win\s*\{[^}]*vertical-align:\s*center;")
                 && Regex.Match(noCommentsCss, @"(?m)^\.os-chat\s*\{([^}]*)\}") is { Success: true } chatRule && Regex.Match(noCommentsCss, @"(?m)^\.os-win\s*\{([^}]*)\}") is { Success: true } winRule
                 && new[] { @"border-radius:\s*5px;", @"border:\s*1px solid #FFFFFF12;", @"box-shadow:\s*#000000b3 0px 24px 72px 0px;", @"background-image:\s*url\( ""s2r://panorama/images/backgrounds/bluedots_large_png\.vtex"" \);", @"background-img-opacity:\s*0\.03;" }.All(x => Regex.IsMatch(chatRule.Groups[1].Value, x) && Regex.IsMatch(winRule.Groups[1].Value, x))
                 && Regex.IsMatch(chatRule.Groups[1].Value, @"visibility:\s*collapse;[^}]*height:\s*fill-parent-flow\(\s*1\s*\);\s*flow-children:\s*down;\s*opacity:\s*0;") && Regex.IsMatch(chatRule.Groups[1].Value, @"background-color:\s*gradient\( linear, 0% 0%, 0% 100%, from\( #141A21 \), to\( #0A0D11 \) \);")
@@ -474,6 +475,12 @@ static partial class Program
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton\.hb \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-a;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-b;\s*animation-duration:\s*35s;") && 35 > 3 * HudChat.BeatSeconds
                 && HudChat.KindClasses.All(c => Regex.IsMatch(noCommentsCss, $@"\.os-chat-line\.{c}\b"))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-foot\s*\{\s*width:\s*100%;\s*height:\s*80px;\s*flow-children:\s*down;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-slot\s*\{\s*width:\s*100%;\s*height:\s*0px;\s*\}")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-slot\s*\{\s*height:\s*48px;\s*\}") && !Regex.IsMatch(noCommentsCss, @"\.os-chat-slot\s*\{[^}]*background")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win-in\.chaton \.os-chat-top\s*\{\s*background-color:\s*#05070ACC;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win-in\.chaton \.os-chat-under\s*\{\s*background-color:\s*#05070ACC;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-dim\s*\{[^}]*margin-left:\s*579px;\s*background-color:\s*#05070ACC;") && !Regex.IsMatch(noCommentsCss, @"\.os-dim\s*\{[^}]*margin-left:\s*0px")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chatwin\.win \.os-chat-dock\s*\{\s*opacity:\s*0;\s*transition-property:\s*opacity;\s*transition-duration:\s*0\.25s;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chatwin\.win-in \.os-chat-dock\s*\{\s*opacity:\s*1;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat\s*\{\s*box-shadow:\s*#00000000 0px 0px 0px 0px;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr\s*\{[^}]*margin:\s*0px 0px 136px 18px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr-arrow\s*\{[^}]*rotateZ\(\s*-45deg\s*\);")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.meos \.os-chatptr\s*\{\s*margin-bottom:\s*414px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE \.os-screen \.os-chatptr\s*\{\s*margin-bottom:\s*414px;"));
             // Whole rows only: a row is its height and its gap under it; the clip - the column less its border (2), its rule (3), the lift and the clip's margins - is a whole
@@ -483,14 +490,18 @@ static partial class Program
             int Pxv(string pattern) => Regex.Match(noCommentsCss, pattern) is { Success: true } m ? int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : -1;
             var pitch = rowCss.Success ? int.Parse(rowCss.Groups[1].Value) + int.Parse(rowCss.Groups[2].Value) : 0;
             var lift = Pxv(@"(?m)^\.HUD_CHAT_VISIBLE \.os-screen\.meos \.os-chat-lift\s*\{\s*height:\s*(\d+)px;");
-            var clipTops = new[] { (Top: 80, Margin: clipCss.Success ? int.Parse(clipCss.Groups[1].Value) : -1), (Top: 126, Margin: Pxv(@"(?m)^\.AspectRatio16x10 \.os-chat-clip\s*\{\s*margin-top:\s*(\d+)px;")), (Top: 227, Margin: Pxv(@"(?m)^\.AspectRatio4x3 \.os-chat-clip\s*\{\s*margin-top:\s*(\d+)px;")) };
+            var row43 = Regex.Match(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-line\s*\{\s*height:\s*(\d+)px;\s*margin-bottom:\s*(\d+)px;");
+            var pitch43 = row43.Success ? int.Parse(row43.Groups[1].Value) + int.Parse(row43.Groups[2].Value) : 0;
+            var clipTops = new[] { (Top: 80, Margin: clipCss.Success ? int.Parse(clipCss.Groups[1].Value) : -1, Pitch: pitch), (Top: 172, Margin: Pxv(@"(?m)^\.AspectRatio16x10 \.os-chat-clip\s*\{\s*margin-top:\s*(\d+)px;"), Pitch: pitch),
+                (Top: 384, Margin: Pxv(@"(?m)^\.AspectRatio4x3 \.os-chat-clip\s*\{\s*margin-top:\s*(\d+)px;"), Pitch: pitch43) };
             var clipBottom = clipCss.Success ? int.Parse(clipCss.Groups[2].Value) : -1;
-            var clips = clipTops.SelectMany(a => new[] { (Foot: 1000, Lift: 0), (Foot: 952, Lift: 0), (Foot: 674, Lift: lift) }.Select(st => st.Foot - a.Top - 2 - 3 - st.Lift - a.Margin - clipBottom)).ToList();
-            Check($"Content v4.14.0: the chat column shows whole rows only - a row {pitch} px, and its clip a whole number of rows in every state ({string.Join(", ", clips.Select(c => pitch > 0 ? $"{c / pitch}" : "?"))} rows: 16:9, 16:10, 4:3 - closed, open, open at a match end); the label one row, cut to fit with an ellipsis; a line's later rows without a mark",
-                pitch == 24 && lift == 10 && Pxv(@"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-lift\s*\{\s*height:\s*(\d+)px;") == lift
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lift\s*\{\s*width:\s*100%;\s*height:\s*0px;") && clipTops.All(a => a.Margin >= 12) && clips.All(c => c > 0 && c % pitch == 0) && clips.Max() / pitch <= HudChat.Lines
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*height:\s*21px;[^}]*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line\.k-cont Panel\s*\{\s*opacity:\s*0;")
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*vertical-align:\s*bottom;[^}]*padding:\s*0px 16px 0px 18px;"));
+            var clips = clipTops.SelectMany(a => new[] { (Foot: 1000, Lift: 0), (Foot: 952, Lift: 0), (Foot: 674, Lift: lift) }.Select(st => (Px: st.Foot - a.Top - 2 - 3 - st.Lift - a.Margin - clipBottom, a.Pitch))).ToList();
+            Check($"Content v4.14.0: the chat column shows whole rows only - a row {pitch} px ({pitch43} at 4:3, in 12 px type), and its clip a whole number of rows in every state ({string.Join(", ", clips.Select(c => c.Pitch > 0 ? $"{c.Px / c.Pitch}" : "?"))} rows: 16:9, 16:10, 4:3 - closed, open, open at a match end); the label one row, cut to fit with an ellipsis; a line's later rows with its mark down their whole height; the rows 543 px with 18 left of them and 16 right, inside the clip's 577",
+                pitch == 24 && pitch43 == 16 && lift == 10 && Pxv(@"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-lift\s*\{\s*height:\s*(\d+)px;") == lift
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lift\s*\{\s*width:\s*100%;\s*height:\s*0px;") && clipTops.All(a => a.Margin >= 12) && clips.All(c => c.Px > 0 && c.Pitch > 0 && c.Px % c.Pitch == 0) && clips.Max(c => c.Px / c.Pitch) <= HudChat.Lines
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*height:\s*21px;[^}]*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line\.k-cont Panel\s*\{\s*height:\s*21px;\s*margin-top:\s*0px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-line Label\s*\{\s*height:\s*15px;\s*font-size:\s*12px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-line\.k-cont Panel\s*\{\s*height:\s*15px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{\s*width:\s*543px;[^}]*vertical-align:\s*bottom;[^}]*margin-left:\s*18px;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*padding") && 18 + 543 + 16 == 579 - 2);
             var wrapLine = string.Join(" ", Enumerable.Repeat("a long line to wrap over the column's rows", 6));
             var wrapped = HudChat.Rows(wrapLine);
             var wide = HudChat.Rows(new string('W', 60) + " " + new string('\u4E2D', 40));
@@ -498,9 +509,9 @@ static partial class Program
             wrapChat.Say("Eve", "T", wrapLine, teamOnly: false);
             wrapChat.Say("Dan", "CT", "short", teamOnly: false);
             var wrapColumn = HudChat.Column(wrapChat.For(1, "CT"));
-            var eveRows = HudChat.Rows(HudChat.Text(wrapChat.All[0])).Count; // the line as kept: Say clips a player's words to 127 characters, as CS2 does
-            Check($"The column's rows (HudChat.Rows): a line breaks at spaces into rows of at most {HudChat.RowUnits} units, never more than {HudChat.MaxRows} (the last ends in ...), a word longer than a row breaks inside it, wide characters count wide; its first row carries the mark, the rest are k-cont",
-                wrapped.Count == HudChat.MaxRows && wrapped[^1].EndsWith("...", StringComparison.Ordinal) && wrapped.All(r => HudChat.Units(r) <= HudChat.RowUnits) && wrapped.Take(HudChat.MaxRows - 1).All(r => !r.EndsWith(' ') && !r.StartsWith(' '))
+            var eveRows = HudChat.Rows(HudChat.Text(wrapChat.All[0])).Count; // the line as kept: Say keeps a player's words up to HudChat.SayMax characters
+            Check($"The column's rows (HudChat.Rows): a line breaks at spaces into rows of at most {HudChat.RowUnits} units, never more than {HudChat.MaxRows} (the last ends in an ellipsis), a word longer than a row breaks inside it, wide characters count wide; its first row carries the mark, the rest are k-cont; a player's words kept whole up to {HudChat.SayMax}",
+                wrapped.Count == HudChat.MaxRows && wrapped[^1].EndsWith(Hud.Ellipsis, StringComparison.Ordinal) && !string.Concat(wrapped).Contains('~') && HudChat.SayMax == 200 && wrapChat.All[0].Text.Length == Math.Min(wrapLine.Length, HudChat.SayMax) && wrapped.All(r => HudChat.Units(r) <= HudChat.RowUnits) && wrapped.Take(HudChat.MaxRows - 1).All(r => !r.EndsWith(' ') && !r.StartsWith(' '))
                 && wide.All(r => HudChat.Units(r) <= HudChat.RowUnits) && wide.Count >= 3 && HudChat.Rows("hi") is ["hi"] && HudChat.Rows("") is []
                 && wrapColumn.Texts.Single(x => x.Id == HudChat.Line(HudChat.Lines)).Text == "Dan: short"
                 && eveRows >= 2 && wrapColumn.Texts.Single(x => x.Id == HudChat.Line(HudChat.Lines - eveRows)).Text.StartsWith("Eve: a long line", StringComparison.Ordinal)
@@ -520,6 +531,27 @@ static partial class Program
                 && Regex.IsMatch(noCommentsCss, @"(?m)^#os_q_prev_text\s*\{\s*max-width:\s*280px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*color:\s*os-text;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*text-shadow")
                 && !Regex.IsMatch(noCommentsCss, @"letter-spacing:\s*2\.[23]px") && noComments.Contains("<Label class=\"os-clock-key os-vdl-key\" text=\"Server downloading\" />")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vfetch \.os-clock-key-done\s*\{\s*width:\s*170px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vfetch \.os-mcard\.now \.os-mplay-text\s*\{\s*width:\s*170px;"));
+            // The review of 218r4's frames (content v4.14.0): what it found that the stylesheet and the layout put right.
+            var gridRows = Regex.Matches(noComments, @"<Panel class=""os-grid-row"">").Count;
+            Check("The review of 218r4 (content v4.14.0): nothing of the top stack or the card stack over the open window; four cards a row in rows that never wrap; a greyed pager button still; the own vote's card and the winner opaque under their glow, the badge after the decision, no ON NOW and no LEADING there, no second more-pill; the padlock clear of the pill; the window's line over the whole pager; Fun's and Bots' rows their columns' 572 px; Game's settings framed; Sync's map events in two lines and its title as every page's; Players' head on one line, no rule under an empty row, the version as written; Start's box as wide as its steps; the last 10 s' bar red; the logo kept loaded; 4:3's small words larger; no Hold TAB in the window's own dialog, no capital mid-line in the ballot's how-to",
+                Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win \.os-topstack\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win \.os-cardstack\s*\{\s*visibility:\s*collapse;")
+                && gridRows == 3 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-grid-row\s*\{[^}]*flow-children:\s*right;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-grid-row\s*\{[^}]*right-wrap")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^#os_pg_next\.off\s*\{\s*animation-name:\s*none;") && Regex.IsMatch(noCommentsCss, @"(?m)^#os_pg_prev\.off\s*\{\s*animation-name:\s*none;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.voting \.os-mcard\.confirm\s*\{[^}]*background-color:\s*gradient\(") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vdone \.os-mcard\.now\s*\{[^}]*background-color:\s*gradient\(")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vdone \.os-mcard\.confirm \.os-mplay-text\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mcard\.now \.os-mtag-now\s*\{\s*visibility:\s*collapse;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vdone \.os-mcard\.vlead \.os-mtag-lead\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.voting\.vmore \.os-vmore\s*\{\s*visibility:\s*collapse;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mlock-shut\s*\{[^}]*background-size:\s*44px 44px;\s*background-position:\s*50% 18%;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mlock-open\s*\{\s*width:\s*44px;\s*height:\s*44px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-wl\s*\{[^}]*height:\s*46px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-fcol\s*\{\s*width:\s*572px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-fcol-right\s*\{\s*margin-left:\s*28px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-frow\s*\{[^}]*width:\s*572px;") && 572 + 28 + 572 == 1172
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-page-game \.os-set\s*\{[^}]*border:\s*1px solid")
+                && Regex.Matches(noComments, @"<Panel class=""os-dmrow os-dm\d""><Panel class=""os-dmtop""><Label class=""os-dmat""").Count == SyncWords.MapRows
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-dmrow\s*\{[^}]*height:\s*40px;\s*flow-children:\s*down;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-dmwhy\s*\{\s*width:\s*100%;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-dtitle\s*\{[^}]*font-size:\s*22px;[^}]*color:\s*#FFFFFF;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-phead \.os-phud\s*\{\s*height:\s*fit-children;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-prow\s*\{[^}]*border") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-psum\s*\{[^}]*uppercase")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-step\s*\{\s*width:\s*231px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-wback\s*\{[^}]*width:\s*721px;") && 3 * 231 + 2 * 14 == 721 && 3 * 231 + 3 * 14 <= 736
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vlow \.os-clock-fill\s*\{\s*background-color:\s*#F07C6B;") && noComments.Contains("<Panel class=\"os-logo os-preload\" hittest=\"false\" />")
+                && new[] { "os-mmode", "os-mtag", "os-mplay-text", "os-clock-key" }.All(c => Regex.IsMatch(noCommentsCss, $@"(?m)^\.AspectRatio4x3 \.os-win \.{c}\s*\{{[^}}]*font-size:\s*1[2-4]px;"))
+                && !noComments.Contains("Hold TAB and click, or type", StringComparison.Ordinal) && !noComments.Contains("Or type !vote", StringComparison.Ordinal));
             var chatTest = new HudChat();
             chatTest.Say("Alice", "CT", "gg all", teamOnly: false);
             chatTest.Say("Bob", "T", "rush b", teamOnly: true);
@@ -730,13 +762,13 @@ static partial class Program
             var presetsHead = Regex.Match(rules, @"\.os-bpresets-head\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-top:\s*(\d+)px;");
             var presetsRow = Regex.Match(rules, @"\.os-bpresets\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-top:\s*(\d+)px;");
             var botButton = Regex.Match(rules, @"\.os-botb\s*\{[^}]*width:\s*(\d+)px;");
-            var funButtonMargin = Regex.Match(rules, @"\.os-setb\s*\{[^}]*margin-right:\s*(\d+)px;");
+            var funButtonMargin = Regex.Match(rules, @"\.os-botb\s*\{[^}]*margin-right:\s*(\d+)px;"); // a bot's choice has its own margin (the review of 218r4: 80 px wide, for SHOTGUNS)
             var botsXml = xml[xml.IndexOf("os-page-bots", StringComparison.Ordinal)..];
             var botsSplit = botsXml.IndexOf("os-fcol-right", StringComparison.Ordinal);
             var botsPerColumn = Math.Max(Regex.Matches(botsXml[..botsSplit], @"class=""os-frow[ ""]").Count, Regex.Matches(botsXml[botsSplit..botsXml.IndexOf("os-bpresets-head", StringComparison.Ordinal)], @"class=""os-frow[ ""]").Count);
             var botsParsed = funParsed && botsPad.Success && presetsHead.Success && presetsRow.Success && botButton.Success && funButtonMargin.Success;
             var botsHeight = botsParsed ? Px(botsPad, 1) + Px(botsPad, 2) + funTopLine + botsPerColumn * (Px(funRowCss, 1) + Px(funRowCss, 2)) + Px(presetsHead, 1) + Px(presetsHead, 2) + Px(presetsRow, 1) + Px(presetsRow, 2) : int.MaxValue;
-            var botsButtons = botsParsed ? Bots.ChoicesPerRow * (Px(botButton, 1) + Px(funButtonMargin, 1)) : int.MaxValue; // a column: (1240 - 68) / 2 - 14 = 572 px, the title the rest
+            var botsButtons = botsParsed ? Bots.ChoicesPerRow * (Px(botButton, 1) + Px(funButtonMargin, 1)) : int.MaxValue; // a column: 572 px with the row's padding and mark (15), the title the rest
             Check($"Bots page fits the window: about {botsHeight} px of the pages' {PagesHeight} for its {Bots.Rows} rows ({botsPerColumn} in the longer column) and its presets; a row's {Bots.ChoicesPerRow} buttons take {botsButtons} px of a column's 572",
                 botsHeight <= PagesHeight && botsParsed && botsPerColumn == Bots.Rows / 2 && botsButtons <= 572 - 140);
             // ---- content v4.4.0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
