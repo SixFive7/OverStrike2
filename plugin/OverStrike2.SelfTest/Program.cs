@@ -373,6 +373,13 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && probe.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpotted\", offset);", StringComparison.Ordinal)
           && probe.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpottedByMask\", offset);", StringComparison.Ordinal),
         "lab probe: loaded, answering the server console and RCON only, and a cleared spotted state sent to the clients (m_bSpotted, m_bSpottedByMask)");
+    // the HUD's marks for the network (HudScreenSend.MarkChanged): only fields the engine resolves - never the global state's embedded struct, whose base at
+    // offset 2064 it cannot ("Couldn't resolve offset 2064 in CCSCustomHudLayout at path (-1 = '')", about 45 server console lines a minute)
+    var hudSend = Source("plugin", "OverStrike2", "HudScreenSend.cs");
+    Check(hudSend.Contains("if (playerDirty) Utilities.SetStateChanged(entity!, \"CCSCustomHudLayout\", \"m_vecPlayerLayoutStates\");", StringComparison.Ordinal)
+          && hudSend.Contains("foreach (var field in new[] { \"m_vecPanelIds\", \"m_vecClassNames\", \"m_vecDialogVariableNames\" })", StringComparison.Ordinal)
+          && !hudSend.Contains("\"m_globalLayoutState\")", StringComparison.Ordinal),
+        "HUD: a frame marks for the network only what the engine resolves - the three name vectors and the player states, never the global state's embedded struct (offset 2064)");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");
