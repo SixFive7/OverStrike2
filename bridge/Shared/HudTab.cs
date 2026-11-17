@@ -44,6 +44,11 @@ public sealed class HudTab
     /// <summary>The TAB cursor is on for this slot.</summary>
     public bool Cursor(int slot) => slots.TryGetValue(slot, out var s) && s.Cursor;
 
+    /// <summary>TAB is held, as the server reads this player's buttons (IN_SCORE), in either mode: the vote's scoreboard peek goes by it (HudFrame, vpeek).
+    /// CounterStrikeSharp reads the buttons from the player's own pawn, which a frozen pawn still has; a dead player's go to their observer pawn and are not
+    /// read, so death forgets it (Release), as a TAB-up the server never saw would otherwise keep it held.</summary>
+    public bool Holding(int slot) => slots.TryGetValue(slot, out var s) && (s.Held & Scoreboard) != 0;
+
     public IEnumerable<int> CursorSlots() => slots.Where(x => x.Value.Cursor).Select(x => x.Key);
 
     /// <summary>A change of one player's buttons: what it asks for, if anything. Cheap on purpose - CounterStrikeSharp calls this inside
@@ -65,19 +70,21 @@ public sealed class HudTab
         return null;
     }
 
-    /// <summary>Ends a slot's TAB cursor (a hit, death, the window taking over). True when it had one.</summary>
+    /// <summary>Ends a slot's TAB cursor and forgets its TAB held (a hit, death, the window taking over): a TAB still down counts again from its next press.
+    /// True when it had either.</summary>
     public bool Release(int slot)
     {
-        if (!slots.TryGetValue(slot, out var s) || !s.Cursor) return false;
+        if (!slots.TryGetValue(slot, out var s) || (!s.Cursor && (s.Held & Scoreboard) == 0)) return false;
         s.Cursor = false;
+        s.Held &= ~Scoreboard;
         return true;
     }
 
-    /// <summary>Every TAB cursor off (os_hud release, TAB switched off). Returns the slots that had one.</summary>
+    /// <summary>Every TAB cursor off, every TAB held forgotten (os_hud release, TAB switched off). Returns the slots that had a cursor.</summary>
     public List<int> ReleaseAll()
     {
         var had = slots.Where(x => x.Value.Cursor).Select(x => x.Key).ToList();
-        foreach (var s in slots.Values) s.Cursor = false;
+        foreach (var s in slots.Values) { s.Cursor = false; s.Held &= ~Scoreboard; }
         return had;
     }
 

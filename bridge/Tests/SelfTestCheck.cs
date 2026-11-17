@@ -358,6 +358,25 @@ static partial class Program
         tab.Buttons(11, TAB, 0, HudTab.Mode.Down, t0);
         Check("TAB: a cursor that stuck (its TAB-up never seen) goes with the next tap of TAB",
             tab.Buttons(11, TAB, 0, HudTab.Mode.Down, t0.AddSeconds(30)) == null && tab.Buttons(11, 0, TAB, HudTab.Mode.Down, t0.AddSeconds(30.2)) == HudTab.Act.CursorOff && !tab.Cursor(11));
+        tab = new HudTab();
+        tab.Buttons(12, TAB, 0, HudTab.Mode.Off, t0);
+        var heldOff = tab.Holding(12) && !tab.Cursor(12);
+        tab.Buttons(12, 0, TAB, HudTab.Mode.Off, t0.AddSeconds(1));
+        var upOff = !tab.Holding(12);
+        tab.Buttons(13, TAB, 0, HudTab.Mode.Down, t0);
+        var heldDown = tab.Holding(13) && tab.Cursor(13);
+        var released = tab.Release(13) && !tab.Holding(13) && !tab.Cursor(13) && !tab.Release(13);
+        tab.Buttons(14, TAB, 0, HudTab.Mode.Off, t0);
+        var heldOnly = tab.Release(14) && !tab.Holding(14);
+        tab.Buttons(15, TAB, 0, HudTab.Mode.Down, t0);
+        tab.ReleaseAll();
+        var allForgot = !tab.Holding(15);
+        tab.Buttons(16, TAB | W, 0, HudTab.Mode.Off, t0);
+        var withOthers = tab.Holding(16) && tab.Buttons(16, 0, W, HudTab.Mode.Off, t0.AddSeconds(1)) == null && tab.Holding(16);
+        tab.MapStarted();
+        Check("TAB held, as the server reads the buttons, in either mode - the vote's scoreboard peek goes by it: down and up follow TAB, other keys leave it; a hit, "
+            + "death or the window taking over forgets it (Release says so with no cursor too), as do os_hud release and a map change",
+            heldOff && upOff && heldDown && released && heldOnly && allForgot && withOthers && !tab.Holding(16));
         var held = new HudSlots();
         held.Show(40, HudSlots.Page.Start, t0);
         for (var sec = 0.25; sec <= 120; sec += 0.25) { held.Hold(40, t0.AddSeconds(sec)); held.Frame(t0.AddSeconds(sec)); }

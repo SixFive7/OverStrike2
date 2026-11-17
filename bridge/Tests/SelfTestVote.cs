@@ -401,7 +401,7 @@ static partial class Program
                 var w3 = WinState();
                 Check("...its bar a step a second, named for where it is going: at 3 s the two fifths left a second on", VarOf(w3, HudVote.IdleNumVar) == "3 s" && StepOf(w3, HudVote.IdleBar) == "w4");
                 h.Run(3);
-                var won = Clip(Label(Opt(winA).Map!), 40);
+                var won = Clip(Label(Opt(winA).Map!), VoteState.LabelMax); // the result label goes out up to 60 long (621ad4a); the dice may roll a name longer than 40
                 var w4d = WinState();
                 var decidedHud = BuildHud(h.Clock);
                 Check("Decided for another map: who won and how, its change gone out at once - no countdown - vdone, the winner lit, Next map; everybody frozen while it loads",

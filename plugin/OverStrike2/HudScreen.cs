@@ -201,14 +201,22 @@ sealed partial class HudScreen
     }
 
     /// <summary>TAB (HudTab.cs: down, or off). CounterStrikeSharp calls this inside the server's think for every button any player presses or
-    /// lets go, so it only does HudTab's bookkeeping; opening the window or switching the cursor waits for the next frame.</summary>
+    /// lets go, so it only does HudTab's bookkeeping; opening the window or switching the cursor waits for the next frame. TAB is read in either mode:
+    /// during a vote, holding it peeks at the scoreboard past the window (HudFrame's vpeek), and that follows TAB at the next frame.</summary>
     void OnButtons(CCSPlayerController player, PlayerButtons pressed, PlayerButtons released)
     {
         if (player is not { IsValid: true, IsBot: false }) return;
         var slot = player.Slot;
-        if (tabMode == HudTab.Mode.Off && !tab.Cursor(slot)) return;
+        var holding = tab.Holding(slot);
         var act = tab.Buttons(slot, (ulong)pressed, (ulong)released, tabMode, DateTime.UtcNow);
-        if (act == null) return;
+        if (vote.Round > 0 && holding != tab.Holding(slot)) // the scoreboard's peek, on and off with TAB: logged, as whether TAB reaches the server at a match end is the lab's to see
+            log.LogInformation("Over Strike 2 HUD: {Name} TAB {Way} during the vote ({Phase}) - {Peek}", player.PlayerName, holding ? "up" : "down", vote.Open ? "open" : "decided",
+                HudFrame.Peekable(vote, Account(player)) ? (holding ? "the window is back" : "peeks at the scores") : "no peek before their vote");
+        if (act == null)
+        {
+            if (vote.Round > 0 && holding != tab.Holding(slot)) Server.NextFrame(Frame); // the scoreboard's peek, on and off with TAB
+            return;
+        }
         Server.NextFrame(() =>
         {
             if (Utilities.GetPlayerFromSlot(slot) is not { IsValid: true, IsBot: false } p) return;
@@ -283,7 +291,7 @@ sealed partial class HudScreen
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
             if (!ClearSlot(slot))
-                foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
+                foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback", "vpeek", "vpeekok" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
                     entity!.SetHasClassForPlayer(p, HudView.Screen, cls, false);
             entity!.SetInputCaptureEnabled(p, false);
             playerDirty = true;

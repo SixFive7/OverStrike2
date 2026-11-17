@@ -75,6 +75,20 @@ static partial class Program
             slots.WindowOpen(1) && slots.WindowOpen(2) && slots.PageOf(2) == HudSlots.Page.Maps && players[2].VoteOpened && screen.C(HudView.Screen, "vlock", 2) && screen.C(HudView.Screen, "voting", 2)
             && screen.T("os_m1_name", 2) == "#12 aim_x" && screen.V(HudView.Global, $"{HudView.PlayersVar}2d") == "waiting" && screen.V(HudView.Global, $"{HudView.PlayersVar}1d") == "voted"
             && players[2].VoteView.Round == 1793900000);
+        // the scoreboard's peek (the owner, 2026-11-17): Alice has voted (mvv 1001 1), Bob has not
+        frame.Draw(World(live, open, t0.AddSeconds(41), locked: true), [Alice() with { TabHeld = true }, Bob() with { TabHeld = true }], slots, PlayerOf, funClicks, screen);
+        var peekVoted = screen.C(HudView.Screen, "vpeek", 1) && screen.C(HudView.Screen, "vpeekok", 1) && !screen.C(HudView.Screen, "vpeek", 2)
+            && !screen.C(HudView.Screen, "vpeekok", 2) && slots.WindowOpen(1) && slots.WindowOpen(2) && screen.Captured[1] && screen.Captured[2];
+        frame.Draw(World(live, open, t0.AddSeconds(42), locked: true), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
+        var peekLetGo = !screen.C(HudView.Screen, "vpeek", 1) && screen.C(HudView.Screen, "vpeekok", 1) && slots.WindowOpen(1) && screen.Captured[1];
+        var shut = VoteState.Decode(open.Encode());
+        shut.Open = false;
+        frame.Draw(World(live, shut, t0.AddSeconds(43), locked: true), [Alice(), Bob() with { TabHeld = true }], slots, PlayerOf, funClicks, screen);
+        Check("Frame: the scoreboard's peek - once she has voted, TAB held steps her window aside (vpeek), never his before he votes; letting go brings it back; a decided "
+            + "vote lets everybody peek; the window stays open, frozen and with the mouse, throughout - only classes change",
+            peekVoted && peekLetGo && screen.C(HudView.Screen, "vpeek", 2) && screen.C(HudView.Screen, "vpeekok", 2) && !screen.C(HudView.Screen, "vpeek", 1)
+            && slots.WindowOpen(2) && screen.Captured[2] && screen.C(HudView.Screen, "vlock", 2)
+            && HudFrame.Peekable(shut, 1002) && !HudFrame.Peekable(open, 1002) && HudFrame.Peekable(open, 1001) && !HudFrame.Peekable(new VoteState(), 1001));
         frame.Draw(World(live, new VoteState { WaitFor = 120 }, t0.AddSeconds(50)), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
         Check("Frame: when the freeze ends, the windows it opened close together - but the welcome, which goes back to its start page and waits for its X",
             !slots.WindowOpen(2) && !players[2].VoteOpened && slots.WindowOpen(1) && slots.PageOf(1) == HudSlots.Page.Start);
