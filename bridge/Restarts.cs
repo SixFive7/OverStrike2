@@ -419,15 +419,19 @@ static partial class Program
     }
 
     /// <summary>Whether the fairness restart waits now for the humans still joining - connecting, at CS2's prompt to confirm a first Workshop download, downloading or
-    /// loading the map - so the players in already start over once for all of them, not once each. Who is joining: the log stream's own sign-ons (SigningOnNames:
-    /// "connected", not yet "entered the game" - the state the live lab's client sat in at the prompt) and the plugin's os_joining (its controllers connecting or
-    /// reconnecting, and its own record of a sign-on not complete), both. It waits until nobody is left joining, EarlyJoin.HoldMostSeconds at the most from its
-    /// first wait. While it waits the live state carries no countdown - one line says whom it waits for - and each second it asks again (FairWaitTick).</summary>
+    /// loading the map - so the players in already start over once for all of them, not once each. Who is joining, by any of three: the plugin's os_joining (its
+    /// controllers connecting or reconnecting), the server's own client list (status: everybody not yet active - the prompt's joiner is "connecting" there until CS2
+    /// drops them, and then gone, which ends their sign-on: EndDroppedSignOns) and the log stream's sign-ons (SigningOnNames: "connected", not yet "entered the
+    /// game", EarlyJoin.SignOnMostSeconds at the most). It waits until nobody is left joining, EarlyJoin.HoldMostSeconds at the most from its first wait. While it
+    /// waits the live state carries no countdown - one line says whom it waits for - and each second it asks again (FairWaitTick).</summary>
     static bool FairWait(DateTime now)
     {
         if (now >= FairWaitUntil) { if (FairWaitSince != null) Log($"fair: still somebody joining after {EarlyJoin.HoldMostSeconds} s - the restart goes without them"); FairWaitSince = null; return false; }
         var reply = Send(EarlyJoin.JoiningCommand);
-        var joining = (EarlyJoin.ReadJoining(reply) ?? []).Concat(SigningOnNames(now)).Distinct(StringComparer.Ordinal).ToList();
+        var clients = EarlyJoin.ReadStatus(Send("status")); // null: no players table - the log stream's sign-ons then count on their own bound
+        if (clients != null) EndDroppedSignOns(clients, now);
+        var joining = (EarlyJoin.ReadJoining(reply) ?? []).Concat(clients?.Where(c => c.Joining).Select(c => c.Name) ?? []).Concat(SigningOnNames(now))
+            .Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         if (joining.Count == 0)
         {
             if (FairWaitSince is { } since) Log($"fair: everybody is in, {(now - since).TotalSeconds:0} s after the restart began to wait - one restart for {FairNames.Count}");

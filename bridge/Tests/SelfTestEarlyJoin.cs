@@ -84,20 +84,28 @@ static partial class Program
             && M.Plain(EarlyJoin.Line("Bob", 1)) == $"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob is in"
             && M.Plain(EarlyJoin.Line("Bob and Cas", 2, 3)) == "The match restarts for fairness in 3 s - Bob and Cas are in"
             && EarlyJoin.BannerTitle("Bob") == "The match restarts for fairness - Bob is in" && EarlyJoin.BannerTitle("Bob and Cas", 2) == "The match restarts for fairness - Bob and Cas are in");
-        var signOns = new EarlyJoin.SignOns();
-        signOns.Connected(3, "Cas", At(0)); signOns.Connected(4, "A bot", At(1)); signOns.Connected(5, "Dee", At(2));
-        var openThree = signOns.Names(At(3), slot => slot == 4);
-        signOns.InGame(3);
-        var afterIn = signOns.Names(At(4));
-        signOns.Gone(5);
-        var afterGone = signOns.Names(At(5));
-        signOns.Connected(6, "Eve", At(6)); signOns.MapStarted();
-        var afterMap = signOns.Names(At(7));
-        signOns.Connected(7, "Fay", At(10));
-        Check("Fairness: the plugin's record of sign-ons not complete (SignOns) - connected, not in the game yet, CS2's first-download prompt among them: the oldest first, "
-            + "never a bot; in the game or gone, out; a map start forgets them all; a sign-on far too old to be one is none",
-            openThree is ["Cas", "Dee"] && afterIn is ["A bot", "Dee"] && afterGone is ["A bot"] && afterMap is []
-            && signOns.Names(At(10 + EarlyJoin.HoldMostSeconds * 5)) is ["Fay"] && signOns.Names(At(11 + EarlyJoin.HoldMostSeconds * 5)) is []);
+        // status as CS2 writes it (a real reply's lines, test names): a joiner at the first-download prompt is "connecting" until CS2 drops them
+        const string status = "Server:  Running [0.0.0.0:27015]\r\nClient:  Disconnected\r\n----- Status -----\r\n@ Current  :  game\r\nsource   : console\r\n"
+            + "hostname : Over Strike 2\r\nspawn    : 7\r\nos/type  : Linux dedicated\r\nplayers  : 2 humans, 1 bots (16 max) (not hibernating) (unreserved)\r\n"
+            + "---------spawngroups----\r\nloaded spawngroup(  1)  : SV:  [1: aim_homage | main lump | mapload]\r\n---------players--------\r\n"
+            + "  id     time ping loss      state   rate adr name\r\n65535 [NoChan]    0    0 challenging      0unknown ''\r\n"
+            + "65280    04:10   20    0     active 786432 192.0.2.1:27005 'Bob'\r\n    1    BOT    0    0     active      0 'Ted'\r\n"
+            + "    2    00:13    0    0 connecting 786432 192.0.2.9:27005 'Cas O'Hara'\r\n#end\r\n";
+        Check("Fairness: the server's own client list - status's players table, as CS2 writes it - reads back: the humans and their state, a joiner at the prompt "
+            + "connecting; no bot, no handshake placeholder; a name with a quote whole; no table (a short status, no answer) is none, an empty one nobody",
+            EarlyJoin.ReadStatus(status) is [{ Name: "Bob", State: "active", Joining: false }, { Name: "Cas O'Hara", State: "connecting", Joining: true }]
+            && EarlyJoin.ReadStatus("hostname : test\nplayers  : 2 humans, 0 bots (0 max)\n#end") == null && EarlyJoin.ReadStatus(null) == null
+            && EarlyJoin.ReadStatus("---------players--------\n  id     time ping loss      state   rate adr name\n65535 [NoChan]    0    0 challenging      0unknown ''\n#end") is []);
+        var told = EarlyJoin.BridgeViewCommand(["Cas", "x\"; quit; //"]);
+        Check("Fairness: the bridge's word to os_fair names its log stream's sign-ons as hex - a ';', a '\"' or \"//\" in a name cannot end or change the command - and "
+            + "the plugin reads them back; nobody is the bare word; an argument that is not hex is left out",
+            told.StartsWith("os_fair bridge ", StringComparison.Ordinal) && !told.Contains(';') && !told.Contains('"') && !told.Contains("//")
+            && EarlyJoin.ReadBridgeView(told.Split(' ').Skip(2)) is ["Cas", "x\"; quit; //"] && EarlyJoin.BridgeViewCommand([]) == "os_fair bridge"
+            && EarlyJoin.ReadBridgeView(["zz", "436173"]) is ["Cas"]);
+        Check("Fairness: os_fair's last part says what the plugin heard of connects this map and whom the bridge's log stream has signing on, and how long ago",
+            EarlyJoin.ViewLine(null, null, 0, At(0)) == "the plugin's connects this map: 0; the bridge's log stream: not told yet"
+            && EarlyJoin.ViewLine((["Cas"], At(0)), ("Bob", At(1)), 2, At(13)) == "the plugin's connects this map: 2 (the last: Bob, 12 s ago); the bridge's log stream: Cas signing on (told 13 s ago)"
+            && EarlyJoin.ViewLine(([], At(5)), null, 0, At(5)) == "the plugin's connects this map: 0; the bridge's log stream: nobody signing on (told 0 s ago)");
         Check("Fairness: its word on /act is the plugin's alone - a click may carry it, chat has no such command",
             Hud.IsAction(EarlyJoin.Command) && ChatCommands.Parse(EarlyJoin.Command).Kind == ChatCommands.Kind.Unknown);
     }

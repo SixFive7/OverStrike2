@@ -30,9 +30,10 @@ static partial class Program
         p ??= Players[e.SteamId] = new Player();
         var real = !known || p.GoneSince != null || (p.ReloadSince is { } r && (now - r).TotalSeconds > ReloadGraceSeconds);
         p.Name = e.Name; p.GoneSince = null; p.ReloadSince = null;
-        if (e.Kind == Kind.Connected) { p.Joining |= real; p.SigningOn = now; return false; } // a join survives the reconnects in between: a map change, MultiAddonManager's addon download
+        if (e.Kind == Kind.Connected) { p.Joining |= real; p.SigningOn = now; SignOnsChanged(); return false; } // a join survives the reconnects in between: a map change, MultiAddonManager's addon download
         var fresh = p.Joining || real;
-        p.Joining = false; p.SigningOn = null;
+        p.Joining = false;
+        if (p.SigningOn != null) { p.SigningOn = null; SignOnsChanged(); }
         return fresh;
     }
 
@@ -43,7 +44,11 @@ static partial class Program
     {
         var p = PlayerOf(id);
         if (reason.Contains("SHUTDOWN")) { if (p.GoneSince == null) p.ReloadSince ??= now; }
-        else { p.GoneSince = now; p.ReloadSince = null; p.Joining = false; p.SigningOn = null; HudSeen.Remove(id); } // left for real - CS2's time-out of an unanswered download prompt too: the HUD check forgets them, and it is no sign-on
+        else // left for real: the HUD check forgets them, and it is no sign-on
+        {
+            p.GoneSince = now; p.ReloadSince = null; p.Joining = false; HudSeen.Remove(id);
+            if (p.SigningOn != null) { p.SigningOn = null; SignOnsChanged(); }
+        }
     }
 
     /// <summary>A chat line or a click proves its sender is on the server.</summary>
@@ -60,10 +65,49 @@ static partial class Program
     }
 
     /// <summary>The humans whose sign-on is not complete by the log stream: "connected" and not yet "entered the game" - at CS2's prompt to confirm a first
-    /// Workshop download (the live lab saw the plugin's controllers say nothing of that state, while the "connected" line had come), downloading the map,
-    /// loading it, a map change's reconnect. Within ReloadGraceSeconds of that line: an "entered" the stream missed does not hold anything for good.</summary>
-    static List<string> SigningOnNames(DateTime now) => [.. Players.Where(kv => kv.Value is { GoneSince: null, SigningOn: { } at } && (now - at).TotalSeconds <= ReloadGraceSeconds)
+    /// Workshop download, downloading the map, loading it, a map change's reconnect. For the prompt's joiner this line is all the game writes: the game hears of a
+    /// client only once it has every addon (no controller, nothing in os_joining - the live lab's runs AW and AX), and CS2's drop of it writes no "disconnected".
+    /// So it counts EarlyJoin.SignOnMostSeconds at the most from its "connected", and the server's own list ends it sooner where it is asked (EndDroppedSignOns).</summary>
+    static List<string> SigningOnNames(DateTime now) => [.. Players.Where(kv => kv.Value is { GoneSince: null, SigningOn: { } at } && (now - at).TotalSeconds <= EarlyJoin.SignOnMostSeconds)
         .OrderBy(kv => kv.Value.SigningOn).Select(kv => kv.Value.Name is { Length: > 0 } n ? n : kv.Key)];
+
+    /// <summary>The sign-ons the server's own client list (status) no longer has: gone before they were in - CS2's drop of a first-download prompt nobody answered
+    /// among them, which writes no "disconnected" line. Not one whose "connected" came in the last 3 s (the list and the log stream may cross), nor one mid-reconnect
+    /// (a SHUTDOWN departure in the last 10 s: the HUD addon's reconnect, a map change's), whose next "connected" is a second away.</summary>
+    static void EndDroppedSignOns(IReadOnlyList<EarlyJoin.StatusClient> clients, DateTime now)
+    {
+        var listed = clients.Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
+        var ended = false;
+        foreach (var p in Players.Values)
+        {
+            if (p is not { GoneSince: null, SigningOn: { } at } || (now - at).TotalSeconds < 3 || listed.Contains(p.Name) || p.ReloadSince is { } r && (now - r).TotalSeconds <= 10) continue;
+            p.SigningOn = null; ended = true;
+            Log($"fair: {p.Name} was connecting, and the server lists them no more - gone before they were in, which CS2 writes no \"disconnected\" line for");
+        }
+        if (ended) SignOnsChanged();
+    }
+
+    /// <summary>What the plugin's os_fair last heard from the bridge of whom its log stream has signing on (EarlyJoin.BridgeViewCommand), and whether a word to
+    /// it is due: one a second at the most, and only when the names changed - a join's "connected" and "entered the game" a moment apart say nothing.</summary>
+    static List<string> SignOnsTold = [];
+    static bool SignOnsTell;
+
+    static void SignOnsChanged()
+    {
+        if (SignOnsTell) return;
+        SignOnsTell = true;
+        After(1000, TellSignOns);
+    }
+
+    static void TellSignOns()
+    {
+        SignOnsTell = false;
+        var now = Now();
+        var names = SigningOnNames(now);
+        if (!names.SequenceEqual(SignOnsTold) && Send(EarlyJoin.BridgeViewCommand(names)) != null) SignOnsTold = names; // no answer: the next change tells it
+        var open = Players.Values.Where(p => p is { GoneSince: null, SigningOn: not null } && (now - p.SigningOn.Value).TotalSeconds <= EarlyJoin.SignOnMostSeconds).Select(p => p.SigningOn!.Value).ToList();
+        if (open.Count > 0) After((int)Math.Max(1000, (open.Min().AddSeconds(EarlyJoin.SignOnMostSeconds + 1) - now).TotalMilliseconds), SignOnsChanged); // the bound ends one with no line
+    }
 
     /// <summary>The players present: in game by the log stream, or reloading inside the load grace. One who left is not.</summary>
     static HashSet<string> PresentIds(DateTime now) => Players.Where(kv => kv.Value.GoneSince == null

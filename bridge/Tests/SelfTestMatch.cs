@@ -15,9 +15,10 @@ static partial class Program
         string? restartReply = "os_restart: the match restarts in 1 s", bareReply = ""; // the plugin's answers to os_restart and to a bare mp_restartgame
         var phaseReply = ""; // the plugin's answer to os_phase: none, as from a plugin without it, unless a test says otherwise
         var joiningReply = ""; // ...and to os_joining: none, as from a plugin without it (nobody waited for), unless a test says otherwise
+        string? statusTable = null; // ...and status's players table: none, as from a short status, unless a test gives one
         h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command == EarlyJoin.JoiningCommand ? joiningReply
             : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
-            : command == "status" ? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
+            : command == "status" ? statusTable ?? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
             : command == RematchCommand ? restartReply : command == RematchFallback ? bareReply : "";
         try
         {
@@ -30,7 +31,7 @@ static partial class Program
             void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the HUD, on the lists below, Alice and Bob on
             {
                 h.Fresh();
-                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = ""; joiningReply = "";
+                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = ""; joiningReply = ""; statusTable = null;
                 Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
@@ -476,43 +477,83 @@ static partial class Program
             h.Line("Loading map \"ar_other\"");
             h.Run(2);
             Check("...and a map start ends it: the new map has a match of its own", FairWaitSince == null && RematchDue == null && !h.Sent.Contains(RematchCommand));
-            // the live lab's client at CS2's prompt to confirm a first Workshop download: the server had logged it connected, the plugin's controllers said nobody
-            void Connects(string name, string id) => h.Line($"\"{name}<9><{id}><>\" connected, address \"192.0.2.9:27005\"");
+            // ---- the live lab's run AX (release 218's re-film): a join needing a map it lacked - CS2's prompt to confirm a first Workshop download, left unanswered.
+            // The server logged the connect (the bridge's "Connected") and nothing after it; os_joining said 0 all through (the game hears of a client only once it
+            // has every addon); CS2 dropped it at 120 s and wrote no "disconnected" line. The server's own list (status) has such a joiner connecting until the drop.
+            var cas = ("Cas", "[U:1:2009]");
+            void Connects((string Name, string Id) p) => h.Line($"\"{p.Name}<2><{p.Id}><>\" connected, address \"192.0.2.9:27005\""); // the line as CS2's log push sends it
+            string Table(params (string Name, string State)[] rows) => "---------players--------\n  id     time ping loss      state   rate adr name\n"
+                + "65535 [NoChan]    0    0 challenging      0unknown ''\n" + string.Concat(rows.Select((r, i) => $"{i,5}    00:13   20    0 {r.State,10} 786432 192.0.2.{i + 1}:27005 '{r.Name}'\n")) + "#end";
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
-            Connects("Cas", "[U:1:2009]");
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
+            Connects(cas);
+            h.Run(1.1);
+            Check("...the lab's joiner at the prompt: the bridge's log stream has them signing on from their \"connected\" alone, and tells the plugin's os_fair so (the names as hex)",
+                SigningOnNames(h.Clock) is ["Cas"] && h.Sent.Contains(EarlyJoin.BridgeViewCommand(["Cas"])));
             ClearNotices(); h.Sent.Clear();
             Fair(bob);
-            Check("...a joiner the server has logged as connected and not yet in the game - CS2's first-download prompt, where the plugin's controllers said nobody: it waits for them too (the log stream's own sign-on)",
-                FairWaitSince != null && RematchDue == null && InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas") && SigningOnNames(h.Clock) is ["Cas"]);
+            Check("...a fairness restart then waits for them, while os_joining says nobody: the server's own list has them connecting",
+                FairWaitSince != null && RematchDue == null && InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas") && h.Sent.Contains("status"));
+            h.Run(60);
+            statusTable = Table(("Alice", "active"), ("Bob", "active")); // CS2 drops the unanswered prompt: no line, and gone from its list
+            h.Run(1.1);
+            var dropEnds = SigningOnNames(h.Clock) is [] && RematchDue is { Fair: true } && FairWaitSince == null;
+            h.Run(2);
+            Check("...CS2's drop writes no \"disconnected\" line; the server's list has them no more, which ends their sign-on: the restart counts down, and os_fair hears nobody",
+                dropEnds && h.Sent.Contains(EarlyJoin.BridgeViewCommand([])));
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            Connects(cas);
+            h.Run(100);
+            Fair(bob);
+            var held = FairWaitSince != null && RematchDue == null;
+            h.Run(EarlyJoin.SignOnMostSeconds - 100 + 1.1);
+            Check($"...with no players table from status, the log stream alone counts them {EarlyJoin.SignOnMostSeconds} s from their \"connected\" - the prompt's {EarlyJoin.PromptSeconds} s "
+                + "and a margin - and then the restart goes, well inside its own 120 s: a ghost holds nothing past the drop",
+                held && SigningOnNames(h.Clock) is [] && RematchDue is { Fair: true } && FairWaitSince == null);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
+            Connects(cas);
+            h.Run(100);
+            Fair(bob);
+            h.Run(60);
+            Check("...while the server's list still has them connecting past that bound (a long download), the restart still waits - its own 120 s hold it",
+                FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is []);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
+            Connects(cas);
+            Fair(bob);
             h.Run(20);
-            h.Leave(("Cas", "[U:1:2009]"), "NETWORK_DISCONNECT_LOOPSHUTDOWN"); // MultiAddonManager has the joiner reconnect for the HUD addon
+            h.Leave(cas, "NETWORK_DISCONNECT_LOOPSHUTDOWN"); // MultiAddonManager has the joiner reconnect for the HUD addon
+            statusTable = Table(("Alice", "active"), ("Bob", "active")); // a second between the two connections
             h.Run(1.1);
             var throughReconnect = FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is ["Cas"];
-            Connects("Cas", "[U:1:2009]");
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
+            Connects(cas);
             h.Run(3);
-            Check("...still waiting through the reconnect for the HUD addon (LOOPSHUTDOWN, then \"connected\" again a second later): the sign-on goes on",
+            Check("...still waiting through the reconnect for the HUD addon (LOOPSHUTDOWN, then \"connected\" again a second later), though the server's list lacks them in between",
                 throughReconnect && FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is ["Cas"]);
-            h.Line("\"Cas<9><[U:1:2009]><>\" entered the game");
+            h.Line("\"Cas<2><[U:1:2009]><>\" entered the game");
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "active"));
             h.Run(1.1);
             Check("...and counts down once they are in the game", RematchDue is { Fair: true } && FairWaitSince == null && SigningOnNames(h.Clock) is []);
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
-            Connects("Cas", "[U:1:2009]");
+            Connects(cas);
             Fair(bob);
             h.Run(30);
-            h.Leave(("Cas", "[U:1:2009]"), "NETWORK_DISCONNECT_TIMEDOUT"); // CS2 drops a prompt nobody answers after 120 s; here sooner
+            h.Leave(cas, "NETWORK_DISCONNECT_TIMEDOUT"); // a time-out once the game knows them writes the line
             h.Run(1.1);
-            Check("...a joiner dropped at the prompt (a time-out) is no sign-on any more: the restart goes", RematchDue is { Fair: true } && FairWaitSince == null);
+            Check("...a joiner whose departure the log does write (a time-out once the game has them) is no sign-on any more: the restart goes", RematchDue is { Fair: true } && FairWaitSince == null);
             Fresh();
             joiningReply = EarlyJoin.JoiningReply(["Cas"]);
-            Connects("Cas", "[U:1:2009]");
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
+            Connects(cas);
             Fair(bob);
-            Check("...a joiner both say is joining - the log stream and the plugin - is named once", InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"));
-            Fresh();
-            Connects("Dee", "[U:1:2010]");
-            h.Run(ReloadGraceSeconds + 1);
-            Check($"...and a \"connected\" with no \"entered the game\" in {ReloadGraceSeconds / 60} minutes is no sign-on any more: an entry the log stream missed holds nothing for good", SigningOnNames(h.Clock) is []);
+            Check("...a joiner all three name - the plugin, the server's list and the log stream - is named once", InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"));
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();

@@ -17,17 +17,17 @@ namespace OverStrike2;
 /// somebody, so that a lone test game's spawn asks.</summary>
 sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, bool> ask)
 {
-    public const string Command = "os_fair";
+    public const string Command = EarlyJoin.FairCommand;
 
     readonly EarlyJoin plan = new();
-    readonly EarlyJoin.SignOns signOns = new(); // connected, not in the game yet: CS2's first-download prompt, the download, the load (os_joining)
+    (string Name, DateTime At)? lastConnect;        // CounterStrikeSharp's last OnClientConnect, and how many this map: os_fair shows them (EarlyJoin.ViewLine)
+    int connects;
+    (IReadOnlyList<string> Names, DateTime At)? bridgeView; // whom the bridge's log stream has signing on, as it last said (os_fair bridge)
 
     public void Load(bool hotReload)
     {
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { plan.MapStarted(); signOns.MapStarted(); });
-        plugin.RegisterListener<Listeners.OnClientConnect>((slot, name, _) => signOns.Connected(slot, name, DateTime.UtcNow)); // the moment the server logs "connected"
-        plugin.RegisterListener<Listeners.OnClientPutInServer>(slot => signOns.InGame(slot));
-        plugin.RegisterListener<Listeners.OnClientDisconnect>(slot => signOns.Gone(slot));
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { plan.MapStarted(); connects = 0; });
+        plugin.RegisterListener<Listeners.OnClientConnect>((_, name, address) => { if (address != "127.0.0.1") { lastConnect = (name, DateTime.UtcNow); connects++; } }); // not CounterStrikeSharp's call for a bot
         plugin.RegisterEventHandler<EventRoundStart>(OnRoundStart);
         plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawn);
         plugin.RegisterEventHandler<EventPlayerDisconnect>(OnDisconnect);
@@ -95,27 +95,34 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
     void OnCommand(CCSPlayerController? caller, CommandInfo command)
     {
         if (caller != null) return; // the server console and RCON only
-        if (command.ArgCount > 1 && command.GetArg(1).Equals("live", StringComparison.OrdinalIgnoreCase))
+        var now = DateTime.UtcNow;
+        var word = command.ArgCount > 1 ? command.GetArg(1) : "";
+        if (word.Equals(EarlyJoin.BridgeWord, StringComparison.OrdinalIgnoreCase)) // the bridge: whom its log stream has signing on
         {
-            plan.Force(DateTime.UtcNow);
+            var names = EarlyJoin.ReadBridgeView(Enumerable.Range(2, Math.Max(0, command.ArgCount - 2)).Select(command.GetArg));
+            bridgeView = (names, now);
+            command.ReplyToCommand($"{Command}: the bridge's log stream has {names.Count} signing on");
+            return;
+        }
+        if (word.Equals("live", StringComparison.OrdinalIgnoreCase))
+        {
+            plan.Force(now);
             log.LogInformation("Over Strike 2 fairness: {Command} live - the match runs from now, and the next join counts as joining somebody", Command);
         }
-        var joining = JoiningNames();
-        command.ReplyToCommand($"{Command}: {plan.Describe(DateTime.UtcNow)}; still joining: {(joining.Count == 0 ? "nobody" : string.Join(", ", joining))}");
+        var joining = Joining().Select(p => p.PlayerName).ToList();
+        command.ReplyToCommand($"{Command}: {plan.Describe(now)}; still joining: {(joining.Count == 0 ? "nobody" : string.Join(", ", joining))}; "
+            + EarlyJoin.ViewLine(bridgeView, lastConnect, connects, now));
     }
 
     /// <summary>os_joining (EarlyJoin.JoiningCommand): the humans still joining, for the bridge, which holds a fairness restart while there are any - the controllers
-    /// connecting or reconnecting, and the sign-ons not complete (SignOns: connected, not in the game yet - the state of CS2's first-download prompt). The server
-    /// console and RCON only.</summary>
+    /// connecting or reconnecting. A joiner at CS2's first-download prompt is not among them: the game hears of a client only once it has every addon, so it has
+    /// no controller and no callback yet (the live lab's runs AW and AX); the bridge sees that one in the server's own list and its log stream. The server console
+    /// and RCON only.</summary>
     void OnJoining(CCSPlayerController? caller, CommandInfo command)
     {
         if (caller != null) return;
-        command.ReplyToCommand(EarlyJoin.JoiningReply(JoiningNames()));
+        command.ReplyToCommand(EarlyJoin.JoiningReply(Joining().Select(p => p.PlayerName)));
     }
-
-    /// <summary>Everybody still joining, by name, each once: the controllers' state and the sign-ons not complete.</summary>
-    List<string> JoiningNames() =>
-        [.. Joining().Select(p => p.PlayerName).Concat(signOns.Names(DateTime.UtcNow, slot => Utilities.GetPlayerFromSlot(slot) is { IsValid: true } c && (c.IsBot || c.IsHLTV))).Distinct()];
 
     /// <summary>The humans whose game is still on its way in: their controller connecting - the connect itself, CS2's prompt to confirm a first Workshop download, the
     /// download, the map's load - or reconnecting, as every game does through a map change and through MultiAddonManager's download of the HUD addon. In the game
