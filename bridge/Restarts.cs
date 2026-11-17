@@ -428,8 +428,7 @@ static partial class Program
     {
         if (now >= FairWaitUntil) { if (FairWaitSince != null) Log($"fair: still somebody joining after {EarlyJoin.HoldMostSeconds} s - the restart goes without them"); FairWaitSince = null; return false; }
         var reply = Send(EarlyJoin.JoiningCommand);
-        var clients = EarlyJoin.ReadStatus(Send("status")); // null: no players table - the log stream's sign-ons then count on their own bound
-        if (clients != null) EndDroppedSignOns(clients, now);
+        var clients = ReadServerList(now); // null: no players table - the log stream's sign-ons then count on their own bound
         var joining = (EarlyJoin.ReadJoining(reply) ?? []).Concat(clients?.Where(c => c.Joining).Select(c => c.Name) ?? []).Concat(SigningOnNames(now))
             .Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         if (joining.Count == 0)

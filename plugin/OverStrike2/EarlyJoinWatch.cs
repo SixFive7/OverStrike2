@@ -20,9 +20,9 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
     public const string Command = EarlyJoin.FairCommand;
 
     readonly EarlyJoin plan = new();
-    (string Name, DateTime At)? lastConnect;        // CounterStrikeSharp's last OnClientConnect, and how many this map: os_fair shows them (EarlyJoin.ViewLine)
+    (string Name, DateTime At)? lastConnect;        // CounterStrikeSharp's last OnClientConnect, and how many this map: os_fair shows them (EarlyJoin.ConnectsLine)
     int connects;
-    (IReadOnlyList<string> Names, DateTime At)? bridgeView; // whom the bridge's log stream has signing on, as it last said (os_fair bridge)
+    EarlyJoin.BridgeView? bridgeView;                // the bridge's last word (os_fair bridge): its log stream's sign-ons and status's joiners
 
     public void Load(bool hotReload)
     {
@@ -97,11 +97,11 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
         if (caller != null) return; // the server console and RCON only
         var now = DateTime.UtcNow;
         var word = command.ArgCount > 1 ? command.GetArg(1) : "";
-        if (word.Equals(EarlyJoin.BridgeWord, StringComparison.OrdinalIgnoreCase)) // the bridge: whom its log stream has signing on
+        if (word.Equals(EarlyJoin.BridgeWord, StringComparison.OrdinalIgnoreCase)) // the bridge: its log stream's sign-ons and status's joiners
         {
-            var names = EarlyJoin.ReadBridgeView(Enumerable.Range(2, Math.Max(0, command.ArgCount - 2)).Select(command.GetArg));
-            bridgeView = (names, now);
-            command.ReplyToCommand($"{Command}: the bridge's log stream has {names.Count} signing on");
+            var (signing, status) = EarlyJoin.ReadBridgeView([.. Enumerable.Range(2, Math.Max(0, command.ArgCount - 2)).Select(command.GetArg)]);
+            bridgeView = new(signing, status, now);
+            command.ReplyToCommand($"{Command}: the bridge's log stream has {signing.Count} signing on, status {(status == null ? "not read" : $"{status.Count} not yet active")}");
             return;
         }
         if (word.Equals("live", StringComparison.OrdinalIgnoreCase))
@@ -110,8 +110,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
             log.LogInformation("Over Strike 2 fairness: {Command} live - the match runs from now, and the next join counts as joining somebody", Command);
         }
         var joining = Joining().Select(p => p.PlayerName).ToList();
-        command.ReplyToCommand($"{Command}: {plan.Describe(now)}; still joining: {(joining.Count == 0 ? "nobody" : string.Join(", ", joining))}; "
-            + EarlyJoin.ViewLine(bridgeView, lastConnect, connects, now));
+        command.ReplyToCommand($"{Command}: {plan.Describe(now)}; {EarlyJoin.JoiningLine(joining, bridgeView, now)}; {EarlyJoin.ConnectsLine(lastConnect, connects, now)}");
     }
 
     /// <summary>os_joining (EarlyJoin.JoiningCommand): the humans still joining, for the bridge, which holds a fairness restart while there are any - the controllers

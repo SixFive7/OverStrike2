@@ -491,6 +491,9 @@ static partial class Program
             h.Run(1.1);
             Check("...the lab's joiner at the prompt: the bridge's log stream has them signing on from their \"connected\" alone, and tells the plugin's os_fair so (the names as hex)",
                 SigningOnNames(h.Clock) is ["Cas"] && h.Sent.Contains(EarlyJoin.BridgeViewCommand(["Cas"])));
+            h.Run(3);
+            Check("...and, with no fairness restart waiting, reads the server's own list every 2 s while anyone signs on, and tells os_fair its joiners too (run AY's status line)",
+                h.Sent.Count(c => c == "status") >= 1 && h.Sent.Contains(EarlyJoin.BridgeViewCommand(["Cas"], ["Cas"])));
             ClearNotices(); h.Sent.Clear();
             Fair(bob);
             Check("...a fairness restart then waits for them, while os_joining says nobody: the server's own list has them connecting",
@@ -500,8 +503,22 @@ static partial class Program
             h.Run(1.1);
             var dropEnds = SigningOnNames(h.Clock) is [] && RematchDue is { Fair: true } && FairWaitSince == null;
             h.Run(2);
-            Check("...CS2's drop writes no \"disconnected\" line; the server's list has them no more, which ends their sign-on: the restart counts down, and os_fair hears nobody",
-                dropEnds && h.Sent.Contains(EarlyJoin.BridgeViewCommand([])));
+            Check("...CS2's drop writes no \"disconnected\" line; during the wait the server's list, read each second, has them no more within about a second, which ends "
+                + "their sign-on: the restart counts down, and os_fair hears nobody from either",
+                dropEnds && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], [])));
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
+            Connects(cas);
+            h.Run(60);
+            statusTable = Table(("Alice", "active"), ("Bob", "active")); // the drop, with no fairness restart waiting (run AY)
+            h.Run(StatusWatchSeconds + 1.1);
+            var endedSoon = SigningOnNames(h.Clock) is [] && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], []));
+            h.Sent.Clear();
+            h.Run(10);
+            Check($"...with no wait, too: the list read every {StatusWatchSeconds} s has them no more, which ends their sign-on and tells os_fair within about {StatusWatchSeconds + 1} s "
+                + "(run AY ended it at the 150 s bound) - and then the reading rests, nobody joining",
+                endedSoon && !h.Sent.Contains("status"));
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
             Connects(cas);
