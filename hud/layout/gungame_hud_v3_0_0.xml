@@ -272,6 +272,8 @@
 								<Panel class="os-vhowbar">
 									<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  !vote and the card's number votes too  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 									<Label class="os-vhow os-vhow-plain" text="Click a card to vote  ·  !play and a map's name adds that map  ·  Y opens the chat" />
+									<!-- The TAB peek: once this player has voted, or the vote is decided (vpeekok, the server's), holding TAB shows CS2's scoreboard -->
+									<Label class="os-vpeek-hint" text="Hold TAB to see the scores" />
 								</Panel>
 								<Panel class="os-mbar">
 									<Label class="os-mbar-label" text="Sort" />

@@ -8769,3 +8769,83 @@ Label
 {
 	font-size: 11px;
 }
+
+/* -- the TAB peek (content v4.14.0): once a player has voted, or the vote is decided (vpeekok on os_screen, the server's: HudFrame.Peekable), holding TAB
+   shows CS2's scoreboard. While the server reads TAB held (vpeek: IN_SCORE in the player's buttons) and CS2's own scoreboard is up (HUD_SCOREBOARD_VISIBLE, the
+   client's class), the window, the chat column with its dims, the dim, the pointer and the dislike's dialog collapse - visibility only, no fade - and come back
+   the same way. Mid-match CS2's scoreboard goes the instant TAB comes up, so the window is back with it, whatever the server's lag; at a match end CS2's end
+   screen keeps its scoreboard up, so there vpeek decides both ways - and the end screen's own class (HUD_ENDOFMATCH_VISIBLE) keeps the peek working should its
+   scoreboard not carry the scoreboard's class. The rules act on vpeek alone, so neither client class can hide the window by itself. The board, the top stack
+   and the card stack stay away (win stays on); the mouse and the freeze are the server's and do not change. Six classes each: no rule that shows one of these
+   panels has more than five. -- */
+.HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-win
+{
+	visibility: collapse;
+}
+
+.HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-dim
+{
+	visibility: collapse;
+}
+
+.HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-chat-dock
+{
+	visibility: collapse;
+}
+
+.HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-chatptr
+{
+	visibility: collapse;
+}
+
+.HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-why
+{
+	visibility: collapse;
+}
+
+.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-win
+{
+	visibility: collapse;
+}
+
+.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-dim
+{
+	visibility: collapse;
+}
+
+.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-chat-dock
+{
+	visibility: collapse;
+}
+
+.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-chatptr
+{
+	visibility: collapse;
+}
+
+.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-why
+{
+	visibility: collapse;
+}
+
+/* The hint at the right of the ballot's how-to bar while the player may peek; alone there once the vote is decided (the how-to goes then). */
+.os-vpeek-hint
+{
+	visibility: collapse;
+	horizontal-align: right;
+	height: 20px;
+	font-size: 13px;
+	font-weight: bold;
+	color: os-gold-hi;
+	white-space: nowrap;
+}
+
+.os-screen.vpeekok .os-vpeek-hint
+{
+	visibility: visible;
+}
+
+.os-screen.vpeekok .os-vhow
+{
+	width: 940px;
+}
