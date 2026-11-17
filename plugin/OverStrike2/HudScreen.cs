@@ -91,7 +91,7 @@ sealed partial class HudScreen
         MatchLoad();
         NextMatchLoad(); // HudScreenNextMatch.cs: the match-end screen cut short when the vote plays the map again
         WarmUp();
-        if (hotReload) { worldReady = true; EnsureEntity(); } // a map is running: the one case where entities may be touched right away
+        if (hotReload) { worldReady = true; EnsureEntity(); reloadPulse = true; } // a map is running: the one case where entities may be touched right away
     }
 
     /// <summary>Compiles every method of the HUD's own types now, at plugin load, so the first player's spawn or click does not pay for

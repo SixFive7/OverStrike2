@@ -14,6 +14,15 @@ using System.Globalization;
 
 public sealed class HudChat
 {
+    /// <summary>When the column shows, the server's choice (the owner's 277): Always (route a1 - solid over CS2's chat area, the window open or not), Window (route c - only
+    /// while our window is open; CS2's own chat the rest of the time) or Never (route d - CS2's own chat alone). The stylesheet is the same for all three, so a change
+    /// needs no content update: Default is the plugin's, and os_hud chat always|window|off overrides it until the plugin reloads.</summary>
+    public enum Route { Always, Window, Never }
+    public const Route Default = Route.Always;
+
+    /// <summary>Whether the column shows by its route, with the window open or not.</summary>
+    public static bool Shows(Route route, bool windowOpen) => route == Route.Always || route == Route.Window && windowOpen;
+
     /// <summary>The column's lines; the newest is the last, at the bottom.</summary>
     public const int Lines = 18;
 
