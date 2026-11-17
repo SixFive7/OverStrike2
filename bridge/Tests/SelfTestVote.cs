@@ -802,9 +802,9 @@ static partial class Program
                 Pending is null && LoadPending && S.Map == m[8] && !OnTheDisk(m[8]) && h.Sent.Contains($"host_workshop_map {m[8].Id}") && !h.Sent.Contains(NextMatch.Line(ChangeDelay + ScreenMarginSeconds)));
             Check($"...the match-end screen holds for it ({NextMatch.HoldLine(NextMatch.HoldSeconds)}), so the next match never starts on the old map first, and the window says it downloads - no clock - until the map starts, everybody frozen",
                 h.Sent.Contains(NextMatch.HoldLine(NextMatch.HoldSeconds)) && Ballot is { FetchUntil: { } fetchUntil } && fetchUntil == h.Clock.AddSeconds(NextMatch.HoldSeconds)
-                && fetchingVote is { Fetching: true, Freeze: true, SecondsLeft: 0, EndsAtMs: 0, Open: false } && HudVote.DoneKey(fetchingVote) == "Downloading"
-                && HudVote.Clocks(fetchingVote) is { IdleKey: "Downloading", IdleNum: "", Idle: HudVote.FetchingNote }
-                && HudVote.Cards(fetchingVote, 1001, null).Texts.Single(x => x.Id == "os_m_count").Text.EndsWith("- Downloading: it changes the moment it is ready", StringComparison.Ordinal)
+                && fetchingVote is { Fetching: true, Freeze: true, SecondsLeft: 0, EndsAtMs: 0, Open: false } && HudVote.DoneKey(fetchingVote) == "Server downloading"
+                && HudVote.Clocks(fetchingVote) is { IdleKey: "Server downloading", IdleNum: "", Idle: HudVote.FetchingNote }
+                && HudVote.Cards(fetchingVote, 1001, null).Texts.Single(x => x.Id == "os_m_count").Text.EndsWith("- Server downloading: it changes the moment it is ready", StringComparison.Ordinal)
                 && h.Said(FetchingWords) && !h.Said("Changing in"));
             h.Run(30);
             Check("...still downloading 30 s on: the window still says so", Ballot is { FetchUntil: not null } && LiveVote().Fetching);

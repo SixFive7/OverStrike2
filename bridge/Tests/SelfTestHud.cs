@@ -403,7 +403,7 @@ static partial class Program
                     && !Regex.IsMatch(rules0, @"\.os-screen\.page-\w+ \.os-win\s*\{[^}]*(horizontal-align|margin)")
                     && 1920 - 80 - 1240 >= 579 + 20 && 1728 - 8 - 0.90 * 1240 >= 579 + 20 && 1440 - 10 - 0.68 * 1240 >= 579 + 5);
                 Check($"Content {HudVersion.Content}: the ballot's tiles four across and three down - 4 x 285 + 3 x 10 in its 1,172 px, the fourth and eighth without the margin to wrap on - each with the vote's own number on its picture (os_m<k>_num), never in the browser",
-                    Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 34 + 8 + 20 + 10 + 34 <= 920 - 3 - 76 - 49 - 45 - 16
+                    Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 34 + 8 + 20 + 10 + 34 <= 920 - 3 - 76 - 49 - 45 - 28
                     && new[] { 4, 8 }.All(k => Regex.IsMatch(rules0, $@"(?m)^\.os-screen\.voting #os_m{k}\s*\{{\s*margin-right:\s*0px;")) && !Regex.IsMatch(rules0, @"#os_m(5|10)\s*\{")
                     && Enumerable.Range(1, HudMenu.Cards).All(k => noCommentsXml.Contains($"<Label id=\"{HudMenu.Card(k)}_rank\" class=\"os-mrank\" text=\"{{s:text}}\" />") && noCommentsXml.Contains($"<Label id=\"{HudMenu.Card(k)}_num\" class=\"os-mnum\" text=\"{{s:text}}\" />"))
                     && Regex.IsMatch(rules0, @"(?m)^\.os-mnum\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mnum\s*\{\s*visibility:\s*visible;")
@@ -455,23 +455,71 @@ static partial class Program
                 && Enumerable.Range(1, HudMenu.Cards).All(k => noComments.Contains($"text=\"{{s:{HudVote.HoverVar(k)}}}\"")));
             // ---- content v4.14.0: the chat column, the pager's pulse on its buttons, the decided state without a countdown, the download, the browser's cards ----
             var noCommentsCss = rules;
-            Check($"Content v4.14.0: the chat column - {HudChat.Lines} lines, one id each, in a dock from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to just above CS2's typing line, x 0-579 over CS2's whole chat box (its text starts left of the box's 18, the box runs to 579), fully opaque from top to foot: down to y 1000 with CS2's chat closed, in a match and at a match end; with it open its foot at 952, above the typing line's box, and at 674 at a match end (meos, or the game's own classes for its end screen with the scoreboard); under everything else on the screen; shown only while chaton, and kept by a beat (hb) that restarts an animation of 35 s, more than three of HudChat.BeatSeconds; the pointer to CS2's line above it, pointing down",
-                Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat-dock"" hittest=""false"">\s*<Panel class=""os-chat-top"" hittest=""false"" />\s*<Panel class=""os-chat"" hittest=""false"">\s*<Panel class=""os-chat-lines"" hittest=""false"">")
-                && Regex.IsMatch(noComments, @"</Panel>\s*</Panel>\s*<Panel class=""os-chat-foot"" hittest=""false"" />\s*</Panel>")
+            Check($"Content v4.14.0: the chat column - {HudChat.Lines} rows, one id each, in a dock from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to just above CS2's typing line, x 0-579 over CS2's whole chat box; framed as the window is - its border, corners and shadow, the gold rule on top, the dots - and fully opaque: down to y 1000 with CS2's chat closed, in a match and at a match end; with it open its foot at 952 and at 674 at a match end (meos, or the game's own classes for its end screen with the scoreboard); shown only while chaton, kept by a beat (hb); the pointer to CS2's line above it, pointing down, at a match end too",
+                Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat-dock"" hittest=""false"">\s*<Panel class=""os-chat-top"" hittest=""false"" />\s*<Panel class=""os-chat"" hittest=""false"">\s*<Panel class=""os-chat-rule"" hittest=""false"" />\s*<Panel class=""os-chat-lift"" hittest=""false"" />\s*<Panel class=""os-chat-clip"" hittest=""false"">\s*<Panel class=""os-chat-lines"" hittest=""false"">")
+                && Regex.IsMatch(noComments, @"</Panel>\s*</Panel>\s*</Panel>\s*<Panel class=""os-chat-foot"" hittest=""false"" />\s*</Panel>")
                 && Enumerable.Range(1, HudChat.Lines).All(k => noComments.Contains($"<Panel id=\"{HudChat.Line(k)}\" class=\"os-chat-line\" hittest=\"false\"><Panel hittest=\"false\" /><Label hittest=\"false\" text=\"{{s:text}}\" /></Panel>"))
-                && !noComments.Contains($"id=\"{HudChat.Line(HudChat.Lines + 1)}\"") && !Regex.IsMatch(noComments, @"os_chat_\d+_t") && HudChat.Lines * 23 >= 1000 - 80 - 14
+                && !noComments.Contains($"id=\"{HudChat.Line(HudChat.Lines + 1)}\"") && !Regex.IsMatch(noComments, @"os_chat_\d+_t")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-dock\s*\{\s*width:\s*579px;\s*height:\s*100%;\s*horizontal-align:\s*left;\s*flow-children:\s*down;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-top\s*\{\s*width:\s*100%;\s*height:\s*80px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio16x10 \.os-chat-top\s*\{\s*height:\s*126px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-top\s*\{\s*height:\s*227px;")
                 && (1080 - 920) / 2 == 80 && Math.Abs((1080 - 0.90 * 920) / 2 - 126) < 0.5 && Math.Abs((1080 - 0.68 * 920) / 2 - 227) < 0.5
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{\s*visibility:\s*collapse;\s*width:\s*100%;\s*height:\s*fill-parent-flow\(\s*1\s*\);\s*overflow:\s*clip;\s*opacity:\s*0;\s*border-radius:\s*0px 4px 4px 0px;\s*background-color:\s*#0A0D11;\s*\}")
-                && !Regex.IsMatch(noCommentsCss, @"\.os-chat\s*\{[^}]*gradient") && !Regex.IsMatch(noCommentsCss, @"\.os-screen\.win \.os-chat\s*\{") && !Regex.IsMatch(noCommentsCss, @"\.os-screen\.meos \.os-chat\s*\{")
+                && Regex.Match(noCommentsCss, @"(?m)^\.os-chat\s*\{([^}]*)\}") is { Success: true } chatRule && Regex.Match(noCommentsCss, @"(?m)^\.os-win\s*\{([^}]*)\}") is { Success: true } winRule
+                && new[] { @"border-radius:\s*5px;", @"border:\s*1px solid #FFFFFF12;", @"box-shadow:\s*#000000b3 0px 24px 72px 0px;", @"background-image:\s*url\( ""s2r://panorama/images/backgrounds/bluedots_large_png\.vtex"" \);", @"background-img-opacity:\s*0\.03;" }.All(x => Regex.IsMatch(chatRule.Groups[1].Value, x) && Regex.IsMatch(winRule.Groups[1].Value, x))
+                && Regex.IsMatch(chatRule.Groups[1].Value, @"visibility:\s*collapse;[^}]*height:\s*fill-parent-flow\(\s*1\s*\);\s*flow-children:\s*down;\s*opacity:\s*0;") && Regex.IsMatch(chatRule.Groups[1].Value, @"background-color:\s*gradient\( linear, 0% 0%, 0% 100%, from\( #141A21 \), to\( #0A0D11 \) \);")
+                && Regex.Match(noCommentsCss, @"(?m)^\.os-chat-rule\s*\{([^}]*)\}").Groups[1].Value.Trim() == Regex.Match(noCommentsCss, @"(?m)^\.os-win-rule\s*\{([^}]*)\}").Groups[1].Value.Trim()
+                && !Regex.IsMatch(noCommentsCss, @"\.os-screen\.win \.os-chat\s*\{") && !Regex.IsMatch(noCommentsCss, @"\.os-screen\.meos \.os-chat\s*\{")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-foot\s*\{\s*width:\s*100%;\s*height:\s*80px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-foot\s*\{\s*height:\s*128px;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen\.meos \.os-chat-foot\s*\{\s*height:\s*406px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-foot\s*\{\s*height:\s*406px;")
                 && 1080 - 80 == 1000 && 1080 - 128 == 952 && 1080 - 406 == 674 && 952 - 278 == 674
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton\.hb \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-a;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-b;\s*animation-duration:\s*35s;") && 35 > 3 * HudChat.BeatSeconds
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*padding:\s*6px 12px 8px 28px;") && HudChat.KindClasses.All(c => Regex.IsMatch(noCommentsCss, $@"\.os-chat-line\.{c}\b"))
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr\s*\{[^}]*margin:\s*0px 0px 136px 18px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr-arrow\s*\{[^}]*rotateZ\(\s*-45deg\s*\);"));
+                && HudChat.KindClasses.All(c => Regex.IsMatch(noCommentsCss, $@"\.os-chat-line\.{c}\b"))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr\s*\{[^}]*margin:\s*0px 0px 136px 18px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr-arrow\s*\{[^}]*rotateZ\(\s*-45deg\s*\);")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.meos \.os-chatptr\s*\{\s*margin-bottom:\s*414px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE \.os-screen \.os-chatptr\s*\{\s*margin-bottom:\s*414px;"));
+            // Whole rows only: a row is its height and its gap under it; the clip - the column less its border (2), its rule (3), the lift and the clip's margins - is a whole
+            // number of rows at every aspect with CS2's chat closed, open, and open at a match end (the lift's 10 px), and the label never takes a second row.
+            var rowCss = Regex.Match(noCommentsCss, @"(?m)^\.os-chat-line\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-bottom:\s*(\d+)px;");
+            var clipCss = Regex.Match(noCommentsCss, @"(?m)^\.os-chat-clip\s*\{[^}]*margin:\s*(\d+)px 0px (\d+)px 0px;\s*overflow:\s*clip;");
+            int Pxv(string pattern) => Regex.Match(noCommentsCss, pattern) is { Success: true } m ? int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : -1;
+            var pitch = rowCss.Success ? int.Parse(rowCss.Groups[1].Value) + int.Parse(rowCss.Groups[2].Value) : 0;
+            var lift = Pxv(@"(?m)^\.HUD_CHAT_VISIBLE \.os-screen\.meos \.os-chat-lift\s*\{\s*height:\s*(\d+)px;");
+            var clipTops = new[] { (Top: 80, Margin: clipCss.Success ? int.Parse(clipCss.Groups[1].Value) : -1), (Top: 126, Margin: Pxv(@"(?m)^\.AspectRatio16x10 \.os-chat-clip\s*\{\s*margin-top:\s*(\d+)px;")), (Top: 227, Margin: Pxv(@"(?m)^\.AspectRatio4x3 \.os-chat-clip\s*\{\s*margin-top:\s*(\d+)px;")) };
+            var clipBottom = clipCss.Success ? int.Parse(clipCss.Groups[2].Value) : -1;
+            var clips = clipTops.SelectMany(a => new[] { (Foot: 1000, Lift: 0), (Foot: 952, Lift: 0), (Foot: 674, Lift: lift) }.Select(st => st.Foot - a.Top - 2 - 3 - st.Lift - a.Margin - clipBottom)).ToList();
+            Check($"Content v4.14.0: the chat column shows whole rows only - a row {pitch} px, and its clip a whole number of rows in every state ({string.Join(", ", clips.Select(c => pitch > 0 ? $"{c / pitch}" : "?"))} rows: 16:9, 16:10, 4:3 - closed, open, open at a match end); the label one row, cut to fit with an ellipsis; a line's later rows without a mark",
+                pitch == 24 && lift == 10 && Pxv(@"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-lift\s*\{\s*height:\s*(\d+)px;") == lift
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lift\s*\{\s*width:\s*100%;\s*height:\s*0px;") && clipTops.All(a => a.Margin >= 12) && clips.All(c => c > 0 && c % pitch == 0) && clips.Max() / pitch <= HudChat.Lines
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*height:\s*21px;[^}]*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line\.k-cont Panel\s*\{\s*opacity:\s*0;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*vertical-align:\s*bottom;[^}]*padding:\s*0px 16px 0px 18px;"));
+            var wrapLine = string.Join(" ", Enumerable.Repeat("a long line to wrap over the column's rows", 6));
+            var wrapped = HudChat.Rows(wrapLine);
+            var wide = HudChat.Rows(new string('W', 60) + " " + new string('\u4E2D', 40));
+            var wrapChat = new HudChat();
+            wrapChat.Say("Eve", "T", wrapLine, teamOnly: false);
+            wrapChat.Say("Dan", "CT", "short", teamOnly: false);
+            var wrapColumn = HudChat.Column(wrapChat.For(1, "CT"));
+            var eveRows = HudChat.Rows(HudChat.Text(wrapChat.All[0])).Count; // the line as kept: Say clips a player's words to 127 characters, as CS2 does
+            Check($"The column's rows (HudChat.Rows): a line breaks at spaces into rows of at most {HudChat.RowUnits} units, never more than {HudChat.MaxRows} (the last ends in ...), a word longer than a row breaks inside it, wide characters count wide; its first row carries the mark, the rest are k-cont",
+                wrapped.Count == HudChat.MaxRows && wrapped[^1].EndsWith("...", StringComparison.Ordinal) && wrapped.All(r => HudChat.Units(r) <= HudChat.RowUnits) && wrapped.Take(HudChat.MaxRows - 1).All(r => !r.EndsWith(' ') && !r.StartsWith(' '))
+                && wide.All(r => HudChat.Units(r) <= HudChat.RowUnits) && wide.Count >= 3 && HudChat.Rows("hi") is ["hi"] && HudChat.Rows("") is []
+                && wrapColumn.Texts.Single(x => x.Id == HudChat.Line(HudChat.Lines)).Text == "Dan: short"
+                && eveRows >= 2 && wrapColumn.Texts.Single(x => x.Id == HudChat.Line(HudChat.Lines - eveRows)).Text.StartsWith("Eve: a long line", StringComparison.Ordinal)
+                && wrapColumn.Classes.Contains((HudChat.Line(HudChat.Lines - eveRows), "k-cont", false)) && wrapColumn.Classes.Contains((HudChat.Line(HudChat.Lines - eveRows), "k-t", true))
+                && wrapColumn.Classes.Contains((HudChat.Line(HudChat.Lines - 1), "k-cont", true)) && wrapColumn.Classes.Contains((HudChat.Line(HudChat.Lines - 1), "k-t", true))
+                && wrapColumn.Classes.Contains((HudChat.Line(HudChat.Lines - eveRows - 1), "used", false)));
+            // The audit of round 5: what can run past its box - one padding for every page; rows of a fixed height that never wrap; the vote bar and the download within it;
+            // the browser card's words that never meet; the filter bar's worst case; the column's words in the window's colour; the small caps' spacing; the server's download.
+            Check("The audit (content v4.14.0): every page one padding; Players', Fun's, Bots' and Sync's fixed rows single lines that end in an ellipsis; a choice's word inside its button; the presets' boxes room for four lines; Random's words in its button; the download's and the clock's words within the bar; the browser card's click words at the picture's foot, its mode and count at its top; Previous's words at 280 px; the column's words in the window's colour; the small caps 2 px apart; the server's download said as the server's",
+                Regex.IsMatch(noCommentsCss, @"(?m)^\.os-page\s*\{[^}]*padding:\s*16px 34px 12px 34px;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-page-\w+\s*\{[^}]*padding") && !Regex.IsMatch(noCommentsCss, @"\.os-page-maps\s*\{[^}]*padding")
+                && new[] { "os-pteam", "os-pvote", "os-pfor", "os-frow-title", "os-dline", "os-dwhy", "os-vdl-mb" }.All(c => Regex.IsMatch(noCommentsCss, $@"(?m)^\.{c}\s*\{{[^}}]*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;"))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-funb \.os-setb-text\s*\{\s*max-width:\s*88px;\s*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;") && Regex.IsMatch(noCommentsCss, @"(?m)^#os_v_random \.os-vbtn-text\s*\{[^}]*max-width:\s*150px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-bpreset\s*\{[^}]*height:\s*120px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-bpresets\s*\{[^}]*height:\s*128px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vfetch \.os-clocks\s*\{\s*width:\s*480px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vdl \.os-clocks\s*\{\s*width:\s*460px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.voting\.vfetch \.os-clock-idle \.os-clock-text\s*\{[^}]*width:\s*fill-parent-flow\(\s*1\s*\);") && 170 + 64 + 96 + 12 + 110 <= 460
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mplay-text\s*\{\s*max-width:\s*267px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mmode\s*\{\s*vertical-align:\s*top;\s*margin:\s*30px 0px 0px 6px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mside\s*\{\s*vertical-align:\s*top;\s*margin:\s*30px 0px 0px 124px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^#os_q_prev_text\s*\{\s*max-width:\s*280px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*color:\s*os-text;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*text-shadow")
+                && !Regex.IsMatch(noCommentsCss, @"letter-spacing:\s*2\.[23]px") && noComments.Contains("<Label class=\"os-clock-key os-vdl-key\" text=\"Server downloading\" />")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vfetch \.os-clock-key-done\s*\{\s*width:\s*170px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vfetch \.os-mcard\.now \.os-mplay-text\s*\{\s*width:\s*170px;"));
             var chatTest = new HudChat();
             chatTest.Say("Alice", "CT", "gg all", teamOnly: false);
             chatTest.Say("Bob", "T", "rush b", teamOnly: true);
@@ -525,7 +573,7 @@ static partial class Program
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mplay-text\s*\{[^}]*horizontal-align:\s*right;[^}]*margin:\s*84px 8px 0px 0px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.voting \.os-mplay-text\s*\{\s*padding:\s*0px;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mbody\s*\{\s*width:\s*100%;\s*height:\s*fill-parent-flow\(\s*1\s*\);")
                 && 4 * 285 + 3 * 10 <= 1172 && HudBrowser.PerPage == 12 && HudMenu.Cards == 12 && Enumerable.Range(1, 12).All(k => ids.Contains(HudMenu.Card(k)) && ids.Contains($"{HudMenu.Card(k)}_play_text"))
-                && 34 + 8 + 34 + 10 + 3 * (181 + 8) + 34 <= 920 - 3 - 76 - 49 - 45 - 24);
+                && 34 + 8 + 34 + 10 + 3 * (181 + 8) + 34 <= 920 - 3 - 76 - 49 - 45 - 28);
 
             // ---- the menu's tabs and sub-tabs, the Players page, the version button, the outdated banner, the restart in the foot ----
             string[] rowTabs = ["os_tab_start", HudVote.BackButton, HudView.TabMaps, HudVote.BrowseButton, HudView.TabFun, HudBots.Tab, "os_sub_players", HudView.TabGame, HudDash.Tab, "os_tab_help", HudView.TabHow];
@@ -654,7 +702,7 @@ static partial class Program
             // its rule, head, tabs, sub-tabs and foot); the Fun page spends its padding, the note's line (about 1.3 times its type) and margin, and a column's rows
             // with their margins. A row holds its title line (the buttons' height, at least 1.3 times the title's type) over its words (1.3 times
             // their type).
-            var funPad = Regex.Match(rules, @"\.os-page-fun\s*\{[^}]*padding:\s*(\d+)px \d+px (\d+)px");
+            var funPad = Regex.Match(rules, @"(?m)^\.os-page\s*\{[^}]*padding:\s*(\d+)px \d+px (\d+)px"); // every page's one padding (content v4.14.0)
             var funNote = Regex.Match(rules, @"\.os-fun-note\s*\{[^}]*margin-bottom:\s*(\d+)px;[^}]*font-size:\s*(\d+)px;");
             var funRowCss = Regex.Match(rules, @"\.os-frow\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-bottom:\s*(\d+)px;");
             var funTop = Regex.Match(rules, @"\.os-frow-top\s*\{[^}]*height:\s*(\d+)px;");
@@ -678,7 +726,7 @@ static partial class Program
                 funHeight <= PagesHeight && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 && funTopLine <= (int)Math.Ceiling(Px(funNote, 2) * 1.3) + 8);
             // The Bots page's height (content v4.8.0: twelve rows in two columns of six, as the Fun page's rows, and the presets under them): its padding, the same
             // top line, a column's rows, the presets' head and their cards with their margins. Its five buttons a row fit a column beside the row's title.
-            var botsPad = Regex.Match(rules, @"\.os-page-bots\s*\{[^}]*padding:\s*(\d+)px \d+px (\d+)px");
+            var botsPad = funPad;
             var presetsHead = Regex.Match(rules, @"\.os-bpresets-head\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-top:\s*(\d+)px;");
             var presetsRow = Regex.Match(rules, @"\.os-bpresets\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-top:\s*(\d+)px;");
             var botButton = Regex.Match(rules, @"\.os-botb\s*\{[^}]*width:\s*(\d+)px;");

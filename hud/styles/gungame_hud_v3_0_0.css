@@ -1146,7 +1146,7 @@ Label
 	background-color: os-gold;
 	font-size: 11px;
 	font-weight: bold;
-	letter-spacing: 2.2px;
+	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: #10141A;
 }
@@ -1486,7 +1486,7 @@ Label
 	visibility: collapse;
 	width: 100%;
 	height: 100%;
-	padding: 26px 34px 20px 34px;
+	padding: 16px 34px 12px 34px;
 }
 
 .os-screen.page-start .os-page-start
@@ -1687,7 +1687,6 @@ Label
 .os-page-help
 {
 	flow-children: down;
-	padding-top: 14px;
 }
 
 .os-group
@@ -2024,7 +2023,6 @@ Label
 .os-page-maps
 {
 	flow-children: down;
-	padding: 14px 34px 10px 34px;
 }
 
 .os-mbar
@@ -3026,6 +3024,11 @@ Label
 	margin-bottom: 414px;
 }
 
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE .os-screen .os-chatptr
+{
+	margin-bottom: 414px;
+}
+
 .os-chatptr-text
 {
 	vertical-align: center;
@@ -3257,7 +3260,7 @@ Label
 
 #os_q_prev_text
 {
-	max-width: 330px;
+	max-width: 280px;
 	vertical-align: center;
 	font-size: 11px;
 	font-weight: bold;
@@ -3307,7 +3310,6 @@ Label
 .os-page-how
 {
 	flow-children: down;
-	padding: 22px 34px 14px 34px;
 }
 
 .os-how
@@ -3413,7 +3415,6 @@ Label
 .os-page-fun
 {
 	flow-children: down;
-	padding: 14px 34px 8px 34px;
 }
 
 .os-fun-note
@@ -3488,6 +3489,16 @@ Label
 	letter-spacing: 1px;
 	text-transform: uppercase;
 	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* a choice's word stays inside its button (96 x 32, which lets its bubbles out) */
+.os-funb .os-setb-text
+{
+	max-width: 88px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-frow-txt
@@ -3596,7 +3607,6 @@ Label
 .os-page-bots
 {
 	flow-children: down;
-	padding: 14px 34px 8px 34px;
 }
 
 .os-page-bots .os-fun-note
@@ -3668,7 +3678,7 @@ Label
 .os-bpresets
 {
 	width: 100%;
-	height: 112px;
+	height: 128px;
 	margin-top: 4px;
 	flow-children: right;
 }
@@ -3677,7 +3687,7 @@ Label
 {
 	visibility: collapse;
 	width: fill-parent-flow( 1 );
-	height: 104px;
+	height: 120px;
 	margin-right: 10px;
 	padding: 10px 12px 10px 12px;
 	flow-children: down;
@@ -4043,7 +4053,6 @@ Label
 .os-page-sync
 {
 	flow-children: down;
-	padding: 18px 30px 12px 30px;
 }
 
 .os-screen.page-sync .os-page-sync
@@ -4153,6 +4162,8 @@ Label
 	margin-top: 4px;
 	font-size: 14px;
 	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-dnow-cols
@@ -4340,6 +4351,8 @@ Label
 	margin-top: 3px;
 	font-size: 13px;
 	color: os-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-dfaint
@@ -5856,7 +5869,6 @@ Label
 .os-page-players
 {
 	flow-children: down;
-	padding: 14px 34px 8px 34px;
 }
 
 .os-psum
@@ -5904,6 +5916,8 @@ Label
 	font-weight: bold;
 	letter-spacing: 1px;
 	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-phud
@@ -5943,6 +5957,8 @@ Label
 	vertical-align: center;
 	font-size: 13px;
 	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-pfor
@@ -5952,6 +5968,8 @@ Label
 	font-size: 13px;
 	color: os-dim;
 	text-align: right;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-phead .os-phl
@@ -5959,7 +5977,7 @@ Label
 	vertical-align: center;
 	font-size: 11px;
 	font-weight: bold;
-	letter-spacing: 2.2px;
+	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: os-faint;
 }
@@ -6175,7 +6193,7 @@ Label
 	border-radius: 3px;
 	font-size: 10px;
 	font-weight: bold;
-	letter-spacing: 2.3px;
+	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: #10141A;
 }
@@ -6572,12 +6590,8 @@ Label
 	visibility: collapse;
 }
 
-/* 1,172 x 731 px inside the window's 920: the page bar 34 and 8 under it, how to vote 20 and 10 under it, three rows of tiles 567 with their margins, the pager. */
-.os-screen.voting .os-page-maps
-{
-	padding: 12px 34px 4px 34px;
-}
-
+/* 1,172 x 719 px inside the window's 920 (every page's padding): the page bar 34 and 8 under it, how to vote 20 and 10 under it, three rows of tiles 567 with their
+   margins, the pager. */
 .os-screen.voting .os-page-maps .os-mbar
 {
 	visibility: collapse;
@@ -6610,6 +6624,9 @@ Label
 #os_v_random .os-vbtn-text
 {
 	horizontal-align: center;
+	max-width: 150px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-vstrip
@@ -6869,9 +6886,14 @@ Label
 .os-screen.voting.vfetch .os-clock-idle .os-clock-text
 {
 	visibility: visible;
-	width: 300px;
+	width: fill-parent-flow( 1 );
 	margin-left: 4px;
 	font-size: 14px;
+}
+
+.os-screen.vfetch .os-clocks
+{
+	width: 480px;
 }
 
 /* The last 10 s: the limit's digits turn red and pulse. */
@@ -7228,7 +7250,7 @@ Label
 	horizontal-align: center;
 	font-size: 10px;
 	font-weight: bold;
-	letter-spacing: 2.3px;
+	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: os-gold;
 }
@@ -7508,7 +7530,7 @@ Label
 
 .os-page-how
 {
-	padding: 16px 34px 8px 34px;
+	flow-children: down;
 }
 
 .os-how
@@ -7905,22 +7927,46 @@ Label
 
 .os-vdl .os-clock-big
 {
-	width: 76px;
+	width: 64px;
 	font-size: 26px;
 	color: #FFFFFF;
 }
 
 .os-vdl .os-clock-bar
 {
-	width: 150px;
+	width: 96px;
+}
+
+/* the server downloads, not the player's game: its key says so, at its own width */
+.os-vdl .os-vdl-key
+{
+	width: 170px;
+}
+
+.os-screen.vdl .os-clocks
+{
+	width: 460px;
+}
+
+.os-screen.vfetch .os-clock-key-done
+{
+	width: 170px;
+}
+
+.os-screen.vfetch .os-mcard.now .os-mplay-text
+{
+	width: 170px;
 }
 
 .os-vdl-mb
 {
+	width: fill-parent-flow( 1 );
 	margin-left: 12px;
 	vertical-align: center;
 	font-size: 13px;
 	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .os-screen.vfetch .os-mcard.now .os-mvbar-fill
@@ -8022,6 +8068,7 @@ Label
 
 .os-mplay-text
 {
+	max-width: 267px;
 	horizontal-align: right;
 	vertical-align: top;
 	margin: 84px 8px 0px 0px;
@@ -8030,6 +8077,20 @@ Label
 	border: 1px solid #E9B44C99;
 	background-color: #0A0D11E6;
 	font-size: 11px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-mmode
+{
+	vertical-align: top;
+	margin: 30px 0px 0px 6px;
+}
+
+.os-mside
+{
+	vertical-align: top;
+	margin: 30px 0px 0px 124px;
 }
 
 .os-mcard.broken .os-mplay-text
@@ -8217,15 +8278,69 @@ Label
 	height: 227px;
 }
 
+/* The column, framed as the window is (.os-win, .os-win-rule): its border, its corners, its shadow, the gold rule on top and the dots - fully opaque, as CS2's
+   chat is under it. */
 .os-chat
 {
 	visibility: collapse;
 	width: 100%;
 	height: fill-parent-flow( 1 );
-	overflow: clip;
+	flow-children: down;
 	opacity: 0;
-	border-radius: 0px 4px 4px 0px;
-	background-color: #0A0D11;
+	border-radius: 5px;
+	border: 1px solid #FFFFFF12;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #141A21 ), to( #0A0D11 ) );
+	background-image: url( "s2r://panorama/images/backgrounds/bluedots_large_png.vtex" );
+	background-size: 360px 360px;
+	background-img-opacity: 0.03;
+	box-shadow: #000000b3 0px 24px 72px 0px;
+}
+
+.os-chat-rule
+{
+	width: 100%;
+	height: 3px;
+	border-radius: 5px 5px 0px 0px;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( os-gold-deep ), color-stop( 0.5, os-gold-hi ), to( os-gold-deep ) );
+	box-shadow: #E9B44C66 0px 0px 14px 0px;
+}
+
+/* Whole rows only: a row is 24 px (21 and its gap of 3, under it), and the clip - the column less its border (2), the rule (3), the lift and its margins - is a whole
+   number of rows in every state. Its top margin sets that by the aspect (16:9 and 21:9: 920 - 2 - 3 - 15 - 12 = 888, 37 rows; 16:10, from 126: 840, 35; 4:3, from
+   227: 744, 31); CS2's chat open takes the foot up 48 px, two rows (35, 33, 29); at a match end 326 px more, which the lift's 10 px rounds to 14 rows (23, 21, 17).
+   A row a pixel or two too many shows its gap only, never its words. */
+.os-chat-lift
+{
+	width: 100%;
+	height: 0px;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.meos .os-chat-lift
+{
+	height: 10px;
+}
+
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE.HUD_CHAT_VISIBLE .os-screen .os-chat-lift
+{
+	height: 10px;
+}
+
+.os-chat-clip
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	margin: 15px 0px 12px 0px;
+	overflow: clip;
+}
+
+.AspectRatio16x10 .os-chat-clip
+{
+	margin-top: 17px;
+}
+
+.AspectRatio4x3 .os-chat-clip
+{
+	margin-top: 12px;
 }
 
 .os-chat-foot
@@ -8275,15 +8390,16 @@ Label
 	width: 100%;
 	vertical-align: bottom;
 	flow-children: down;
-	padding: 6px 12px 8px 28px;
+	padding: 0px 16px 0px 18px;
 }
 
 .os-chat-line
 {
 	visibility: collapse;
 	width: 100%;
+	height: 21px;
 	flow-children: right;
-	margin-top: 3px;
+	margin-bottom: 3px;
 }
 
 .os-chat-line.used
@@ -8294,19 +8410,28 @@ Label
 .os-chat-line Panel
 {
 	width: 3px;
-	height: 17px;
+	height: 15px;
 	vertical-align: top;
 	margin: 3px 8px 0px 0px;
 	border-radius: 1px;
 	background-color: #FFFFFF40;
 }
 
+/* One row of type, never two: a row's words are cut to fit by the plugin (HudChat.Rows), and the label ends in an ellipsis should a guess fall short. */
 .os-chat-line Label
 {
 	width: fill-parent-flow( 1 );
+	height: 21px;
 	font-size: 17px;
-	color: #FFFFFF;
-	text-shadow: 1px 1px 2px 1.5 #000000E6;
+	color: os-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* a line's later rows: no mark of their own, in its place */
+.os-chat-line.k-cont Panel
+{
+	opacity: 0;
 }
 
 .os-chat-line.k-ct Panel

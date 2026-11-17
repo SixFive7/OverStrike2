@@ -24,9 +24,76 @@ public sealed class HudChat
     /// <summary>Whether the column shows by its route, with the window open or not.</summary>
     public static bool Shows(Route route, bool windowOpen) => route == Route.Always || route == Route.Window && windowOpen;
 
-    /// <summary>The column's lines; the newest is the last, at the bottom. The column runs from the window's top to just above CS2's typing line, so as many show as
-    /// fit - a line is about 23 px: some 38 at 16:9 with CS2's chat closed - and the rest are clipped at its top; a long line takes two rows.</summary>
+    /// <summary>The column's rows; the newest is the last, at the bottom. A row is one row of type, 24 px with its gap, and the column's inner height is a whole number
+    /// of rows in every state (the stylesheet: 37, 35 and 23 at 16:9 - CS2's chat closed, open, open at a match end), so it shows whole rows only and clips the
+    /// rest at its top, whole. A line too long for a row runs on in the rows under it (Rows).</summary>
     public const int Lines = 40;
+
+    /// <summary>A row's width in the column's own measure of its type (Width: a unit is about 10 px of 17 px Stratum2): the row has 532 px; this leaves a tenth to
+    /// spare for a wider guess, and the label still ends in an ellipsis rather than take a second row.</summary>
+    public const double RowUnits = 48;
+
+    /// <summary>At most this many rows a line; the last ends in "..." when the words run on.</summary>
+    public const int MaxRows = 4;
+
+    /// <summary>A character's width in units, a little generous: narrow letters and marks, wide ones, capitals, digits; East Asian and other wide characters
+    /// (and each half of a surrogate pair) the most.</summary>
+    public static double Width(char c) => c switch
+    {
+        ' ' => 0.45,
+        'i' or 'l' or 'j' or '\'' or '.' or ',' or ':' or ';' or '!' or '|' or 'I' => 0.45,
+        'm' or 'w' => 1.25,
+        'M' or 'W' => 1.4,
+        >= 'a' and <= 'z' => 0.85,
+        >= 'A' and <= 'Z' => 1.1,
+        >= '0' and <= '9' => 0.9,
+        < (char)0x80 => 0.65,
+        _ => c is >= '\u1100' and <= '\u115F' or >= '\u2E80' and <= '\uA4CF' or >= '\uAC00' and <= '\uD7A3' or >= '\uF900' and <= '\uFAFF' or >= '\uFE30' and <= '\uFE4F'
+            or >= '\uFF00' and <= '\uFF60' or >= '\uFFE0' and <= '\uFFE6' || char.IsSurrogate(c) ? 1.9 : 1.05,
+    };
+
+    /// <summary>A text's width in units (Width).</summary>
+    public static double Units(string s) => s.Sum(Width);
+
+    /// <summary>A line's words in rows of at most RowUnits, broken at spaces (a word longer than a row breaks inside), at most MaxRows - the last ending in "..." when
+    /// there is more. Every row is one row on screen.</summary>
+    public static List<string> Rows(string text)
+    {
+        var rows = new List<string>();
+        var rest = text.Trim();
+        while (rest.Length > 0)
+        {
+            var (row, next) = Take(rest);
+            if (rows.Count == MaxRows - 1 && next != "")
+            {
+                while (row.Length > 0 && Units(row) + 3 * Width('.') > RowUnits) row = row[..^1];
+                if (row.Length > 0 && char.IsHighSurrogate(row[^1])) row = row[..^1];
+                rows.Add(row.TrimEnd() + "...");
+                break;
+            }
+            rows.Add(row);
+            rest = next;
+        }
+        return rows;
+    }
+
+    // The longest start of a text within RowUnits, broken at its last space when it has one, never between a surrogate pair's halves; and the rest.
+    static (string Row, string After) Take(string text)
+    {
+        double w = 0;
+        var lastSpace = -1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == ' ') lastSpace = i;
+            w += Width(text[i]);
+            if (w <= RowUnits) continue;
+            var cut = lastSpace > 0 ? lastSpace : i;
+            if (cut > 0 && char.IsLowSurrogate(text[cut])) cut--;
+            if (cut <= 0) cut = Math.Max(1, i);
+            return (text[..cut].TrimEnd(), text[cut..].TrimStart());
+        }
+        return (text, "");
+    }
 
     /// <summary>How many lines the plugin keeps, newest last.</summary>
     public const int Keep = 60;
@@ -55,8 +122,8 @@ public sealed class HudChat
     public sealed record Entry(long Seq, Kind Kind, string Name, string Team, string Text, long To);
 
     /// <summary>A line's look on its panel: the sender's team for a player's line (k-ct, k-t; a spectator's none), k-team besides for a line to the team, the server's,
-    /// an event's.</summary>
-    public static readonly string[] KindClasses = ["k-ct", "k-t", "k-team", "k-srv", "k-evt"];
+    /// an event's; k-cont on a row that runs a line on (no mark of its own).</summary>
+    public static readonly string[] KindClasses = ["k-ct", "k-t", "k-team", "k-srv", "k-evt", "k-cont"];
 
     readonly List<Entry> entries = [];
     long seq;
@@ -112,20 +179,27 @@ public sealed class HudChat
         _ => ["k-evt"],
     };
 
-    /// <summary>The column for one player: its Lines panels bottom up - the newest on the last - each with its words, used while it holds a line, and its look.</summary>
+    /// <summary>The column for one player: its Lines panels bottom up - the newest line's last row on the last - each with its row's words, used while it holds one,
+    /// and its look; a line's later rows are k-cont.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Column(IReadOnlyList<Entry> shown)
     {
+        var rows = new List<(string Text, HashSet<string> Look)>(); // oldest first
+        for (var i = shown.Count - 1; i >= 0 && rows.Count < Lines; i--)
+        {
+            var look = Look(shown[i]);
+            var parts = Rows(Text(shown[i]));
+            for (var r = parts.Count - 1; r >= 0 && rows.Count < Lines; r--)
+                rows.Insert(0, (parts[r], r == 0 ? look : new HashSet<string>(look) { "k-cont" }));
+        }
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
-        var first = Lines - Math.Min(shown.Count, Lines) + 1;
-        var from = Math.Max(0, shown.Count - Lines);
+        var first = Lines - rows.Count + 1;
         for (var k = 1; k <= Lines; k++)
         {
-            var e = k >= first ? shown[from + k - first] : null;
-            t.Add((Line(k), e == null ? "" : Text(e)));
-            c.Add((Line(k), "used", e != null));
-            var look = e == null ? [] : Look(e);
-            foreach (var cls in KindClasses) c.Add((Line(k), cls, look.Contains(cls)));
+            var row = k >= first ? rows[k - first] : default;
+            t.Add((Line(k), row.Text ?? ""));
+            c.Add((Line(k), "used", row.Text != null));
+            foreach (var cls in KindClasses) c.Add((Line(k), cls, row.Look?.Contains(cls) == true));
         }
         return (t, c);
     }
