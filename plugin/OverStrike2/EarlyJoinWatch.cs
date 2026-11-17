@@ -20,10 +20,14 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
     public const string Command = "os_fair";
 
     readonly EarlyJoin plan = new();
+    readonly EarlyJoin.SignOns signOns = new(); // connected, not in the game yet: CS2's first-download prompt, the download, the load (os_joining)
 
     public void Load(bool hotReload)
     {
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => plan.MapStarted());
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { plan.MapStarted(); signOns.MapStarted(); });
+        plugin.RegisterListener<Listeners.OnClientConnect>((slot, name, _) => signOns.Connected(slot, name, DateTime.UtcNow)); // the moment the server logs "connected"
+        plugin.RegisterListener<Listeners.OnClientPutInServer>(slot => signOns.InGame(slot));
+        plugin.RegisterListener<Listeners.OnClientDisconnect>(slot => signOns.Gone(slot));
         plugin.RegisterEventHandler<EventRoundStart>(OnRoundStart);
         plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawn);
         plugin.RegisterEventHandler<EventPlayerDisconnect>(OnDisconnect);
@@ -96,16 +100,22 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
             plan.Force(DateTime.UtcNow);
             log.LogInformation("Over Strike 2 fairness: {Command} live - the match runs from now, and the next join counts as joining somebody", Command);
         }
-        var joining = Joining().Select(p => p.PlayerName).ToList();
+        var joining = JoiningNames();
         command.ReplyToCommand($"{Command}: {plan.Describe(DateTime.UtcNow)}; still joining: {(joining.Count == 0 ? "nobody" : string.Join(", ", joining))}");
     }
 
-    /// <summary>os_joining (EarlyJoin.JoiningCommand): the humans still joining, for the bridge, which holds a fairness restart while there are any. The server console and RCON only.</summary>
+    /// <summary>os_joining (EarlyJoin.JoiningCommand): the humans still joining, for the bridge, which holds a fairness restart while there are any - the controllers
+    /// connecting or reconnecting, and the sign-ons not complete (SignOns: connected, not in the game yet - the state of CS2's first-download prompt). The server
+    /// console and RCON only.</summary>
     void OnJoining(CCSPlayerController? caller, CommandInfo command)
     {
         if (caller != null) return;
-        command.ReplyToCommand(EarlyJoin.JoiningReply(Joining().Select(p => p.PlayerName)));
+        command.ReplyToCommand(EarlyJoin.JoiningReply(JoiningNames()));
     }
+
+    /// <summary>Everybody still joining, by name, each once: the controllers' state and the sign-ons not complete.</summary>
+    List<string> JoiningNames() =>
+        [.. Joining().Select(p => p.PlayerName).Concat(signOns.Names(DateTime.UtcNow, slot => Utilities.GetPlayerFromSlot(slot) is { IsValid: true } c && (c.IsBot || c.IsHLTV))).Distinct()];
 
     /// <summary>The humans whose game is still on its way in: their controller connecting - the connect itself, CS2's prompt to confirm a first Workshop download, the
     /// download, the map's load - or reconnecting, as every game does through a map change and through MultiAddonManager's download of the HUD addon. In the game

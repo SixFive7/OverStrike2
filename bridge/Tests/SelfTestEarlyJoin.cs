@@ -84,6 +84,20 @@ static partial class Program
             && M.Plain(EarlyJoin.Line("Bob", 1)) == $"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob is in"
             && M.Plain(EarlyJoin.Line("Bob and Cas", 2, 3)) == "The match restarts for fairness in 3 s - Bob and Cas are in"
             && EarlyJoin.BannerTitle("Bob") == "The match restarts for fairness - Bob is in" && EarlyJoin.BannerTitle("Bob and Cas", 2) == "The match restarts for fairness - Bob and Cas are in");
+        var signOns = new EarlyJoin.SignOns();
+        signOns.Connected(3, "Cas", At(0)); signOns.Connected(4, "A bot", At(1)); signOns.Connected(5, "Dee", At(2));
+        var openThree = signOns.Names(At(3), slot => slot == 4);
+        signOns.InGame(3);
+        var afterIn = signOns.Names(At(4));
+        signOns.Gone(5);
+        var afterGone = signOns.Names(At(5));
+        signOns.Connected(6, "Eve", At(6)); signOns.MapStarted();
+        var afterMap = signOns.Names(At(7));
+        signOns.Connected(7, "Fay", At(10));
+        Check("Fairness: the plugin's record of sign-ons not complete (SignOns) - connected, not in the game yet, CS2's first-download prompt among them: the oldest first, "
+            + "never a bot; in the game or gone, out; a map start forgets them all; a sign-on far too old to be one is none",
+            openThree is ["Cas", "Dee"] && afterIn is ["A bot", "Dee"] && afterGone is ["A bot"] && afterMap is []
+            && signOns.Names(At(10 + EarlyJoin.HoldMostSeconds * 5)) is ["Fay"] && signOns.Names(At(11 + EarlyJoin.HoldMostSeconds * 5)) is []);
         Check("Fairness: its word on /act is the plugin's alone - a click may carry it, chat has no such command",
             Hud.IsAction(EarlyJoin.Command) && ChatCommands.Parse(EarlyJoin.Command).Kind == ChatCommands.Kind.Unknown);
     }
