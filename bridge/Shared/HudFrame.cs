@@ -197,17 +197,18 @@ public sealed class HudFrame
 
     /// <summary>The chat column for one player (content v4.14.0, HudChat): the newest lines they may see, the newest at the bottom, and on os_screen whether it
     /// shows (chaton: its feed is live), its beat (hb, on and off by turns every HudChat.BeatSeconds, which keeps the stylesheet's animation from hiding it) and the
-    /// match-end screen (meos: CS2's chat stands higher then, and the column with it). A game whose HUD check named a content before the column gets the classes
-    /// alone: os_screen is in every content, the column's labels are not.</summary>
+    /// match-end screen (meos: CS2's chat stands higher then, and the column with it). Only a game whose HUD check named v4.14.0 or later gets the column's words
+    /// (HudChat.Feeds) - any other the classes on os_screen alone, which every content has - and the column shows only once it has a line for that player.</summary>
     static void ChatColumn(World w, Human h, IScreen screen)
     {
         var slot = h.Slot;
-        var fed = w.Chat != null && !HudVersion.IsBefore(h.Version, HudChat.Level);
-        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive, slot);
+        var fed = w.Chat != null && HudChat.Feeds(h.Version);
+        var shown = fed ? w.Chat!.For(h.Account, h.Team) : [];
+        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && shown.Count > 0, slot); // no line yet (a plugin just loaded): CS2's own chat shows meanwhile
         screen.Class(HudView.Screen, "hb", HudChat.BeatA(w.Now), slot);
         screen.Class(HudView.Screen, "meos", w.MatchScreen, slot);
         if (!fed) return;
-        var (texts, classes) = HudChat.Column(w.Chat!.For(h.Account, h.Team));
+        var (texts, classes) = HudChat.Column(shown);
         foreach (var (id, text) in texts) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in classes) screen.Class(id, cls, on, slot);
     }

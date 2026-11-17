@@ -451,13 +451,15 @@ static partial class Program
                 && Enumerable.Range(1, HudMenu.Cards).All(k => noComments.Contains($"text=\"{{s:{HudVote.HoverVar(k)}}}\"")));
             // ---- content v4.14.0: the chat column, the pager's pulse on its buttons, the decided state without a countdown, the download, the browser's cards ----
             var noCommentsCss = rules;
-            Check($"Content v4.14.0: the chat column - {HudChat.Lines} lines in a panel at CS2's chat's place (x 18-571, its foot just above CS2's typing line at y 944, lifted with CS2's chat at a match end - meos), under everything else on the screen; shown only while chaton, and kept by a beat (hb) that restarts an animation of 35 s, more than three of HudChat.BeatSeconds; its background lighter with the window closed",
+            Check($"Content v4.14.0: the chat column - {HudChat.Lines} lines in a panel at CS2's chat's place, solid over CS2's whole chat area (route a1): down to y 1000 with the chat closed, its foot at 944 with it open (HUD_CHAT_VISIBLE) so CS2's typing line stays free, lifted with CS2's chat at a match end (meos: 722 and 666); under everything else on the screen; shown only while chaton, and kept by a beat (hb) that restarts an animation of 35 s, more than three of HudChat.BeatSeconds",
                 Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat"" hittest=""false"">")
                 && Enumerable.Range(1, HudChat.Lines).All(k => noComments.Contains($"<Panel id=\"{HudChat.Line(k)}\" class=\"os-chat-line\" hittest=\"false\"><Panel hittest=\"false\" /><Label id=\"{HudChat.Words(k)}\" hittest=\"false\" text=\"{{s:text}}\" /></Panel>"))
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{[^}]*visibility:\s*collapse;[^}]*width:\s*553px;[^}]*margin:\s*0px 0px 136px 18px;[^}]*opacity:\s*0;") && 1080 - 136 == 944
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{[^}]*visibility:\s*collapse;[^}]*width:\s*553px;[^}]*margin:\s*0px 0px 80px 18px;[^}]*opacity:\s*0;[^}]*color-stop\(\s*0\.36,\s*#0A0D11F7\s*\),\s*to\(\s*#0A0D11F7\s*\)")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat\s*\{\s*margin-bottom:\s*136px;") && 1080 - 80 == 1000 && 1080 - 136 == 944 && 600 * (1 - 0.36) >= 1000 - 617
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton\.hb \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-a;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-b;\s*animation-duration:\s*35s;") && 35 > 3 * HudChat.BeatSeconds
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.meos \.os-chat\s*\{\s*height:\s*400px;\s*margin-bottom:\s*414px;") && 1080 - 414 == 666
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.meos \.os-chat\s*\{\s*height:\s*520px;\s*margin-bottom:\s*358px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen\.meos \.os-chat\s*\{\s*margin-bottom:\s*414px;")
+                && 1080 - 358 == 722 && 1080 - 414 == 666 && 520 * (1 - 0.36) >= 722 - 395 && 520 * (1 - 0.36) >= 666 - 339
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win \.os-chat\s*\{") && HudChat.KindClasses.All(c => Regex.IsMatch(noCommentsCss, $@"\.os-chat-line\.{c}\b")));
             var chatTest = new HudChat();
             chatTest.Say("Alice", "CT", "gg all", teamOnly: false);
@@ -476,6 +478,8 @@ static partial class Program
                 && column.Classes.Contains((HudChat.Line(1), "used", false)) && column.Classes.Contains((HudChat.Line(HudChat.Lines), "used", true))
                 && HudChat.Text(tView.Single(e => e.Kind == HudChat.Kind.Team)) == "(Team) Bob: rush b" && HudChat.Look(tView.Single(e => e.Kind == HudChat.Kind.Team)).SetEquals(["k-t", "k-team"])
                 && HudChat.Joined("Cara") == "Cara joined the game" && HudChat.Left("Cara") == "Cara left the game" && HudChat.TeamChanged("Cara", "CT") == "Cara joined the Counter-Terrorists");
+            Check("The chat column's words go only to a game whose HUD check named v4.14.0 or later (HudChat.Feeds): none before the check, none to v4.13.0 or an unknown content - they would log \"Unable to find panel\" (the live lab, release 218: 36 of them)",
+                HudChat.Feeds("v4.14.0") && HudChat.Feeds("v4.15.0") && !HudChat.Feeds("") && !HudChat.Feeds("v4.13.0") && !HudChat.Feeds(HudVersion.Unknown) && !HudChat.Feeds(HudVersion.Older));
             var many = new HudChat();
             for (var i = 0; i < HudChat.Keep + 5; i++) many.Event($"line {i}");
             Check($"The chat column keeps its newest {HudChat.Keep} lines and shows the newest {HudChat.Lines}; its beat turns every {HudChat.BeatSeconds} s",
@@ -490,7 +494,9 @@ static partial class Program
             var s4 = On(HudFrame.Snapped(Bar(9), HudVote.IdleBar, snapPlayer));
             var s5 = On(HudFrame.Snapped(Bar(8), HudVote.IdleBar, snapPlayer));
             Check($"A bar that steps up snaps (HudFrame.Snapped): down as it comes; up, first snap with the old step, then the new step under snap, then snap off - {s1}, {s2}, {s3}, {s4}, {s5}",
-                s1 == "w5" && s2 == "w4" && s3 == "w4+snap" && s4 == "w9+snap" && s5 == "w8" && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-clock-bar\.snap \.os-clock-fill\s*\{\s*transition-duration:\s*0s;"));
+                s1 == "w5" && s2 == "w4" && s3 == "w4+snap" && s4 == "w9+snap" && s5 == "w8" && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-clock-bar\.snap \.os-clock-fill\s*\{\s*transition-duration:\s*0s;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^#os_vidle\.snap \.os-clock-fill\s*\{\s*transition-duration:\s*0s;") && Regex.IsMatch(noCommentsCss, @"(?m)^#os_vidle\.w0 \.os-clock-fill\s*\{\s*transition-duration:\s*0s;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^#os_vidle \.os-clock-fill\s*\{\s*transition-duration:\s*1s;")); // the bar's own 1 s by its id: the snap and the rest by its id too, or they lose
             Check("Content v4.14.0: the pager's pulse is the button's own - Next and Prev, their border and fill - and their words stay still: the gold panel behind the words is gone",
                 Regex.IsMatch(noCommentsCss, @"(?m)^\.os-pgb-glow\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(noCommentsCss, @"(?m)^#os_pg_next\s*\{\s*animation-name:\s*os-pgpulse-btn;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^#os_pg_prev\s*\{\s*animation-name:\s*os-pgpulse-btn;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-pgb\.off\s*\{\s*animation-name:\s*none;"));

@@ -55,10 +55,12 @@ sealed partial class HudScreen
         MarkChanged();
     }
 
-    /// <summary>Whether the chat column's feed is live (HudChat): the bridge answers - its last answer within ChatStaleSeconds. A bridge that stops answering turns the
-    /// column off at once, so CS2's own chat shows again; a plugin that stops drawing frames leaves its last beat, which the stylesheet lets run out.</summary>
-    bool ChatLive(DateTime now) => bridge is { } link && now - link.LastAnswer < TimeSpan.FromSeconds(ChatStaleSeconds);
-    const int ChatStaleSeconds = 15;
+    /// <summary>Whether the chat column's feed is live (HudChat): the bridge answers - no failed poll in a row, and its last answer within ChatStaleSeconds. A quiet bridge
+    /// answers the long poll every Hud.LongPollSeconds (25 s), so the window is longer than that: 15 s hid the column between two answers (the live lab, release 218,
+    /// 08:59:21-28). A bridge that stops answering turns the column off within two polls, so CS2's own chat shows again; a plugin that stops drawing frames leaves
+    /// its last beat, which the stylesheet lets run out.</summary>
+    bool ChatLive(DateTime now) => bridge is { } link && link.Failures < 2 && now - link.LastAnswer < TimeSpan.FromSeconds(ChatStaleSeconds);
+    const int ChatStaleSeconds = Hud.LongPollSeconds + 35;
 
     /// <summary>Whether the match-end screen is up (the game's phase, MatchPhase.Ended): CS2 lifts its chat then, and the chat column follows it.</summary>
     bool MatchScreen()

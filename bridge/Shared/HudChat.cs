@@ -20,9 +20,12 @@ public sealed class HudChat
     /// <summary>How many lines the plugin keeps, newest last.</summary>
     public const int Keep = 60;
 
-    /// <summary>The first content with the column: a game whose HUD check named an older one gets none of its words - it has no labels for them, and would log
-    /// "Unable to find panel" for each (release 193).</summary>
+    /// <summary>The first content with the column: only a game whose HUD check named it or a later one gets its words (Feeds) - any other has no labels for them,
+    /// or may have none, and would log "Unable to find panel" for each (release 193; a v4.13.0 game logged 36 of them before its check, the live lab, release 218).</summary>
     public const int Level = 56;
+
+    /// <summary>Whether a game gets the column: its HUD check has named a content, and that is v4.14.0 or later (a version newer than this code knows too).</summary>
+    public static bool Feeds(string version) => HudVersion.Is(version) && version != HudVersion.Unknown && !HudVersion.IsBefore(version, Level);
 
     /// <summary>How long one beat lasts: hb goes on and off by turns every this many seconds while the plugin feeds the column, each turn restarting the stylesheet's
     /// animation, which runs 35 s - three beats and a half - so a missed frame or two never hides it.</summary>
