@@ -255,7 +255,7 @@ static partial class Program
             h.MatchEnd();
             foreach (var p in players.Take(3)) Command(p.Item1, p.Item2, MapVote.Click(Ballot!.Round, MapVote.RandomOption));
             Check("Random wins: the dice take a map on the server's disk - a kept one, or a downloaded stock entry - so it loads at once",
-                Pending is { By: "the vote" } pr && (KeptOnDisk(pr.Map) || S.Met.Contains(Key(pr.Map))) && h.Said("The vote chose Random"));
+                ChangeGone() is { } pr && S.PickedBy == "the vote" && (KeptOnDisk(pr) || S.Met.Contains(Key(pr))) && h.Said("The vote chose Random"));
 
             // ---- both timers on the wire ----
             Fresh();
@@ -388,7 +388,7 @@ static partial class Program
                 ("measured XL, or marked Too big by a player", true), ($"gives up to {PopularityPoints:0} points", true), ($"each Like a point (up to {UpvoteCap} Likes)", true),
                 ($"each Dislike or Too big takes {DislikePoints:0}", DislikePoints == 2 && TooBigVote < 0), ($"loses {ShownPoints:0} point, {ShownMaxPoints:0} at most, fading to nothing over {ShownFadeDays} days", true),
                 ("each one doubles the odds", true), ($"the last {RecentCount} maps played (while others are left)", true), ("a map's download size never makes it more or less likely", true),
-                ($"{MapVote.Seconds} s at the most", true), ($"{MapVote.WaitSeconds / 60} minutes before the next one can be called", MapVote.WaitSeconds % 60 == 0),
+                ($"{MapVote.Seconds} s at the most", true), ($"{MapVote.WaitSeconds / 60} minutes before the next one on that map", MapVote.WaitSeconds % 60 == 0),
                 ("a vote is never taken back", true), ("your next one takes its place", true), ("the card with your vote comes first", true), ("a second page when the players' own maps need one", true), ("A risky map shows its record", true),
                 ("putting it to the vote takes a second click", PickConfirmSeconds > 0), ("No votes: mid-match the map stays, at a match end Random", true), ("A Workshop update lifts a crash mark", true),
                 ($"{ResetEmptyMinutes} minutes with nobody on", true),

@@ -94,7 +94,7 @@ public static class Hud
             new("Everybody votes", "Everybody is frozen until all have voted, 60 s at the most"),
             new("Cards", "Click to vote, another to move it - It never goes back"),
             new("Random", "The dice after the vote, in this mode"),
-            new("The wait", "2 minutes after a vote; a match end opens one anyway")]),
+            new("The wait", "2 minutes after a vote on that map; a match end opens one")]),
         new("Likes", [
             new("Like  ·  Dislike", "On the map that is on; the other one takes a mark back first"),
             new("Dislike  ·  Reasons", "Too big: 1 random pick in 100; Ads: never a random pick; the rest: a dislike"),
@@ -121,7 +121,7 @@ public static class Hud
             "Play on a card puts its map to the vote, with your vote on it. While a vote is on, it goes on that ballot. Start a vote calls one without a map.",
             "A vote freezes everybody (no moving, shooting or closing it) until all have voted, 60 s at the most. Most votes win; a tie is drawn.",
             "Click a card to vote, another to move your vote: a vote is never taken back. A map you put on it is your own card; your next one takes its place.",
-            "A match end opens a vote by itself. After any vote, 2 minutes before the next one can be called. No votes: mid-match the map stays, at a match end Random."]),
+            "A match end opens a vote by itself. After a vote, 2 minutes before the next one on that map. No votes: mid-match the map stays, at a match end Random."]),
         new("The ballot", [
             "Keep playing this map while the match is on, Play this map again after it, every map a player put on it, and one map of each other mode.",
             "Then this mode: a fresh map (a Workshop upload or update of the last 30 days), a surprise new to us, and favourites the server keeps fill the page.",

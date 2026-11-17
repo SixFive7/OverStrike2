@@ -1,14 +1,15 @@
-// The match-end screen cut short. A match-end vote that keeps the map - Play this map again - starts the next match after the countdown a vote's map change has
-// (the bridge's ChangeDelay, 8 s), not when the screen runs out: every mode's cfg sets mp_match_restart_delay 90, so that the screen lasts through the vote. As the
-// vote decides, the bridge asks the plugin (Command, plugin/OverStrike2/HudScreenNextMatch.cs).
+// The match-end screen cut short. A match-end vote that keeps the map - Play this map again - starts the next match at once (the bridge's AgainSeconds, 1 s),
+// not when the screen runs out: every mode's cfg sets mp_match_restart_delay 90, so that the screen lasts through the vote. As the vote opens and as it decides,
+// the bridge asks the plugin (Command, plugin/OverStrike2/HudScreenNextMatch.cs).
 //
 // The game ends the screen at its start - the game rules' m_flIntermissionStartTime - plus mp_match_restart_delay: on 222dc9e's rehearsal (2026-11-12) the
 // screen of a match that ended in Arms Race ended 90 s after it came up, while m_flIntermissionEndTime had passed about 10 s into it and ended nothing. So the
-// plugin sets mp_match_restart_delay to the time the screen has been up plus the countdown (NewDelay), and puts the value it had back once the next match's round
+// plugin sets mp_match_restart_delay to the time the screen has been up plus the seconds asked (NewDelay), and puts the value it had back once the next match's round
 // has started, or CheckSeconds after the new end at the latest - never across a map change, whose cfg sets its own. There the game starts the next match on the
 // same map, as at any end of the screen (mp_match_end_restart 1): no map load, so nobody goes through a load and no fairness restart follows. Only while the
-// screen is up (GAMEPHASE_MATCH_ENDED), and only ever sooner - but for the hold: a vote won by a map still to download holds the screen HoldSeconds from the
-// decision, sooner or later than it would end, so the next match never starts on the old map while the server fetches the new one. CheckSeconds after the
+// screen is up (GAMEPHASE_MATCH_ENDED), and only ever sooner - but for the hold: a vote won by another map holds the screen while its change loads, the bridge's
+// LoadHoldSeconds - HoldSeconds when it is still to download - from the decision, sooner or later than it would end, so the next match never starts on the
+// old map under the change. CheckSeconds after the
 // new end the plugin looks whether the next match did start, and logs it. The reply says when the screen ends then, to a hundredth of a second (EndsIn): the
 // bridge's countdown ends there, with the game's.
 //
@@ -22,14 +23,15 @@ public static class NextMatch
     public const string Command = "os_nextmatch";
 
     /// <summary>The hold's word, and how long a vote won by a map still to download holds the match-end screen from its decision: the map changes the moment it
-    /// is in, and a download that takes longer lets the screen end, and the next match start on the old map until then.</summary>
+    /// is in, and a download that takes longer lets the screen end, and the next match start on the old map until then. (A map on the disk holds it for the
+    /// bridge's LoadHoldSeconds while it loads.)</summary>
     public const string HoldWord = "hold";
     public const int HoldSeconds = 120;
 
     /// <summary>The convar the game ends the screen by, counted from its start.</summary>
     public const string Delay = "mp_match_restart_delay";
 
-    /// <summary>The seconds it takes: 1 up to two minutes - the vote's limit, a change's countdown and the margin fit (the bridge's ScreenToVote).</summary>
+    /// <summary>The seconds it takes: 1 up to two minutes - the vote's limit and the margin fit (the bridge's ScreenToVote), and the longest hold.</summary>
     public const int LeastSeconds = 1, MostSeconds = 120;
 
     /// <summary>How long after the new end the plugin looks whether the next match started, and puts the delay back if the next match's round start has not.</summary>

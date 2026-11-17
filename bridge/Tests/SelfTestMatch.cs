@@ -14,7 +14,9 @@ static partial class Program
         var toldAll = ToldAll;
         string? restartReply = "os_restart: the match restarts in 1 s", bareReply = ""; // the plugin's answers to os_restart and to a bare mp_restartgame
         var phaseReply = ""; // the plugin's answer to os_phase: none, as from a plugin without it, unless a test says otherwise
-        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
+        var joiningReply = ""; // ...and to os_joining: none, as from a plugin without it (nobody waited for), unless a test says otherwise
+        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command == EarlyJoin.JoiningCommand ? joiningReply
+            : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
             : command == "status" ? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
             : command == RematchCommand ? restartReply : command == RematchFallback ? bareReply : "";
         try
@@ -28,7 +30,7 @@ static partial class Program
             void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the HUD, on the lists below, Alice and Bob on
             {
                 h.Fresh();
-                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = "";
+                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = ""; joiningReply = "";
                 Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
@@ -411,6 +413,69 @@ static partial class Program
             var olderPlugin = HudState.Decode(older)!;
             Check("The fairness restart on the wire: the rematch line's third field, and its fourth, the count of names - a line without them (an older bridge) is a player's Restart match by one",
                 Live() is { RematchFair: true, RematchCount: 2 } && olderPlugin is { RematchFair: false, RematchBy: "Bob and Cara", RematchCount: 1 } && olderPlugin.RematchAtMs > 0);
+
+            // ---- the fairness restart waits for those still joining (os_joining), so the players in start over once for all of them ----
+            Check("os_joining's reply reads back: its count and one name a line - a name with commas in it stays one, a tab is a space; nobody is an empty list; no answer, or a plugin without it, is none",
+                EarlyJoin.ReadJoining(EarlyJoin.JoiningReply(["Cara", "Dan, the 2nd"])) is ["Cara", "Dan, the 2nd"] && EarlyJoin.ReadJoining(EarlyJoin.JoiningReply([])) is []
+                && EarlyJoin.ReadJoining(null) == null && EarlyJoin.ReadJoining("Unknown command 'os_joining'!") == null && EarlyJoin.ReadJoining("") == null
+                && EarlyJoin.JoiningReply(["a\tb"]) == "os_joining: 1\na b" && EarlyJoin.ReadJoining("os_joining: 2\nCara") is ["Cara", "?"]);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply(["Cara", "Dan"]);
+            ClearNotices(); h.Sent.Clear();
+            Fair(bob);
+            Check("The fairness restart while anybody is still joining - connecting, at CS2's prompt to confirm a first Workshop download, downloading or loading the map: it waits for them, no countdown, one line says whom it waits for",
+                RematchDue == null && FairWaitSince != null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null && h.Sent.Contains(EarlyJoin.JoiningCommand)
+                && InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cara and Dan") && !h.Sent.Contains(RematchCommand));
+            h.Run(10);
+            joiningReply = EarlyJoin.JoiningReply(["Dan"]);
+            Fair(cara);
+            h.Run(10);
+            Check("...a joiner who comes in folds into it, and it goes on waiting while one is left joining",
+                RematchDue == null && FairWaitSince != null && FairNames.SequenceEqual(["Bob", "Cara"]) && !h.Sent.Contains(RematchCommand));
+            joiningReply = EarlyJoin.JoiningReply([]);
+            Fair(dan);
+            ClearNotices();
+            h.Run(1.1);
+            Check("...once nobody is left joining: one countdown for everybody, naming them all",
+                RematchDue is { Fair: true } && FairWaitSince == null && Live() is { RematchFair: true, RematchCount: 3, RematchBy: "Bob, Cara and Dan" }
+                && InChat($"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob, Cara and Dan are in"));
+            h.Run(EarlyJoin.CountdownSeconds);
+            Check("...then one restart", h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply(["Stuck"]);
+            Fair(bob);
+            h.Run(EarlyJoin.HoldMostSeconds - 2);
+            Check($"...a joiner stuck there does not hold it for good: still waiting {EarlyJoin.HoldMostSeconds - 2} s on", RematchDue == null && FairWaitSince != null && !h.Sent.Contains(RematchCommand));
+            h.Run(3);
+            Check($"...after {EarlyJoin.HoldMostSeconds} s it counts down without them", RematchDue is { Fair: true } && FairWaitSince == null);
+            h.Run(EarlyJoin.CountdownSeconds + 1);
+            Check("...and goes out at the countdown's end: it does not wait again", h.Sent.Count(c => c == RematchCommand) == 1);
+            Fresh();
+            Fair(bob);
+            joiningReply = EarlyJoin.JoiningReply(["Eve"]);
+            h.Run(EarlyJoin.CountdownSeconds + 0.1);
+            Check("...somebody joining by the countdown's end - the HUD addon's reconnect, say: it waits for them too", !h.Sent.Contains(RematchCommand) && FairWaitSince != null && RematchDue == null);
+            joiningReply = EarlyJoin.JoiningReply([]);
+            h.Run(1.1);
+            Check("...then counts down again", RematchDue is { Fair: true } && FairWaitSince == null);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply(["Cara"]);
+            Fair(bob);
+            StartVote(alice.Item1, alice.Item2);
+            h.Run(1.1);
+            Check("...a vote opening while it waits ends it: the vote decides first", FairWaitSince == null && RematchDue == null && Ballot is { Open: true });
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply(["Cara"]);
+            Fair(bob);
+            Twice(alice, "!rematch");
+            h.Run(1.1);
+            Check("...a player's Restart match while it waits starts them all over: the wait ends", FairWaitSince == null && RematchDue is { Fair: false, By: "Alice" });
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply(["Cara"]);
+            Fair(bob);
+            h.Line("Loading map \"ar_other\"");
+            h.Run(2);
+            Check("...and a map start ends it: the new map has a match of its own", FairWaitSince == null && RematchDue == null && !h.Sent.Contains(RematchCommand));
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();

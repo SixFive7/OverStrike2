@@ -225,11 +225,11 @@ static partial class Program
 
             // Every RCON command the bridge would send, recorded instead of sent: what lands in `sent` is everything the server would have
             // received. A refusal is a note to the player (Told), and sends the server nothing at all. A pick is a vote; alone,
-            // the picker's own vote decides it at once, so an ordinary pick ends in the change counting down.
+            // the picker's own vote decides it at once, so an ordinary pick ends in the change going out at once.
             var sent = new List<string>();
             var door = Send;
             Send = command => { sent.Add(command); return ""; };
-            void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; Ballot = null; VoteWaitUntil = default; PicksDue.Clear(); PickMap(who, id, query); }
+            void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; LoadPending = false; S.Map = null; Ballot = null; VoteWaitUntil = default; PicksDue.Clear(); PickMap(who, id, query); }
             static Dictionary<string, string> NonMapsOf(IEnumerable<MapInfo> ms) => ms.Where(m => !m.Official).GroupBy(Key).ToDictionary(g => g.Key, g => g.First().Name);
             S = new State(); Broken = new(); PickConfirms.Clear(); Players.Clear();
             var listed = Maps.Skip(200).First(); // a pack maps.json still lists, as the live list does today
@@ -238,8 +238,8 @@ static partial class Program
             NonMaps = new Dictionary<string, string> { [Key(listed)] = listed.Name, [$"{hole}"] = $"Zebra Skins | Test Pack {Maps.Count + 1}" };
 
             Pick(fine.Rank.ToString());
-            Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so, so the silence below means something",
-                Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("Changing in") && sent.Count == 0);
+            Check($"Control: an ordinary pick opens the vote and, the picker alone, sends the change at once and says so, so the silence below means something",
+                S.Map == fine && LoadPending && Pending is null && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("Changing now") && sent.Contains($"host_workshop_map {fine.Id}"));
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));
             Check($"A pack maps.json still lists is refused by its rank ({listed.Rank}), in the neutral words, in the player's own note",
@@ -261,10 +261,10 @@ static partial class Program
 
             NonMaps = new();
             Pick(listed.Rank.ToString());
-            var rankAgain = Pending;
+            var rankAgain = S.Map;
             Pick($"{hole}");
             Check("With an empty packs list the same rank and the same bare id load like any map: the feature is off",
-                rankAgain is { } r0 && r0.Map == listed && Pending is { } h0 && h0.Map.Id == hole && Unlisted(h0.Map) && !Told.Any(c => c.Contains(NotAMap)));
+                rankAgain == listed && S.Map is { } h0 && h0.Id == hole && Unlisted(h0) && LoadPending && !Told.Any(c => c.Contains(NotAMap)));
 
             NonMaps = NonMapsOf(eligible.Skip(3).Take(300));
             var packRolls = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();

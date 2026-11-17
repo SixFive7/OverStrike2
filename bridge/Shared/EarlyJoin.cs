@@ -11,7 +11,11 @@
 //   - what follows is the bridge's (Restarts.cs, FairRestart): CountdownSeconds on the countdown banner ("The match restarts for fairness - Bob is in"),
 //     then the plugin's os_restart. A join while that counts down, or as it goes out, folds into it: one restart, and the banner names them all. The
 //     restart's round start is a new start, so the window opens again. None while a vote is on, a map change counts down or loads, the server's restart
-//     counts down, or the match has just ended.
+//     counts down, or the match has just ended;
+//   - while anybody is still joining - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered),
+//     downloading the map or loading it, as everybody does after a map change - the restart waits for them (the plugin's os_joining says who), so the
+//     players in already start over once for all of them, not once each; HoldMostSeconds at the most, so a joiner stuck there does not hold it for good.
+//     Their own join, as they come in, folds into it.
 //
 // Shared like Hud.cs: the plugin feeds it the game (plugin/OverStrike2/EarlyJoinWatch.cs) and the bridge's --selftest drives it on a handed clock. Plain BCL only.
 public sealed class EarlyJoin
@@ -27,6 +31,37 @@ public sealed class EarlyJoin
 
     /// <summary>The most names the banner and the line give; the rest are "N more".</summary>
     public const int NamesShown = 3;
+
+    /// <summary>The plugin's server command the bridge asks before a fairness restart goes out (and each second while it waits): the humans still joining.</summary>
+    public const string JoiningCommand = "os_joining";
+
+    /// <summary>How long a fairness restart waits at the most for the humans still joining, from when it began to wait: a joiner stuck at the prompt or in a long
+    /// download does not hold it for good. CS2 drops an unanswered prompt after 120 s by itself.</summary>
+    public const int HoldMostSeconds = 120;
+
+    /// <summary>os_joining's reply: "os_joining: 2" and one joiner's name a line - names as the plugin has them, a line each, so no name can break the list.</summary>
+    public static string JoiningReply(IEnumerable<string> names)
+    {
+        var list = names.Select(n => Hud.Clean(n, 32)).Select(n => n == "" ? "?" : n).ToList();
+        return $"{JoiningCommand}: {list.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}" + string.Concat(list.Select(n => "\n" + n));
+    }
+
+    /// <summary>Who os_joining says is still joining, or null when the reply is none of its: no answer, or a plugin without the command ("Unknown command") -
+    /// then nothing is waited for, as before it.</summary>
+    public static List<string>? ReadJoining(string? reply)
+    {
+        if (reply == null) return null;
+        var lines = reply.Replace("\r", "").Split('\n');
+        var at = Array.FindIndex(lines, l => l.StartsWith(JoiningCommand + ": ", StringComparison.Ordinal));
+        if (at < 0 || !int.TryParse(lines[at][(JoiningCommand.Length + 2)..].Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n)) return null;
+        var names = lines.Skip(at + 1).Select(l => l.Trim()).Where(l => l != "").Take(n).ToList();
+        while (names.Count < n) names.Add("?");
+        return names;
+    }
+
+    /// <summary>The line for everybody as the restart begins to wait for those still joining: who is in, and who it waits for.</summary>
+    public static string WaitLine(string names, int count, IReadOnlyList<string> joining) =>
+        $"The match restarts for fairness once everybody is in - {M.N(names)} {(count > 1 ? "are" : "is")} in, waiting for {M.N(Names(joining))}";
 
     /// <summary>The line for everybody in chat and on the board as the countdown starts, or as another join folds into it with seconds left.</summary>
     public static string Line(string names, int count, int seconds = CountdownSeconds) =>

@@ -319,7 +319,7 @@ server console.
   while a change counts down or a map loads, when a restart waits for that match's end, or under the [maintenance flag](#maintenance-flag).
 
 Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, while [Steam is not showing the HUD](#the-huds-version-and-the-hud-check),
-or for **2 minutes after the last vote**; a match end opens its vote anyway, except while Steam is not showing the HUD. A player who tries reads why in their own line, and chat and the board name them for everybody; during the 2 minutes the button
+or for **2 minutes after the last vote on the map that is on** - a map's start lifts it, so a map a vote brought that turns out broken can be voted away at once; a match end opens its vote anyway, except while Steam is not showing the HUD. A player who tries reads why in their own line, and chat and the board name them for everybody; during the 2 minutes the button
 says how long is left. A risky map - a crash on record, on the broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
 That second click counts only 0.5 s or more after the click before it (`HudBrowser.DoubleClick`): a double click opens the padlock and nothing more, so the warning is
 read before the map goes on; the same holds for Previous, and a double click on any Play or on Previous sends its pick once. The confirmed pick then **counts
@@ -333,8 +333,9 @@ Any number of players plays on any Wingman map; its [spawn points](#wingman-and-
 
 Every vote opens everybody's window on the ballot and freezes everybody: nobody moves, shoots, takes damage or closes the window, bots
 included (`VoteFreeze.cs`). A player who joins meanwhile is frozen and counted. Everybody unfreezes at the same moment: when the vote keeps
-the map, once the window has said so for 8 s; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes - a winner still to download, while the window says so ([below](#voting));
-when it plays the map again at a match end, after that same countdown, as the next match starts ([below](#voting)). The plugin frees everybody by itself if the
+the map, once the window has said so for 8 s; when it changes the map, as the map starts - its change goes out at once at the decision, with no countdown, and
+the window shows the result while it loads; a winner still to download, while the window says so ([below](#voting)); when it plays the map again at a match end,
+as the next match starts, a second or two after the decision ([below](#voting)). The plugin frees everybody by itself if the
 bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge never leaves anybody frozen.
 
 ### Voting
@@ -358,42 +359,44 @@ the vote and every click given up is a line of the plugin's log (`Over Strike 2 
 Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast or moved, a
 map put on the ballot, a page, a sort, a filter or a search in the map browser - and the screen names who reset it last. The vote's **limit is
 60 s**, whichever comes first. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match and is Random at a match
-end. The window shows who started the vote, where the votes go, who has not voted yet and both timers, then what came of it and the countdown.
+end. The window shows who started the vote, where the votes go, who has not voted yet and both timers, then what came of it.
 Every vote - cast or moved - says in chat and on the board who voted and who still has to.
 
-**Play this map again starts the next match after the countdown a map change has** (`bridge.changeDelaySeconds`, 8 s): the window says "Next match in", to the screen's own end (below).
+**No wait between the decision and what it decides:** a change goes out at the decision, and Play this map again starts the next match at once - the plugin ends
+the match-end screen 1 s from the decision (`AgainSeconds`), and the window says "Next match in" to the screen's own end (below), a second or two.
 Every mode's cfg keeps the match-end screen up for 90 s (`mp_match_restart_delay`), long enough for the vote, and as the vote decides, the bridge asks the
-plugin to end it at the countdown's end (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The game ends the screen at its start (the game rules'
+plugin to end it (`os_nextmatch <seconds>`, `bridge/Shared/NextMatch.cs`). The game ends the screen at its start (the game rules'
 `m_flIntermissionStartTime`) plus `mp_match_restart_delay`, read as it goes - `m_flIntermissionEndTime` passes about 10 s into the screen and ends nothing - so the
-plugin sets the delay to the time the screen has been up plus the countdown, and puts the value it had back once the next match's round has started (2 s after the
+plugin sets the delay to the time the screen has been up plus the seconds asked, and puts the value it had back once the next match's round has started (2 s after the
 new end at the latest; a map change drops it, since the new map's cfg sets its own). CS2's own countdown on the screen follows it.
 
 **CS2's corner counts with the vote.** Without the bridge the corner of the match-end screen counts the cfg's 90 s from the match end, beside a LIMIT of 60 s from
-the vote's open, and the two never agree. So the bridge has the plugin move the screen's end three times (`os_nextmatch`):
-- as a match end's vote opens - or a vote that was open becomes a match end's - to the vote's limit, the change's countdown and `ScreenMarginSeconds`
-  (2 s): the corner then reads LIMIT + 10 s, the latest next match or map. A plugin that finds no match-end screen up yet - the game enters it a moment
-  after the line the vote opened on - is asked again a second later, 5 times at the most (`ScreenTries`);
-- at a decision to play the map again, to the countdown, 8 s, as above;
-- at a decision for another map, to the countdown and the 2 s, so the change goes out first and the game's own reset never races it - when that map is on the
-  server's disk (`OnTheDisk`). A map the bridge cannot say of (no fresh report of the watcher's names it) keeps the end the vote's open gave it.
+the vote's open, and the two never agree. So the bridge has the plugin move the screen's end twice (`os_nextmatch`):
+- as a match end's vote opens - or a vote that was open becomes a match end's - to the vote's limit and `ScreenMarginSeconds` (2 s): the corner then reads
+  LIMIT + 2 s, the latest decision. A plugin that finds no match-end screen up yet - the game enters it a moment after the line the vote opened on - is asked
+  again a second later, 5 times at the most (`ScreenTries`);
+- at the decision: to play the map again, 1 s, as above; for another map, a hold while its change loads - `os_nextmatch 15 hold` (`LoadHoldSeconds`,
+  sooner or later than the screen would end), so the game never starts the next match on the old map under the change.
 
-**The change or the next match starts as the window's countdown reaches 0**, whenever the decision came: at the limit, through the inactivity timer once
-everybody has voted, or by the dice when nobody voted. The plugin's reply says when the screen ends to a hundredth of a second - its whole-second
-`mp_match_restart_delay` ends it up to a second after the 8 s asked (`NextMatch.EndsIn`) - and the window counts to that end: "Next match in 9 s" for an
-end 8.42 s away, and the next match starts at its 0. A change to another map goes out at its 0, the screen's end 2 s behind it.
+**The change or the next match starts at the decision**, whenever it came: at the limit, through the inactivity timer once everybody has voted, or by the
+dice when nobody voted. The change goes out at once (`ChangeNow`) and the window shows the result, everybody frozen, until the map starts - mid-match
+30 s at the most (`LoadWindowSeconds`), at a match end until the held screen ends. For Play this map again the plugin's reply says when the screen ends to a
+hundredth of a second - its whole-second `mp_match_restart_delay` ends it up to a second after the second asked (`NextMatch.EndsIn`) - and the window counts to
+that end, so the next match starts at its 0.
 
 **A winner still to download** - the watcher's fresh report says it is not on the server's disk (`ReportedMissing`), which a map put on the ballot late can
-be - has no countdown to a change that could not happen at its 0: its change goes out at once (`FetchChange`), the server fetches the map, taking over the
+be - goes out at once as every change does (`ChangeNow`): the server fetches the map, taking over the
 watcher's background download of it, and loads it the moment it is in. The decision's line and the window say so - "Downloading: it changes the moment it
 is ready", no clock (`VoteState.Fetching`) - until the map starts. At a match end the screen holds for it, `os_nextmatch 120 hold` (`NextMatch.HoldSeconds`,
 sooner or later than it would end), so the next match never starts on the old map while the new one comes, and everybody stays on the scoreboard; a
 download that outlasts it lets the screen end there and the next match start on the old map, and the new map still comes the moment it is in. Mid-match the
-window says it for a change's countdown, then everybody plays on until it loads. There the game starts the next
+window says it for 8 s (`bridge.changeDelaySeconds`), then everybody plays on until it loads. After Play this map again the game starts the next
 match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows. As at
 any such end, CS2 moves every player to Unassigned and kicks the bots: everybody picks a side again at CS2's team select - a play of the same map again is often
 for other teams - and the bots come back with the first pick. A player who picks a side again is no join for the fairness restart: no map starts, so the map's
 record of who joined stays. 2 s after the new end the plugin logs whether the next match did start. A plugin without the command, or a screen that ends sooner by
-itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out.
+itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out. The dice's own changes - the start roll, an empty server's way back to
+Arms Race, a broken map - still count down `bridge.changeDelaySeconds` on the banner: nobody voted for them.
 
 ### The ballot
 
@@ -453,7 +456,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   later - in Deathmatch it puts the length back after every load, by the mode it knows 2 s after the start, also after an operator's switch (since release 197; HUD content v4.10.0 shows the row in Deathmatch, an older content only in Arms Race).
   **Wingman** plays a match of rounds, where a round's time of 10 minutes would only make one round long, so its length is how many rounds (release 199): `!time 8` or `!time 16`
   (a bare `!time` the other one; minutes are refused there), 16 to begin with - Valve's, first to 9, the sides switching after 8 - which its cfg sets at every load; 8 is first to 5,
-  switching after 4. The sides switch at half the count, so a new count takes the match that is on only while neither count's halftime has come: fewer rounds played than half
+  switching after 4. The switch itself takes no wait to speak of: Wingman's cfg sets `mp_halftime_duration 1` (Valve's 15 s of scoreboard) with no floor under it
+  (`mp_min_halftime_duration 0`); Arms Race and Deathmatch have no halftime, so Wingman is the one mode whose sides switch. The sides switch at half the count, so a new count takes the match that is on only while neither count's halftime has come: fewer rounds played than half
   the shorter (`MatchLength.ThisMatch`; the plugin's `os_matchlength <rounds>` decides, and sets `mp_maxrounds` itself). Otherwise it starts with the next match: the bridge sets
   `mp_maxrounds` when a match ends - a kept map's next match starts without a load -, right before its Restart match, and 2 s after every Wingman load. The Game page shows
   Wingman's row from HUD content v4.11.0 on, its buttons saying 8 and 16 rounds: the contents up to v4.10.0 collapse it there, and their buttons say minutes.
@@ -475,7 +479,14 @@ Anybody may change the length and press the two restarts, on the Game page or in
   download is no new connect; never a bot. The match runs from its start (a round start out of warmup with no round played yet: the map's first, a restart, the game
   commencing) when a human is on a team then, else from the first human's spawn - that first human starts the match and restarts nothing. The plugin
   (`EarlyJoinWatch.cs`) asks the bridge at once, naming who came in; the bridge counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in",
-  says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. A join while it counts
+  says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. **While anybody is
+  still joining** - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered), downloading the map or loading it,
+  as everybody does after a map change - it waits for them first, so the players in already start over once for all of them, not once each: the plugin's
+  `os_joining` names the humans whose controller is still connecting or reconnecting, the bridge asks it as the restart would count down and every second while it
+  waits, says once in chat and on the board whom it waits for ("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"), and counts
+  down once nobody is left joining - their own joins fold into it - or after **120 s** at the most (`EarlyJoin.HoldMostSeconds`), so a joiner stuck there does
+  not hold it for good. A vote, a restart of the match or of the server, the match's end or a map start meanwhile ends the wait; a plugin without `os_joining`
+  waits for nobody, as before. A join while it counts
   down folds into it - one restart, at the same moment, and the banner and a line name them all: "Bob and Cas are in", "Bob, Cas, Dee and 2 more are in" - and so does a join
   in the 3 s after it went out, or while a player's Restart match counts down: each starts the newcomer over too. None while a vote is on, a map change counts down or loads,
   the server's restart counts down or the match-end screen is up (`os_phase`, as for Restart match: a next match on the same map takes its joins the moment it is on); the

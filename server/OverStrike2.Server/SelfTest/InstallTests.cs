@@ -545,6 +545,11 @@ static class InstallTests
         var apart = shared.Where(k => !onPurpose.Contains(k) && cfgs.Select(c => c[k][0]).Distinct().Count() > 1).Order(StringComparer.Ordinal).ToList();
         Check($"mode cfgs: the {shared.Count(k => !onPurpose.Contains(k))} settings all three set hold one value in all three, and no file sets one twice ({Show(apart.Concat(twice))})",
               files.Length == 3 && shared.Count > 0 && apart.Count == 0 && twice.Count == 0);
+        // Wingman's sides switch at half its rounds: the halftime's scoreboard pause is a second, with no floor under it; the other two have no halftime to shorten
+        var wingman = cfgs[Array.FindIndex(files, f => f.EndsWith("gamemode_competitive2v2_server.cfg", StringComparison.Ordinal))];
+        Check("mode cfgs: Wingman, the one mode whose sides switch, switches them with no wait to speak of - mp_halftime_duration 1, mp_min_halftime_duration 0 - and the others set neither",
+              wingman.GetValueOrDefault("mp_halftime_duration") is ["1"] && wingman.GetValueOrDefault("mp_min_halftime_duration") is ["0"]
+              && cfgs.Count(c => c.ContainsKey("mp_halftime_duration") || c.ContainsKey("mp_min_halftime_duration")) == 1);
     }
 
     /// <summary>The launcher: what pre.sh is now - a copy of the program, install, then the watcher in the background; and, on Linux, what it does

@@ -47,26 +47,35 @@ static partial class Program
             Fresh();
             h.Join(alice);
             h.Talk(alice, $"!map {Rank(1)}");
-            Check("Alone, a pick opens the vote with that map on it and the picker's vote, which is everybody's: decided at once, and the change counts down",
-                Pending is { Auto: false, By: "the vote" } p1 && p1.Map == m[1] && h.Said("Alice put") && h.Said("Everybody has voted") && Ballot is { Open: false });
+            Check("Alone, a pick opens the vote with that map on it and the picker's vote, which is everybody's: decided at once, and the change goes out at once - no countdown",
+                Pending is null && LoadPending && S.Map == m[1] && S.PickedBy == "the vote" && h.Sent.Contains($"host_workshop_map {m[1].Id}") && h.Said("Alice put") && h.Said("Everybody has voted")
+                && h.Said("Changing now") && Ballot is { Open: false, ChangedUntil: not null });
             var frozen = BuildVoteState(h.Clock);
-            Check("...everybody stays frozen through the countdown", frozen is { Freeze: true, Open: false } && frozen.Result?.How == "all");
+            Check("...everybody stays frozen, the window on the result, until the map starts", frozen is { Freeze: true, Open: false, SecondsLeft: 0, EndsAtMs: 0, Fetching: false } && frozen.Result?.How == "all");
             Land();
-            Check("...and once it is out the vote is over: nobody frozen, the map is the vote's", Ballot == null && !BuildVoteState(h.Clock).Freeze && S.Map == m[1] && S.PickedBy == "the vote");
+            Check("...and once it is in the vote is over: nobody frozen, the map is the vote's", Ballot == null && !BuildVoteState(h.Clock).Freeze && S.Map == m[1] && S.PickedBy == "the vote");
             h.Quiet(); h.Talk(alice, $"!map {Rank(2)}");
-            Check($"After any vote, {MapVote.WaitSeconds / 60} minutes before anybody can call another: a pick is refused, saying how long",
-                Ballot == null && Pending == null && h.Said("You can call a vote again in") && h.Said("Alice tried to start another vote - The next one can start in"));
+            Check("A map's start lifts the wait after the last vote: on the map that vote brought - one that turns out broken, say - a pick goes through at once",
+                !h.Said("You can call a vote again in") && S.Map == m[2] && LoadPending);
+            Land();
+            h.Quiet(); h.Talk(alice, "!next");
+            VoteFor(alice, Ballot!.Options.Single(o => o.Source == VoteSource.Keep).N);
+            Check("(a vote kept the map)", Ballot is { KeptUntil: not null } && h.Said("The vote kept"));
+            h.Run(MapVote.KeptSeconds + 1);
+            h.Quiet(); h.Talk(alice, $"!map {Rank(3)}");
+            Check($"After any vote, {MapVote.WaitSeconds / 60} minutes before anybody can call another on that map: a pick is refused, saying how long",
+                Ballot == null && Pending == null && !LoadPending && h.Said("You can call a vote again in") && h.Said("Alice tried to start another vote - The next one can start in"));
             h.Quiet(); h.Talk(alice, "!next");
             Check("...Start a vote too", Ballot == null && h.Said("You can call a vote again in"));
             var waitState = BuildVoteState(h.Clock);
             Check("...and the live state carries the wait, so the board's button says it, looks off, and a click gets its answer with the time left",
                 waitState.WaitFor is > 0 and <= MapVote.WaitSeconds && HudView.Action(BuildHud(h.Clock), waitState) is { Command: "!next", Text: "Start a vote" } && HudView.PlayerClasses(BuildHud(h.Clock), 1, waitState).Contains((HudView.Screen, "act-off", true)));
             h.Run(MapVote.WaitSeconds);
-            h.Quiet(); h.Talk(alice, $"!map {Rank(1)}");
+            h.Quiet(); h.Talk(alice, $"!map {Rank(2)}");
             Check("The map that is on is no pick outside a vote: it is on already", Ballot == null && h.Said("is on now"));
             h.Quiet(); h.Talk(alice, "!next random");
             Check("!random, alone: the vote opens with the player's vote on Random, which is everybody's - the dice roll a map of this mode",
-                Pending is { By: "the vote" } pr && pr.Map != m[1] && h.Said("The vote chose Random"));
+                LoadPending && S.Map != m[2] && S.PickedBy == "the vote" && h.Said("The vote chose Random"));
             Land();
 
             Fresh();
@@ -93,10 +102,10 @@ static partial class Program
                 && vs.Maps.Skip(2).Select(o => o.N).SequenceEqual(cardsBefore.Skip(1)) && vs.ForPlayer(1002).Maps[0].N == bobsN);
             h.Quiet(); h.Talk(cara, $"!map {Rank(3)}");
             Check("...a map on it already gets the vote, and joins its picker", vote.Choices["[U:1:1003]"] == bobsN && BuildVoteState(h.Clock).Maps.Single(o => o.N == bobsN).Who == "Bob and Cara");
-            Check("...that was everybody: the most votes win, everybody stays frozen through the countdown", Pending?.Map == m[3] && h.Said("Everybody has voted") && BuildVoteState(h.Clock).Freeze);
+            Check("...that was everybody: the most votes win, the change goes out at once, everybody frozen until the map starts", S.Map == m[3] && LoadPending && h.Said("Everybody has voted") && BuildVoteState(h.Clock).Freeze);
             Check("...decided, the cards show with the most votes first: Bob's and Cara's card, then Alice's pick", BuildVoteState(h.Clock) is { Open: false } dv && dv.Maps[0].N == bobsN && dv.Maps[1].Source == VoteSource.Picked);
             h.Quiet(); h.Talk(alice, $"!map {Rank(4)}");
-            Check("A pick during the countdown is refused", h.Said("Already changing to") && Pending?.Map == m[3]);
+            Check("A pick while that map loads is refused", h.Said("The next map is still loading") && S.Map == m[3] && LoadPending);
             Land();
 
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
@@ -117,7 +126,7 @@ static partial class Program
             Check("A match end opens the vote by itself, the wait after the last one notwithstanding: Play this map again on it",
                 vote is { Open: true, MatchEnded: true } && BuildVoteState(h.Clock).Maps.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again" && h.Said("Match over - Vote for the next map"));
             h.Run(MapVote.Seconds + 1);
-            Check("...nobody voting there is Random: the dice roll a map of this mode", Pending is { By: "the vote" } mr && mr.Map != m[3] && h.Said("Nobody voted - Rolling the dice"));
+            Check("...nobody voting there is Random: the dice roll a map of this mode", LoadPending && S.PickedBy == "the vote" && S.Map != m[3] && h.Said("Nobody voted - Rolling the dice"));
             HudActive = () => false;
             Land();
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
@@ -126,7 +135,7 @@ static partial class Program
             Check("A match that ends while a vote is open makes it the match end's: Keep reads Play this map again, nobody voting is Random",
                 Ballot is { Open: true, MatchEnded: true } && BuildVoteState(h.Clock).Maps.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again");
             h.Run(MapVote.Seconds);
-            Check("...and so it rolls the dice", Pending != null && h.Said("Nobody voted - Rolling the dice"));
+            Check("...and so it rolls the dice", LoadPending && h.Said("Nobody voted - Rolling the dice"));
             Land();
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
             h.Talk(alice, $"!map {Rank(5)}");
@@ -137,7 +146,7 @@ static partial class Program
             VoteFor(bob, dan5); VoteFor(cara, dan5);
             Check("...so three of four is not everybody yet", Pending == null && Ballot is { Open: true });
             VoteFor(dan, dan5);
-            Check("...and their vote ends it", Pending?.Map == m[5]);
+            Check("...and their vote ends it", S.Map == m[5] && LoadPending);
             Land();
 
             // ---- the crash counter (CrashWatch.cs): RCON status's spawn counter tells a new server process from the old one ----
@@ -275,7 +284,7 @@ static partial class Program
             Check("...then rolls the dice", Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
             h.Join(alice); h.Join(dan);
             Land(); h.Run(61); Go(dan, 1); Land(); h.Run(30); Go(alice, 2);
-            Check("(a change counts down when the server restarts)", Pending?.Map == m[2]);
+            Check("(a change is under way when the server restarts)", S.Map == m[2] && LoadPending);
             S.CleanShutdown = true; Session("token-3"); h.Line("Loading map \"ar_shoots\""); h.Run(4);
             Check("A restarted server's start map ends the change that died with the old process, and the server is left alone for 5 s", Pending == null && !LoadPending);
             h.Run(2);
@@ -288,7 +297,7 @@ static partial class Program
             Check("Players on at a server start: a vote for everybody opens instead of the dice, called by nobody, and the start roll is settled",
                 Ballot is { Open: true, Starter: "", ServerStart: true, MatchEnded: false } && Pending == null && h.Said("Server started - Vote for the next map") && !h.Said("Rolling the dice") && !StartRollOwed);
             h.Run(MapVote.Seconds + 1);
-            Check("...nobody voting rolls the dice, as the start roll would have", Pending is { By: "the vote" } && h.Said("Nobody voted - Rolling the dice"));
+            Check("...nobody voting rolls the dice, as the start roll would have", LoadPending && S.PickedBy == "the vote" && h.Said("Nobody voted - Rolling the dice"));
             HudActive = () => false;
             Fresh();
             S.CleanShutdown = true; Session("token-e"); h.Line("Loading map \"ar_shoots\""); h.Run(6);
@@ -415,7 +424,7 @@ static partial class Program
             HudActive = () => true; h.MatchEnd(); HudActive = () => false;
             Check("Maintenance: a match end opens no vote and rolls no dice", Pending == null && Ballot == null);
             Go(alice, 1);
-            Check("Maintenance: a player's pick is a vote, and its result still changes the map", Pending?.Map == m[1] && !StartRollOwed);
+            Check("Maintenance: a player's pick is a vote, and its result still changes the map", S.Map == m[1] && LoadPending && !StartRollOwed);
             Land(); h.Run(70); MatchEndUntil = default; h.MatchEnd(); h.Run(5);
             Check("Maintenance: the next match end changes nothing either", Pending == null && Ballot == null);
             File.Delete(MaintenanceFile); h.Run(1);
@@ -435,7 +444,7 @@ static partial class Program
             Check("!previous puts the map before this one to the vote, with its player's vote, like a card's Play",
                 Ballot is { Open: true } prevB && prevCard?.Map == first && prevB.Choices["[U:1:1002]"] == prevCard.N);
             VoteFor(alice, prevCard!.N); VoteFor(cara, prevCard.N);
-            Check("...and the vote takes the server back there", Pending?.Map == first);
+            Check("...and the vote takes the server back there", S.Map == first && LoadPending);
             Land(); h.Run(MapVote.WaitSeconds + 1); h.Talk(cara, "!next"); h.Talk(alice, "!previous");
             Check("During a vote, !previous puts that map on the ballot like any pick", Ballot is { Open: true } pv && pv.Options.FirstOrDefault(o => o.Map == m[1]) is { Source: VoteSource.Picked } pm
                 && pv.Choices["[U:1:1001]"] == pm.N);
@@ -575,7 +584,7 @@ static partial class Program
             HudActive = () => true;
             h.Quiet();
             Go(alice, 1);
-            Check("The pick and its vote are said, the result with the countdown's length", Told.Any(t => t.Contains("Alice put")) && Told.Any(t => t.Contains("Everybody has voted") && t.Contains("Changing in")));
+            Check("The pick and its vote are said, the result changing now", Told.Any(t => t.Contains("Alice put")) && Told.Any(t => t.Contains("Everybody has voted") && t.Contains("Changing now")));
             Land(); h.Run(20);
             Check("The map changes, and nothing at all went to chat: no countdown, no after-load line", h.Sent.Contains($"host_workshop_map {m[1].Id}") && !h.Sent.Any(c => c.StartsWith("say ")));
             HudActive = () => false;
@@ -592,7 +601,7 @@ static partial class Program
             Check("The HUD state names the map, what picked it, its likes and who liked what, and the most liked maps",
                 hud.Map == Clip(Label(m[1]), 40) && hud.By == "the vote" && (hud.Up, hud.Down) == (1, 0) && hud.MyVotes.GetValueOrDefault(1002) == 1 && hud.Maps == Playable
                 && hud.Top is [var liked] && liked.Up == 1 && liked.Map == Clip(Label(m[1]), 36));
-            Check("...and, the vote just over, the wait before the next one: the window's button says when, and a click gets its answer", hudVote.WaitFor > 0 && HudView.Action(hud, hudVote).Command == "!next");
+            Check("...and, the map the vote brought on, no wait before the next vote: a map's start lifts it", hudVote.WaitFor == 0 && HudView.Action(hud, hudVote).Command == "!next");
             h.Quiet();
             Check("A click on the HUD acts exactly like the chat command: Cara's like is counted and said",
                 HudAct("[U:1:1003]\tCara\t!up") && Tally(Key(m[1])) == (2, 0) && h.Said("You liked") && NoteFor.ContainsKey(1003));
@@ -624,8 +633,8 @@ static partial class Program
             Check("!time by click sets the match length", HudAct("[U:1:1003]\tCara\t!time 10") && S.RoundMinutes == 10 && HudAct("[U:1:1003]\tCara\t!time 60") && S.RoundMinutes == 60);
             h.Run(MapVote.WaitSeconds); Go(bob, 2); h.Run(2);
             hud = LiveHud();
-            Check($"A change counting down: the banner gets its map, what picked it and the seconds left ({hud.ChangeIn}), and nobody gets a button for it",
-                hud.ChangeMap == Clip(Label(m[2]), 40) && hud.ChangeBy == "the vote" && hud.ChangeIn is > 0 and < 8 && HudView.Action(hud, LiveVote()).Command == null);
+            Check($"A vote's change goes out at once: no countdown banner ({hud.ChangeIn}), the map loading, and nobody gets a button for it",
+                hud.ChangeIn == -1 && hud.Loading && S.Map == m[2] && HudView.Action(hud, LiveVote()).Command == null);
             Check("The state's text round-trips through the codec unchanged", HudState.Decode(hud.Encode())!.Encode() == hud.Encode());
             Land(); h.Run(2);
             hud = LiveHud();
@@ -659,7 +668,7 @@ static partial class Program
                 !IsRemoved(goneMap) && answer.Contains("1 unblocked") && File.Exists(Path.Combine(StateDir, "removed.json")));
             h.Quiet();
             Go(alice, 3);
-            Check("...and can be picked again", Pending?.Map == goneMap);
+            Check("...and can be picked again", S.Map == goneMap && LoadPending);
             Land(); h.Run(MapVote.WaitSeconds + 1);
             h.Talk(bob, $"!map {Rank(5)}"); h.Talk(cara, $"!map {Rank(6)}");
             Check("(Bob's and Cara's picks are on the open ballot)", Ballot is { Open: true } ob && ob.Options.Any(o => o.Map == m[5]) && ob.Options.Any(o => o.Map == m[6]));
@@ -671,7 +680,7 @@ static partial class Program
             Check("...and removed.json keeps the verdict, so a restarted bridge still knows", WorkshopCheck.Verdicts.GetValueOrDefault(m[5].Id.ToString()) == Workshop.Removed);
             var sixN = ob2!.Options.First(o => o.Map == m[6]).N;
             VoteFor(alice, sixN); VoteFor(bob, sixN);
-            var landing = Pending?.Map;
+            var landing = S.Map;
             Land(); h.Run(30); h.Quiet();
             answer = ApplyRemovedReport(RemovedBody([(landing!.Id, Workshop.Hidden)]));
             Check("The map that is ON going private makes way at once: the dice roll another, and the news line says why",
@@ -756,7 +765,7 @@ static partial class Program
             Check("A new maps.json is taken while the bridge runs, the HUD's menu refetches, and the log says what changed",
                 Maps.Count == keepMaps.Count + 1 && CatalogVersion != reloadVersion && reloaded.Contains("1 new, 0 gone"));
             GoTo(alice, Maps.Single(x => x.Id == 3076999999));
-            Check("...its new map can be picked at once", Pending?.Map.Id == 3076999999);
+            Check("...its new map can be picked at once", ChangeGone()?.Id == 3076999999);
             File.WriteAllText(mapsPath, "[{\"rank\":1,");
             Check("A maps.json that does not parse changes nothing", ReloadMaps(mapsPath, force: false).Contains("unreadable") && Maps.Count == keepMaps.Count + 1);
             File.WriteAllText(mapsPath, JsonSerializer.Serialize(keepMaps.Take(10).ToList(), Ctx.Default.ListMapInfo));

@@ -76,6 +76,11 @@ static partial class Program
     static DateTime FairSentAt = DateTime.MinValue;
     const int FairFoldSeconds = 3;
 
+    /// <summary>The fairness restart waits for the humans still joining (FairWait), since then; null while it does not. And the most it may wait for this restart,
+    /// from its first wait: EarlyJoin.HoldMostSeconds.</summary>
+    static DateTime? FairWaitSince;
+    static DateTime FairWaitUntil;
+
     static RestartNotice? RestartDue;
     static Rematch? RematchDue;
     static string UpdatedNotice = "";
@@ -184,6 +189,7 @@ static partial class Program
     static bool RestartAtMatchEnd(DateTime now)
     {
         if (RematchDue is { } rematch) { Log($"rematch: the match ended before {rematch.By}'s restart of it went out"); RematchDue = null; }
+        if (FairWaitSince != null) { Log("fair: the match ended while its fairness restart waited for the joiners - it does not go out"); FairWaitSince = null; }
         if (RestartDue is { GoesAt: { } goes } && goes > now) { Log($"restart: the match is over - the {RestartDue.Kind} restart counting down goes on; no vote at this match end"); return true; }
         if (RestartDue is not { When: AtMatchEnd, GoesAt: null } r) return false;
         r.GoesAt = now.AddSeconds(r.Seconds);
@@ -206,7 +212,7 @@ static partial class Program
     static void RestartGoing()
     {
         if (RestartDue != null) Log($"restart: the {RestartDue.Kind} restart announced is happening");
-        RestartDue = null; RematchDue = null;
+        RestartDue = null; RematchDue = null; FairWaitSince = null;
     }
 
     // ---- the Game page's two buttons, and their chat commands ----
@@ -358,6 +364,7 @@ static partial class Program
         RematchDue = null;
         if (Pending != null || LoadPending) { Log($"rematch: a map change came first - {due.By}'s restart of the match does not go out"); return; }
         if (MatchLength.InRounds(CurrentMode.Id)) ApplyMatchLength(); // MatchTime.cs: the match starts over, its rounds too - Wingman's chosen count takes it whole
+        if (due.Fair && FairWait(Now())) return; // somebody came to be joining meanwhile: it waits for them, then counts down again
         if (due.Fair) FairSentAt = Now();
         var (sent, reply) = RematchSend(Send);
         Log($"rematch by {due.By}: {sent} -> {reply ?? "(rcon failed)"}");
@@ -369,11 +376,18 @@ static partial class Program
     /// just gone out (FairFoldSeconds), or a player's Restart match counting down: each starts the newcomer over too. Else the match restarts, unless the server
     /// is about to go down, the map is about to change, a vote decides or the match has just ended (RematchBlocked; the minute after a restart does not hold it,
     /// since every join may restart again): EarlyJoin.CountdownSeconds on the countdown banner, naming who came in, then the plugin's os_restart (FireRematch).
-    /// It starts no wait: a player's Restart match may go right after it - only a pressed one makes the next wait RematchWaitSeconds.</summary>
+    /// It starts no wait: a player's Restart match may go right after it - only a pressed one makes the next wait RematchWaitSeconds. While anybody is still joining
+    /// it waits for them first (FairWait), so the players in already start over once for all of them.</summary>
     static void FairRestart(string steamId, string name)
     {
         var now = Now();
         name = Clip(name, 32);
+        if (FairWaitSince != null)
+        {
+            if (!FairNames.Contains(name)) FairNames.Add(name);
+            Log($"fair: {name} {steamId} joined while the fairness restart waits for the joiners - one restart, naming {FairNames.Count}");
+            return;
+        }
         if (RematchDue is { Fair: true } pending)
         {
             if (!FairNames.Contains(name)) FairNames.Add(name);
@@ -387,11 +401,57 @@ static partial class Program
         if (RematchBlocked(now) is { } no) { Log($"fair: {name} {steamId} joined - no restart: {M.Plain(no)}"); return; }
         FairNames.Clear();
         FairNames.Add(name);
-        var due = new Rematch(name, now.AddSeconds(EarlyJoin.CountdownSeconds), Fair: true);
+        FairWaitUntil = now.AddSeconds(EarlyJoin.HoldMostSeconds);
+        Log($"fair: {name} {steamId} joined a match in its first {EarlyJoin.WindowSeconds} s - it restarts for fairness");
+        if (FairWait(now)) return;
+        FairCountdown(now);
+    }
+
+    /// <summary>The fairness restart's countdown: EarlyJoin.CountdownSeconds on the banner, naming everybody it starts over for, then os_restart (FireRematch).</summary>
+    static void FairCountdown(DateTime now)
+    {
+        var names = EarlyJoin.Names(FairNames);
+        var due = new Rematch(FairNames.Count > 0 ? FairNames[0] : "?", now.AddSeconds(EarlyJoin.CountdownSeconds), Fair: true);
         RematchDue = due;
-        Log($"fair: {name} {steamId} joined a match in its first {EarlyJoin.WindowSeconds} s - it restarts for fairness in {EarlyJoin.CountdownSeconds} s");
-        Post(Messages.MatchRestart, EarlyJoin.Line(name, 1), seconds: EarlyJoin.CountdownSeconds);
+        Log($"fair: the match restarts for fairness in {EarlyJoin.CountdownSeconds} s, naming {names}");
+        Post(Messages.MatchRestart, EarlyJoin.Line(names, FairNames.Count), seconds: EarlyJoin.CountdownSeconds);
         After(EarlyJoin.CountdownSeconds * 1000, () => FireRematch(due));
+    }
+
+    /// <summary>Whether the fairness restart waits now for the humans still joining - the plugin's os_joining names them: connecting, at CS2's prompt to confirm a first
+    /// Workshop download, downloading or loading the map - so the players in already start over once for all of them, not once each. It waits until nobody is
+    /// left joining, EarlyJoin.HoldMostSeconds at the most from its first wait; a plugin without the command, or no answer, has it wait for nobody, as before.
+    /// While it waits the live state carries no countdown - one line says whom it waits for - and each second it asks again (FairWaitTick).</summary>
+    static bool FairWait(DateTime now)
+    {
+        if (now >= FairWaitUntil) { if (FairWaitSince != null) Log($"fair: still somebody joining after {EarlyJoin.HoldMostSeconds} s - the restart goes without them"); FairWaitSince = null; return false; }
+        var reply = Send(EarlyJoin.JoiningCommand);
+        if (EarlyJoin.ReadJoining(reply) is not { Count: > 0 } joining)
+        {
+            if (FairWaitSince is { } since) Log($"fair: everybody is in, {(now - since).TotalSeconds:0} s after the restart began to wait - one restart for {FairNames.Count}");
+            FairWaitSince = null;
+            return false;
+        }
+        if (FairWaitSince == null)
+        {
+            FairWaitSince = now;
+            Log($"fair: {joining.Count} still joining ({string.Join(", ", joining)}) - the fairness restart waits for them, {EarlyJoin.HoldMostSeconds} s at the most");
+            Post(Messages.MatchRestart, EarlyJoin.WaitLine(EarlyJoin.Names(FairNames), FairNames.Count, joining));
+        }
+        After(1000, FairWaitTick);
+        return true;
+    }
+
+    /// <summary>A second on while the fairness restart waits for the joiners: it goes once nobody is left joining, or its time is up - unless something else decides
+    /// now (a restart of the match or of the server, a vote, a change, the match's end: RematchBlocked), which ends it, or a map start (OnMapStart).</summary>
+    static void FairWaitTick()
+    {
+        if (FairWaitSince == null) return; // over: a map start, the match's end, the server going down
+        var now = Now();
+        if (RematchDue != null) { Log("fair: a restart of the match counts down - it starts the joiners over too; the fairness restart's wait ends"); FairWaitSince = null; return; }
+        if (RematchBlocked(now) is { } no) { Log($"fair: the restart that waited for the joiners does not go out: {M.Plain(no)}"); FairWaitSince = null; return; }
+        if (FairWait(now)) return;
+        FairCountdown(now);
     }
 
     /// <summary>What the Restart match sends: the plugin's os_restart (release 196), which its restart guard lets through as ours - also while it holds

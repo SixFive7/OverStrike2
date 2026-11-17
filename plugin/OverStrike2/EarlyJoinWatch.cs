@@ -28,6 +28,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
         plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawn);
         plugin.RegisterEventHandler<EventPlayerDisconnect>(OnDisconnect);
         plugin.AddCommand(Command, "Over Strike 2 fairness restart: status | live (the match runs from now and the next join counts, for the client harness)", OnCommand);
+        plugin.AddCommand(EarlyJoin.JoiningCommand, "Over Strike 2: the humans still joining - connecting, downloading or loading the map (the bridge's, before a fairness restart)", OnJoining);
         if (hotReload) plan.Skip("the plugin loaded during this map");
         log.LogInformation("Over Strike 2 fairness: in every mode, every player who joins a match in its first {Window} s while somebody else plays it restarts it ({Command})",
             EarlyJoin.WindowSeconds, Command);
@@ -95,6 +96,20 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
             plan.Force(DateTime.UtcNow);
             log.LogInformation("Over Strike 2 fairness: {Command} live - the match runs from now, and the next join counts as joining somebody", Command);
         }
-        command.ReplyToCommand($"{Command}: {plan.Describe(DateTime.UtcNow)}");
+        var joining = Joining().Select(p => p.PlayerName).ToList();
+        command.ReplyToCommand($"{Command}: {plan.Describe(DateTime.UtcNow)}; still joining: {(joining.Count == 0 ? "nobody" : string.Join(", ", joining))}");
     }
+
+    /// <summary>os_joining (EarlyJoin.JoiningCommand): the humans still joining, for the bridge, which holds a fairness restart while there are any. The server console and RCON only.</summary>
+    void OnJoining(CCSPlayerController? caller, CommandInfo command)
+    {
+        if (caller != null) return;
+        command.ReplyToCommand(EarlyJoin.JoiningReply(Joining().Select(p => p.PlayerName)));
+    }
+
+    /// <summary>The humans whose game is still on its way in: their controller connecting - the connect itself, CS2's prompt to confirm a first Workshop download, the
+    /// download, the map's load - or reconnecting, as every game does through a map change and through MultiAddonManager's download of the HUD addon. In the game
+    /// once it says connected.</summary>
+    static List<CCSPlayerController> Joining() => [.. Enumerable.Range(0, Server.MaxPlayers).Select(Utilities.GetPlayerFromSlot)
+        .Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false } && p.Connected is PlayerConnectedState.Connecting or PlayerConnectedState.Reconnecting).Select(p => p!)];
 }
