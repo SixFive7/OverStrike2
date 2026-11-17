@@ -433,13 +433,16 @@ changes - and draws each player's newest 18, the newest at the bottom, solid ove
 with the chat closed (CS2 drops its lines 56 px when its typing line is hidden), its foot at y 944 with the chat open (`HUD_CHAT_VISIBLE`, CS2's own class), so
 CS2's typing line stays free; over CS2's area it is fully opaque, above it its background fades upward. When it shows is the server's (`HudChat.Route`, the
 owner's 277): always (a1, the default), only while our window is open (c), or never (d) - `os_hud chat always|window|off` until the plugin reloads; the stylesheet
-is the same for all three, so a change needs no content update. After a hot reload a running game shows the new entity's HUD only once its input capture
-changes, so the plugin's first frame turns each player's capture on, and the next frame's own puts it back. CS2's own chat cannot be made taller or kept on
+is the same for all three, so a change needs no content update. It begins at the screen's left edge (x 0-571), since CS2's text starts at about x 5, left of
+its box's 18. Any load while a map is on makes the HUD's entity at once - a hot reload, and `css_plugins load` after an unload, which CounterStrikeSharp passes
+as no hot reload; the column's lines start anew then. CS2's own chat cannot be made taller or kept on
 screen: its history box is 327 px high in its own stylesheet, which ours cannot reach, and no setting a server may change keeps its lines. The column shows only
 while its feed is live and it has a line for that player (`chaton` on `os_screen`: no failed poll in a row and an answer within 60 s - the bridge's long poll
 answers every 25 s at the least) and beats (`hb`, on and off by turns every 10 s, each turn restarting a
 35 s animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again; only a game whose HUD check named
-v4.14.0 or later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel". At a match end CS2 lifts its
+v4.14.0 or later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel" - and a new player in a slot
+starts with none of its last occupant's: the entity hands a joining game the slot's entries as they were left, so they go when the slot is taken
+(`ClearSlot`). At a match end CS2 lifts its
 chat (y 674-722 open, down to 722 closed) and the column follows (`meos`: the game's phase). **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`):
 the inactivity timer's bar, reset by a moved vote, gets `snap` (0 s) for a frame before it refills, so only the countdown moves; its 0 s rules are by its id
 (`#os_vidle`), since its own 1 s is. **Decided with the change gone

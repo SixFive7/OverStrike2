@@ -648,6 +648,37 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         "workshop card: the plugin asks ServerRefusal first, with the catalog and the HUD's item from the settings (hud.addon), before the Workshop");
 }
 
+// ---- the HUD's entity at any load while a map is on, and a new player's slot clean (HudScreen.cs, HudScreenSend.ClearSlot): css_plugins load passes hotReload
+// false, and a joining game is handed the slot's entries in the entity as its last occupant left them ----
+{
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var screen = File.ReadAllText(Path.Combine(plugin, "HudScreen.cs")).Replace("\r\n", "\n");
+    var send = File.ReadAllText(Path.Combine(plugin, "HudScreenSend.cs")).Replace("\r\n", "\n");
+    static string Body(string code, string head)
+    {
+        var at = code.IndexOf(head, StringComparison.Ordinal);
+        if (at < 0) return "";
+        var rest = code[at..];
+        var end = rest.IndexOf("\n    }\n", StringComparison.Ordinal);
+        return end > 0 ? rest[..end] : rest;
+    }
+    static int At(string text, string what) => text.IndexOf(what, StringComparison.Ordinal);
+    var put = Body(screen, "void OnPutInServer(int slot)");
+    var clear = Body(send, "bool ClearSlot(int slot)");
+    var layout = Body(send, "bool SlotStatesOk(IntPtr first, int count, int size)");
+    var left = At(put, "Leave(slot);");
+    var cleared = At(put, "if (!ClearSlot(slot))");
+    var free = At(put, "SetInputCaptureEnabled(p, false);");
+    var guard = At(clear, "if (!SlotStatesOk(first, count, size)) return false;");
+    Check(screen.Contains("if (hotReload || !string.IsNullOrEmpty(Server.MapName)) { worldReady = true; EnsureEntity(); }", StringComparison.Ordinal)
+        && !screen.Contains("reloadPulse", StringComparison.Ordinal) && !File.ReadAllText(Path.Combine(plugin, "HudScreenFrame.cs")).Contains("PulseCapture", StringComparison.Ordinal)
+        && left >= 0 && left < cleared && cleared < free && free < At(put, "MarkChanged();")
+        && guard > 0 && guard < At(clear, "state.HasClasses.RemoveAll();") && guard < At(clear, "state.DialogVariableStrings.RemoveAll();")
+        && clear.Contains("thumbs.Remove(key)", StringComparison.Ordinal) && clear.Contains("catch (Exception e)", StringComparison.Ordinal)
+        && layout.Contains("Marshal.ReadIntPtr(first + i * size) == kind", StringComparison.Ordinal) && layout.Contains("if (statesChecked == (first, count, size)) return statesOk;", StringComparison.Ordinal),
+        "HUD entity: made at any load while a map is on (a hot reload, or css_plugins load, which passes hotReload false), with no capture pulse; a new player's slot cleared in the entity (ClearSlot) before anything is sent to it, once the layout states are checked to lie as it reads them (every one beginning with the same class pointer), and marked for the network at once");
+}
+
 // ---- the block file (bridge/Shared/Modes.cs): every game mode's value in one file ----
 {
     var text = "// a comment\n\ngame_type  1  1  0  // the mode\nsv_cheats  *  0  0  // cheats\r\nbot_quota_mode * normal normal // bots\n"
