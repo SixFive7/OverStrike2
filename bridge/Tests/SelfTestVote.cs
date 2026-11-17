@@ -338,6 +338,20 @@ static partial class Program
             Check("A winner still to download (VoteState.Fetching) puts vfetch on os_screen - content v4.13.0's state says Downloading and its clock the note, no digits; a decided vote that counts down, an open one and the browser's page have it off",
                 fetchingState is { Fetching: true, Open: false } && ClassOn(fetchingState, HudView.Screen, "vfetch") && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vfetch")
                 && !ClassOn(numbered, HudView.Screen, "vfetch") && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, h.Clock).Classes.Contains((HudView.Screen, "vfetch", false)));
+            var changingNow = VoteState.Decode("mv\t9\tdone\t0\t3\t3\tmid\t0\t1\t0\t\t\t0\t0\nmvo\t1\tarmsrace\tkeep\t\tk\tKeep\t\t0\t\nmvo\t2\tarmsrace\trolled\t\tm2\tMap two\t\t3\t\nmvr\t2\tall\tMap two\n");
+            Check("Decided with the change gone out at once (the vote with no wait, release 218): Changing now - no digits, no countdown in the window's words - and vnow on os_screen; a decision that still counts down keeps its seconds",
+                HudVote.ChangingNow(changingNow) && HudVote.DoneKey(changingNow) == "Changing now" && HudVote.Clocks(changingNow) is { IdleKey: "Changing now", IdleNum: "", Idle: "" }
+                && ClassOn(changingNow, HudView.Screen, "vnow") && TextOf(changingNow, "os_m_count").EndsWith("- Changing now", StringComparison.Ordinal)
+                && !HudVote.ChangingNow(VoteState.Decode(VoteState1("mid", "all", 2))) && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vnow"));
+            var dl = HudVote.DownloadOf("Server is downloading Assembly: 61 percent (438 MB of 711 MB) - The map changes when it is ready");
+            var downloading = VoteState.Decode("mv\t9\tdone\t0\t3\t3\tend\t0\t1\t0\t\t\t0\t0\t1\nmvo\t1\tarmsrace\tkeep\t\tk\tKeep\t\t0\t\nmvo\t2\tarmsrace\trolled\t\tm2\tMap two\t\t3\t\nmvr\t2\tall\tMap two\n");
+            var dlCards = HudVote.Cards(downloading, 2001, null, download: dl);
+            var winnerCard = HudMenu.Card(HudVote.PageOptions(downloading, 0).FindIndex(o => o.N == 2) + 1);
+            Check("A winner downloading (the owner's 7): the watcher's line read - 61 percent, 438 MB of 711 MB - and in the window its percent, how much of how much, the bar os_vdl a step of tenths, vdl on; the winner's card's bar the download's; no download known, or no vote waiting for one, none of it",
+                dl is { Percent: 61, Done: "438 MB", Total: "711 MB" } && HudVote.DownloadOf("Server is downloading Assembly (711 MB) - The map changes when it is ready") == null
+                && dlCards.Vars.Contains((HudVote.DownloadNumVar, "61%")) && dlCards.Vars.Contains((HudVote.DownloadVar, "438 MB of 711 MB")) && dlCards.Classes.Contains((HudView.Screen, "vdl", true))
+                && dlCards.Classes.Contains((HudVote.DownloadBar, "w6", true)) && dlCards.Classes.Contains((winnerCard, "w6", true))
+                && HudVote.Cards(downloading, 2001, null).Classes.Contains((HudView.Screen, "vdl", false)) && HudVote.Cards(changingNow, 2001, null, download: dl).Classes.Contains((HudView.Screen, "vdl", false)));
             Check("A risky card's lock, with its capitals: Locked - Click to unlock, then Click again - Vote anyway",
                 HudMenu.Locked == "Locked - Click to unlock" && HudMenu.Unlocked == "Click again - Vote anyway" && Capitals([HudMenu.Locked, HudMenu.Unlocked]));
             Check("The capitals rule leaves a map's own words alone: the dash in a marked title ends no section; everybody's run-end check reads every line of the vote's (MessagesCapitalsCheck)",

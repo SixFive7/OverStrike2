@@ -58,6 +58,7 @@ sealed partial class HudScreen
         var line = Messages.Capital(Sections.Capitalize(Hud.Clean(text, Messages.TopMax)));
         var secs = Math.Clamp(seconds, 3, 3600);
         var (kind, key, step) = Messages.OfNotice(line);
+        if (HudVote.DownloadOf(line) is { } progress) download = (progress, DateTime.UtcNow.AddSeconds(secs)); // the window's download (content v4.14.0)
         var said = key == "" || !noticeSteps.TryGetValue(key, out var was) || was != step;
         if (key != "") noticeSteps[key] = step;
         Post(kind, line, key: key, seconds: secs, chat: said);
@@ -65,6 +66,31 @@ sealed partial class HudScreen
     }
 
     readonly Dictionary<string, int> noticeSteps = new();
+
+    // ---- the chat column (HUD content v4.14.0, HudChat): what CS2's chat shows, kept for the column - a player's line, the server's own (Say), an event ----
+
+    readonly HudChat chat = new();
+
+    /// <summary>A player's chat line, as CS2 shows it: a / line is CounterStrikeSharp's silent trigger and shows nowhere; say_team goes to the sender's team.</summary>
+    public void ChatLine(CCSPlayerController p, string text, bool teamOnly)
+    {
+        if (text == "" || text.StartsWith('/')) return;
+        chat.Say(p.PlayerName, TeamWord(p), text, teamOnly);
+        Server.NextFrame(Frame);
+    }
+
+    /// <summary>A join, a leave, a team change, for everybody's column.</summary>
+    public void ChatEvent(string text)
+    {
+        chat.Event(text);
+        Server.NextFrame(Frame);
+    }
+
+    static string TeamWord(CCSPlayerController p) => p.Team switch { CsTeam.CounterTerrorist => "CT", CsTeam.Terrorist => "T", _ => "SPEC" };
+
+    /// <summary>The winner's download as the restart watcher's line says it (HudVote.DownloadOf), until that line's seconds are up: the window shows it while the vote
+    /// waits for the map.</summary>
+    (HudVote.Download Download, DateTime Until)? download;
 
     // ---- a Workshop card's download, in chat and on the board: the card keeps its short form ----
 
@@ -116,10 +142,11 @@ sealed partial class HudScreen
 
     CCSPlayerController? PlayerOf(long account) => Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account);
 
-    /// <summary>A marked line in chat, in the chat's functional colours: for everybody (account 0) or one player.</summary>
+    /// <summary>A marked line in chat, in the chat's functional colours: for everybody (account 0) or one player. The chat column keeps it too (HudChat).</summary>
     public void Say(string marked, long account = 0)
     {
         var palette = new M.Palette(ChatColors.Default, ChatColors.Lime, ChatColors.LightBlue, ChatColors.Gold, ChatColors.LightRed, ChatColors.Green, NameColour);
+        foreach (var line in M.ChatLines(marked)) chat.Server(M.Plain(line), account);
         var lines = M.ChatLines(marked).Select(line => " " + M.Render(line, palette)).ToList();
         foreach (var p in Utilities.GetPlayers().Where(x => x is { IsValid: true, IsBot: false, IsHLTV: false } && (account == 0 || Account(x) == account)))
             foreach (var line in lines) p.PrintToChat(line);

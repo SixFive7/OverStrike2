@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.13.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.14.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -19,10 +19,10 @@
   On one full-screen root, in drawing order:
     1. the board  - beside the scoreboard while TAB is held (the client's own HUD_SCOREBOARD_VISIBLE class shows it): your like on the map that
        is on, Start a vote, the vote in one line, the full menu, and at its foot Lately, the last three lines marked for the board;
-    2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How
-       it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
-       each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot shows ten tiles, four across and three
-       down, each with the vote's own number. MAPS stands right of CS2's chat, so its line and replies show beside the window. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.13.0): its id tells the server which
+    2. the window - the full menu: one row of tabs (content v4.14.0), START, VOTE (while a vote is on), MAPS, FUN, BOTS, PLAYERS, GAME, SYNC, HELP and HOW IT
+       WORKS, with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser, four across and two down, in the shape of
+       the ballot's ten tiles (four across and three down), each with the vote's own number. Every page stands right of CS2's chat, and the chat column keeps
+       the chat's history on the left, taller than CS2's own. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.14.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (os-banner), the status banner (os-ban), the outdated and
@@ -46,6 +46,31 @@
 	<Panel class="os-root" hittest="false">
 		<Panel id="os_global" class="os-global" hittest="false">
 			<Panel id="os_screen" class="os-screen" hittest="false">
+				<!-- The chat column (content v4.14.0): our own chat history beside the window, there with it closed too - the plugin's lines (HudChat), the newest at the
+				     bottom, over CS2's own history and up toward the radar; CS2's typing line stays free below it. It shows only while its feed is live (chaton) and beats
+				     (hb): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. -->
+				<Panel class="os-chat" hittest="false">
+					<Panel class="os-chat-lines" hittest="false">
+						<Panel id="os_chat_1" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_1_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_2" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_2_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_3" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_3_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_4" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_4_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_5" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_5_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_6" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_6_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_7" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_7_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_8" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_8_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_9" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_9_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_10" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_10_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_11" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_11_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_12" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_12_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_13" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_13_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_14" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_14_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_15" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_15_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_16" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_16_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_17" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_17_t" hittest="false" text="{s:text}" /></Panel>
+						<Panel id="os_chat_18" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_18_t" hittest="false" text="{s:text}" /></Panel>
+					</Panel>
+				</Panel>
 
 				<!-- 1. The board: TAB. A click action panel while the TAB cursor is on (HUD_TAB down): vote, Next, the queue, the menu. -->
 				<Panel class="os-board" hittest="false">
@@ -120,40 +145,34 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.13.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.14.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
 					</Panel>
 
+					<!-- One row of tabs (content v4.14.0), every page a tab: Vote only while a vote is on, with its live dot, and Maps then the map browser that adds to it
+					     (the vote's own buttons, os_v_back and os_v_browse); a tab that has nothing to use right now is greyed (off). -->
 					<Panel class="os-tabs">
 						<Button id="os_tab_start" class="os-tab"><Label class="os-tab-text" text="Start" /></Button>
+						<Button id="os_v_back" class="os-tab"><Panel /><Label class="os-tab-text" text="Vote" /></Button>
 						<Button id="os_tab_maps" class="os-tab"><Label class="os-tab-text" text="Maps" /></Button>
+						<Button id="os_v_browse" class="os-tab"><Label class="os-tab-text" text="Maps" /></Button>
 						<Button id="os_tab_fun" class="os-tab"><Label class="os-tab-text" text="Fun" /></Button>
-						<Button id="os_tab_server" class="os-tab"><Label class="os-tab-text" text="Server" /></Button>
+						<Button id="os_tab_bots" class="os-tab"><Label class="os-tab-text" text="Bots" /></Button>
+						<Button id="os_sub_players" class="os-tab"><Label class="os-tab-text" text="Players" /></Button>
+						<Button id="os_tab_game" class="os-tab"><Label class="os-tab-text" text="Game" /></Button>
+						<Button id="os_tab_sync" class="os-tab"><Label class="os-tab-text" text="Sync" /></Button>
 						<Button id="os_tab_help" class="os-tab"><Label class="os-tab-text" text="Help" /></Button>
+						<Button id="os_tab_how" class="os-tab"><Label class="os-tab-text" text="How it works" /></Button>
 					</Panel>
 
-					<!-- The sub-tabs of the tab that is on, and what the page is for. MAPS: Vote (only while a vote is on) and Browse - the vote's own
-					     buttons, os_v_back and os_v_browse; FUN: Settings and Bots; SERVER: Players, Game, Sync; HELP: Help, How it works. -->
+					<!-- The old sub-tab bar's other buttons, its caption and the Vote sub-tab's label with its seconds keep their ids and words here, out of sight -->
 					<Panel class="os-subs">
-						<Panel class="os-subs-group os-subs-maps">
-							<Button id="os_v_back" class="os-stab os-stab-vote"><Label class="os-stab-text" text="{s:osvtab}" /></Button>
-							<Button id="os_v_browse" class="os-stab"><Label class="os-stab-text" text="Browse" /></Button>
-						</Panel>
-						<Panel class="os-subs-group os-subs-server">
-							<Button id="os_sub_players" class="os-stab"><Label class="os-stab-text" text="Players" /></Button>
-							<Button id="os_tab_game" class="os-stab"><Label class="os-stab-text" text="Game" /></Button>
-							<Button id="os_tab_sync" class="os-stab"><Label class="os-stab-text" text="Sync" /></Button>
-						</Panel>
-						<Panel class="os-subs-group os-subs-fun">
-							<Button id="os_sub_fun" class="os-stab"><Label class="os-stab-text" text="Settings" /></Button>
-							<Button id="os_tab_bots" class="os-stab"><Label class="os-stab-text" text="Bots" /></Button>
-						</Panel>
-						<Panel class="os-subs-group os-subs-help">
-							<Button id="os_sub_help" class="os-stab"><Label class="os-stab-text" text="Help" /></Button>
-							<Button id="os_tab_how" class="os-stab"><Label class="os-stab-text" text="How it works" /></Button>
-						</Panel>
+						<Button id="os_tab_server" class="os-stab"><Label class="os-stab-text" text="Server" /></Button>
+						<Button id="os_sub_fun" class="os-stab"><Label class="os-stab-text" text="Settings" /></Button>
+						<Button id="os_sub_help" class="os-stab"><Label class="os-stab-text" text="Help" /></Button>
+						<Label class="os-stab-text" text="{s:osvtab}" />
 						<Label class="os-subcap" text="{s:ossub}" />
 					</Panel>
 
@@ -216,6 +235,7 @@
 									<Panel class="os-clocks">
 										<Panel class="os-clock"><Label class="os-clock-key" text="Ends in" /><Label class="os-clock-big" text="{s:osvlimn}" /><Panel id="os_vlim" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvlim}" /></Panel>
 										<Panel class="os-clock os-clock-idle"><Label class="os-clock-key os-clock-key-all" text="Decided in" /><Label class="os-clock-key os-clock-key-done" text="{s:osvidlek}" /><Label class="os-clock-big" text="{s:osvidlen}" /><Panel id="os_vidle" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvidle}" /></Panel>
+										<Panel class="os-vdl"><Panel class="os-vhead-row"><Label class="os-clock-key" text="Downloading" /><Label class="os-clock-big" text="{s:osvdlp}" /><Panel id="os_vdl" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel></Panel><Label class="os-vdl-mb" text="{s:osvdlm}" /></Panel>
 									</Panel>
 								</Panel>
 								<Panel class="os-mbar">
@@ -1325,7 +1345,7 @@
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Label class="os-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.13.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.14.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1389,7 +1409,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.13.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.14.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

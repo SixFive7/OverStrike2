@@ -19,6 +19,9 @@ public sealed class HudPlayer
     /// HudVote.DoubleClickSeconds is the second click of a double click (HudFrame.SecondClick). Round 0: none.</summary>
     public (long Round, string Button, DateTime At) Added;
 
+    /// <summary>A bar's snap, by its panel (HudFrame.Snapped, content v4.14.0): the step it shows, and where the snap stands - 0 none, 1 snapped, 2 the new step taken.</summary>
+    public Dictionary<string, (string Shown, int Stage)> Snap { get; } = new();
+
     /// <summary>The vote round whose window was opened for this player (once a round), and whether that vote's freeze holds it open now.</summary>
     public long VoteShown;
     public bool VoteOpened;

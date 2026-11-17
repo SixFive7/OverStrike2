@@ -423,6 +423,24 @@ timer counts to the decision); Decided; Downloading for a winner still to downlo
 to vote by a click or in chat, and **one clock**: the limit's while the vote is open, the time to the decision once everybody has voted, the change's countdown
 once decided - and for a downloading winner no digits, its words instead: it changes the moment it is ready. The strip of where the votes go is hidden (its panels stay for their ids): the cards' counts and bars say it.
 
+**One row of tabs, every page beside the chat, and the chat column** (v4.14.0): the window's head is the title and its tagline; the tabs are one row - Start,
+Vote (only while a vote is on, with a live dot; Maps is then the browser that adds to it), Maps, Fun, Bots, Players, Game, Sync, Help, How it works - and a tab
+with nothing to use right now is greyed (`off`: Game while the match-end screen is up, Sync while the server has no sync's block). Every page stands where MAPS
+stood in v4.13.0, right of CS2's chat; the window never moves from page to page. **The chat column** (`HudChat`) is our own chat history at CS2's chat's place,
+from just above its typing line (y 944, 1080 high) up toward the radar, there with the window open or closed: the plugin keeps the lines CS2's chat shows - every
+player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one player), joins, leaves and team
+changes - and draws each player's newest 18, the newest at the bottom, over CS2's own lines so none shows twice. CS2's own chat cannot be made taller or kept on
+screen: its history box is 327 px high in its own stylesheet, which ours cannot reach, and no setting a server may change keeps its lines. The column shows only
+while its feed is live (`chaton` on `os_screen`: the bridge answered in the last 15 s) and beats (`hb`, on and off by turns every 10 s, each turn restarting a
+35 s animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again; a game whose HUD check named a content
+before v4.14.0 gets none of its words (`HudChat.Level`). At a match end CS2 lifts its chat (y 674-722) and the column follows (`meos`: the game's phase); with
+the window closed its background fades upward. **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`):
+the inactivity timer's bar, reset by a moved vote, gets `snap` (0 s) for a frame before it refills, so only the countdown moves. **Decided with the change gone
+out at once** the clock says Changing now - no digits, no bar (`vnow`, `HudVote.ChangingNow`). **A winner downloading** shows its download in the window - its
+percent, its bar (`os_vdl`) and how much of how much, from the watcher's line (`HudVote.DownloadOf`) - and on its card in blue, and the top line's news of it
+stays away while the window shows it. **The browser's cards** are the vote's shape: 285 x 208, four across and two down, the picture on top with its rank, its
+mode and its likes and arrows, then the name and size, one row of tags, and Put to the vote along the foot.
+
 Ten cards a page; the players' own maps add pages (48 cards at the most). The ballot opens with these (`OpenBallot`, `VoteRound.cs`):
 
 1. **Keep**: Keep playing this map while the match is on, Play this map again once it is over;
