@@ -512,8 +512,9 @@ Anybody may change the length and press the two restarts, on the Game page or in
   every human not yet active) and the bridge's log stream (a human logged as connected and not yet as entered the game; the HUD addon's reconnect does not end
   it). A joiner at that prompt shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no controller and no
   callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list no longer having them ends it, and 150 s after their
-  "connected" in any case (`EarlyJoin.SignOnMostSeconds`). `os_fair` shows the bridge's view beside the plugin's (`os_fair bridge`, the names as hex, from the
-  bridge whenever they change). The bridge asks as the restart would count down and every second while it
+  "connected" in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone signs on, and each second of a wait. `os_fair`
+  opens with whom a wait would count, each with who names them - the plugin, status, the log stream (`os_fair bridge`: the bridge's two views as hex, whenever
+  they change). The bridge asks as the restart would count down and every second while it
   waits, says once in chat and on the board whom it waits for ("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"), and counts
   down once nobody is left joining - their own joins fold into it - or after **120 s** at the most (`EarlyJoin.HoldMostSeconds`), so a joiner stuck there does
   not hold it for good. A vote, a restart of the match or of the server, the match's end or a map start meanwhile ends the wait; a plugin without `os_joining`

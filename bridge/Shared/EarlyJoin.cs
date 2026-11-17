@@ -74,6 +74,7 @@ public sealed class EarlyJoin
     /// running now, and os_fair bridge is the bridge telling it whom its log stream has signing on (BridgeViewCommand), which os_fair then shows (ViewLine).</summary>
     public const string FairCommand = "os_fair";
     public const string BridgeWord = "bridge";
+    public const string StatusWord = "status"; // in os_fair bridge's arguments: what follows is status's joiners (no hex has an s, t or u)
 
     /// <summary>A human in the server's own client list (status's players table): the name, and the state as the server has it - "active" once in the game,
     /// "connecting" from the connect until then (CS2's first-download prompt, the download, the map's load, a map change's reconnect).</summary>
@@ -102,25 +103,47 @@ public sealed class EarlyJoin
         return clients;
     }
 
-    /// <summary>The bridge's word to the plugin: os_fair bridge and the names its log stream has signing on, each the hex of its UTF-8, so no name can end or
-    /// change the command (a ';', a '"', "//"). 16 at the most.</summary>
-    public static string BridgeViewCommand(IEnumerable<string> names) =>
-        string.Join(' ', new[] { FairCommand, BridgeWord }.Concat(names.Take(16).Select(n => Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(Hud.Clean(n, 32))))));
+    /// <summary>What the bridge last told the plugin (os_fair bridge): whom its log stream has signing on, the humans the server's own list had not yet active at
+    /// its last reading (null: not read - no players table, or nobody has signed on since the bridge started), and when it said so.</summary>
+    public sealed record BridgeView(IReadOnlyList<string> Log, IReadOnlyList<string>? Status, DateTime At);
 
-    /// <summary>The names in os_fair bridge's arguments, after the word; one that is not hex is left out.</summary>
-    public static List<string> ReadBridgeView(IEnumerable<string> args) =>
-        [.. args.Select(a => { try { return System.Text.Encoding.UTF8.GetString(Convert.FromHexString(a)); } catch (FormatException) { return null; } }).OfType<string>()];
+    /// <summary>The bridge's word to the plugin: os_fair bridge, the names its log stream has signing on, then - once read - the word status and status's joiners;
+    /// each name the hex of its UTF-8, so no name can end or change the command (a ';', a '"', "//"). 16 a list at the most.</summary>
+    public static string BridgeViewCommand(IEnumerable<string> log, IEnumerable<string>? status = null) =>
+        string.Join(' ', new[] { FairCommand, BridgeWord }.Concat(Hex(log)).Concat(status == null ? [] : new[] { StatusWord }.Concat(Hex(status))));
 
-    /// <summary>os_fair's last part: what the plugin heard of connects on this map (CounterStrikeSharp's OnClientConnect - which comes only once a client has
-    /// every addon, so never for one at the prompt), and whom the bridge's log stream has signing on, as it last said and how long ago.</summary>
-    public static string ViewLine((IReadOnlyList<string> Names, DateTime At)? bridge, (string Name, DateTime At)? lastConnect, int connects, DateTime now)
+    static IEnumerable<string> Hex(IEnumerable<string> names) => names.Take(16).Select(n => Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(Hud.Clean(n, 32))));
+
+    static string? Unhex(string a) { try { return System.Text.Encoding.UTF8.GetString(Convert.FromHexString(a)); } catch (FormatException) { return null; } }
+
+    /// <summary>os_fair bridge's arguments, after the word, read back: the log stream's names, and status's after its word (null without it); an argument that
+    /// is not hex is left out.</summary>
+    public static (List<string> Log, List<string>? Status) ReadBridgeView(IReadOnlyList<string> args)
     {
-        static string Ago(DateTime at, DateTime now) => $"{Math.Max(0, (int)(now - at).TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)} s ago";
-        var plugin = connects == 0 || lastConnect is not { } c ? "the plugin's connects this map: 0" : $"the plugin's connects this map: {connects} (the last: {c.Name}, {Ago(c.At, now)})";
-        var told = bridge is not { } b ? "the bridge's log stream: not told yet"
-            : $"the bridge's log stream: {(b.Names.Count == 0 ? "nobody" : string.Join(", ", b.Names))} signing on (told {Ago(b.At, now)})";
-        return $"{plugin}; {told}";
+        var at = args.ToList().FindIndex(a => a.Equals(StatusWord, StringComparison.OrdinalIgnoreCase));
+        return ([.. (at < 0 ? args : args.Take(at)).Select(Unhex).OfType<string>()], at < 0 ? null : [.. args.Skip(at + 1).Select(Unhex).OfType<string>()]);
     }
+
+    static string Ago(DateTime at, DateTime now) => $"{Math.Max(0, (int)(now - at).TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)} s ago";
+
+    /// <summary>os_fair's opening: whom a fairness restart's wait would count now, each with who names them - the plugin (its controllers connecting or
+    /// reconnecting, as os_joining), status (the server's own list: not yet active) and the log stream (the bridge's: "connected", no "entered the game" yet) -
+    /// and how old the bridge's word on the last two is. A joiner at CS2's first-download prompt is named by status and the log stream, never by the plugin.</summary>
+    public static string JoiningLine(IReadOnlyList<string> plugin, BridgeView? bridge, DateTime now)
+    {
+        var named = plugin.Select(n => (Name: n, By: "the plugin")).Concat(bridge?.Status?.Select(n => (Name: n, By: "status")) ?? [])
+            .Concat(bridge?.Log.Select(n => (Name: n, By: "log stream")) ?? []);
+        var who = named.GroupBy(x => x.Name, StringComparer.Ordinal).Select(g => $"{g.Key} ({string.Join(", ", g.Select(x => x.By).Distinct())})").ToList();
+        var by = bridge == null ? "by the plugin; the bridge has told it nothing yet"
+            : bridge.Status == null ? $"by the plugin and the bridge's log stream (status not read yet), told {Ago(bridge.At, now)}"
+            : $"by the plugin, status and the bridge's log stream, told {Ago(bridge.At, now)}";
+        return $"still joining: {(who.Count == 0 ? "nobody" : string.Join(", ", who))} - {by}";
+    }
+
+    /// <summary>os_fair's last part: CounterStrikeSharp's connect callbacks on this map (OnClientConnect, which comes only once a client has every addon - none
+    /// for one at the prompt; the live lab's run AY saw 0 there) and the last of them.</summary>
+    public static string ConnectsLine((string Name, DateTime At)? lastConnect, int connects, DateTime now) =>
+        connects == 0 || lastConnect is not { } c ? "connect callbacks this map: 0" : $"connect callbacks this map: {connects} (the last: {c.Name}, {Ago(c.At, now)})";
 
     /// <summary>The line for everybody as the restart begins to wait for those still joining: who is in, and who it waits for.</summary>
     public static string WaitLine(string names, int count, IReadOnlyList<string> joining) =>

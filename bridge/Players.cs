@@ -87,10 +87,48 @@ static partial class Program
         if (ended) SignOnsChanged();
     }
 
-    /// <summary>What the plugin's os_fair last heard from the bridge of whom its log stream has signing on (EarlyJoin.BridgeViewCommand), and whether a word to
-    /// it is due: one a second at the most, and only when the names changed - a join's "connected" and "entered the game" a moment apart say nothing.</summary>
+    /// <summary>What the plugin's os_fair last heard from the bridge (EarlyJoin.BridgeViewCommand) - whom its log stream has signing on and status's joiners -
+    /// and whether a word to it is due: one a second at the most, and only when either changed, so a join's "connected" and "entered the game" a moment apart
+    /// say nothing.</summary>
     static List<string> SignOnsTold = [];
+    static List<string>? StatusTold;
     static bool SignOnsTell;
+
+    /// <summary>The server's own list (status), read every StatusWatchSeconds while anyone signs on by the log stream or its last reading had anyone joining, and
+    /// each second of a fairness restart's wait (FairWait): the humans not yet active at the last reading (null: none read since the bridge started, or no players
+    /// table), and whether a reading is due. Not while a map loads (LoadPending): its RCON answers late or not at all then.</summary>
+    const int StatusWatchSeconds = 2;
+    static List<string>? StatusJoining;
+    static bool StatusWatchDue;
+
+    static void WatchStatus()
+    {
+        if (StatusWatchDue) return;
+        StatusWatchDue = true;
+        After(StatusWatchSeconds * 1000, StatusWatchTick);
+    }
+
+    static void StatusWatchTick()
+    {
+        StatusWatchDue = false;
+        var now = Now();
+        if (SigningOnNames(now).Count == 0 && StatusJoining is not { Count: > 0 }) return; // nobody joining: the watch rests until the next "connected"
+        if (!LoadPending) ReadServerList(now);
+        WatchStatus();
+    }
+
+    /// <summary>status, read now: its humans not yet active (StatusJoining, told to os_fair when they change), and the log stream's sign-ons it no longer has
+    /// ended (EndDroppedSignOns) - CS2's drop of a first-download prompt, which writes no line. null: no players table.</summary>
+    static List<EarlyJoin.StatusClient>? ReadServerList(DateTime now)
+    {
+        var clients = EarlyJoin.ReadStatus(Send("status"));
+        if (clients != null) EndDroppedSignOns(clients, now);
+        var joining = clients?.Where(c => c.Joining).Select(c => c.Name).ToList();
+        if (!SameNames(joining, StatusJoining)) { StatusJoining = joining; SignOnsChanged(); }
+        return clients;
+    }
+
+    static bool SameNames(List<string>? a, List<string>? b) => a == null ? b == null : b != null && a.SequenceEqual(b);
 
     static void SignOnsChanged()
     {
@@ -104,7 +142,9 @@ static partial class Program
         SignOnsTell = false;
         var now = Now();
         var names = SigningOnNames(now);
-        if (!names.SequenceEqual(SignOnsTold) && Send(EarlyJoin.BridgeViewCommand(names)) != null) SignOnsTold = names; // no answer: the next change tells it
+        if ((!names.SequenceEqual(SignOnsTold) || !SameNames(StatusJoining, StatusTold)) && Send(EarlyJoin.BridgeViewCommand(names, StatusJoining)) != null)
+            (SignOnsTold, StatusTold) = (names, StatusJoining); // no answer: the next change tells it
+        if (names.Count > 0) WatchStatus();
         var open = Players.Values.Where(p => p is { GoneSince: null, SigningOn: not null } && (now - p.SigningOn.Value).TotalSeconds <= EarlyJoin.SignOnMostSeconds).Select(p => p.SigningOn!.Value).ToList();
         if (open.Count > 0) After((int)Math.Max(1000, (open.Min().AddSeconds(EarlyJoin.SignOnMostSeconds + 1) - now).TotalMilliseconds), SignOnsChanged); // the bound ends one with no line
     }
