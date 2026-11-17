@@ -476,6 +476,43 @@ static partial class Program
             h.Line("Loading map \"ar_other\"");
             h.Run(2);
             Check("...and a map start ends it: the new map has a match of its own", FairWaitSince == null && RematchDue == null && !h.Sent.Contains(RematchCommand));
+            // the live lab's client at CS2's prompt to confirm a first Workshop download: the server had logged it connected, the plugin's controllers said nobody
+            void Connects(string name, string id) => h.Line($"\"{name}<9><{id}><>\" connected, address \"192.0.2.9:27005\"");
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            Connects("Cas", "[U:1:2009]");
+            ClearNotices(); h.Sent.Clear();
+            Fair(bob);
+            Check("...a joiner the server has logged as connected and not yet in the game - CS2's first-download prompt, where the plugin's controllers said nobody: it waits for them too (the log stream's own sign-on)",
+                FairWaitSince != null && RematchDue == null && InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas") && SigningOnNames(h.Clock) is ["Cas"]);
+            h.Run(20);
+            h.Leave(("Cas", "[U:1:2009]"), "NETWORK_DISCONNECT_LOOPSHUTDOWN"); // MultiAddonManager has the joiner reconnect for the HUD addon
+            h.Run(1.1);
+            var throughReconnect = FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is ["Cas"];
+            Connects("Cas", "[U:1:2009]");
+            h.Run(3);
+            Check("...still waiting through the reconnect for the HUD addon (LOOPSHUTDOWN, then \"connected\" again a second later): the sign-on goes on",
+                throughReconnect && FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is ["Cas"]);
+            h.Line("\"Cas<9><[U:1:2009]><>\" entered the game");
+            h.Run(1.1);
+            Check("...and counts down once they are in the game", RematchDue is { Fair: true } && FairWaitSince == null && SigningOnNames(h.Clock) is []);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            Connects("Cas", "[U:1:2009]");
+            Fair(bob);
+            h.Run(30);
+            h.Leave(("Cas", "[U:1:2009]"), "NETWORK_DISCONNECT_TIMEDOUT"); // CS2 drops a prompt nobody answers after 120 s; here sooner
+            h.Run(1.1);
+            Check("...a joiner dropped at the prompt (a time-out) is no sign-on any more: the restart goes", RematchDue is { Fair: true } && FairWaitSince == null);
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply(["Cas"]);
+            Connects("Cas", "[U:1:2009]");
+            Fair(bob);
+            Check("...a joiner both say is joining - the log stream and the plugin - is named once", InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"));
+            Fresh();
+            Connects("Dee", "[U:1:2010]");
+            h.Run(ReloadGraceSeconds + 1);
+            Check($"...and a \"connected\" with no \"entered the game\" in {ReloadGraceSeconds / 60} minutes is no sign-on any more: an entry the log stream missed holds nothing for good", SigningOnNames(h.Clock) is []);
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();

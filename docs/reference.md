@@ -482,8 +482,10 @@ Anybody may change the length and press the two restarts, on the Game page or in
   (`EarlyJoinWatch.cs`) asks the bridge at once, naming who came in; the bridge counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in",
   says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. **While anybody is
   still joining** - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered), downloading the map or loading it,
-  as everybody does after a map change - it waits for them first, so the players in already start over once for all of them, not once each: the plugin's
-  `os_joining` names the humans whose controller is still connecting or reconnecting, the bridge asks it as the restart would count down and every second while it
+  as everybody does after a map change - it waits for them first, so the players in already start over once for all of them, not once each. It counts as joining
+  whoever either of two sources names: its own log stream - a human the server logged as connected and not yet as entered the game, as at that prompt, where no
+  controller says connecting; the HUD addon's reconnect does not end it - and the plugin's `os_joining`, which names the humans whose controller is still
+  connecting or reconnecting and those it saw connect that are not in the game yet. The bridge asks as the restart would count down and every second while it
   waits, says once in chat and on the board whom it waits for ("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"), and counts
   down once nobody is left joining - their own joins fold into it - or after **120 s** at the most (`EarlyJoin.HoldMostSeconds`), so a joiner stuck there does
   not hold it for good. A vote, a restart of the match or of the server, the match's end or a map start meanwhile ends the wait; a plugin without `os_joining`

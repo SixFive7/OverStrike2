@@ -13,8 +13,9 @@
 //     restart's round start is a new start, so the window opens again. None while a vote is on, a map change counts down or loads, the server's restart
 //     counts down, or the match has just ended;
 //   - while anybody is still joining - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered),
-//     downloading the map or loading it, as everybody does after a map change - the restart waits for them (the plugin's os_joining says who), so the
-//     players in already start over once for all of them, not once each; HoldMostSeconds at the most, so a joiner stuck there does not hold it for good.
+//     downloading the map or loading it, as everybody does after a map change - the restart waits for them, so the players in already start over once for
+//     all of them, not once each; HoldMostSeconds at the most, so a joiner stuck there does not hold it for good. Who is joining: the bridge's log stream
+//     ("connected", not yet "entered the game") and the plugin's os_joining (its controllers connecting, and its record of sign-ons not complete: SignOns).
 //     Their own join, as they come in, folds into it.
 //
 // Shared like Hud.cs: the plugin feeds it the game (plugin/OverStrike2/EarlyJoinWatch.cs) and the bridge's --selftest drives it on a handed clock. Plain BCL only.
@@ -57,6 +58,24 @@ public sealed class EarlyJoin
         var names = lines.Skip(at + 1).Select(l => l.Trim()).Where(l => l != "").Take(n).ToList();
         while (names.Count < n) names.Add("?");
         return names;
+    }
+
+    /// <summary>The plugin's record of sign-ons not complete: a client from its connect (CounterStrikeSharp's OnClientConnect - the moment the server logs
+    /// "connected") until it is in the game (OnClientPutInServer) or gone (OnClientDisconnect). The live lab's client at CS2's prompt to confirm a first Workshop
+    /// download had no controller that said connecting, while the connect itself had come; this sees that state. A map start forgets them all: whoever reconnects
+    /// connects again. Older than HoldMostSeconds x 5 and still not in: no sign-on any more (a disconnect the plugin missed).</summary>
+    public sealed class SignOns
+    {
+        readonly Dictionary<int, (string Name, DateTime At)> open = new();
+
+        public void Connected(int slot, string name, DateTime now) => open[slot] = (name, now);
+        public void InGame(int slot) => open.Remove(slot);
+        public void Gone(int slot) => open.Remove(slot);
+        public void MapStarted() => open.Clear();
+
+        /// <summary>The names of the sign-ons still open, the oldest first; isBot: a slot whose controller turned out a bot (bots connect too).</summary>
+        public List<string> Names(DateTime now, Func<int, bool>? isBot = null) =>
+            [.. open.Where(kv => (now - kv.Value.At).TotalSeconds <= HoldMostSeconds * 5 && isBot?.Invoke(kv.Key) != true).OrderBy(kv => kv.Value.At).Select(kv => kv.Value.Name)];
     }
 
     /// <summary>The line for everybody as the restart begins to wait for those still joining: who is in, and who it waits for.</summary>

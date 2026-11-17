@@ -16,6 +16,7 @@ static partial class Program
         public DateTime? GoneSince;   // really left at this time
         public DateTime? ReloadSince; // reloading since this map change or server restart
         public bool Joining;          // a real join is under way: "connected" after being away, "entered the game" still to come
+        public DateTime? SigningOn;   // "connected" seen and "entered the game" not yet - any connect, a map change's included: its sign-on is not complete
     }
 
     static readonly Dictionary<string, Player> Players = new();
@@ -29,20 +30,20 @@ static partial class Program
         p ??= Players[e.SteamId] = new Player();
         var real = !known || p.GoneSince != null || (p.ReloadSince is { } r && (now - r).TotalSeconds > ReloadGraceSeconds);
         p.Name = e.Name; p.GoneSince = null; p.ReloadSince = null;
-        if (e.Kind == Kind.Connected) { p.Joining |= real; return false; } // a join survives the reconnects in between: a map change, MultiAddonManager's addon download
+        if (e.Kind == Kind.Connected) { p.Joining |= real; p.SigningOn = now; return false; } // a join survives the reconnects in between: a map change, MultiAddonManager's addon download
         var fresh = p.Joining || real;
-        p.Joining = false;
+        p.Joining = false; p.SigningOn = null;
         return fresh;
     }
 
     /// <summary>A "disconnected" line. Any reason with SHUTDOWN in it is a reconnect, not a departure: NETWORK_DISCONNECT_SHUTDOWN at a map
     /// change, NETWORK_DISCONNECT_LOOPSHUTDOWN when MultiAddonManager makes a joining client reconnect to fetch the HUD addon. A join under
-    /// way stays under way through those.</summary>
+    /// way stays under way through those, and so does a sign-on: the second "connected" comes a second later.</summary>
     static void Depart(string id, string reason, DateTime now)
     {
         var p = PlayerOf(id);
         if (reason.Contains("SHUTDOWN")) { if (p.GoneSince == null) p.ReloadSince ??= now; }
-        else { p.GoneSince = now; p.ReloadSince = null; p.Joining = false; HudSeen.Remove(id); } // left for real: the HUD check forgets them
+        else { p.GoneSince = now; p.ReloadSince = null; p.Joining = false; p.SigningOn = null; HudSeen.Remove(id); } // left for real - CS2's time-out of an unanswered download prompt too: the HUD check forgets them, and it is no sign-on
     }
 
     /// <summary>A chat line or a click proves its sender is on the server.</summary>
@@ -57,6 +58,12 @@ static partial class Program
     {
         foreach (var p in Players.Values) if (p.GoneSince == null) p.ReloadSince ??= now;
     }
+
+    /// <summary>The humans whose sign-on is not complete by the log stream: "connected" and not yet "entered the game" - at CS2's prompt to confirm a first
+    /// Workshop download (the live lab saw the plugin's controllers say nothing of that state, while the "connected" line had come), downloading the map,
+    /// loading it, a map change's reconnect. Within ReloadGraceSeconds of that line: an "entered" the stream missed does not hold anything for good.</summary>
+    static List<string> SigningOnNames(DateTime now) => [.. Players.Where(kv => kv.Value is { GoneSince: null, SigningOn: { } at } && (now - at).TotalSeconds <= ReloadGraceSeconds)
+        .OrderBy(kv => kv.Value.SigningOn).Select(kv => kv.Value.Name is { Length: > 0 } n ? n : kv.Key)];
 
     /// <summary>The players present: in game by the log stream, or reloading inside the load grace. One who left is not.</summary>
     static HashSet<string> PresentIds(DateTime now) => Players.Where(kv => kv.Value.GoneSince == null

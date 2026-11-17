@@ -418,15 +418,17 @@ static partial class Program
         After(EarlyJoin.CountdownSeconds * 1000, () => FireRematch(due));
     }
 
-    /// <summary>Whether the fairness restart waits now for the humans still joining - the plugin's os_joining names them: connecting, at CS2's prompt to confirm a first
-    /// Workshop download, downloading or loading the map - so the players in already start over once for all of them, not once each. It waits until nobody is
-    /// left joining, EarlyJoin.HoldMostSeconds at the most from its first wait; a plugin without the command, or no answer, has it wait for nobody, as before.
-    /// While it waits the live state carries no countdown - one line says whom it waits for - and each second it asks again (FairWaitTick).</summary>
+    /// <summary>Whether the fairness restart waits now for the humans still joining - connecting, at CS2's prompt to confirm a first Workshop download, downloading or
+    /// loading the map - so the players in already start over once for all of them, not once each. Who is joining: the log stream's own sign-ons (SigningOnNames:
+    /// "connected", not yet "entered the game" - the state the live lab's client sat in at the prompt) and the plugin's os_joining (its controllers connecting or
+    /// reconnecting, and its own record of a sign-on not complete), both. It waits until nobody is left joining, EarlyJoin.HoldMostSeconds at the most from its
+    /// first wait. While it waits the live state carries no countdown - one line says whom it waits for - and each second it asks again (FairWaitTick).</summary>
     static bool FairWait(DateTime now)
     {
         if (now >= FairWaitUntil) { if (FairWaitSince != null) Log($"fair: still somebody joining after {EarlyJoin.HoldMostSeconds} s - the restart goes without them"); FairWaitSince = null; return false; }
         var reply = Send(EarlyJoin.JoiningCommand);
-        if (EarlyJoin.ReadJoining(reply) is not { Count: > 0 } joining)
+        var joining = (EarlyJoin.ReadJoining(reply) ?? []).Concat(SigningOnNames(now)).Distinct(StringComparer.Ordinal).ToList();
+        if (joining.Count == 0)
         {
             if (FairWaitSince is { } since) Log($"fair: everybody is in, {(now - since).TotalSeconds:0} s after the restart began to wait - one restart for {FairNames.Count}");
             FairWaitSince = null;
