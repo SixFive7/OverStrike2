@@ -284,7 +284,7 @@ static partial class Program
         Check("The ballot's cards carry no number: the mode on the picture, Vote on the button, Random's button its votes; the line under them says to click, that a vote comes first and moves - never how to take one back",
             T("os_m2_rank") == "Deathmatch" && T("os_m3_rank") == "" && drawn.Vars.Single(x => x.Name == HudVote.RandomVar).Text == "Random  ·  0 votes"
             && T("os_m1_play_text") == "Your vote" && T("os_m2_play_text") == "Vote" && !T("os_pg_text").Contains("number") && T("os_pg_text").Contains("first") && !T("os_pg_text").Contains("back")
-            && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "os_pg_text").Text == "Click a card's Vote");
+            && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "os_pg_text").Text == "Click a card to vote");
 
         // ---- a command that opens a page: its words are on it at once, as for everybody (no content has to prove anything first) ----
         Check("A command that opens How, Fun, Help or Sync opens that page of the menu; its words go to every game alike",
@@ -343,9 +343,12 @@ static partial class Program
             Coloured($"{M.N("Alice")} set {M.A("gravity")} to {M.V("Moon")} - Until the map changes") == "τAliceπ set αgravityπ to νMoonπ - Until the map changes");
         Check("...a name nobody on the server has stays in the colour around it; a refusal's and a done line's words have their own, their parts as ever",
             Coloured($"{M.N("Bob")} set it") == "Bobπ set it" && Coloured(M.Refused($"No {M.A("x")} here")) == "ρNo αxρ here" && Coloured(M.Done($"Your vote: {M.A("y")}")) == "δYour vote: αyδ");
-        Check("...a name goes by what the line shows of it: whole, clipped with a ~, or with its \" said as '; never another player's",
-            ChatCommands.IsName("Alice", "Alice") && ChatCommands.IsName("Alice Longn~", "Alice Longname") && ChatCommands.IsName("Al'ice", "Al\"ice")
-            && !ChatCommands.IsName("Bob", "Alice") && !ChatCommands.IsName("Bob~", "Alice") && !ChatCommands.IsName("~", "Alice"));
+        Check("...a name goes by what the line shows of it: whole, clipped with an ellipsis (or an older ~), or with its \" said as '; never another player's",
+            ChatCommands.IsName("Alice", "Alice") && ChatCommands.IsName("Alice Longn\u2026", "Alice Longname") && ChatCommands.IsName("Alice Longn~", "Alice Longname") && ChatCommands.IsName("Al'ice", "Al\"ice")
+            && !ChatCommands.IsName("Bob", "Alice") && !ChatCommands.IsName("Bob\u2026", "Alice") && !ChatCommands.IsName("Bob~", "Alice") && !ChatCommands.IsName("~", "Alice") && !ChatCommands.IsName("\u2026", "Alice"));
+        Check("A text cut to its room ends in a real ellipsis, never a ~, and never cuts a surrogate pair in half (the review of 218r4: \"...over the lazy d~\")",
+            Hud.Clean("abcdef", 4) == "abc\u2026" && Hud.Clean("ab cdef", 4) == "ab\u2026" && Hud.Clean("ab\U0001F600cd", 4) == "ab\u2026" && Hud.Clean("abcd", 4) == "abcd"
+            && Hud.Ellipsis == "\u2026" && !Hud.Clean(new string('x', 300), 120).Contains('~'));
 
         Check("Teaching an alias: the commands Lime, what they are about LightBlue",
             T("!map 12") == "You typed κ!mapπ α12π - Ran κ!playπ α12π" && T("!like 12") == "You typed κ!likeπ α12π - Ran κ!upπ α12π" && T("!maps dust") == "You typed κ!mapsπ αdustπ - Ran κ!findπ αdustπ");
@@ -377,7 +380,7 @@ static partial class Program
             && Fun.Refusal(jump, Fun.Find(jump, "high")!, c => c == "sv_gravity" ? "200" : null) == M.Plain(Fun.RefusalLine(jump, Fun.Find(jump, "high")!, c => c == "sv_gravity" ? "200" : null)!) && moon.Label == "Moon");
         Check("What worked is Green, what only informs the chat's own colour",
             Coloured(ChatReply.MenuOn("Maps")) == "δThe menu is open on αMapsδ" && Coloured(ChatReply.YourVote("#12 aim_x")) == "δYour vote: α#12 aim_xδ"
-            && Coloured(ChatReply.Already(jump, Fun.Find(jump, "high")!)) == "αSuper jumpπ: νHighπ already" && Coloured(ChatReply.Matches(3)) == "ν3π maps match - The menu shows them: click αPlayπ on one");
+            && Coloured(ChatReply.Already(jump, Fun.Find(jump, "high")!)) == "αSuper jumpπ: νHighπ already" && Coloured(ChatReply.Matches(3)) == "ν3π maps match - The menu shows them: click one to put it to the vote");
         Check("The bridge's refusals of a map are LightRed too, the map an argument and a mode's limits values",
             Coloured(BlockedRefusal(new MapInfo(0, 5, "x", 0))) == "ραxρ (5) is on the blocked list - It is blocked." && Coloured(NonMapRefusal(new MapInfo(0, 6, "y", 0))) == $"ραyρ {NotAMap}"
             && Coloured(ModeFullLine(new MapInfo(0, 0, "de_dust2", 0, true, Modes.DeathmatchId), 17)) == $"ρνDeathmatchρ takes ν{Modes.Deathmatch.MaxPlayers} playersρ, and ν17ρ are on - Not this map now");

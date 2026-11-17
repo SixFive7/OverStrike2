@@ -88,7 +88,7 @@ static partial class Program
         // ---- content v4.12.0: Wingman's player count on a card, and a countdown's bar named for where it is going ----
         var wingmanCard = new HudCatalog.Entry("3600000002", "17", 17, 3600000002, "wm_yard", 30, false, -1, 0, 0, 0, RankWm: 3, Side: 3);
         Check("A Wingman card says its player count - its spawn points as a side's players - only where it plays in Wingman and the sync knows its counts",
-            HudMenu.SideText(wingmanCard, Modes.WingmanId) == "3v3" && HudMenu.SideText(wingmanCard, Modes.ArmsRaceId) == ""
+            HudMenu.SideText(wingmanCard, Modes.WingmanId) == "Made for 3v3" && HudMenu.SideText(wingmanCard, Modes.ArmsRaceId) == ""
             && HudMenu.SideText(wingmanCard with { Side = 0 }, Modes.WingmanId) == "");
         Check("A countdown's bar names where it is going: the share left a second from now - full only before it starts, empty in its last second",
             HudVote.CountdownStep(10, 10) == "w9" && HudVote.CountdownStep(1, 10) == "w0" && HudVote.CountdownStep(0, 10) == "w0" && HudVote.CountdownStep(5, 5) == "w8"
@@ -291,7 +291,7 @@ static partial class Program
         var lc = HudView.Classes(free, leading);
         string LT(string id) => lt.Single(t => t.Id == id).Text;
         Check("Board and live column: the vote in one line, its leading cards in the rows below it; outside a vote how to call one, or the wait",
-            HudView.VoteLine(null) == "No vote on: Play on a map, or Start a vote" && HudView.VoteLine(leading) == "The vote is on: 20 s left  ·  3 of 3 voted"
+            HudView.VoteLine(null) == "No vote on: click a map's card, or Start a vote" && HudView.VoteLine(null).Length <= HudView.VoteLineMax && HudView.VoteLine(leading) == "The vote is on: 20 s left  ·  3 of 3 voted"
             && HudView.VoteLine(waiting) == "The next vote can start in 1 min 20 s" && LT("os_b_queue") == HudView.VoteLine(leading)
             && LT("os_w_n1") == "#44 aim_aim" && LT("os_w_nw1") == "2 votes" && LT("os_w_n2") == "Keep playing this map" && LT("os_w_nw2") == "1 vote" && LT("os_w_n3") == ""
             && lc.Contains(("os_w_row_n2", "used", true)) && lc.Contains(("os_w_row_n3", "used", false)) && lc.Contains(("os_w_nempty", "used", false))

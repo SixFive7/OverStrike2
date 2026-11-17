@@ -134,7 +134,7 @@ public static class HudVote
     public static string DoneLine(VoteState v)
     {
         if (v.Result is not { } r) return "";
-        var label = Hud.Clean(r.Label, 40);
+        var label = Hud.Clean(r.Label, 60);
         var card = v.Numbered(r.N);
         var count = $"({card?.Votes ?? 0} of {v.Present})";
         if (v.Kept)
@@ -252,7 +252,7 @@ public static class HudVote
         var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
         var tied = counted.Count(o => o.Votes == most) > 1;
         t.Add(("os_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
-            : mine > 0 ? "Your vote is first, lit - Click another card to move it" : "Click a card's Vote"));
+            : mine > 0 ? "Your vote is first, lit - Click another card to move it" : "Click a card to vote"));
         t.Add(("os_m_empty", ""));
         c.Add(("os_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
@@ -302,7 +302,7 @@ public static class HudVote
             c.Add((id, "queued", o?.Source == VoteSource.Picked));
             c.Add((id, "liked", false));
             c.Add((id, "disliked", false));
-            c.Add((id, "confirm", o != null && mine == o.N && !done));
+            c.Add((id, "confirm", o != null && mine == o.N)); // the badge stays once it is decided (the review of 218r4): which card was yours
             c.Add((id, "pending", false)); // the map browser's countdown of a confirmed pick (HudMenu.Maps): a ballot card has none - the panels are the same
             c.Add((id, "big", o != null && HasTag(o.Tags, MapTags.Big)));
             c.Add((id, "ads", o != null && HasTag(o.Tags, MapTags.Ads)));
@@ -382,7 +382,7 @@ public static class HudVote
     }
 
     /// <summary>The line over the map browser while it adds to the vote (the contents before v4.6.0: a banner; a variable on os_screen).</summary>
-    public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  A map's Play puts it on the vote, with your vote";
+    public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  A click on a map's card puts it on the vote, with your vote";
 
     /// <summary>The page a card of this option is on (an added map's, for its adder to see it).</summary>
     public static int PageOf(VoteState v, int n, int perPage = MapVote.PageCards) => Math.Max(0, v.Maps.FindIndex(o => o.N == n)) / perPage;

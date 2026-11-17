@@ -26,14 +26,14 @@ public static class HudView
          (HudBots.SubFun, HudSlots.Page.Fun), (HudBots.Tab, HudSlots.Page.Bots)];
 
     /// <summary>The caption beside the sub-tabs, per page (a variable on os_screen, SubCaptionVar): what the page is for; the Maps page's says
-    /// whether a Play adds to the vote that is on.</summary>
+    /// whether a click on a card adds to the vote that is on.</summary>
     public const string SubCaptionVar = "ossub";
 
     public static string SubCaption(HudSlots.Page page, bool ballot, bool browsingVote) => page switch
     {
         HudSlots.Page.Start => "",
-        HudSlots.Page.Maps => ballot ? "Click a map to vote, another to move your vote" : browsingVote ? "Browse: Play puts a map on this vote, with your vote"
-            : "Every map: Play puts it to the vote",
+        HudSlots.Page.Maps => ballot ? "Click a map to vote, another to move your vote" : browsingVote ? "A click on a map's card puts it on this vote, with your vote"
+            : "Every map: a click on its card puts it to the vote",
         HudSlots.Page.Fun => "Anybody, at any time, for everybody",
         HudSlots.Page.Bots => "Bots for everybody: a preset sets several at once",
         HudSlots.Page.Players => "Who is on, and which HUD their game shows",
@@ -75,7 +75,7 @@ public static class HudView
         }
         t.Add((HudMenu.FunNote, HudMenu.FunNoteText));
         t.Add(("os_w_back_eyebrow", "Now playing"));
-        t.Add(("os_w_back_hint", LikeHint));
+        t.Add(("os_w_back_hint", StartLikeHint));
         return t;
     }
 
@@ -92,12 +92,15 @@ public static class HudView
 
     public const string LikeHint = "Like it? Hold TAB and click Like or Dislike.";
 
+    /// <summary>The same on Start, beside the window's own Like and Dislike, where a plain click does it.</summary>
+    public const string StartLikeHint = "Like it? Click Like or Dislike.";
+
     /// <summary>The board's one line about the vote, about this many characters at the most.</summary>
     public const int VoteLineMax = 52;
 
     /// <summary>The board's vote line: the vote that is on, its result, the wait before the next one, or how to call one.</summary>
     public static string VoteLine(VoteState? v) => v == null || v.Round <= 0
-        ? (v?.WaitFor > 0 ? $"The next vote can start in {MapVote.Left(v.WaitFor)}" : "No vote on: Play on a map, or Start a vote")
+        ? (v?.WaitFor > 0 ? $"The next vote can start in {MapVote.Left(v.WaitFor)}" : "No vote on: click a map's card, or Start a vote")
         : v.Open ? $"The vote is on: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted"
         : v.Result is { } r ? Hud.Clean($"The vote {(v.Kept ? "kept" : "chose")} {r.Label}", VoteLineMax) : "The vote is over";
 
@@ -128,7 +131,7 @@ public static class HudView
             t.Add(($"os_w_t{i + 1}", top.Item1));
             t.Add(($"os_w_ts{i + 1}", top.Item1 == "" ? "" : $"+{top.Item2}{(top.Item3 > 0 ? $" -{top.Item3}" : "")}"));
         }
-        t.Add(("os_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. Play on a map puts it to the vote."));
+        t.Add(("os_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. A click on a map's card puts it to the vote."));
         t.Add(("os_w_tempty", "No likes yet. Like a map: its card's up arrow."));
         t.Add(("os_b_queue", VoteLine(v)));
         t.Add(("os_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)

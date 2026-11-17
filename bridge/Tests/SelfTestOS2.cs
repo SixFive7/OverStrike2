@@ -119,7 +119,7 @@ static partial class Program
         var plain = HudVote.Cards(ballot, 1002, null);
         Check("A card says Vote and its mode only, and the page line says click",
             plain.Texts.Single(x => x.Id == "os_m2_play_text").Text == "Vote" && plain.Texts.Single(x => x.Id == "os_m2_rank").Text == "Deathmatch"
-            && plain.Texts.Single(x => x.Id == "os_pg_text").Text == "Click a card's Vote");
+            && plain.Texts.Single(x => x.Id == "os_pg_text").Text == "Click a card to vote");
         // ---- a ballot of twelve cards and Random, called mid-match by a player: the most votes first, pages, Keep playing, a map added ----
         var big = new System.Text.StringBuilder("mode\tarmsrace\tArms Race\nmv\t1793600000\topen\t30\t4\t2\tmid\t1002\t1\n");
         big.Append("mvo\t1\tarmsrace\tkeep\t5\t3084291315\tKeep playing this map\t#5 aim_on\t1\t\n");

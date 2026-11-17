@@ -405,7 +405,7 @@ that says why (`StartChange`): nothing counts down before any map change.
 LEADING and TIE keep their chips but no frame, so on an open ballot the only framed card is yours, and Random's button lights the same white while your vote is on
 Random. White differs from every other state by brightness, not hue. A vote is never taken back (HUD content v4.12.0 drops v4.11.0's CLICK TO TAKE BACK under the
 mouse): it moves only to another card. **Wingman's player count** (v4.12.0): a Wingman card in the map browser says on its picture, beside the mode's label, how many
-a side its own spawn points take - "3v3", the catalog's `Side` - a recommendation, never a limit; a map whose counts the sync does not know says none, and the
+a side its own spawn points take - "Made for 3v3", the catalog's `Side` (a bare "3v3" until v4.14.0) - a recommendation, never a limit; a map whose counts the sync does not know says none, and the
 ballot none. **A confirmed action's countdown** (v4.12.0): after the confirming click of Restart the server, Restart the match, Previous and a risky map's Play the
 button itself runs the countdown, lit red, with a line at its foot that drains a second at a time (`pending`, and `w0`-`w10` named for where the line is going,
 `HudVote.CountdownStep`), and a click on it cancels the action. From v4.12.1 the line rests in the layout, 0 px high, while nothing is pending, so a countdown after a
@@ -414,7 +414,7 @@ card's fill still kept the place a cancel left it at.
 
 **The chat beside the window** (v4.13.0): MAPS - Browse and the ballot - stands right of CS2's chat, which sits at x 18-571 (1080 high) at every aspect, its line at
 y 952-1000 in a match and higher at a match end (`.EndOfMatchChat`, y 674-722), so what a player types during a vote and every reply show beside the window. 16:10
-and 4:3 scale the window to fit there (`ui-scale` 92% and 68%), 21:9 sets it in the room right of the chat, and the other pages stay in the middle; the chat's own
+and 4:3 scale the window to fit there (`ui-scale` 90% and 67% since v4.14.0), 21:9 sets it in the room right of the chat, and the other pages stay in the middle; the chat's own
 pointer for the search stays, and the window no longer lifts for it. The ballot shows its ten cards four across and three down, each with **the vote's own number** on
 its picture - the option's number on the wire, the same for everybody whatever the order of the cards (`os_m<k>_num`) - so `!vote <n>` in chat votes for it. The
 badges and the how-to line's words about them show only while the server sends the numbers (`vnum` on `os_screen`, plugin 5.16.5 on), so a game that has the
@@ -426,15 +426,16 @@ once decided - and for a downloading winner no digits, its words instead: it cha
 **One row of tabs, every page beside the chat, and the chat column** (v4.14.0): the window's head is the title and its tagline; the tabs are one row - Start,
 Vote (only while a vote is on, with a live dot; Maps is then the browser that adds to it), Maps, Fun, Bots, Players, Game, Sync, Help, How it works - and a tab
 with nothing to use right now is greyed (`off`: Game while the match-end screen is up, Sync while the server has no sync's block). Every page stands where MAPS
-stood in v4.13.0, right of CS2's chat, in a window 920 px high on every page (y 80-1000 at 1080 high; 90 % at 16:10, 68 % at 4:3); it never moves from page to
-page. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
+stood in v4.13.0, right of CS2's chat, in a window 920 px high on every page, its foot at y 1000 at every aspect as the chat column's (y 80-1000 at 1080 high;
+at 16:10 90 %, y 172-1000; at 4:3 67 %, y 384-1000); it never moves from page to page. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
 open (c, the default), always (a1) or never (d), `os_hud chat window|always|off` until the plugin reloads, the same stylesheet for all three. The plugin keeps
 the lines CS2's chat shows - every player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one
 player), joins, leaves and team changes - and draws each player's newest in rows of one row of type each, a long line running on in the rows under it
 (`HudChat.Rows`, at most four), the newest at the bottom and whole rows only: the column's inner height is a whole number of 24 px rows in every state (37 at
-16:9 with CS2's chat closed, 35 with it open, 23 with it open at a match end). It covers the whole of CS2's chat, and nothing of it shows but its typing line:
+16:9 with CS2's chat closed, 35 with it open, 23 with it open at a match end; 33, 31 and 19 at 16:10; at 4:3, rows of 16 px in 12 px type as the window there is
+at 67 %, 36, 33 and 15). It covers the whole of CS2's chat, and nothing of it shows but its typing line:
 x 0-579 (CS2's box runs from x 10 to 579, its text from about x 5), fully opaque and framed as the window is (its border, corners and shadow, the gold rule, the
-dots), from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to y 1000
+dots), from the window's top (80 at 16:9 and 21:9, 172 at 16:10, 384 at 4:3) down to y 1000
 with CS2's chat closed - in a match and at a match end alike, so CS2's lines are covered at either height, also in the second before CS2 lifts them for its end
 screen - and with it open (`HUD_CHAT_VISIBLE`) down to just above its typing line's box: y 952 in a match, 674 at a match end once CS2 has lifted it (`meos`, the
 plugin's `ChatLift`: the match ended 3 s ago; or the game's own classes for its end screen with the scoreboard). CS2's own chat cannot be made taller or kept on
@@ -445,7 +446,13 @@ answer within 60 s - the bridge's long poll answers every 25 s at the least) and
 animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. Only a game whose HUD check named v4.14.0 or
 later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel" - and a slot's entries go when its
 player leaves and again when a new one takes it (`ClearSlot`): the entity hands a joining game the slot's entries as they were left. **The pointer** to CS2's
-typing line stands right above it, pointing down. **The ballot's header** is the page bar every page has: Random, who has not voted (then what came of the vote)
+typing line stands right above it, pointing down. **Around the open window** what of CS2's HUD stands outside it and the column lies behind an 80 % dim
+(`os-dim`, 50 % before the review of 218r4, which read the radar's top, the weapon list, the top-centre tile and a match end's award card as cut by the window):
+the dim starts right of the chat's strip (x 579) - above and under the column the dock dims itself, never CS2's typing line, whose slot under the column
+(`os-chat-slot`) stays clear while its chat is open, and the column's shadow goes then so it does not shade that line; without the column CS2's own chat shows
+in its strip undimmed. On route c the column fades in and out with the window (`chatwin`); nothing of the
+top stack (the top line, the banners) or the card stack (now playing, catch-up) shows over the open window - every kind of top-line news has its chat copy in
+the column. **The ballot's header** is the page bar every page has: Random, who has not voted (then what came of the vote)
 and the one clock - no title and no state chip, as the tab says Vote and the clock's word the state - with how to vote under it; nothing in the window's foot
 says everybody is frozen. **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`): the inactivity
 timer's bar, reset by a moved vote, gets `snap` (0 s) for a frame before it refills, so only the countdown moves; its 0 s rules are by its id (`#os_vidle`),
@@ -455,7 +462,10 @@ watcher's line (`HudVote.DownloadOf`); its card says Server downloading, its bar
 line) stays away while the window shows it. **Every page has one padding** (16 px under the tabs, 34 at the sides, 12 at the foot), and a row of a fixed
 height never runs past it: its words end in an ellipsis (Players, Fun and Bots, Sync). **The browser's cards** are the ballot's: 285 x 181, twelve a page, four
 across and three down, the picture on top with its rank, its mode, its likes and arrows and what a click on the card does (Put to the vote and the like), then
-the name and size and one row of tags; the whole card is its button, as on the ballot.
+the name and size and one row of tags; the whole card is its button, as on the ballot - four to a row, each row a panel of its own that never wraps. **A cut
+text** ends in a real ellipsis (`Hud.Ellipsis`, U+2026; "~" before, which a player took for a stray mark), and the column keeps a player's words up to 200
+characters (`HudChat.SayMax`). **The own vote's card** keeps its badge once the vote is decided, its tint opaque under its glow, as the winner's is; a decided
+ballot's cards say neither ON NOW nor LEADING.
 
 Ten cards a page; the players' own maps add pages (48 cards at the most). The ballot opens with these (`OpenBallot`, `VoteRound.cs`):
 
@@ -569,7 +579,7 @@ The grenade drops, catch-up and friendly fire's settings are Arms Race's own, an
 
 Wingman is two teams of two in Valve's matchmaking; here any number of players plays on any Wingman map. Nothing limits it: the bridge offers every Wingman
 map on the ballot, lets it win, rolls it as Random and accepts it when asked for, whoever is on, and the Bots page takes every count in Wingman too. A map's
-spawn points per side are its recommended count, which the map browser shows on its card ("3v3", the catalog's Side; none for a map nobody has counted).
+spawn points per side are its recommended count, which the map browser shows on its card ("Made for 3v3", the catalog's Side; none for a map nobody has counted).
 The game itself holds a side at its spawn points ("The Terrorist team is full") and the cfgs keep the sides within one of each other (`mp_limitteams 1`);
 with more players than a side's spawn points, a bot gets "Team is full" and a joining human displaces a bot (the live lab, 2026-11-10, de_inferno at
 4 v 4). So on a Wingman map the plugin gives each side room for one more than it holds, before every round and again once it has started (the game counts

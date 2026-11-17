@@ -208,6 +208,7 @@ public sealed class HudFrame
         var shown = fed ? w.Chat!.For(h.Account, h.Team) : [];
         screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && shown.Count > 0 && HudChat.Shows(w.ChatRoute, windowOpen), slot); // no line yet (a plugin just loaded): CS2's own chat shows meanwhile
         screen.Class(HudView.Screen, "hb", HudChat.BeatA(w.Now), slot);
+        screen.Class(HudView.Screen, "chatwin", w.ChatRoute == HudChat.Route.Window, slot); // the column comes and goes with the window: it fades with it
         screen.Class(HudView.Screen, "meos", w.ChatLift, slot);
         if (!fed) return;
         var (texts, classes) = HudChat.Column(shown);

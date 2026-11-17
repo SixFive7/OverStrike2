@@ -196,7 +196,7 @@ public static class HudMenu
         var due = s.PreviousPickIn();
         var c = new List<(string, string, bool)> { (Previous, "off", s.PrevArg == "" && due < 0), (Previous, "pending", due >= 0) };
         c.AddRange(HudVote.CountdownClasses(Previous, due >= 0 ? (bars ?? s).PreviousPickIn() : 0, PendingSeconds));
-        return ([("os_q_prev_text", due >= 0 ? $"Previous: {Hud.Clean(s.PrevLabel, 18)} in {due} s - Cancel" : s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], c);
+        return ([("os_q_prev_text", due >= 0 ? $"Previous: {Hud.Clean(s.PrevLabel, 18)} in {due} s - Cancel" : s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 60)}")], c);
     }
 
     // ---- the Fun page: a row per setting of Fun.cs, a button per choice; the state is the server's, the same for all ----
@@ -309,10 +309,11 @@ public static class HudMenu
     /// <summary>The match length the state says, in its mode's words: "60 minutes", "16 rounds" (Wingman's, release 199); "" when it says none.</summary>
     static string Length(HudState s) => s.Rounds > 0 ? $"{s.Rounds} rounds" : s.RoundMinutes > 0 ? $"{s.RoundMinutes} minutes" : "";
 
-    /// <summary>A Wingman card's player count, as the browser shows it on its picture (content v4.12.0): its spawn points as a side's players - "3v3" - a
-    /// recommendation, never a limit; "" in another mode, and for a map whose counts the sync does not know (Side 0).</summary>
+    /// <summary>A Wingman card's player count, as the browser shows it on its picture (content v4.12.0): its spawn points as a side's players - "Made for 3v3" - a
+    /// recommendation, never a limit; "" in another mode, and for a map whose counts the sync does not know (Side 0). Its words say the map's own size: a bare
+    /// "5v5" beside WINGMAN read as a contradiction (the review of 218r4).</summary>
     public static string SideText(HudCatalog.Entry m, string playMode) =>
-        playMode == Modes.WingmanId && m.Side > 0 ? $"{m.Side.ToString(CultureInfo.InvariantCulture)}v{m.Side.ToString(CultureInfo.InvariantCulture)}" : "";
+        playMode == Modes.WingmanId && m.Side > 0 ? $"Made for {m.Side.ToString(CultureInfo.InvariantCulture)}v{m.Side.ToString(CultureInfo.InvariantCulture)}" : "";
 
     /// <summary>What a card's Play names: the map, and the mode it plays in when that is not the first mode that has it - the one the filter
     /// shows it in, else the one the server is in when that mode has it too.</summary>
