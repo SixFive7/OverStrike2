@@ -20,8 +20,8 @@ namespace OverStrike2;
 ///   - no entity is touched before the first round start of a cold server: CounterStrikeSharp caches a failed entity-system lookup for the
 ///     life of the process. A spawned player proves a map is loaded, so a spawn may create it too;
 ///   - leftovers carrying our layout (a plugin reload, a crash) are removed before a new entity is made;
-///   - a slot's state is cleared when a new player takes it - all of what the entity holds for it (ClearSlot), which a joining game is handed as the last occupant
-///     left it - so nobody inherits a captured mouse, or entries for panels their HUD does not have;
+///   - a slot's state is cleared when its player leaves and again when a new one takes it - all of what the entity holds for it (ClearSlot), which a joining game
+///     is handed as the last occupant left it - so nobody inherits a captured mouse, or entries for panels their HUD does not have;
 ///   - per-player state is sent again at spawn and two seconds later, because a class set while the client is still loading the layout
 ///     never lands;
 ///   - nothing heavy runs inside a player's own callbacks (spawn, chat command, click, hurt): those run while the server processes that
@@ -225,10 +225,16 @@ sealed partial class HudScreen
     public void SetMode(Modes.Mode m) { mode = m; Server.NextFrame(Frame); }
 
     /// <summary>A player left (a map change's reconnect too): their slot forgets them (Leave), and the HUD their game showed is forgotten here too, not only at
-    /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read.</summary>
+    /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read. The slot's
+    /// entries in the entity go at once (ClearSlot), marked through the slot's own state (its capture, off): a game that takes the slot next is handed them in its
+    /// first full update, which comes before its put-in (the live lab's check of release 218: the clear at the put-in ran in the second the v4.13.0 game logged them).</summary>
     public void Gone(int slot)
     {
-        if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving) hudSeen.Remove(Account(leaving));
+        if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving)
+        {
+            hudSeen.Remove(Account(leaving));
+            if (Live && ClearSlot(slot)) entity!.SetInputCaptureEnabled(leaving, false);
+        }
         Leave(slot);
         captured.Remove(slot);
     }

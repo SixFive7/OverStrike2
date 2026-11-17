@@ -1230,7 +1230,7 @@ Label
 {
 	visibility: collapse;
 	width: 1240px;
-	height: 820px;
+	height: 920px;
 	horizontal-align: center;
 	vertical-align: center;
 	flow-children: down;
@@ -2979,13 +2979,14 @@ Label
 
 /* No lift any more (content v4.13.0): MAPS docks right of Valve's chat, so its line has its room without one. */
 
-/* the pointer: beside Valve's chat line, which runs from x 18 to 571 at y 952-1000 at 1080 high (styles/hud/hudchat.css), pointing left at it */
+/* the pointer: right above Valve's chat line, which runs from x 18 to 571 at y 952-1000 at 1080 high (styles/hud/hudchat.css), pointing down at it - beside the
+   line is the window's foot now, as the window runs down to y 1000 (content v4.14.0) */
 .os-chatptr
 {
 	visibility: collapse;
 	horizontal-align: left;
 	vertical-align: bottom;
-	margin: 0px 0px 84px 584px;
+	margin: 0px 0px 136px 18px;
 	flow-children: right;
 	padding: 8px 16px 8px 12px;
 	border-radius: 4px;
@@ -3014,10 +3015,15 @@ Label
 	width: 12px;
 	height: 12px;
 	vertical-align: center;
-	margin: 0px 10px 0px 6px;
+	margin: 0px 10px 4px 6px;
 	border-left: 3px solid os-gold;
 	border-bottom: 3px solid os-gold;
-	transform: rotateZ( 45deg );
+	transform: rotateZ( -45deg );
+}
+
+.os-screen.meos .os-chatptr
+{
+	margin-bottom: 414px;
 }
 
 .os-chatptr-text
@@ -3768,23 +3774,6 @@ Label
 {
 	visibility: visible;
 	background-color: #3F8CFFD9;
-}
-
-/* The end-of-match vote on the Maps page (voting on os_screen): the cards are the ballot and the browser's own controls step aside. */
-.os-vote-title
-{
-	visibility: collapse;
-	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
-	font-size: 26px;
-	letter-spacing: 2px;
-	text-transform: uppercase;
-	color: os-gold;
-	margin-bottom: 6px;
-}
-
-.os-screen.voting .os-vote-title
-{
-	visibility: visible;
 }
 
 /* The browser's own controls step aside while the ballot shows (the v4.6.0 section). */
@@ -6539,9 +6528,10 @@ Label
 	horizontal-align: center;
 }
 
-/* -- Every page beside CS2's chat (content v4.14.0; MAPS alone in v4.13.0): the chat stands at x 18-571 at every aspect (styles/hud/hudchat.css: 553 px and its
-   margins), its line at y 952-1000 in a match and higher at a match end (y 674-722), and the chat column over it (os-chat). The window never moves from page to page:
-   its left edge stays at about 600 (1080 high) - 16:9 right-aligned, 16:10 and 4:3 scaled to fit there, 21:9 in the middle of the room right of the chat. -- */
+/* -- Every page beside CS2's chat (content v4.14.0; MAPS alone in v4.13.0): the chat's box stands at x 10-579 at every aspect (styles/hud/hudchat.css: 553 px and
+   its margins), its line at y 952-1000 in a match and higher at a match end (y 674-722), and the chat column over it (os-chat, x 0-579). The window never moves
+   from page to page and is 920 high on every one, centred: y 80-1000 at 16:9. Its left edge stays at about 600 (1080 high) - 16:9 right-aligned, 16:10 and 4:3
+   scaled to fit there (90 %: 604; 68 %: 587), 21:9 in the middle of the room right of the chat. -- */
 
 .os-screen .os-win
 {
@@ -6551,7 +6541,7 @@ Label
 
 .AspectRatio16x10 .os-screen .os-win
 {
-	ui-scale: 92%;
+	ui-scale: 90%;
 	margin-right: 8px;
 }
 
@@ -6570,11 +6560,6 @@ Label
    down, each in its place while the vote is open, the most votes first once it is decided. The header and the tile words are the server's in every state: voting,
    everybody voted (vall), decided or kept (vdone), the last 10 s (vlow) -- */
 
-.os-screen.voting .os-win
-{
-	height: 920px;
-}
-
 /* This window cannot be closed, so it does not close when idle either. */
 /* The welcome closes only by its X: no idle words, no drain bar */
 .os-screen.pinned .os-drain
@@ -6587,7 +6572,7 @@ Label
 	visibility: collapse;
 }
 
-/* 1,172 x 693 px inside: the header 92 and 6 under it, three rows of tiles 567 with their margins, the pager 26. */
+/* 1,172 x 731 px inside the window's 920: the page bar 34 and 8 under it, how to vote 20 and 10 under it, three rows of tiles 567 with their margins, the pager. */
 .os-screen.voting .os-page-maps
 {
 	padding: 12px 34px 4px 34px;
@@ -6598,52 +6583,20 @@ Label
 	visibility: collapse;
 }
 
+/* The ballot's page bar (content v4.14.0), one row like the browser's: Random, who has not voted - then what came of the vote - and the one clock on the right; how
+   to vote under it. No title and no state of its own: the tab says Vote, and the clock's word says where the vote stands. */
 .os-vhead
 {
 	visibility: collapse;
 	width: 100%;
-	height: 92px;
+	height: 34px;
 	flow-children: right;
-	margin-bottom: 6px;
+	margin-bottom: 8px;
 }
 
 .os-screen.voting .os-vhead
 {
 	visibility: visible;
-}
-
-.os-vhead-main
-{
-	width: fill-parent-flow( 1 );
-	height: 100%;
-	flow-children: down;
-}
-
-.os-vhead-top
-{
-	width: 100%;
-	height: 34px;
-	flow-children: right;
-}
-
-.os-vote-title
-{
-	vertical-align: center;
-	margin-bottom: 0px;
-}
-
-.os-vwait
-{
-	vertical-align: center;
-	margin: 0px 0px 0px 18px;
-}
-
-.os-vhead-row
-{
-	width: 100%;
-	height: 34px;
-	flow-children: right;
-	margin-top: 2px;
 }
 
 #os_v_random
@@ -6666,121 +6619,38 @@ Label
 	margin-top: 0px;
 }
 
-.os-vhead-row .os-vwait
+.os-vhead .os-vwait
 {
-	margin-left: 14px;
+	vertical-align: center;
+	margin: 0px 0px 0px 14px;
 	color: os-gold-hi;
 }
 
-/* The vote's state beside the title (content v4.13.0): Voting, Everybody voted (vall: the clock counts to the decision) or Decided (vdone) - gold, green, white. */
-.os-vchip
+.os-screen.vdone .os-vhead .os-vwait
 {
-	height: 24px;
-	vertical-align: center;
-	margin-left: 16px;
-	padding: 0px 10px;
-	border-radius: 3px;
-	border: 1px solid os-gold;
-	background-color: #E9B44C24;
-}
-
-.os-vchip-text
-{
-	visibility: collapse;
-	vertical-align: center;
-	font-size: 12px;
-	font-weight: bold;
-	letter-spacing: 1.5px;
-	text-transform: uppercase;
-	color: os-gold-hi;
-}
-
-.os-screen.voting .os-vchip-voting
-{
-	visibility: visible;
-}
-
-.os-screen.vall .os-vchip
-{
-	border: 1px solid #62CE78;
-	background-color: #2E6B3A80;
-}
-
-.os-screen.vall .os-vchip-text
-{
-	color: #D6F7DC;
-}
-
-.os-screen.vall .os-vchip-voting
-{
-	visibility: collapse;
-}
-
-.os-screen.vall .os-vchip-all
-{
-	visibility: visible;
-}
-
-.os-screen.vdone .os-vchip
-{
-	border: 1px solid #FFFFFF;
-	background-color: #FFFFFF1F;
-}
-
-.os-screen.vdone .os-vchip-text
-{
+	font-size: 17px;
 	color: #FFFFFF;
 }
 
-.os-screen.vdone .os-vchip-voting
-{
-	visibility: collapse;
-}
-
-.os-screen.vdone .os-vchip-done
-{
-	visibility: visible;
-}
-
-/* A winner still to download (vfetch: VoteState.Fetching): Downloading, in blue, and no countdown - it changes the moment it is in. */
-.os-screen.vfetch .os-vchip
-{
-	border: 1px solid #5BA7E6;
-	background-color: #1F4E7A80;
-}
-
-.os-screen.vfetch .os-vchip-text
-{
-	color: #DCEEFF;
-}
-
-.os-screen.vfetch .os-vchip-done
-{
-	visibility: collapse;
-}
-
-.os-screen.vfetch .os-vchip-fetch
-{
-	visibility: visible;
-}
-
-/* How many have voted, before who has not (the limit's words, osvlim). */
-.os-vcount
-{
-	vertical-align: center;
-	margin-left: 16px;
-	font-size: 15px;
-	font-weight: bold;
-	color: #FFFFFF;
-}
-
-/* How to vote, under it all while the vote is open: a click, or chat - the cards' numbers are the vote's own, and their words show only when the server sends the
+/* How to vote, under the bar while the vote is open: a click, or chat - the cards' numbers are the vote's own, and their words show only when the server sends the
    numbers (vnum), so a game ahead of its server never reads of numbers it does not see. */
+.os-vhowbar
+{
+	visibility: collapse;
+	width: 100%;
+	height: 20px;
+	margin-bottom: 10px;
+}
+
+.os-screen.voting .os-vhowbar
+{
+	visibility: visible;
+}
+
 .os-vhow
 {
 	width: 100%;
 	height: 20px;
-	margin-top: 2px;
 	font-size: 13px;
 	color: os-dim;
 	text-overflow: ellipsis;
@@ -6807,24 +6677,17 @@ Label
 	visibility: collapse;
 }
 
-.os-screen.vdone .os-vhead-row .os-vwait
-{
-	font-size: 20px;
-}
-
-/* The two clocks, each a row: what it counts, the big digits, the bar, the words. */
+/* The one clock, at the bar's right: what it counts, the big digits, the bar - the limit's, the decision's or the change's, one at a time in the same place. */
 .os-clocks
 {
-	width: 360px;
+	width: 400px;
 	height: 100%;
-	flow-children: down;
-	padding-top: 24px;
 }
 
 .os-clock
 {
 	width: 100%;
-	height: 44px;
+	height: 100%;
 	flow-children: right;
 }
 
@@ -6860,11 +6723,6 @@ Label
 	visibility: visible;
 }
 
-.os-screen.vdone .os-clocks
-{
-	padding-top: 2px;
-}
-
 .os-clock-key
 {
 	width: 84px;
@@ -6881,7 +6739,7 @@ Label
 	width: 76px;
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
-	font-size: 30px;
+	font-size: 26px;
 	color: #FFFFFF;
 }
 
@@ -6991,7 +6849,7 @@ Label
 	white-space: nowrap;
 }
 
-/* The words beside a clock are the header's now (os-vcount, os-vwait). */
+/* The words beside a clock are the bar's now (os-vwait: who has not voted, or what came of the vote). */
 .os-screen.voting .os-clock-text
 {
 	visibility: collapse;
@@ -7011,10 +6869,9 @@ Label
 .os-screen.voting.vfetch .os-clock-idle .os-clock-text
 {
 	visibility: visible;
-	width: 270px;
+	width: 300px;
 	margin-left: 4px;
 	font-size: 14px;
-	white-space: normal;
 }
 
 /* The last 10 s: the limit's digits turn red and pulse. */
@@ -7033,7 +6890,7 @@ Label
 	animation-name: none;
 }
 
-/* Decided or kept: the limit's row goes, and the other clock, grown, counts down the change. */
+/* Decided or kept: the limit's clock goes, and the other, its digits a little bigger, counts down the change. */
 .os-screen.vdone .os-clock
 {
 	visibility: collapse;
@@ -7042,13 +6899,12 @@ Label
 .os-screen.vdone .os-clock-idle
 {
 	visibility: visible;
-	height: 88px;
 }
 
 .os-screen.vdone .os-clock-big
 {
-	width: 100px;
-	font-size: 40px;
+	width: 86px;
+	font-size: 28px;
 }
 
 .os-screen.vdone .os-clock-bar
@@ -7634,23 +7490,6 @@ Label
 	color: #FFFFFF;
 }
 
-.os-foot-frozen
-{
-	visibility: collapse;
-	margin-left: 14px;
-	vertical-align: center;
-	font-size: 11px;
-	font-weight: bold;
-	letter-spacing: 2px;
-	text-transform: uppercase;
-	color: os-gold;
-}
-
-.os-screen.vlock .os-foot-frozen
-{
-	visibility: visible;
-}
-
 /* -- SERVER, Sync: the background download on a row of its own -- */
 
 .os-dbg
@@ -8044,7 +7883,8 @@ Label
 {
 	visibility: collapse;
 	width: 100%;
-	flow-children: down;
+	height: 100%;
+	flow-children: right;
 }
 
 .os-screen.vdl .os-vdl
@@ -8066,18 +7906,19 @@ Label
 .os-vdl .os-clock-big
 {
 	width: 76px;
-	font-size: 30px;
+	font-size: 26px;
 	color: #FFFFFF;
 }
 
 .os-vdl .os-clock-bar
 {
-	width: 180px;
+	width: 150px;
 }
 
 .os-vdl-mb
 {
-	margin-left: 84px;
+	margin-left: 12px;
+	vertical-align: center;
 	font-size: 13px;
 	color: os-dim;
 }
@@ -8092,13 +7933,13 @@ Label
 	visibility: collapse;
 }
 
-/* -- the browser's cards in the vote's shape (the owner's 9): eight, four across and two down, 285 x 208 - the band on top, the picture (283 x 112) with its rank at
-   the top left, its likes and arrows at the top right and its mode at the foot, then the name and size, one row of tags, and Play along the card's foot. The ballot
-   keeps its 285 x 181 (.os-screen.voting) -- */
+/* -- the browser's cards are the ballot's (content v4.14.0): twelve, four across and three down, 285 x 181 - the band on top, the picture (283 x 112) with its rank at
+   the top left, its likes and arrows at the top right, its mode at the foot and what a click on the card does on the right, then the name and size and one row of
+   tags. The whole card is its button, as on the ballot -- */
 .os-mcard
 {
 	width: 285px;
-	height: 208px;
+	height: 181px;
 	margin: 0px 10px 8px 0px;
 }
 
@@ -8113,6 +7954,11 @@ Label
 }
 
 #os_m8
+{
+	margin-right: 0px;
+}
+
+#os_m12
 {
 	margin-right: 0px;
 }
@@ -8138,7 +7984,7 @@ Label
 .os-mbody
 {
 	width: 100%;
-	height: 52px;
+	height: fill-parent-flow( 1 );
 	padding: 5px 10px 0px 10px;
 }
 
@@ -8158,11 +8004,124 @@ Label
 
 .os-mplay
 {
-	width: 267px;
-	height: 28px;
+	width: 100%;
+	height: 100%;
 	horizontal-align: left;
-	vertical-align: bottom;
-	margin: 0px 0px 8px 8px;
+	vertical-align: top;
+	margin: 0px;
+	border-radius: 5px;
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-mplay:hover
+{
+	border: 1px solid #FFFFFF33;
+	background-color: #FFFFFF08;
+}
+
+.os-mplay-text
+{
+	horizontal-align: right;
+	vertical-align: top;
+	margin: 84px 8px 0px 0px;
+	padding: 4px 9px 3px 9px;
+	border-radius: 3px;
+	border: 1px solid #E9B44C99;
+	background-color: #0A0D11E6;
+	font-size: 11px;
+}
+
+.os-mcard.broken .os-mplay-text
+{
+	margin-top: 64px;
+}
+
+.os-mcard.crashed .os-mplay-text
+{
+	margin-top: 64px;
+}
+
+/* A card's state on what a click does, not on the whole card */
+.os-mcard.risky .os-mplay
+{
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-mcard.confirm .os-mplay
+{
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-mcard.pending .os-mplay
+{
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-mcard.now .os-mplay
+{
+	opacity: 1;
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-mcard.risky.confirm .os-mplay
+{
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-mcard.risky .os-mplay-text
+{
+	border: 1px solid #C9831EB3;
+}
+
+.os-mcard.confirm .os-mplay-text
+{
+	border: 1px solid #F07C6B;
+	background-color: #C2412FE6;
+}
+
+.os-mcard.pending .os-mplay-text
+{
+	border: 1px solid #FF8A75;
+	background-color: #C2412FE6;
+}
+
+.os-mcard.now .os-mplay-text
+{
+	opacity: 0.7;
+	border: 1px solid #FFFFFF33;
+}
+
+.os-mcard.risky.confirm .os-mplay-text
+{
+	border: 1px solid os-gold-hi;
+	background-color: #C9831E;
+}
+
+/* the ballot keeps its words plain, over the picture's shade */
+.os-screen.voting .os-mplay-text
+{
+	padding: 0px;
+	border-radius: 0px;
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.os-screen.voting .os-mcard.risky .os-mplay-text
+{
+	border: 1px solid #00000000;
+}
+
+.os-screen.voting .os-mcard.now .os-mplay-text
+{
+	opacity: 1;
+	border: 1px solid #00000000;
+	background-color: #00000000;
 }
 
 .os-mvotes
@@ -8209,15 +8168,17 @@ Label
 	visibility: collapse;
 }
 
-/* -- the chat column (the owner's 2 and 8, HudChat): our own chat history at CS2's chat's place, x 0-571 - from the screen's left edge, since CS2's text starts at
-   about x 5, left of its box's 18 (the live lab's re-check of release 218: its first letters showed in a strip there) - up toward the radar, solid over CS2's whole chat area
-   (route a1, the live lab's film of release 218: CS2's own lines showed through a fading background, and below the column): with the chat closed CS2 draws its
-   lines down to y 1000 (1080 high; its typing line hidden, the history drops 56 px), so the column reaches there; with it open (HUD_CHAT_VISIBLE, CS2's class) its
-   history stands at y 617-944 over the typing line at 952-1000, so the column stops at 944 and the typing line stays free. Above CS2's area its background fades
-   upward. Over CS2's area it is fully opaque: at 97% CS2's newest lines still read through it for their 15 s (the live lab's re-film, release 218). The newest
-   line at the bottom; a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour. It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that
-   hides the column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. At a match end CS2 lifts its chat (to y 674-722),
-   and the column follows (meos). With the window closed its background fades away upward, so it covers the game less -- */
+/* -- the chat column (HudChat): our own chat history beside the open window (route c, HudChat.Default), over the whole of CS2's chat, from the window's top down
+   to just above CS2's typing line. CS2's chat (styles/hud/hudchat.css: #ChatContainer, #ChatFG 553 px with margins of 8) has its box at x 10-579, y 609-1008 in a
+   match: the history at y 617-944, the typing line at 952-1000 below an 8 px gap; with the chat closed its lines drop 56 px and run down to y 1000; at a match end
+   it all stands 278 px higher, once the end screen shows its scoreboard. Its text starts at about x 5. So the column is x 0-579, fully opaque from top to foot -
+   at 97 % CS2's lines read through it (the live lab's film of release 218) - and its foot is y 1000 with CS2's chat closed, in a match and at a match end alike
+   (no typing line there; CS2's lines are covered at either height, also in the second before CS2 lifts them), and with it open just above the typing line's box:
+   y 952 in a match, 674 at a match end (meos: the plugin's ChatLift; or the game's own classes for its end screen with the scoreboard, the moment CS2 lifts it).
+   The dock sets the top: the window's, 80 at 16:9 and 21:9 (920 high, centred), 126 at 16:10 (90 %), 227 at 4:3 (68 %). The newest line at the bottom, as many
+   as fit (the rest are clipped at the top); a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour.
+   It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that hides the
+   column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again -- */
 @keyframes 'os-chat-beat-a'
 {
 	0% { opacity: 1; }
@@ -8232,23 +8193,60 @@ Label
 	100% { opacity: 0; }
 }
 
+.os-chat-dock
+{
+	width: 579px;
+	height: 100%;
+	horizontal-align: left;
+	flow-children: down;
+}
+
+.os-chat-top
+{
+	width: 100%;
+	height: 80px;
+}
+
+.AspectRatio16x10 .os-chat-top
+{
+	height: 126px;
+}
+
+.AspectRatio4x3 .os-chat-top
+{
+	height: 227px;
+}
+
 .os-chat
 {
 	visibility: collapse;
-	width: 571px;
-	height: 600px;
-	horizontal-align: left;
-	vertical-align: bottom;
-	margin: 0px 0px 80px 0px;
+	width: 100%;
+	height: fill-parent-flow( 1 );
 	overflow: clip;
 	opacity: 0;
 	border-radius: 0px 4px 4px 0px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.3, #0A0D11B3 ), color-stop( 0.36, #0A0D11FF ), to( #0A0D11FF ) );
+	background-color: #0A0D11;
 }
 
-.HUD_CHAT_VISIBLE .os-screen .os-chat
+.os-chat-foot
 {
-	margin-bottom: 136px;
+	width: 100%;
+	height: 80px;
+}
+
+.HUD_CHAT_VISIBLE .os-screen .os-chat-foot
+{
+	height: 128px;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.meos .os-chat-foot
+{
+	height: 406px;
+}
+
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE.HUD_CHAT_VISIBLE .os-screen .os-chat-foot
+{
+	height: 406px;
 }
 
 .os-screen.chaton .os-chat
@@ -8270,22 +8268,6 @@ Label
 	animation-duration: 35s;
 	animation-timing-function: linear;
 	animation-iteration-count: 1;
-}
-
-.os-screen.meos .os-chat
-{
-	height: 520px;
-	margin-bottom: 358px;
-}
-
-.HUD_CHAT_VISIBLE .os-screen.meos .os-chat
-{
-	margin-bottom: 414px;
-}
-
-.os-screen.win .os-chat
-{
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D11A6 ), color-stop( 0.36, #0A0D11FF ), to( #0A0D11FF ) );
 }
 
 .os-chat-lines

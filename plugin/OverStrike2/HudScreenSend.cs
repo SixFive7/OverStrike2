@@ -55,7 +55,8 @@ sealed partial class HudScreen : HudFrame.IScreen
     /// <summary>Everything the entity holds for this slot goes - its classes and its words - so the new player in it starts clean. The natives only ever add an entry or
     /// change one (CounterStrikeSharp's customhudlayout.cpp: an entry per panel and class, or panel and variable, in the slot's layout state), and a joining game is handed
     /// the slot's entries as its last occupant left them: a v4.13.0 game that took the slot of a v4.14.0 one on the same map logged "Unable to find panel" for the 36
-    /// panels of the chat column, which it does not have, at the moment it entered (the live lab, release 218). The slot's state is where the natives find it (element
+    /// panels of the chat column, which it does not have, at the moment it entered (the live lab, release 218). So they go when the slot's player leaves (Gone) and
+    /// again when a new one takes it (OnPutInServer). The slot's state is where the natives find it (element
     /// slot of m_vecPlayerLayoutStates, the schema's size apart), and is touched only once that layout is checked (SlotStatesOk). True when the slot holds nothing of
     /// anybody's now.</summary>
     bool ClearSlot(int slot)

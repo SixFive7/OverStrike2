@@ -1,9 +1,9 @@
-// The chat column (HUD content v4.14.0): our own chat history beside the window, taller than CS2's and there whether the window is open or not. CS2's own
+// The chat column (HUD content v4.14.0): our own chat history beside the open window, from the window's top down to just above CS2's typing line. CS2's own
 // chat cannot be made taller or kept on screen: its history box is 327 px high in its own stylesheet (styles/hud/hudchat.css), which this HUD's stylesheet
 // cannot reach, and no setting a server may change keeps its lines. So the plugin keeps what it sees - every chat line a player sends as CS2 shows it (say and
 // say_team; a / line is CounterStrikeSharp's silent trigger, which CS2 does not show), every line of its own (for everybody or for one player), joins, leaves
-// and team changes - and the frame draws the newest that each player may see, the newest at the bottom, over CS2's own history and up toward the radar;
-// CS2's typing line stays free below it. A team's line goes to that team alone, as CS2's does.
+// and team changes - and the frame draws the newest that each player may see, the newest at the bottom, over the whole of CS2's chat; CS2's typing line
+// stays free below it. A team's line goes to that team alone, as CS2's does.
 //
 // The column shows only while the plugin feeds it (chaton on os_screen) and keeps beating (hb, on and off by turns every BeatSeconds): a stylesheet animation
 // hides the column a while after the last swap, so a plugin that stops - unloaded, reloaded, crashed - or a game whose server never feeds it shows CS2's own
@@ -16,15 +16,17 @@ public sealed class HudChat
 {
     /// <summary>When the column shows, the server's choice (the owner's 277): Always (route a1 - solid over CS2's chat area, the window open or not), Window (route c - only
     /// while our window is open; CS2's own chat the rest of the time) or Never (route d - CS2's own chat alone). The stylesheet is the same for all three, so a change
-    /// needs no content update: Default is the plugin's, and os_hud chat always|window|off overrides it until the plugin reloads.</summary>
+    /// needs no content update: Default is the plugin's - Window, the column beside the open window and CS2's own chat the moment it closes - and os_hud chat
+    /// always|window|off overrides it until the plugin reloads.</summary>
     public enum Route { Always, Window, Never }
-    public const Route Default = Route.Always;
+    public const Route Default = Route.Window;
 
     /// <summary>Whether the column shows by its route, with the window open or not.</summary>
     public static bool Shows(Route route, bool windowOpen) => route == Route.Always || route == Route.Window && windowOpen;
 
-    /// <summary>The column's lines; the newest is the last, at the bottom.</summary>
-    public const int Lines = 18;
+    /// <summary>The column's lines; the newest is the last, at the bottom. The column runs from the window's top to just above CS2's typing line, so as many show as
+    /// fit - a line is about 23 px: some 38 at 16:9 with CS2's chat closed - and the rest are clipped at its top; a long line takes two rows.</summary>
+    public const int Lines = 40;
 
     /// <summary>How many lines the plugin keeps, newest last.</summary>
     public const int Keep = 60;
@@ -40,9 +42,9 @@ public sealed class HudChat
     /// animation, which runs 35 s - three beats and a half - so a missed frame or two never hides it.</summary>
     public const int BeatSeconds = 10;
 
-    /// <summary>The line panels, 1 the top and Lines the newest at the bottom, and each line's words.</summary>
+    /// <summary>The line panels, 1 the top and Lines the newest at the bottom. A line's words are its panel's own text variable, which its label shows: one panel id
+    /// a line, as a layout entity interns at most 1,024 for its whole life.</summary>
     public static string Line(int k) => $"os_chat_{k.ToString(CultureInfo.InvariantCulture)}";
-    public static string Words(int k) => $"os_chat_{k.ToString(CultureInfo.InvariantCulture)}_t";
 
     /// <summary>What a line is: a player's line to everybody, a player's line to their team, one of the server's (to everybody or to one player), or an event
     /// (a join, a leave, a team change).</summary>
@@ -120,7 +122,7 @@ public sealed class HudChat
         for (var k = 1; k <= Lines; k++)
         {
             var e = k >= first ? shown[from + k - first] : null;
-            t.Add((Words(k), e == null ? "" : Text(e)));
+            t.Add((Line(k), e == null ? "" : Text(e)));
             c.Add((Line(k), "used", e != null));
             var look = e == null ? [] : Look(e);
             foreach (var cls in KindClasses) c.Add((Line(k), cls, look.Contains(cls)));

@@ -382,7 +382,7 @@ static partial class Program
             var odds = (int)Math.Round(1 / TooBigChance);
             var claims = new (string Words, bool True)[]
             {
-                ($"a fresh map (a Workshop upload or update of the last {FreshDays} days)", FreshDays == 30), ("a surprise new to us", true), ("favourites the server keeps fill the page", MapVote.PageCards == HudMenu.Cards),
+                ($"a fresh map (a Workshop upload or update of the last {FreshDays} days)", FreshDays == 30), ("a surprise new to us", true), ("favourites the server keeps fill the page", MapVote.PageCards <= HudMenu.Cards),
                 ("Every card but a player's pick is on the server's disk", true), ("a small stock new to us", StockSize > 0), ("Random is the dice after the vote", true),
                 ($"1 random pick in {odds} takes a too-big map", Math.Abs(odds * TooBigChance - 1) < 1e-9), ($"the other {odds - 1} one that is not; an empty group hands the pick to the other", true),
                 ("measured XL, or marked Too big by a player", true), ($"gives up to {PopularityPoints:0} points", true), ($"each Like a point (up to {UpvoteCap} Likes)", true),

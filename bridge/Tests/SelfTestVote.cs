@@ -356,7 +356,8 @@ static partial class Program
             Check("The capitals rule leaves a map's own words alone: the dash in a marked title ends no section; everybody's run-end check reads every line of the vote's (MessagesCapitalsCheck)",
                 Sections.Lower($"Bob voted for {M.A("aim_x - by Somebody")} - {M.V("1 of 2")} voted") == null && Sections.Lower("Bob voted for aim_x - by Somebody") == "by Somebody");
             if (File.Exists(HudLayoutFile))
-                Check("The layout has a label for each of the header's variables", new[] { HudVote.StartVar, HudVote.WaitVar, HudVote.LimitNumVar, HudVote.LimitVar, HudVote.IdleKeyVar, HudVote.IdleNumVar, HudVote.IdleVar }.All(n => File.ReadAllText(HudLayoutFile).Contains($"text=\"{{s:{n}}}\"")));
+                Check("The layout has a label for each of the header's variables but the starter's (content v4.14.0's page bar has no \"Started by\" or \"Match over\"; the variable stays for older contents)", new[] { HudVote.WaitVar, HudVote.LimitNumVar, HudVote.LimitVar, HudVote.IdleKeyVar, HudVote.IdleNumVar, HudVote.IdleVar }.All(n => File.ReadAllText(HudLayoutFile).Contains($"text=\"{{s:{n}}}\""))
+                    && !File.ReadAllText(HudLayoutFile).Contains($"text=\"{{s:{HudVote.StartVar}}}\""));
 
             WinStart(5);
             StartVote(alice.Item1, alice.Item2);

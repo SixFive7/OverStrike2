@@ -46,30 +46,58 @@
 	<Panel class="os-root" hittest="false">
 		<Panel id="os_global" class="os-global" hittest="false">
 			<Panel id="os_screen" class="os-screen" hittest="false">
-				<!-- The chat column (content v4.14.0): our own chat history beside the window, there with it closed too - the plugin's lines (HudChat), the newest at the
-				     bottom, over CS2's own history and up toward the radar; CS2's typing line stays free below it. It shows only while its feed is live (chaton) and beats
-				     (hb): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. -->
-				<Panel class="os-chat" hittest="false">
-					<Panel class="os-chat-lines" hittest="false">
-						<Panel id="os_chat_1" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_1_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_2" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_2_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_3" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_3_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_4" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_4_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_5" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_5_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_6" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_6_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_7" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_7_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_8" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_8_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_9" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_9_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_10" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_10_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_11" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_11_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_12" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_12_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_13" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_13_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_14" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_14_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_15" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_15_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_16" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_16_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_17" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_17_t" hittest="false" text="{s:text}" /></Panel>
-						<Panel id="os_chat_18" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label id="os_chat_18_t" hittest="false" text="{s:text}" /></Panel>
+				<!-- The chat column (content v4.14.0): our own chat history beside the open window - the plugin's lines (HudChat), the newest at the bottom - over the whole
+				     of CS2's chat, from the window's top down to just above CS2's typing line. The dock's two spacers set its top (the window's, by the aspect) and its foot
+				     (y 1000 with CS2's chat closed; just above its typing line with it open, and higher once CS2 lifts it for a match end). A line's words are its panel's own
+				     text, which its label shows. It shows only while its feed is live (chaton) and beats (hb): a plugin that stops leaves its last beat, which runs out, and
+				     CS2's own chat shows again. -->
+				<Panel class="os-chat-dock" hittest="false">
+					<Panel class="os-chat-top" hittest="false" />
+					<Panel class="os-chat" hittest="false">
+						<Panel class="os-chat-lines" hittest="false">
+							<Panel id="os_chat_1" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_2" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_3" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_4" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_5" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_6" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_7" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_8" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_9" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_10" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_11" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_12" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_13" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_14" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_15" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_16" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_17" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_18" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_19" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_20" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_21" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_22" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_23" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_24" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_25" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_26" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_27" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_28" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_29" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_30" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_31" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_32" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_33" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_34" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_35" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_36" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_37" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_38" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_39" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							<Panel id="os_chat_40" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+						</Panel>
 					</Panel>
+					<Panel class="os-chat-foot" hittest="false" />
 				</Panel>
 
 				<!-- 1. The board: TAB. A click action panel while the TAB cursor is on (HUD_TAB down): vote, Next, the queue, the menu. -->
@@ -216,27 +244,23 @@
 
 							<!-- Maps: the map browser - sort, filters, eight cards, pages. Everything in it is per player. -->
 							<Panel class="os-page os-page-maps">
-								<!-- The ballot's header (content v4.13.0): the title and the vote's state - Voting, Everybody voted, Decided - with who started it; Random, how many
-								     have voted and who has not; how to vote, by a click or in chat (the cards' numbers are the vote's own); one clock - the limit, once everybody has voted the
-								     time to the decision, once decided the change's countdown. The numbers and their words show only when the server sends them (vnum); a winner still to
-     download says Downloading and no countdown (vfetch). The strip of where the votes go keeps its ids, hidden: the cards say it. -->
+								<!-- The ballot's header (content v4.14.0): the page bar every page has - Random, who has not voted (then what came of the vote) and the one clock on the
+								     right: the limit, once everybody has voted the time to the decision, once decided the change's countdown - and how to vote under it, by a click or in chat
+								     (the cards' numbers are the vote's own). The tab says Vote; the clock's word says the state. The numbers and their words show only when the server sends
+								     them (vnum); a winner still to download says Downloading and no countdown (vfetch). The strip of where the votes go keeps its ids, hidden: the cards say it. -->
 								<Panel class="os-vhead">
-									<Panel class="os-vhead-main">
-										<Panel class="os-vhead-top"><Label class="os-vote-title" text="Vote for the next map" /><Panel class="os-vchip"><Label class="os-vchip-text os-vchip-voting" text="Voting" /><Label class="os-vchip-text os-vchip-all" text="Everybody voted" /><Label class="os-vchip-text os-vchip-done" text="Decided" /><Label class="os-vchip-text os-vchip-fetch" text="Downloading" /></Panel><Label class="os-vwait" text="{s:osvstart}" /></Panel>
-										<Panel class="os-vhead-row">
-											<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
-											<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
-											<Label class="os-vcount" text="{s:osvlim}" />
-											<Label class="os-vwait" text="{s:osvwait}" />
-										</Panel>
-										<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  Or type !vote and the card's number  ·  !play and a map's name adds that map  ·  Y opens the chat" />
-										<Label class="os-vhow os-vhow-plain" text="Click a card to vote  ·  !play and a map's name adds that map  ·  Y opens the chat" />
-									</Panel>
+									<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
+									<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
+									<Label class="os-vwait" text="{s:osvwait}" />
 									<Panel class="os-clocks">
 										<Panel class="os-clock"><Label class="os-clock-key" text="Ends in" /><Label class="os-clock-big" text="{s:osvlimn}" /><Panel id="os_vlim" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvlim}" /></Panel>
 										<Panel class="os-clock os-clock-idle"><Label class="os-clock-key os-clock-key-all" text="Decided in" /><Label class="os-clock-key os-clock-key-done" text="{s:osvidlek}" /><Label class="os-clock-big" text="{s:osvidlen}" /><Panel id="os_vidle" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvidle}" /></Panel>
-										<Panel class="os-vdl"><Panel class="os-vhead-row"><Label class="os-clock-key" text="Downloading" /><Label class="os-clock-big" text="{s:osvdlp}" /><Panel id="os_vdl" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel></Panel><Label class="os-vdl-mb" text="{s:osvdlm}" /></Panel>
+										<Panel class="os-vdl"><Label class="os-clock-key" text="Downloading" /><Label class="os-clock-big" text="{s:osvdlp}" /><Panel id="os_vdl" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-vdl-mb" text="{s:osvdlm}" /></Panel>
 									</Panel>
+								</Panel>
+								<Panel class="os-vhowbar">
+									<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  Or type !vote and the card's number  ·  !play and a map's name adds that map  ·  Y opens the chat" />
+									<Label class="os-vhow os-vhow-plain" text="Click a card to vote  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 								</Panel>
 								<Panel class="os-mbar">
 									<Label class="os-mbar-label" text="Sort" />
@@ -644,6 +668,74 @@
 												<Label id="os_m10_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m10_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
 												<Button id="os_m10_down" class="os-mvote os-mvote-down"><Panel class="os-chev os-chev-down" /></Button>
+											</Panel>
+										</Panel>
+										<Panel id="os_m11" class="os-mcard os-mcard-l">
+											<Panel class="os-mrow">
+												<Panel class="os-mband" />
+												<Panel id="os_m11_thumb" class="os-mthumb">
+													<Panel class="os-mthumb-shade" />
+													<Label id="os_m11_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m11_num" class="os-mnum" text="{s:text}" />
+													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
+													<Label id="os_m11_warn" class="os-mwarn" text="{s:text}" />
+													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
+													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m11_side" class="os-mside" text="{s:text}" />
+													<Label class="os-mnames" text="{s:osvn11}" />
+												</Panel>
+												<Panel class="os-mbody">
+													<Panel class="os-mline"><Label id="os_m11_name" class="os-mname" text="{s:text}" /><Label id="os_m11_size" class="os-msize" text="{s:text}" /></Panel>
+													<Label id="os_m11_who" class="os-mwho" text="{s:text}" />
+													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
+											</Panel>
+											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
+											<Panel class="os-macts">
+												<Button id="os_m11_play" class="os-mplay">
+													<Label id="os_m11_score" class="os-mscore" text="{s:text}" />
+													<Label id="os_m11_play_text" class="os-mplay-text" text="{s:text}" />
+													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh11}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+												</Button>
+												<Label id="os_m11_votes" class="os-mvotes" text="{s:text}" />
+												<Button id="os_m11_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
+												<Button id="os_m11_down" class="os-mvote os-mvote-down"><Panel class="os-chev os-chev-down" /></Button>
+											</Panel>
+										</Panel>
+										<Panel id="os_m12" class="os-mcard">
+											<Panel class="os-mrow">
+												<Panel class="os-mband" />
+												<Panel id="os_m12_thumb" class="os-mthumb">
+													<Panel class="os-mthumb-shade" />
+													<Label id="os_m12_rank" class="os-mrank" text="{s:text}" />
+													<Label id="os_m12_num" class="os-mnum" text="{s:text}" />
+													<Panel class="os-mlock"><Panel class="os-mlock-shut" /><Panel class="os-mlock-open" /></Panel>
+													<Label id="os_m12_warn" class="os-mwarn" text="{s:text}" />
+													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
+													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m12_side" class="os-mside" text="{s:text}" />
+													<Label class="os-mnames" text="{s:osvn12}" />
+												</Panel>
+												<Panel class="os-mbody">
+													<Panel class="os-mline"><Label id="os_m12_name" class="os-mname" text="{s:text}" /><Label id="os_m12_size" class="os-msize" text="{s:text}" /></Panel>
+													<Label id="os_m12_who" class="os-mwho" text="{s:text}" />
+													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
+											</Panel>
+											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
+											<Panel class="os-macts">
+												<Button id="os_m12_play" class="os-mplay">
+													<Label id="os_m12_score" class="os-mscore" text="{s:text}" />
+													<Label id="os_m12_play_text" class="os-mplay-text" text="{s:text}" />
+													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh12}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+												</Button>
+												<Label id="os_m12_votes" class="os-mvotes" text="{s:text}" />
+												<Button id="os_m12_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
+												<Button id="os_m12_down" class="os-mvote os-mvote-down"><Panel class="os-chev os-chev-down" /></Button>
 											</Panel>
 										</Panel>
 									</Panel>
@@ -1343,7 +1435,6 @@
 
 					<Panel class="os-win-foot">
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
-						<Label class="os-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="os-mbar-fill" />
 						<Label class="os-foot-ver" text="HUD v4.14.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">

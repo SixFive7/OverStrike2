@@ -2,7 +2,7 @@
 using System.Globalization;
 
 /// <summary>The menu's pages as texts and classes for one player, out of the catalog, the live state and that player's browser, and a
-/// click on them as the chat command it stands for. Card k (1-10) is panel os_m{k}; its parts are os_m{k}_*. The browser shows the first eight,
+/// click on them as the chat command it stands for. Card k (1-12) is panel os_m{k}; its parts are os_m{k}_*. The browser shows all twelve,
 /// the ballot ten.</summary>
 public static class HudMenu
 {
@@ -101,8 +101,8 @@ public static class HudMenu
         : m.Broken == 0 ? (m.Reason != "" ? $"Broken: {m.Reason}" : "On the broken list") : m.Crashes > 0 ? $"Crashed the server {m.Crashes}x" : "";
 
     /// <summary>The maps page for one player: the toolbar's state, the search area (the query from chat, or the hint), the count, the page counter and the
-    /// eight cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
-    /// empty message: the plugin shows that item's card there. The cards past the eighth are the ballot's: empty here.</summary>
+    /// cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
+    /// empty message: the plugin shows that item's card there.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
         HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null, HudState? bars = null)
     {

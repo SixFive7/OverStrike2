@@ -8,9 +8,9 @@ static partial class Program
     const string HudLayoutFile = "../hud/layout/gungame_hud_" + Hud.ReleaseFile + ".xml", HudStyleFile = "../hud/styles/gungame_hud_" + Hud.ReleaseFile + ".css",
         HudThumbFile = "../hud/styles/gungame_hud_thumbs_" + Hud.ReleaseFile + ".css";
 
-    /// <summary>The pages' height: the window's 820 px less its rule (3), head (76), tabs (48), sub-tabs (40) and foot (44); the Help page's, less its
-    /// padding (14 + 20).</summary>
-    const int PagesHeight = 820 - 3 - 76 - 48 - 40 - 44, HelpHeight = PagesHeight - 34;
+    /// <summary>The pages' height: the window's 920 px less its rule (3), head (76), tabs (48), sub-tabs' old 40 (kept, to spare) and foot (44); the Help page's,
+    /// less its padding (14 + 20).</summary>
+    const int PagesHeight = 920 - 3 - 76 - 48 - 40 - 44, HelpHeight = PagesHeight - 34;
 
     static void HudSelfTest(Action<string, bool> Check)
     {
@@ -105,18 +105,18 @@ static partial class Program
         for (var i = 1; i <= 20; i++) big.Maps.Add(new HudCatalog.Entry($"{1000 + i}", $"{i}", i, 1000 + i, $"m{i}", 10, false, -1, 0, 0, 0));
         var pb = new HudBrowser();
         var all = pb.Matches(big, 1);
-        Check("Pages of eight: 20 maps are three pages, the last one has four", HudBrowser.Pages(20) == 3 && HudBrowser.Pages(0) == 1 && pb.PageOf(all).Count == 8);
+        Check("Pages of twelve: 20 maps are two pages, the last one has eight", HudBrowser.PerPage == 12 && HudBrowser.Pages(20) == 2 && HudBrowser.Pages(0) == 1 && pb.PageOf(all).Count == 12);
         pb.Click(HudBrowser.NextButton, 20); pb.Click(HudBrowser.NextButton, 20); pb.Click(HudBrowser.NextButton, 20);
-        Check("Next stops at the last page, which shows the rest", pb.Page == 2 && pb.PageOf(all).Select(m => m.Arg).SequenceEqual(["17", "18", "19", "20"]));
+        Check("Next stops at the last page, which shows the rest", pb.Page == 1 && pb.PageOf(all).Select(m => m.Arg).SequenceEqual(["13", "14", "15", "16", "17", "18", "19", "20"]));
         pb.Click(HudBrowser.FirstButton, 20); pb.Click(HudBrowser.PrevButton, 20);
-        Check("First and Prev stop at the first page, Last jumps to the end", pb.Page == 0 && pb.Click(HudBrowser.LastButton, 20) && pb.Page == 2);
+        Check("First and Prev stop at the first page, Last jumps to the end", pb.Page == 0 && pb.Click(HudBrowser.LastButton, 20) && pb.Page == 1);
         pb.Page = 9;
-        Check("A page past the end (the list shrank under a filter) is clamped to the last one", pb.PageOf(all).Count == 4 && pb.Page == 2);
+        Check("A page past the end (the list shrank under a filter) is clamped to the last one", pb.PageOf(all).Count == 8 && pb.Page == 1);
         var hint = new HudBrowser();
         hint.Click("os_pg_next", all.Count);
-        Check("Pages of eight always: the search hint, and v4.8.0's search box and keys, move no page and change no page size (no keyboard covers a row any more)",
+        Check("Pages of twelve always: the search hint, and v4.8.0's search box and keys, move no page and change no page size (no keyboard covers a row any more)",
             !hint.Click(HudBrowser.HintButton, all.Count) && !hint.Click(HudBrowser.OldSearchBox, all.Count) && !hint.Click("os_kb_done", all.Count)
-            && hint.Page == 1 && hint.PagesFor(all.Count) == 3 && hint.PageOf(all).Select(m => m.Arg).SequenceEqual(["9", "10", "11", "12", "13", "14", "15", "16"]));
+            && hint.Page == 1 && hint.PagesFor(all.Count) == 2 && hint.PageOf(all).Select(m => m.Arg).SequenceEqual(["13", "14", "15", "16", "17", "18", "19", "20"]));
         Check("Any sort or filter starts again on the first page", pb.Click("os_sort_name", 20) && pb.Page == 0);
 
         // ---- the menu's pages and its clicks ----
@@ -232,7 +232,9 @@ static partial class Program
             var xml = File.ReadAllText(HudLayoutFile);
             var css = File.ReadAllText(HudStyleFile);
             var ids = Regex.Matches(xml, @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToList();
-            var fed = Regex.Matches(xml, @"<Label\b[^>]*\bid=""([^""]+)""[^>]*text=""\{s:text\}""").Select(x => x.Groups[1].Value).ToHashSet();
+            var fed = Regex.Matches(xml, @"<Label\b[^>]*\bid=""([^""]+)""[^>]*text=""\{s:text\}""").Select(x => x.Groups[1].Value)
+                .Concat(Regex.Matches(xml, @"<Panel id=""(os_chat_\d+)"" class=""os-chat-line"" hittest=""false""><Panel hittest=""false"" /><Label hittest=""false"" text=""\{s:text\}"" /></Panel>").Select(x => x.Groups[1].Value))
+                .ToHashSet(); // a chat line's words are its own panel's text, which its one label shows
             var full = new HudState { Top = [.. Enumerable.Repeat(("m", 1, 0), 5)], ChangeIn = 1, PrevArg = "1", PrevLabel = "#1 m" };
             var menuMaps = HudMenu.Maps(back, full, new HudBrowser(), 1001, now);
             var menuQueue = HudMenu.PreviousButton(full);
@@ -273,7 +275,7 @@ static partial class Program
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
                 .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).ToList();
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
-            Check($"Layout: the eight cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
+            Check($"Layout: the twelve cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
                 ids.Count == ids.Distinct().Count() && !Regex.IsMatch(xml, @"<root>\s*<styles>.*?</styles>\s*<Panel\b[^>]*\bid=", RegexOptions.Singleline));
             var unknownText = sentTexts.Where(id => !fed.Contains(id)).Distinct().ToList();
@@ -339,12 +341,13 @@ static partial class Program
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page); the cards' numbers and the chat column go to this content's games and to no game known to hold one before them (HudVote.NumbersLevel, HudChat.Level)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text")
                     && !HudVersion.IsBefore(HudVersion.Content, HudVote.NumbersLevel) && !HudVersion.IsBefore(HudVersion.Content, HudChat.Level) && HudVersion.IsBefore(replaced, HudChat.Level)
-                    && Enumerable.Range(1, HudChat.Lines).All(k => !last.Contains(HudChat.Line(k)) && !last.Contains(HudChat.Words(k))));
+                    && Enumerable.Range(1, HudChat.Lines).All(k => !last.Contains(HudChat.Line(k))));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
-                // ...its own version button, the chat column's lines and their words (os_chat_<k>, os_chat_<k>_t), and the download's bar (os_vdl).
+                // ...its own version button, the chat column's lines (os_chat_<k>, a line's words its own text), the browser's eleventh and twelfth cards (os_m11, os_m12
+                // and their parts) and the download's bar (os_vdl).
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
-                var expectedAdded = new HashSet<string>(Enumerable.Range(1, HudChat.Lines).SelectMany(k => new[] { HudChat.Line(k), HudChat.Words(k) })) { HudVersion.Button(HudVersion.Content), HudVote.DownloadBar };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, the chat column's {HudChat.Lines} lines and their words, and the download's bar - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                var expectedAdded = new HashSet<string>(Enumerable.Range(1, HudChat.Lines).Select(HudChat.Line).Concat(ids.Where(id => Regex.IsMatch(id, @"^os_m1[12](_|$)")))) { HudVersion.Button(HudVersion.Content), HudVote.DownloadBar };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, the chat column's {HudChat.Lines} lines, the browser's eleventh and twelfth cards, and the download's bar - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 var noTakeBack = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
                 Check($"Content {HudVersion.Content}: a vote is never taken back - no CLICK TO TAKE BACK on your own card's badge, and no hover that swaps the badge's words",
@@ -393,29 +396,30 @@ static partial class Program
                     && noCommentsXml.Contains("<Label class=\"os-search-typing\" text=\"Type a map name, then press Enter\" />", StringComparison.Ordinal));
                 // ---- content v4.13.0: MAPS right of CS2's chat (x 18-571 at every aspect), the ballot four across and three down with the vote's own numbers, its state,
                 //      how to vote and one clock ----
-                Check($"Content {HudVersion.Content}: every page docks right of CS2's chat - right-aligned 80 px from the edge at 16:9 (its 1,240 px from x 600), scaled to fit at 16:10 and 4:3, in the room right of the chat at 21:9; no page moves the window",
-                    Regex.IsMatch(rules0, @"(?m)^\.os-screen \.os-win\s*\{\s*horizontal-align:\s*right;\s*margin-right:\s*80px;") && Regex.IsMatch(rules0, @"(?m)^\.os-win\s*\{[^}]*width:\s*1240px;")
-                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio16x10 \.os-screen \.os-win\s*\{\s*ui-scale:\s*92%;\s*margin-right:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio4x3 \.os-screen \.os-win\s*\{\s*ui-scale:\s*68%;")
-                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio21x9 \.os-screen \.os-win\s*\{\s*margin-right:\s*360px;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-win\s*\{\s*height:\s*920px;\s*\}")
+                Check($"Content {HudVersion.Content}: every page docks right of CS2's chat - right-aligned 80 px from the edge at 16:9 (its 1,240 px from x 600), scaled to fit at 16:10 and 4:3, in the room right of the chat at 21:9, clear of the chat column's x 579; no page moves the window, 920 high on every one",
+                    Regex.IsMatch(rules0, @"(?m)^\.os-screen \.os-win\s*\{\s*horizontal-align:\s*right;\s*margin-right:\s*80px;") && Regex.IsMatch(rules0, @"(?m)^\.os-win\s*\{[^}]*width:\s*1240px;\s*height:\s*920px;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio16x10 \.os-screen \.os-win\s*\{\s*ui-scale:\s*90%;\s*margin-right:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio4x3 \.os-screen \.os-win\s*\{\s*ui-scale:\s*68%;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.AspectRatio21x9 \.os-screen \.os-win\s*\{\s*margin-right:\s*360px;") && !Regex.IsMatch(rules0, @"\.os-screen\.voting \.os-win\s*\{")
                     && !Regex.IsMatch(rules0, @"\.os-screen\.page-\w+ \.os-win\s*\{[^}]*(horizontal-align|margin)")
-                    && 1920 - 80 - 1240 >= 571 + 25 && 1728 - 8 - 0.92 * 1240 >= 571 + 6 && 1440 - 10 - 0.68 * 1240 >= 571 + 5 && !Regex.IsMatch(rules0, @"\.os-screen\.voting \.os-win\s*\{[^}]*width:"));
+                    && 1920 - 80 - 1240 >= 579 + 20 && 1728 - 8 - 0.90 * 1240 >= 579 + 20 && 1440 - 10 - 0.68 * 1240 >= 579 + 5);
                 Check($"Content {HudVersion.Content}: the ballot's tiles four across and three down - 4 x 285 + 3 x 10 in its 1,172 px, the fourth and eighth without the margin to wrap on - each with the vote's own number on its picture (os_m<k>_num), never in the browser",
-                    Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 92 + 6 + 26 <= 693
+                    Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;\s*margin:\s*0px 10px 8px 0px;") && 4 * 285 + 3 * 10 <= 1172 && 3 * (181 + 8) + 34 + 8 + 20 + 10 + 34 <= 920 - 3 - 76 - 49 - 45 - 16
                     && new[] { 4, 8 }.All(k => Regex.IsMatch(rules0, $@"(?m)^\.os-screen\.voting #os_m{k}\s*\{{\s*margin-right:\s*0px;")) && !Regex.IsMatch(rules0, @"#os_m(5|10)\s*\{")
                     && Enumerable.Range(1, HudMenu.Cards).All(k => noCommentsXml.Contains($"<Label id=\"{HudMenu.Card(k)}_rank\" class=\"os-mrank\" text=\"{{s:text}}\" />") && noCommentsXml.Contains($"<Label id=\"{HudMenu.Card(k)}_num\" class=\"os-mnum\" text=\"{{s:text}}\" />"))
                     && Regex.IsMatch(rules0, @"(?m)^\.os-mnum\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mnum\s*\{\s*visibility:\s*visible;")
                     && !Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mnum\s*\{") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mmode\s*\{\s*margin:\s*8px 0px 0px 46px;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mmode\s*\{[^}]*margin:\s*8px 0px 0px 8px;")); // the badges and the step aside only with the numbers (vnum)
-                Check($"Content {HudVersion.Content}: the ballot's header - the vote's state beside the title (Voting, Everybody voted on vall, Decided on vdone), how many have voted, how to vote by a click or with !vote and the number, and one clock: the limit's, the decision's once everybody has voted, the change's once decided; the strip hidden",
-                    new[] { ("os-vchip-voting", "Voting"), ("os-vchip-all", "Everybody voted"), ("os-vchip-done", "Decided") }.All(c => noCommentsXml.Contains($"<Label class=\"os-vchip-text {c.Item1}\" text=\"{c.Item2}\" />"))
-                    && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vall \.os-vchip-all\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vdone \.os-vchip-done\s*\{\s*visibility:\s*visible;")
-                    && Regex.IsMatch(noCommentsXml, @"<Label class=""os-vhow os-vhow-num"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />")
-                    && Regex.IsMatch(noCommentsXml, @"<Label class=""os-vhow os-vhow-plain"" text=""Click a card to vote[^""!]*!play[^""]*"" />") && !Regex.IsMatch(noCommentsXml, @"os-vhow-plain"" text=""[^""]*number")
+                Check($"Content {HudVersion.Content}: the ballot's header is the page bar every page has - Random, who has not voted (then what came of the vote) and the one clock: the limit's, the decision's once everybody has voted (vall), the change's once decided (vdone) - with how to vote under it, by a click or with !vote and the number; no title, no state chip, no count of its own (the tab says Vote, the clock's word the state); the strip hidden",
+                    !Regex.IsMatch(noCommentsXml + rules0, @"os-vote-title|os-vchip|os-vcount|os-vhead-main|os-vhead-top|os-vhead-row")
+                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhead"">\s*<Button id=""os_v_random"" class=""os-vbtn os-vrandom"">.*?</Button>\s*<Panel class=""os-vstrip"">.*?</Panel></Panel>\s*<Label class=""os-vwait"" text=""\{s:" + HudVote.WaitVar + @"\}"" />\s*<Panel class=""os-clocks"">", RegexOptions.Singleline)
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-vhead\s*\{[^}]*height:\s*34px;[^}]*flow-children:\s*right;[^}]*margin-bottom:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.os-mbar\s*\{[^}]*height:\s*34px;[^}]*margin-bottom:\s*8px;")
+                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhowbar"">\s*<Label class=""os-vhow os-vhow-num"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />\s*<Label class=""os-vhow os-vhow-plain"" text=""Click a card to vote[^""!]*!play[^""]*"" />\s*</Panel>")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-vhowbar\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-vhowbar\s*\{\s*visibility:\s*visible;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-vhow-num\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vnum \.os-vhow-num\s*\{\s*visibility:\s*visible;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vnum \.os-vhow-plain\s*\{\s*visibility:\s*collapse;")
-                    && noCommentsXml.Contains("<Label class=\"os-vchip-text os-vchip-fetch\" text=\"Downloading\" />") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vfetch \.os-vchip-fetch\s*\{\s*visibility:\s*visible;")
-                    && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vfetch \.os-clock-idle \.os-clock-bar\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vfetch \.os-clock-idle \.os-clock-text\s*\{\s*visibility:\s*visible;") && noCommentsXml.Contains($"<Label class=\"os-vcount\" text=\"{{s:{HudVote.LimitVar}}}\" />")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vfetch \.os-clock-idle \.os-clock-bar\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vfetch \.os-clock-idle \.os-clock-text\s*\{\s*visibility:\s*visible;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-clock-idle\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vall \.os-clock\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vall \.os-clock-idle\s*\{\s*visibility:\s*visible;")
+                    && Regex.IsMatch(rules0, @"(?m)^\.os-clocks\s*\{\s*width:\s*400px;\s*height:\s*100%;\s*\}") && Regex.IsMatch(rules0, @"(?m)^\.os-clock\s*\{\s*width:\s*100%;\s*height:\s*100%;")
                     && noCommentsXml.Contains("<Label class=\"os-clock-key os-clock-key-all\" text=\"Decided in\" />") && noCommentsXml.Contains($"<Label class=\"os-clock-key os-clock-key-done\" text=\"{{s:{HudVote.IdleKeyVar}}}\" />")
                     && noCommentsXml.Contains("<Label class=\"os-clock-key\" text=\"Ends in\" />") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vstrip \.os-vstrip\s*\{\s*visibility:\s*collapse;"));
             }
@@ -441,9 +445,9 @@ static partial class Program
                 && Modes.All.All(m => Regex.IsMatch(rules, $@"\.os-mcard\.mode-{m.Id} \.os-mmode-{m.Id}\s*\{{\s*visibility:\s*visible;") && noComments.Contains($"class=\"os-mmode os-mmode-{m.Id}\""))
                 && Regex.Matches(noComments, "class=\"os-mband\"").Count == HudMenu.Cards && noComments.Contains($"text=\"{{s:{HudVote.RandomVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.MoreVar}}}\"")
                 && noComments.Contains($"text=\"{{s:{HudVote.TabVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.LimitVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.IdleVar}}}\""));
-            // ---- the cards on their side: every tag in two lines beside the picture, ten on the ballot, eight in the browser ----
+            // ---- the cards on their side: every tag in two lines beside the picture, ten on the ballot, twelve in the browser ----
             Check($"The cards: {HudMenu.Cards} of them, each with its picture, the 15 tags of MapTags in their order (none but the mode label and the warning on the picture), a score and a line under the name; the browser shows {HudBrowser.PerPage}, the ballot {MapVote.PageCards}",
-                HudMenu.Cards == MapVote.PageCards && Enumerable.Range(1, HudMenu.Cards).All(k => ids.Contains(HudMenu.Card(k)) && ids.Contains($"{HudMenu.Card(k)}_score") && ids.Contains($"{HudMenu.Card(k)}_who"))
+                HudMenu.Cards == Math.Max(MapVote.PageCards, HudBrowser.PerPage) && Enumerable.Range(1, HudMenu.Cards).All(k => ids.Contains(HudMenu.Card(k)) && ids.Contains($"{HudMenu.Card(k)}_score") && ids.Contains($"{HudMenu.Card(k)}_who"))
                 && Regex.Matches(noComments, "class=\"os-mtags\"").Count == HudMenu.Cards && Regex.Matches(noComments, "class=\"os-mtag ").Count == HudMenu.Cards * MapTags.All.Length
                 && Regex.IsMatch(rules, @"\.os-mtags\s*\{[^}]*flow-children:\s*right-wrap;") && Regex.IsMatch(rules, @"\.os-screen\.voting \.os-mthumb\s*\{\s*width:\s*283px;")
                 && Regex.IsMatch(rules, @"\.os-mthumb\s*\{\s*width:\s*196px;") && Regex.IsMatch(rules, @"\.os-screen\.voting \.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;")
@@ -451,18 +455,23 @@ static partial class Program
                 && Enumerable.Range(1, HudMenu.Cards).All(k => noComments.Contains($"text=\"{{s:{HudVote.HoverVar(k)}}}\"")));
             // ---- content v4.14.0: the chat column, the pager's pulse on its buttons, the decided state without a countdown, the download, the browser's cards ----
             var noCommentsCss = rules;
-            Check($"Content v4.14.0: the chat column - {HudChat.Lines} lines in a panel at CS2's chat's place, from the screen's left edge (x 0-571: CS2's text starts left of its box's 18; the lines where they were), solid over CS2's whole chat area (route a1): down to y 1000 with the chat closed, its foot at 944 with it open (HUD_CHAT_VISIBLE) so CS2's typing line stays free, lifted with CS2's chat at a match end (meos: 722 and 666); under everything else on the screen; shown only while chaton, and kept by a beat (hb) that restarts an animation of 35 s, more than three of HudChat.BeatSeconds",
-                Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat"" hittest=""false"">")
-                && Enumerable.Range(1, HudChat.Lines).All(k => noComments.Contains($"<Panel id=\"{HudChat.Line(k)}\" class=\"os-chat-line\" hittest=\"false\"><Panel hittest=\"false\" /><Label id=\"{HudChat.Words(k)}\" hittest=\"false\" text=\"{{s:text}}\" /></Panel>"))
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{[^}]*visibility:\s*collapse;[^}]*width:\s*571px;[^}]*margin:\s*0px 0px 80px 0px;[^}]*opacity:\s*0;[^}]*border-radius:\s*0px 4px 4px 0px;[^}]*color-stop\(\s*0\.36,\s*#0A0D11FF\s*\),\s*to\(\s*#0A0D11FF\s*\)")
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*padding:\s*6px 12px 8px 28px;") && 0 + 28 == 18 + 10
-                && !Regex.IsMatch(noCommentsCss, @"\.os-chat\s*\{[^}]*#0A0D11F7") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win \.os-chat\s*\{[^}]*color-stop\(\s*0\.36,\s*#0A0D11FF\s*\),\s*to\(\s*#0A0D11FF\s*\)") // fully opaque over CS2's area: at 97% its newest lines read through
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat\s*\{\s*margin-bottom:\s*136px;") && 1080 - 80 == 1000 && 1080 - 136 == 944 && 600 * (1 - 0.36) >= 1000 - 617
+            Check($"Content v4.14.0: the chat column - {HudChat.Lines} lines, one id each, in a dock from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to just above CS2's typing line, x 0-579 over CS2's whole chat box (its text starts left of the box's 18, the box runs to 579), fully opaque from top to foot: down to y 1000 with CS2's chat closed, in a match and at a match end; with it open its foot at 952, above the typing line's box, and at 674 at a match end (meos, or the game's own classes for its end screen with the scoreboard); under everything else on the screen; shown only while chaton, and kept by a beat (hb) that restarts an animation of 35 s, more than three of HudChat.BeatSeconds; the pointer to CS2's line above it, pointing down",
+                Regex.IsMatch(noComments, @"<Panel id=""os_screen"" class=""os-screen"" hittest=""false"">\s*<Panel class=""os-chat-dock"" hittest=""false"">\s*<Panel class=""os-chat-top"" hittest=""false"" />\s*<Panel class=""os-chat"" hittest=""false"">\s*<Panel class=""os-chat-lines"" hittest=""false"">")
+                && Regex.IsMatch(noComments, @"</Panel>\s*</Panel>\s*<Panel class=""os-chat-foot"" hittest=""false"" />\s*</Panel>")
+                && Enumerable.Range(1, HudChat.Lines).All(k => noComments.Contains($"<Panel id=\"{HudChat.Line(k)}\" class=\"os-chat-line\" hittest=\"false\"><Panel hittest=\"false\" /><Label hittest=\"false\" text=\"{{s:text}}\" /></Panel>"))
+                && !noComments.Contains($"id=\"{HudChat.Line(HudChat.Lines + 1)}\"") && !Regex.IsMatch(noComments, @"os_chat_\d+_t") && HudChat.Lines * 23 >= 1000 - 80 - 14
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-dock\s*\{\s*width:\s*579px;\s*height:\s*100%;\s*horizontal-align:\s*left;\s*flow-children:\s*down;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-top\s*\{\s*width:\s*100%;\s*height:\s*80px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio16x10 \.os-chat-top\s*\{\s*height:\s*126px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-top\s*\{\s*height:\s*227px;")
+                && (1080 - 920) / 2 == 80 && Math.Abs((1080 - 0.90 * 920) / 2 - 126) < 0.5 && Math.Abs((1080 - 0.68 * 920) / 2 - 227) < 0.5
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat\s*\{\s*visibility:\s*collapse;\s*width:\s*100%;\s*height:\s*fill-parent-flow\(\s*1\s*\);\s*overflow:\s*clip;\s*opacity:\s*0;\s*border-radius:\s*0px 4px 4px 0px;\s*background-color:\s*#0A0D11;\s*\}")
+                && !Regex.IsMatch(noCommentsCss, @"\.os-chat\s*\{[^}]*gradient") && !Regex.IsMatch(noCommentsCss, @"\.os-screen\.win \.os-chat\s*\{") && !Regex.IsMatch(noCommentsCss, @"\.os-screen\.meos \.os-chat\s*\{")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-foot\s*\{\s*width:\s*100%;\s*height:\s*80px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-foot\s*\{\s*height:\s*128px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen\.meos \.os-chat-foot\s*\{\s*height:\s*406px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_ENDOFMATCH_VISIBLE\.HUD_SCOREBOARD_VISIBLE\.HUD_CHAT_VISIBLE \.os-screen \.os-chat-foot\s*\{\s*height:\s*406px;")
+                && 1080 - 80 == 1000 && 1080 - 128 == 952 && 1080 - 406 == 674 && 952 - 278 == 674
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton\.hb \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-a;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.chaton \.os-chat\s*\{\s*animation-name:\s*os-chat-beat-b;\s*animation-duration:\s*35s;") && 35 > 3 * HudChat.BeatSeconds
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.meos \.os-chat\s*\{\s*height:\s*520px;\s*margin-bottom:\s*358px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.HUD_CHAT_VISIBLE \.os-screen\.meos \.os-chat\s*\{\s*margin-bottom:\s*414px;")
-                && 1080 - 358 == 722 && 1080 - 414 == 666 && 520 * (1 - 0.36) >= 722 - 395 && 520 * (1 - 0.36) >= 666 - 339
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win \.os-chat\s*\{") && HudChat.KindClasses.All(c => Regex.IsMatch(noCommentsCss, $@"\.os-chat-line\.{c}\b")));
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*padding:\s*6px 12px 8px 28px;") && HudChat.KindClasses.All(c => Regex.IsMatch(noCommentsCss, $@"\.os-chat-line\.{c}\b"))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr\s*\{[^}]*margin:\s*0px 0px 136px 18px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chatptr-arrow\s*\{[^}]*rotateZ\(\s*-45deg\s*\);"));
             var chatTest = new HudChat();
             chatTest.Say("Alice", "CT", "gg all", teamOnly: false);
             chatTest.Say("Bob", "T", "rush b", teamOnly: true);
@@ -474,14 +483,14 @@ static partial class Program
             var column = HudChat.Column(ctView);
             Check("The chat column's lines (HudChat): a team line to its team alone, a server line for its one account or everybody, events and lines to everybody for all; the newest at the bottom, the rest empty above; each line's look by its sender's team, team, server or event",
                 ctView.Count == 4 && tView.Count == 4 && !ctView.Any(e => e.Text == "rush b") && tView.Any(e => e.Kind == HudChat.Kind.Team && e.Text == "rush b") && !tView.Any(e => e.Kind == HudChat.Kind.Server)
-                && column.Texts.Single(x => x.Id == HudChat.Words(HudChat.Lines)).Text == "Dan: hi"
-                && column.Texts.Single(x => x.Id == HudChat.Words(HudChat.Lines - 3)).Text == "Alice: gg all" && column.Texts.Single(x => x.Id == HudChat.Words(1)).Text == ""
+                && column.Texts.Single(x => x.Id == HudChat.Line(HudChat.Lines)).Text == "Dan: hi"
+                && column.Texts.Single(x => x.Id == HudChat.Line(HudChat.Lines - 3)).Text == "Alice: gg all" && column.Texts.Single(x => x.Id == HudChat.Line(1)).Text == ""
                 && column.Classes.Contains((HudChat.Line(HudChat.Lines - 3), "k-ct", true)) && column.Classes.Contains((HudChat.Line(HudChat.Lines - 2), "k-srv", true)) && column.Classes.Contains((HudChat.Line(HudChat.Lines - 1), "k-evt", true))
                 && column.Classes.Contains((HudChat.Line(1), "used", false)) && column.Classes.Contains((HudChat.Line(HudChat.Lines), "used", true))
                 && HudChat.Text(tView.Single(e => e.Kind == HudChat.Kind.Team)) == "(Team) Bob: rush b" && HudChat.Look(tView.Single(e => e.Kind == HudChat.Kind.Team)).SetEquals(["k-t", "k-team"])
                 && HudChat.Joined("Cara") == "Cara joined the game" && HudChat.Left("Cara") == "Cara left the game" && HudChat.TeamChanged("Cara", "CT") == "Cara joined the Counter-Terrorists");
-            Check("The chat column's route is the server's (the owner's 277): always (a1), only while the window is open (c), never (d) - the same stylesheet for all, so no content update; a1 by default",
-                HudChat.Default == HudChat.Route.Always && HudChat.Shows(HudChat.Route.Always, false) && HudChat.Shows(HudChat.Route.Always, true) && !HudChat.Shows(HudChat.Route.Window, false)
+            Check("The chat column's route is the server's (the owner's 277): always (a1), only while the window is open (c), never (d) - the same stylesheet for all, so no content update; c by default",
+                HudChat.Default == HudChat.Route.Window && HudChat.Shows(HudChat.Route.Always, false) && HudChat.Shows(HudChat.Route.Always, true) && !HudChat.Shows(HudChat.Route.Window, false)
                 && HudChat.Shows(HudChat.Route.Window, true) && !HudChat.Shows(HudChat.Route.Never, true));
             Check("The chat column's words go only to a game whose HUD check named v4.14.0 or later (HudChat.Feeds): none before the check, none to v4.13.0 or an unknown content - they would log \"Unable to find panel\" (the live lab, release 218: 36 of them)",
                 HudChat.Feeds("v4.14.0") && HudChat.Feeds("v4.15.0") && !HudChat.Feeds("") && !HudChat.Feeds("v4.13.0") && !HudChat.Feeds(HudVersion.Unknown) && !HudChat.Feeds(HudVersion.Older));
@@ -510,10 +519,13 @@ static partial class Program
                 && noComments.Contains($"<Panel id=\"{HudVote.DownloadBar}\" class=\"os-clock-bar\">") && noComments.Contains($"text=\"{{s:{HudVote.DownloadNumVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.DownloadVar}}}\"")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vdl \.os-vdl\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vdl \.os-clock\s*\{\s*visibility:\s*collapse;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vfetch \.os-mcard\.now \.os-mvbar-fill\s*\{") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win\.vfetch \.os-top\s*\{\s*visibility:\s*collapse;"));
-            Check("Content v4.14.0: the browser's cards in the vote's shape - 285 x 208, four across (the fourth and eighth without the margin to wrap on), the picture 283 x 112, one row of tags, Play along the foot, the likes and arrows on the picture; the ballot's tile stays one button over its card",
-                Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*208px;") && Regex.IsMatch(noCommentsCss, @"(?m)^#os_m4\s*\{\s*margin-right:\s*0px;") && Regex.IsMatch(noCommentsCss, @"(?m)^#os_m8\s*\{\s*margin-right:\s*0px;")
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mthumb\s*\{\s*width:\s*283px;\s*height:\s*112px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mplay\s*\{\s*width:\s*267px;\s*height:\s*28px;")
-                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.voting \.os-mplay\s*\{\s*margin:\s*0px;") && 4 * 285 + 3 * 10 <= 1172 && HudBrowser.PerPage == 8);
+            Check("Content v4.14.0: the browser's cards are the ballot's - 285 x 181, twelve a page, four across and three down (the fourth, eighth and twelfth without the margin to wrap on), the picture 283 x 112, one row of tags, the whole card its button with what a click does on the picture's right (its state there, not on the whole card), the likes and arrows on the picture; the ballot's words stay plain",
+                Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mcard\s*\{\s*width:\s*285px;\s*height:\s*181px;") && new[] { 4, 8, 12 }.All(k => Regex.IsMatch(noCommentsCss, $@"(?m)^#os_m{k}\s*\{{\s*margin-right:\s*0px;"))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mthumb\s*\{\s*width:\s*283px;\s*height:\s*112px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mplay\s*\{\s*width:\s*100%;\s*height:\s*100%;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mplay-text\s*\{[^}]*horizontal-align:\s*right;[^}]*margin:\s*84px 8px 0px 0px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.voting \.os-mplay-text\s*\{\s*padding:\s*0px;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-mbody\s*\{\s*width:\s*100%;\s*height:\s*fill-parent-flow\(\s*1\s*\);")
+                && 4 * 285 + 3 * 10 <= 1172 && HudBrowser.PerPage == 12 && HudMenu.Cards == 12 && Enumerable.Range(1, 12).All(k => ids.Contains(HudMenu.Card(k)) && ids.Contains($"{HudMenu.Card(k)}_play_text"))
+                && 34 + 8 + 34 + 10 + 3 * (181 + 8) + 34 <= 920 - 3 - 76 - 49 - 45 - 24);
 
             // ---- the menu's tabs and sub-tabs, the Players page, the version button, the outdated banner, the restart in the foot ----
             string[] rowTabs = ["os_tab_start", HudVote.BackButton, HudView.TabMaps, HudVote.BrowseButton, HudView.TabFun, HudBots.Tab, "os_sub_players", HudView.TabGame, HudDash.Tab, "os_tab_help", HudView.TabHow];
@@ -532,11 +544,11 @@ static partial class Program
             Check("The HUD check's version button is the window's X: its id names this content, and it stands in for the plain close button while the server does not know the version (vcheck)",
                 noComments.Contains($"<Button id=\"{HudVersion.Button(HudVersion.Content)}\" class=\"os-close os-hudver\">") && Regex.IsMatch(rules, @"\.os-screen\.vcheck \.os-hudver\s*\{\s*visibility:\s*visible;")
                 && Regex.IsMatch(rules, @"\.os-screen\.vcheck #os_btn_close\s*\{\s*visibility:\s*collapse;") && Regex.Matches(noComments, @"id=""os_hudver_").Count == 1);
-            Check("A restart coming shows in the window's foot, its words and its countdown; the freeze says so there too",
+            Check("A restart coming shows in the window's foot, its words and its countdown; nothing there says everybody is frozen - everybody sees it",
                 Regex.IsMatch(rules, @"\.os-global\.rst \.os-rstrip\s*\{\s*visibility:\s*visible;") && ids.Contains("os_rst_text") && ids.Contains("os_rst_secs")
                 && HudView.RestartCountdown(new HudState { RestartKind = "daily", RestartAt = 1793000030 }, DateTimeOffset.FromUnixTimeSeconds(1793000000).UtcDateTime) == "0:30"
                 && HudView.RestartCountdown(new HudState { RestartKind = "daily" }, now) == "After this match" && HudView.RestartCountdown(new HudState(), now) == ""
-                && Regex.IsMatch(rules, @"\.os-screen\.vlock \.os-foot-frozen\s*\{\s*visibility:\s*visible;"));
+                && !rules.Contains("os-foot-frozen", StringComparison.Ordinal) && !noComments.Contains("os-foot-frozen", StringComparison.Ordinal));
             Check("The menu window has no knife behind its pages any more", !Regex.IsMatch(rules, @"\.os-pages\s*\{[^}]*background-image"));
             Check("The popup draws above the window, and a click on it is its reason, nothing else",
                 noComments.IndexOf("class=\"os-win-foot\"", StringComparison.Ordinal) < whyFrom && whyFrom < noComments.IndexOf("class=\"os-topstack\"", StringComparison.Ordinal)
@@ -638,7 +650,7 @@ static partial class Program
                 && M.Plain(Fun.RandomLine("Remy", [])) == "Remy rolled: nothing changed" && M.Plain(Fun.RandomLine("Remy", everyChange)) is { Length: <= 200 } longLine && longLine.EndsWith(" more")
                 && M.Plain(Fun.DefaultLine("Remy")) == "Remy put every fun setting back to normal"
                 && M.Plain(Fun.RandomLine("Remy", [(Fun.Find("catchup")!, Fun.Find(Fun.Find("catchup")!, "off")!)])) == "Remy rolled: catch-up off");
-            // The Fun page's height (eighteen rows in two columns of nine): the pages have PagesHeight px (the window's 820 less
+            // The Fun page's height (eighteen rows in two columns of nine): the pages have PagesHeight px (the window's 920 less
             // its rule, head, tabs, sub-tabs and foot); the Fun page spends its padding, the note's line (about 1.3 times its type) and margin, and a column's rows
             // with their margins. A row holds its title line (the buttons' height, at least 1.3 times the title's type) over its words (1.3 times
             // their type).
