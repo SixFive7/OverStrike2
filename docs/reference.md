@@ -429,13 +429,17 @@ with nothing to use right now is greyed (`off`: Game while the match-end screen 
 stood in v4.13.0, right of CS2's chat; the window never moves from page to page. **The chat column** (`HudChat`) is our own chat history at CS2's chat's place,
 from just above its typing line (y 944, 1080 high) up toward the radar, there with the window open or closed: the plugin keeps the lines CS2's chat shows - every
 player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one player), joins, leaves and team
-changes - and draws each player's newest 18, the newest at the bottom, over CS2's own lines so none shows twice. CS2's own chat cannot be made taller or kept on
+changes - and draws each player's newest 18, the newest at the bottom, solid over CS2's whole chat area so none of CS2's own lines shows twice: down to y 1000
+with the chat closed (CS2 drops its lines 56 px when its typing line is hidden), its foot at y 944 with the chat open (`HUD_CHAT_VISIBLE`, CS2's own class), so
+CS2's typing line stays free; above CS2's area its background fades upward. CS2's own chat cannot be made taller or kept on
 screen: its history box is 327 px high in its own stylesheet, which ours cannot reach, and no setting a server may change keeps its lines. The column shows only
-while its feed is live (`chaton` on `os_screen`: the bridge answered in the last 15 s) and beats (`hb`, on and off by turns every 10 s, each turn restarting a
-35 s animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again; a game whose HUD check named a content
-before v4.14.0 gets none of its words (`HudChat.Level`). At a match end CS2 lifts its chat (y 674-722) and the column follows (`meos`: the game's phase); with
-the window closed its background fades upward. **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`):
-the inactivity timer's bar, reset by a moved vote, gets `snap` (0 s) for a frame before it refills, so only the countdown moves. **Decided with the change gone
+while its feed is live and it has a line for that player (`chaton` on `os_screen`: no failed poll in a row and an answer within 60 s - the bridge's long poll
+answers every 25 s at the least) and beats (`hb`, on and off by turns every 10 s, each turn restarting a
+35 s animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again; only a game whose HUD check named
+v4.14.0 or later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel". At a match end CS2 lifts its
+chat (y 674-722 open, down to 722 closed) and the column follows (`meos`: the game's phase). **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`):
+the inactivity timer's bar, reset by a moved vote, gets `snap` (0 s) for a frame before it refills, so only the countdown moves; its 0 s rules are by its id
+(`#os_vidle`), since its own 1 s is. **Decided with the change gone
 out at once** the clock says Changing now - no digits, no bar (`vnow`, `HudVote.ChangingNow`). **A winner downloading** shows its download in the window - its
 percent, its bar (`os_vdl`) and how much of how much, from the watcher's line (`HudVote.DownloadOf`) - and on its card in blue, and the top line's news of it
 stays away while the window shows it. **The browser's cards** are the vote's shape: 285 x 208, four across and two down, the picture on top with its rank, its

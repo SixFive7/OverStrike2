@@ -8001,8 +8001,20 @@ Label
 	animation-name: none;
 }
 
-/* -- a bar that steps up snaps (the owner's 3, HudFrame.Snapped): for one frame snap (0 s) is on, so the new step is taken from a 0 s state - at once -- */
+/* -- a bar that steps up snaps (the owner's 3, HudFrame.Snapped): for one frame snap (0 s) is on, so the new step is taken from a 0 s state - at once. The
+   inactivity bar's id rule gives its fill 1 s (#os_vidle .os-clock-fill, 1,1,0), which outranked the class rules (0,2,0) - the live lab's frames of release 218: its
+   reset climbed 34 to 64 px over 1.5 s, its first start 0 to 63 over 1.7 s - so it has its own snap and its own 0 s at rest, by its id too -- */
 .os-clock-bar.snap .os-clock-fill
+{
+	transition-duration: 0s;
+}
+
+#os_vidle.snap .os-clock-fill
+{
+	transition-duration: 0s;
+}
+
+#os_vidle.w0 .os-clock-fill
 {
 	transition-duration: 0s;
 }
@@ -8197,9 +8209,11 @@ Label
 	visibility: collapse;
 }
 
-/* -- the chat column (the owner's 2 and 8, HudChat): our own chat history at CS2's chat's place, x 18-571, from just above its typing line (y 944) up toward the
-   radar - over CS2's own lines, so none shows twice; the newest at the bottom; a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in
-   its sender's team's colour. It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that
+/* -- the chat column (the owner's 2 and 8, HudChat): our own chat history at CS2's chat's place, x 18-571, up toward the radar - solid over CS2's whole chat area
+   (route a1, the live lab's film of release 218: CS2's own lines showed through a fading background, and below the column): with the chat closed CS2 draws its
+   lines down to y 1000 (1080 high; its typing line hidden, the history drops 56 px), so the column reaches there; with it open (HUD_CHAT_VISIBLE, CS2's class) its
+   history stands at y 617-944 over the typing line at 952-1000, so the column stops at 944 and the typing line stays free. Above CS2's area its background fades
+   upward. The newest line at the bottom; a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour. It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that
    hides the column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. At a match end CS2 lifts its chat (to y 674-722),
    and the column follows (meos). With the window closed its background fades away upward, so it covers the game less -- */
 @keyframes 'os-chat-beat-a'
@@ -8220,14 +8234,19 @@ Label
 {
 	visibility: collapse;
 	width: 553px;
-	height: 560px;
+	height: 600px;
 	horizontal-align: left;
 	vertical-align: bottom;
-	margin: 0px 0px 136px 18px;
+	margin: 0px 0px 80px 18px;
 	overflow: clip;
 	opacity: 0;
 	border-radius: 4px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.45, #0A0D1173 ), to( #0A0D11E6 ) );
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.3, #0A0D11B3 ), color-stop( 0.36, #0A0D11F7 ), to( #0A0D11F7 ) );
+}
+
+.HUD_CHAT_VISIBLE .os-screen .os-chat
+{
+	margin-bottom: 136px;
 }
 
 .os-screen.chaton .os-chat
@@ -8253,13 +8272,18 @@ Label
 
 .os-screen.meos .os-chat
 {
-	height: 400px;
+	height: 520px;
+	margin-bottom: 358px;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.meos .os-chat
+{
 	margin-bottom: 414px;
 }
 
 .os-screen.win .os-chat
 {
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D11A6 ), to( #0A0D11EB ) );
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D11A6 ), color-stop( 0.36, #0A0D11F7 ), to( #0A0D11F7 ) );
 }
 
 .os-chat-lines
