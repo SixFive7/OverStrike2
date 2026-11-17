@@ -3,7 +3,7 @@
 // player's page from the catalog, and puts it on screen through HudMenu's texts and classes. Plain BCL only.
 //
 // Every click is a server round trip, so all of this is cheap on purpose: sorting and filtering ~1,000 entries is well under a
-// millisecond, a page is 8 cards, and the plugin sends only what changed.
+// millisecond, a page is 12 cards, and the plugin sends only what changed.
 using System.Globalization;
 
 /// <summary>One player's view of the map browser: sort, filters, search and page, plus a risky map's first click waiting for the second (per
@@ -14,7 +14,7 @@ public sealed class HudBrowser
     public enum SortBy { Rank, Votes, Name, Size }
     public enum Band { All, Tiny, Small, Mid, Large }
 
-    public const int PerPage = 8;            // the browser's cards: two columns of four (the ballot's page is MapVote.PageCards)
+    public const int PerPage = 12;           // the browser's cards: four across and three down, the ballot's shape (its page is MapVote.PageCards)
     public const double ConfirmSeconds = 30; // the bridge's own window for confirming a broken or crashed map
 
     /// <summary>The size chips: under 25 MB, 25-120, 120-400, 400 MB and up.</summary>
@@ -164,7 +164,7 @@ public sealed class HudBrowser
     /// <summary>This player's pages for that many matches.</summary>
     public int PagesFor(int count) => Pages(count, PerPage);
 
-    /// <summary>This player's page: the entries on it (eight; fewer on the last) after clamping the page number to what exists.</summary>
+    /// <summary>This player's page: the entries on it (PerPage; fewer on the last) after clamping the page number to what exists.</summary>
     public List<HudCatalog.Entry> PageOf(List<HudCatalog.Entry> matches)
     {
         Page = Math.Clamp(Page, 0, PagesFor(matches.Count) - 1);

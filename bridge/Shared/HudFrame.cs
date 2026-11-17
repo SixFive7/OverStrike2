@@ -36,9 +36,10 @@ public sealed class HudFrame
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
         bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs,
         VoteState? BarVote = null, HudState? BarState = null, HudChat? Chat = null, bool ChatLive = false, bool MatchScreen = false, HudVote.Download? Download = null,
-        HudChat.Route ChatRoute = HudChat.Default);
+        HudChat.Route ChatRoute = HudChat.Default, bool ChatLift = false);
     // Chat, ChatLive: the chat column's lines and whether its feed is live - the plugin's frames run and the bridge answers (content v4.14.0, HudChat); MatchScreen:
-    // the match-end screen is up (the game's phase), when CS2 lifts its chat and the column follows; Download: a winner's download, as the watcher's line says it.
+    // the match-end screen is up (the game's phase); ChatLift: CS2 has lifted its chat for it - the phase ended a while ago, as CS2 lifts it only once its screen
+    // shows the scoreboard - so with CS2's chat open the column's foot follows its typing line up (meos); Download: a winner's download, as the watcher's line says it.
     // BarVote, BarState: the vote and the state as of HudVote.BarLeadMs from now, for the countdowns' bars alone (their words stay as of now); null: as of now.
 
     int latestSent; // the level of the latest-N class on os_global: turned off when it moves
@@ -197,8 +198,8 @@ public sealed class HudFrame
     }
 
     /// <summary>The chat column for one player (content v4.14.0, HudChat): the newest lines they may see, the newest at the bottom, and on os_screen whether it
-    /// shows (chaton: its feed is live), its beat (hb, on and off by turns every HudChat.BeatSeconds, which keeps the stylesheet's animation from hiding it) and the
-    /// match-end screen (meos: CS2's chat stands higher then, and the column with it). Only a game whose HUD check named v4.14.0 or later gets the column's words
+    /// shows (chaton: its feed is live), its beat (hb, on and off by turns every HudChat.BeatSeconds, which keeps the stylesheet's animation from hiding it) and
+    /// CS2's chat lifted for the match-end screen (meos: with it open the column's foot follows its typing line up). Only a game whose HUD check named v4.14.0 or later gets the column's words
     /// (HudChat.Feeds) - any other the classes on os_screen alone, which every content has - and the column shows only once it has a line for that player.</summary>
     static void ChatColumn(World w, Human h, IScreen screen, bool windowOpen)
     {
@@ -207,7 +208,7 @@ public sealed class HudFrame
         var shown = fed ? w.Chat!.For(h.Account, h.Team) : [];
         screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && shown.Count > 0 && HudChat.Shows(w.ChatRoute, windowOpen), slot); // no line yet (a plugin just loaded): CS2's own chat shows meanwhile
         screen.Class(HudView.Screen, "hb", HudChat.BeatA(w.Now), slot);
-        screen.Class(HudView.Screen, "meos", w.MatchScreen, slot);
+        screen.Class(HudView.Screen, "meos", w.ChatLift, slot);
         if (!fed) return;
         var (texts, classes) = HudChat.Column(shown);
         foreach (var (id, text) in texts) screen.Text(id, text, slot);

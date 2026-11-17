@@ -48,9 +48,10 @@ sealed partial class HudScreen
 
         drawing.Clear();
         foreach (var p in humans) drawing[p.Slot] = p;
+        var matchScreen = MatchScreen();
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
             FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs), // the bars a step ahead (HudVote.BarLeadMs)
-            chat, ChatLive(now), MatchScreen(), download is { } d && now < d.Until ? d.Download : null, chatRoute);
+            chat, ChatLive(now), matchScreen, download is { } d && now < d.Until ? d.Download : null, chatRoute, ChatLift(matchScreen, now));
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
         MarkChanged();
     }
@@ -71,6 +72,21 @@ sealed partial class HudScreen
     }
 
     CCSGameRulesProxy? rulesProxy;
+
+    /// <summary>Whether CS2 has lifted its chat for the match-end screen: the phase has been Ended for ChatLiftSeconds. CS2 lifts it only once that screen shows its
+    /// scoreboard, a second or two after the phase changes - the column lifted with the phase while CS2's fresh line still stood below it (the live lab's film of
+    /// release 218, 82.2-82.7 s) - so with CS2's chat open the column's foot follows its typing line up a moment after it has moved (meos), and at once where the
+    /// game names that moment itself (the stylesheet: HUD_ENDOFMATCH_VISIBLE with HUD_SCOREBOARD_VISIBLE). With CS2's chat closed the column runs down to y 1000
+    /// in every state, so it covers CS2's lines at either height.</summary>
+    bool ChatLift(bool matchScreen, DateTime now)
+    {
+        if (!matchScreen) { matchEndAt = null; return false; }
+        matchEndAt ??= now;
+        return now - matchEndAt.Value >= TimeSpan.FromSeconds(ChatLiftSeconds);
+    }
+
+    DateTime? matchEndAt;
+    const int ChatLiftSeconds = 3;
 
     /// <summary>The chat column's route (HudChat.Route): the plugin's default, or os_hud chat's until the plugin reloads.</summary>
     HudChat.Route chatRoute = HudChat.Default;

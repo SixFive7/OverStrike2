@@ -105,7 +105,8 @@ static partial class Program
             && HudVote.Click(onRandom, HudVote.RandomButton, 0, 1001) == null && HudVote.Click(onRandom, "os_m1_play", 0, 1001) == MapVote.Click(r, 1)
             && HudVote.Click(twelve, "os_m1_play", 0, 1002) == null && HudVote.Click(twelve, "os_m4_play", 0, 1002) == MapVote.Click(r, 4)
             && HudVote.Click(twelve, "os_m1_play", 0) == MapVote.Click(r, 1) && HudVote.Click(decided, "os_m1_play", 0, 1003) == null
-            && HudVote.CardOf("os_m10_play") == 10 && HudVote.CardOf("os_m11_play") == 0 && HudVote.CardOf("os_m1_up") == 0 && HudVote.CardOf(HudVote.RandomButton) == 0 && HudVote.CardOf("os_m_play") == 0);
+            && HudVote.CardOf("os_m12_play") == 12 && HudVote.CardOf("os_m13_play") == 0 && HudVote.Click(twelve, "os_m11_play", 0, 1001) == null && HudVote.Click(twelve, "os_m12_play", 0, 1002) == null
+            && HudVote.CardOf("os_m1_up") == 0 && HudVote.CardOf(HudVote.RandomButton) == 0 && HudVote.CardOf("os_m_play") == 0);
         var cards = HudVote.Cards(twelve, 1001, null);
         Check("...the cards drawn in her view: card 1 is her vote's (Your vote, lit), the rest by the bridge's order; the hint says her vote comes first and moves, never that it goes back",
             cards.Texts.Single(x => x.Id == "os_m1_name").Text == "map 12" && cards.Texts.Single(x => x.Id == "os_m1_play_text").Text == "Your vote"
