@@ -161,6 +161,7 @@ public static class HudVote
 
     public static ClockWords Clocks(VoteState v) =>
         !v.Open && v.Fetching ? new("", "", DoneKey(v), "", FetchingNote)
+        : ChangingNow(v) ? new("", "", DoneKey(v), "", "")
         : !v.Open ? new("", "", DoneKey(v), $"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", "")
         : new($"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", $"{v.Cast} of {v.Present} voted", "Inactivity timer",
             v.Inactivity > 0 ? $"{v.Inactivity.ToString(CultureInfo.InvariantCulture)} s" : "",
@@ -168,7 +169,26 @@ public static class HudVote
 
     /// <summary>What the countdown of a decided vote counts to: the map change, the next match on the map played again (NextMatch.cs), or the window's close - or,
     /// for a winner still to download, no countdown: the map changes the moment it is in (VoteState.Fetching).</summary>
-    public static string DoneKey(VoteState v) => v.Fetching ? "Downloading" : v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : "Changing in";
+    public static string DoneKey(VoteState v) => v.Fetching ? "Downloading" : v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : ChangingNow(v) ? "Changing now" : "Changing in";
+
+    /// <summary>A decision for another map whose change has gone out at once, with no countdown (the bridge since release 218's vote: the change goes the moment the
+    /// vote is decided, and the window stays until the map starts): decided, not kept, nothing to download, no end time. The window says Changing now - no digits,
+    /// no bar (vnow on os_screen, content v4.14.0).</summary>
+    public static bool ChangingNow(VoteState v) => !v.Open && v.Result != null && !v.Kept && !v.Fetching && v.EndsAtMs <= 0 && v.SecondsLeft <= 0;
+
+    /// <summary>A winner's download to the server as the restart watcher's line gives it (HudScreen.Notice): its percent, and how much of how much ("438 MB", "711 MB").
+    /// The window shows it while the vote waits for that map (VoteState.Fetching), and the winner's card its line (content v4.14.0).</summary>
+    public sealed record Download(int Percent, string Done, string Total);
+
+    /// <summary>The download's words and its bar, on os_screen: the percent's digits, how much of how much; the bar os_vdl, filled by w0 ... w10.</summary>
+    public const string DownloadNumVar = "osvdlp", DownloadVar = "osvdlm", DownloadBar = "os_vdl";
+
+    /// <summary>The watcher's download line read: "Server is downloading Assembly: 61 percent (438 MB of 711 MB) - ..." - null for any other line, or one with no percent.</summary>
+    public static Download? DownloadOf(string line)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(line ?? "", @"^Server is downloading [^\n]*?: (\d{1,3}) percent \(([^()]+?) of ([^()]+?)\)");
+        return m.Success ? new Download(Math.Clamp(int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), 0, 100), m.Groups[2].Value.Trim(), m.Groups[3].Value.Trim()) : null;
+    }
 
     /// <summary>The first content with the cards' numbers (os_m&lt;k&gt;_num, content v4.13.0, level 55): a game whose HUD check named an older one gets none of them,
     /// since it has no label for them and would log "Unable to find panel" for each (release 193); any other game gets them - the content it holds may be newer
@@ -209,7 +229,7 @@ public static class HudVote
     /// choice lit (confirm), the winner once decided (now); the header's clocks and the page line where the other cards are. Random's button and the
     /// hint for the other pages are variables on os_screen, and the pager's classes on os_screen too. perPage: that player's page size.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
-        VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards, VoteState? bars = null)
+        VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards, VoteState? bars = null, Download? download = null)
     {
         v = v.ForPlayer(account);
         var b = bars ?? v; // the two clocks' bars: the vote as of HudVote.BarLeadMs from now (the frame's BarVote), its words as of now
@@ -224,6 +244,7 @@ public static class HudVote
         var shown = PageOptions(v, page, perPage);
         var rest = maps.Count - (page + 1) * perPage;
         t.Add(("os_m_count", done && v.Fetching ? $"{DoneLine(v)} - {DoneKey(v)}: {FetchingNote.ToLowerInvariant()}"
+            : done && ChangingNow(v) ? $"{DoneLine(v)} - {DoneKey(v)}"
             : done ? $"{DoneLine(v)} - {DoneKey(v)} {v.SecondsLeft} s"
             : v.Inactivity > 0 ? $"Everybody has voted  ·  {InactivityLine(v)}"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  Waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
@@ -239,6 +260,12 @@ public static class HudVote
         c.Add((HudView.Screen, "vall", v.Open && v.Inactivity > 0)); // everybody has voted: the inactivity timer counts to the decision (content v4.13.0's state and clock)
         c.Add((HudView.Screen, "vnum", true));                       // the cards' numbers (os_m<k>_num) are this vote's: content v4.13.0 shows them only then
         c.Add((HudView.Screen, "vfetch", done && v.Fetching));       // a winner still to download: content v4.13.0's state says Downloading, its clock the note, no digits
+        c.Add((HudView.Screen, "vnow", done && ChangingNow(v)));     // the change went out at once: content v4.14.0's clock says Changing now, no digits, no bar
+        var fetching = done && v.Fetching ? download : null;          // its download's progress, in the window and on the winner's card (content v4.14.0)
+        c.Add((HudView.Screen, "vdl", fetching != null));
+        c.AddRange(StepClasses(DownloadBar, fetching == null ? "w0" : Share(fetching.Percent, 100)));
+        w.Add((DownloadNumVar, fetching == null ? "" : $"{fetching.Percent.ToString(CultureInfo.InvariantCulture)}%"));
+        w.Add((DownloadVar, fetching == null ? "" : $"{fetching.Done} of {fetching.Total}"));
         c.Add((HudView.Screen, "vlow", v.Open && v.SecondsLeft <= LowSeconds));
         c.Add((HudView.Screen, "vpages", pages > 1));
         c.Add((HudView.Screen, "vmore", rest > 0));
@@ -282,7 +309,8 @@ public static class HudVote
             c.Add((id, "ours", o != null && (HasTag(o.Tags, MapTags.Ours) || catalog?.Find(o.Key) is { Ours: true })));
             c.AddRange(CardModeClasses(id, o?.Mode));                                     // the mode's label and colour
             c.AddRange(TagClassesOf(id, o?.Tags));                                         // the rest of its tags
-            c.AddRange(ShareClasses(id, o?.Votes ?? 0, v.Cast));                         // its share of the votes, as a bar
+            c.AddRange(fetching != null && o != null && v.Result?.N == o.N ? StepClasses(id, Share(fetching.Percent, 100)) // the winner downloading: its bar is the download's
+                : ShareClasses(id, o?.Votes ?? 0, v.Cast));                                // its share of the votes, as a bar
             c.Add((id, "vhas", o != null && o.Votes > 0));                                // its voters' names show
             c.Add((id, "vlead", o != null && most > 0 && o.Votes == most && !tied));
             c.Add((id, "vtie", o != null && most > 0 && o.Votes == most && tied));

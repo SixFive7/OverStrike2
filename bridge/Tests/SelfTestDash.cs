@@ -256,8 +256,8 @@ static partial class Program
         Check($"...every class it can send has a rule ({sentClasses.Count}){(unstyled.Count > 0 ? ": none for " + string.Join(", ", unstyled) : "")}", unstyled.Count == 0);
         Check($"...{sentClasses.Count} class names at most, well inside the 1,024 the game takes for the whole HUD", sentClasses.Count <= 160);
         var pageButtons = Regex.Matches(syncPage, @"<Button\b[^>]*\bid=""([^""]+)""").Select(m => m.Groups[1].Value).Append(HudDash.Tab).ToHashSet();
-        Check("...its buttons are exactly the sub-tab and the pagers the plugin pages (HudDash.LayoutButtons), and nothing else on the page has an id",
-            pageButtons.SetEquals(HudDash.LayoutButtons) && Regex.Matches(syncPage, @"\bid=""").Count == HudDash.LayoutButtons.Length - 1 && xml.Contains($"<Button id=\"{HudDash.Tab}\" class=\"os-stab\">"));
+        Check("...its buttons are exactly the tab and the pagers the plugin pages (HudDash.LayoutButtons), and nothing else on the page has an id",
+            pageButtons.SetEquals(HudDash.LayoutButtons) && Regex.Matches(syncPage, @"\bid=""").Count == HudDash.LayoutButtons.Length - 1 && xml.Contains($"<Button id=\"{HudDash.Tab}\" class=\"os-tab\">"));
         Check($"...a row for each line of a page: {SyncWords.QueueRows} in the queue, {SyncWords.RunRows} runs, {SyncWords.MapRows} map events",
             Regex.Matches(syncPage, @"class=""os-dqrow os-dq\d""").Count == SyncWords.QueueRows && Regex.Matches(syncPage, @"class=""os-drrow os-dr\d""").Count == SyncWords.RunRows
             && Regex.Matches(syncPage, @"class=""os-dmrow os-dm\d""").Count == SyncWords.MapRows);

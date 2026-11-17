@@ -822,12 +822,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 56 up it is newer than this one (v4.13.0), and the banner stays while it is. */
-.os-global.latest-56 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 57 up it is newer than this one (v4.14.0), and the banner stays while it is. */
 .os-global.latest-57 .os-outdated
 {
 	visibility: visible;
@@ -1043,7 +1038,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 54 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 55 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1115,6 +1110,11 @@ Label
 }
 
 .os-global.latest-54 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-55 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -3577,42 +3577,12 @@ Label
 	visibility: collapse;
 }
 
-.os-screen.page-bots #os_tab_fun
-{
-	border-bottom: 2px solid os-gold;
-}
-
-.os-screen.page-bots #os_tab_fun .os-tab-text
-{
-	color: #FFFFFF;
-}
-
-.os-screen.page-fun .os-subs-fun
-{
-	visibility: visible;
-}
-
-.os-screen.page-bots .os-subs-fun
-{
-	visibility: visible;
-}
-
 .os-screen.page-fun #os_sub_fun
 {
 	background-color: #E9B44C2E;
 }
 
 .os-screen.page-fun #os_sub_fun .os-stab-text
-{
-	color: os-gold-hi;
-}
-
-.os-screen.page-bots #os_tab_bots
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-bots #os_tab_bots .os-stab-text
 {
 	color: os-gold-hi;
 }
@@ -5807,16 +5777,6 @@ Label
 	color: #FFFFFF;
 }
 
-.os-screen.page-how #os_tab_help
-{
-	border-bottom: 2px solid os-gold;
-}
-
-.os-screen.page-how #os_tab_help .os-tab-text
-{
-	color: #FFFFFF;
-}
-
 /* -- the sub-tabs: a segmented row under the tabs, and what the page is for at its right -- */
 
 .os-subs
@@ -5827,46 +5787,6 @@ Label
 	padding: 0px 34px;
 	border-bottom: 1px solid os-line;
 	background-color: #FFFFFF04;
-}
-
-.os-subs-group
-{
-	visibility: collapse;
-	height: 28px;
-	vertical-align: center;
-	flow-children: right;
-	border-radius: 3px;
-	border: 1px solid #FFFFFF1F;
-}
-
-.os-screen.page-maps .os-subs-maps
-{
-	visibility: visible;
-}
-
-.os-screen.page-players .os-subs-server
-{
-	visibility: visible;
-}
-
-.os-screen.page-game .os-subs-server
-{
-	visibility: visible;
-}
-
-.os-screen.page-sync .os-subs-server
-{
-	visibility: visible;
-}
-
-.os-screen.page-help .os-subs-help
-{
-	visibility: visible;
-}
-
-.os-screen.page-how .os-subs-help
-{
-	visibility: visible;
 }
 
 .os-stab
@@ -5905,79 +5825,9 @@ Label
 }
 
 /* MAPS, Vote exists only while a vote is on; MAPS, Browse is lit while the browser shows. */
-.os-stab-vote
-{
-	visibility: collapse;
-}
-
-.os-screen.voting .os-stab-vote
-{
-	visibility: visible;
-}
-
-.os-screen.vbrowse .os-stab-vote
-{
-	visibility: visible;
-}
-
-.os-screen.page-maps #os_v_browse
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-maps #os_v_browse .os-stab-text
-{
-	color: os-gold-hi;
-}
-
 .os-screen.voting #os_v_browse
 {
-	background-color: #00000000;
-}
-
-.os-screen.voting #os_v_browse .os-stab-text
-{
-	color: os-dim;
-}
-
-.os-screen.voting #os_v_back
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.voting #os_v_back .os-stab-text
-{
-	color: os-gold-hi;
-}
-
-.os-screen.page-players #os_sub_players
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-players #os_sub_players .os-stab-text
-{
-	color: os-gold-hi;
-}
-
-.os-screen.page-game #os_tab_game
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-game #os_tab_game .os-stab-text
-{
-	color: os-gold-hi;
-}
-
-.os-screen.page-sync #os_tab_sync
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-sync #os_tab_sync .os-stab-text
-{
-	color: os-gold-hi;
+	border-bottom: 2px solid #00000000;
 }
 
 .os-screen.page-help #os_sub_help
@@ -5986,16 +5836,6 @@ Label
 }
 
 .os-screen.page-help #os_sub_help .os-stab-text
-{
-	color: os-gold-hi;
-}
-
-.os-screen.page-how #os_tab_how
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-how #os_tab_how .os-stab-text
 {
 	color: os-gold-hi;
 }
@@ -6142,7 +5982,7 @@ Label
 	color: os-faint;
 }
 
-/* -- the cards on their side: the band of the mode, the picture, then the name and every tag that applies in two lines; the browser's eight are
+/* -- the cards, upright from content v4.14.0 (below): before it, on their side: the band of the mode, the picture, then the name and every tag that applies in two lines; the browser's eight are
    577 x 110 with a 196 x 110 picture (two of them and 14 px between fill the page's 1,172 px, borders and all). The ballot's ten stand upright, below -- */
 
 .os-grid-row
@@ -6686,15 +6526,7 @@ Label
 
 .os-pgb-glow
 {
-	width: 100%;
-	height: 100%;
-	border-radius: 3px;
-	background-color: #E9B44C40;
-	opacity: 0;
-	animation-name: os-pgpulse;
-	animation-duration: 1.6s;
-	animation-timing-function: ease-in-out;
-	animation-iteration-count: infinite;
+	visibility: collapse;
 }
 
 .os-pgb.off .os-pgb-glow
@@ -6707,30 +6539,29 @@ Label
 	horizontal-align: center;
 }
 
-/* -- MAPS docks right of CS2's chat (content v4.13.0): the chat stands at x 18-571 at every aspect (styles/hud/hudchat.css: 553 px and its margins), its line at y 952-1000
-   in a match and higher at a match end (y 674-722), and this window covered it there - nobody saw what they typed during a vote, nor the replies (the live lab's movie,
-   2026-11-13). Both of MAPS' sub-tabs, Vote and Browse, keep their left edge at about 600 (1080 high): 16:9 right-aligned, 16:10 and 4:3 scaled to fit there, 21:9 in
-   the middle of the room right of the chat. The other pages stay in the middle. -- */
+/* -- Every page beside CS2's chat (content v4.14.0; MAPS alone in v4.13.0): the chat stands at x 18-571 at every aspect (styles/hud/hudchat.css: 553 px and its
+   margins), its line at y 952-1000 in a match and higher at a match end (y 674-722), and the chat column over it (os-chat). The window never moves from page to page:
+   its left edge stays at about 600 (1080 high) - 16:9 right-aligned, 16:10 and 4:3 scaled to fit there, 21:9 in the middle of the room right of the chat. -- */
 
-.os-screen.page-maps .os-win
+.os-screen .os-win
 {
 	horizontal-align: right;
 	margin-right: 80px;
 }
 
-.AspectRatio16x10 .os-screen.page-maps .os-win
+.AspectRatio16x10 .os-screen .os-win
 {
 	ui-scale: 92%;
 	margin-right: 20px;
 }
 
-.AspectRatio4x3 .os-screen.page-maps .os-win
+.AspectRatio4x3 .os-screen .os-win
 {
 	ui-scale: 68%;
 	margin-right: 10px;
 }
 
-.AspectRatio21x9 .os-screen.page-maps .os-win
+.AspectRatio21x9 .os-screen .os-win
 {
 	margin-right: 360px;
 }
@@ -7977,4 +7808,541 @@ Label
 .os-wl.cat-you #os_wl_eyebrow
 {
 	color: #F1EDE5;
+}
+
+/* ==================================================================================================================================================
+   content v4.14.0: one row of tabs, every page beside the chat, the chat column, the pager's pulse on its buttons, the decided state without a
+   countdown, the download in the window, the browser's cards in the vote's shape
+   ================================================================================================================================================== */
+
+/* -- the head: the title and its tagline; the mode and the map count under them go (the owner's 4) -- */
+.os-subtitle
+{
+	visibility: collapse;
+}
+
+/* -- one row of tabs (the owner's 4): every page a tab; Vote only while a vote is on, with a live dot, and Maps then the browser that adds to it; the sub-tab bar
+   goes. A tab that has nothing to use right now is greyed (off): Game while the match-end screen is up, Sync while the server has no sync's block -- */
+.os-subs
+{
+	visibility: collapse;
+	height: 0px;
+}
+
+.os-tab
+{
+	padding: 0px 17px;
+}
+
+#os_v_back
+{
+	visibility: collapse;
+	flow-children: right;
+}
+
+.os-screen.voting #os_v_back
+{
+	visibility: visible;
+}
+
+.os-screen.vbrowse #os_v_back
+{
+	visibility: visible;
+}
+
+#os_v_browse
+{
+	visibility: collapse;
+}
+
+.os-screen.voting #os_v_browse
+{
+	visibility: visible;
+}
+
+.os-screen.vbrowse #os_v_browse
+{
+	visibility: visible;
+}
+
+.os-screen.voting #os_tab_maps
+{
+	visibility: collapse;
+}
+
+.os-screen.vbrowse #os_tab_maps
+{
+	visibility: collapse;
+}
+
+@keyframes 'os-livedot'
+{
+	0% { opacity: 1; }
+	50% { opacity: 0.35; }
+	100% { opacity: 1; }
+}
+
+#os_v_back Panel
+{
+	width: 8px;
+	height: 8px;
+	vertical-align: center;
+	margin-right: 8px;
+	border-radius: 4px;
+	background-color: #F07C6B;
+	animation-name: os-livedot;
+	animation-duration: 1.4s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.os-tab.off
+{
+	opacity: 0.35;
+}
+
+.os-screen.voting #os_v_back
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.voting #os_v_back .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.vbrowse #os_v_browse
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.vbrowse #os_v_browse .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.page-bots #os_tab_bots
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-bots #os_tab_bots .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.page-players #os_sub_players
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-players #os_sub_players .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.page-game #os_tab_game
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-game #os_tab_game .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.page-sync #os_tab_sync
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-sync #os_tab_sync .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.page-how #os_tab_how
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-how #os_tab_how .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+/* -- the pager (the owner's 1): Next pulses while more pages follow and Prev while this is not the first page - the button itself, its border and its fill; its words
+   stay still (before this a gold panel behind the words pulsed, the size of the words alone, so the words seemed to flash) -- */
+@keyframes 'os-pgpulse-btn'
+{
+	0% { border: 1px solid #FFFFFF1A; background-color: #FFFFFF08; }
+	50% { border: 1px solid #E9B44CCC; background-color: #E9B44C33; }
+	100% { border: 1px solid #FFFFFF1A; background-color: #FFFFFF08; }
+}
+
+#os_pg_next
+{
+	animation-name: os-pgpulse-btn;
+	animation-duration: 1.6s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+#os_pg_prev
+{
+	animation-name: os-pgpulse-btn;
+	animation-duration: 1.6s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.os-pgb.off
+{
+	animation-name: none;
+}
+
+/* -- a bar that steps up snaps (the owner's 3, HudFrame.Snapped): for one frame snap (0 s) is on, so the new step is taken from a 0 s state - at once -- */
+.os-clock-bar.snap .os-clock-fill
+{
+	transition-duration: 0s;
+}
+
+/* -- decided, the change gone out at once (vnow, HudVote.ChangingNow): the clock says Changing now - no digits, no bar -- */
+.os-screen.vnow .os-clock-idle .os-clock-big
+{
+	visibility: collapse;
+}
+
+.os-screen.vnow .os-clock-idle .os-clock-bar
+{
+	visibility: collapse;
+}
+
+.os-screen.vnow .os-clock-key-done
+{
+	width: 300px;
+	font-size: 16px;
+	letter-spacing: 2px;
+	color: #FFFFFF;
+}
+
+/* -- a winner still to download, with its download known (vdl, the owner's 7): in the clock's place its percent, its bar and how much of how much; the winner's card
+   shows the same bar along its picture's foot, in blue. The top line's news of it stays away while the window shows it -- */
+.os-vdl
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: down;
+}
+
+.os-screen.vdl .os-vdl
+{
+	visibility: visible;
+}
+
+.os-screen.vdl .os-clock
+{
+	visibility: collapse;
+}
+
+#os_vdl .os-clock-fill
+{
+	transition-duration: 1s;
+	background-color: #5BA7E6;
+}
+
+.os-vdl .os-clock-big
+{
+	width: 76px;
+	font-size: 30px;
+	color: #FFFFFF;
+}
+
+.os-vdl .os-clock-bar
+{
+	width: 180px;
+}
+
+.os-vdl-mb
+{
+	margin-left: 84px;
+	font-size: 13px;
+	color: os-dim;
+}
+
+.os-screen.vfetch .os-mcard.now .os-mvbar-fill
+{
+	background-color: #5BA7E6;
+}
+
+.os-screen.win.vfetch .os-top
+{
+	visibility: collapse;
+}
+
+/* -- the browser's cards in the vote's shape (the owner's 9): eight, four across and two down, 285 x 208 - the band on top, the picture (283 x 112) with its rank at
+   the top left, its likes and arrows at the top right and its mode at the foot, then the name and size, one row of tags, and Play along the card's foot. The ballot
+   keeps its 285 x 181 (.os-screen.voting) -- */
+.os-mcard
+{
+	width: 285px;
+	height: 208px;
+	margin: 0px 10px 8px 0px;
+}
+
+.os-mcard-l
+{
+	margin-right: 10px;
+}
+
+#os_m4
+{
+	margin-right: 0px;
+}
+
+#os_m8
+{
+	margin-right: 0px;
+}
+
+.os-mrow
+{
+	flow-children: down;
+}
+
+.os-mband
+{
+	width: 100%;
+	height: 3px;
+	border-radius: 5px 5px 0px 0px;
+}
+
+.os-mthumb
+{
+	width: 283px;
+	height: 112px;
+}
+
+.os-mbody
+{
+	width: 100%;
+	height: 52px;
+	padding: 5px 10px 0px 10px;
+}
+
+.os-mtags
+{
+	height: 19px;
+	margin-top: 4px;
+}
+
+.os-macts
+{
+	width: 100%;
+	height: 100%;
+	margin: 0px;
+	flow-children: none;
+}
+
+.os-mplay
+{
+	width: 267px;
+	height: 28px;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 8px 8px;
+}
+
+.os-mvotes
+{
+	min-width: 30px;
+	height: 22px;
+	horizontal-align: right;
+	vertical-align: top;
+	margin: 9px 78px 0px 0px;
+	padding: 2px 6px 0px 6px;
+	border-radius: 3px;
+	background-color: #0A0D11CC;
+	color: #FFFFFF;
+}
+
+.os-mvote
+{
+	width: 30px;
+	height: 24px;
+	horizontal-align: right;
+	vertical-align: top;
+	background-color: #0A0D11CC;
+}
+
+.os-mvote-up
+{
+	margin: 8px 42px 0px 0px;
+}
+
+.os-mvote-down
+{
+	margin: 8px 8px 0px 0px;
+}
+
+/* the ballot's tile is one button over the whole card, as before: none of the browser's Play place, likes or arrows */
+.os-screen.voting .os-mplay
+{
+	margin: 0px;
+	vertical-align: top;
+}
+
+.os-screen.voting .os-mvote
+{
+	visibility: collapse;
+}
+
+/* -- the chat column (the owner's 2 and 8, HudChat): our own chat history at CS2's chat's place, x 18-571, from just above its typing line (y 944) up toward the
+   radar - over CS2's own lines, so none shows twice; the newest at the bottom; a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in
+   its sender's team's colour. It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that
+   hides the column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. At a match end CS2 lifts its chat (to y 674-722),
+   and the column follows (meos). With the window closed its background fades away upward, so it covers the game less -- */
+@keyframes 'os-chat-beat-a'
+{
+	0% { opacity: 1; }
+	97% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+@keyframes 'os-chat-beat-b'
+{
+	0% { opacity: 1; }
+	97% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+.os-chat
+{
+	visibility: collapse;
+	width: 553px;
+	height: 560px;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 136px 18px;
+	overflow: clip;
+	opacity: 0;
+	border-radius: 4px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.45, #0A0D1173 ), to( #0A0D11E6 ) );
+}
+
+.os-screen.chaton .os-chat
+{
+	visibility: visible;
+}
+
+.os-screen.chaton .os-chat
+{
+	animation-name: os-chat-beat-b;
+	animation-duration: 35s;
+	animation-timing-function: linear;
+	animation-iteration-count: 1;
+}
+
+.os-screen.chaton.hb .os-chat
+{
+	animation-name: os-chat-beat-a;
+	animation-duration: 35s;
+	animation-timing-function: linear;
+	animation-iteration-count: 1;
+}
+
+.os-screen.meos .os-chat
+{
+	height: 400px;
+	margin-bottom: 414px;
+}
+
+.os-screen.win .os-chat
+{
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D11A6 ), to( #0A0D11EB ) );
+}
+
+.os-chat-lines
+{
+	width: 100%;
+	vertical-align: bottom;
+	flow-children: down;
+	padding: 6px 12px 8px 10px;
+}
+
+.os-chat-line
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: right;
+	margin-top: 3px;
+}
+
+.os-chat-line.used
+{
+	visibility: visible;
+}
+
+.os-chat-line Panel
+{
+	width: 3px;
+	height: 17px;
+	vertical-align: top;
+	margin: 3px 8px 0px 0px;
+	border-radius: 1px;
+	background-color: #FFFFFF40;
+}
+
+.os-chat-line Label
+{
+	width: fill-parent-flow( 1 );
+	font-size: 17px;
+	color: #FFFFFF;
+	text-shadow: 1px 1px 2px 1.5 #000000E6;
+}
+
+.os-chat-line.k-ct Panel
+{
+	background-color: #5FA8FF;
+}
+
+.os-chat-line.k-t Panel
+{
+	background-color: #E9B44C;
+}
+
+.os-chat-line.k-team Label
+{
+	color: #D8DCE0;
+}
+
+.os-chat-line.k-team.k-ct Label
+{
+	color: #C9DFFF;
+}
+
+.os-chat-line.k-team.k-t Label
+{
+	color: #F4E2B8;
+}
+
+.os-chat-line.k-srv Panel
+{
+	background-color: os-gold;
+}
+
+.os-chat-line.k-srv Label
+{
+	color: os-gold-hi;
+}
+
+.os-chat-line.k-evt Panel
+{
+	background-color: #FFFFFF26;
+}
+
+.os-chat-line.k-evt Label
+{
+	font-size: 15px;
+	color: os-dim;
 }

@@ -35,7 +35,9 @@ public sealed class HudFrame
     /// the bridge's.</summary>
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
         bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs,
-        VoteState? BarVote = null, HudState? BarState = null);
+        VoteState? BarVote = null, HudState? BarState = null, HudChat? Chat = null, bool ChatLive = false, bool MatchScreen = false, HudVote.Download? Download = null);
+    // Chat, ChatLive: the chat column's lines and whether its feed is live - the plugin's frames run and the bridge answers (content v4.14.0, HudChat); MatchScreen:
+    // the match-end screen is up (the game's phase), when CS2 lifts its chat and the column follows; Download: a winner's download, as the watcher's line says it.
     // BarVote, BarState: the vote and the state as of HudVote.BarLeadMs from now, for the countdowns' bars alone (their words stay as of now); null: as of now.
 
     int latestSent; // the level of the latest-N class on os_global: turned off when it moves
@@ -87,6 +89,8 @@ public sealed class HudFrame
         latestSent = w.Level;
         foreach (var (name, words) in HudView.PlayersPage(PlayerRows(humans, vote))) screen.Var(HudView.Global, name, words); // SERVER, Players
         foreach (var (id, cls, on) in HudVote.ModeClasses(w.Mode.Id)) screen.Class(id, cls, on);
+        screen.Class(HudView.TabGame, "off", w.MatchScreen);  // a greyed tab (content v4.14.0): the game takes no restart while the match-end screen is up
+        screen.Class(HudDash.Tab, "off", w.Dash == null);      // ...and no Sync page while the server has no sync's block
         screen.Var(HudView.Global, HudVersion.Var, w.Level == HudVersion.Level ? HudVersion.Content : HudVersion.OfLevel(w.Level)); // a faked level fakes the version's name too
         screen.Var(HudView.Global, HudVote.ModeVar, w.Mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) screen.Var(HudView.Global, name, words); // the popup's words
@@ -107,6 +111,7 @@ public sealed class HudFrame
         foreach (var (id, text) in HudView.LatelyTexts(s, account, w.BridgeNowMs)) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in HudView.LatelyClasses(s, account)) screen.Class(id, cls, on, slot);
         screen.Class(HudView.Screen, "vcheck", h.Version is "" or HudVersion.Unknown, slot); // the window's X is the version button
+        ChatColumn(w, h, screen);
         screen.Class(HudView.Screen, "wback", view.Window && view.Returning, slot);           // the welcome page's line about the map that is on
         CatchUp(p, now, slot, screen);
         if (s.Why.TryGetValue(account, out var asked)) screen.Var(HudView.Screen, HudVote.WhyVar, asked.Map, slot); // the map the popup asks about: its label inherits it
@@ -185,10 +190,49 @@ public sealed class HudFrame
     /// variables on os_screen (Random's button, the hint for the other pages, the header's clocks).</summary>
     static (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) BallotPage(World w, Human h, HudPlayer p, int perPage, IScreen screen)
     {
-        var (texts, classes, vars) = HudVote.Cards(w.Vote, h.Account, w.Catalog, p.VoteView.Page, perPage, w.BarVote);
+        var (texts, classes, vars) = HudVote.Cards(w.Vote, h.Account, w.Catalog, p.VoteView.Page, perPage, w.BarVote, w.Download);
         foreach (var (name, text) in vars) screen.Var(HudView.Screen, name, text, h.Slot);
-        return (texts, classes);
+        return (texts, Snapped(classes, HudVote.IdleBar, p));
     }
+
+    /// <summary>The chat column for one player (content v4.14.0, HudChat): the newest lines they may see, the newest at the bottom, and on os_screen whether it
+    /// shows (chaton: its feed is live), its beat (hb, on and off by turns every HudChat.BeatSeconds, which keeps the stylesheet's animation from hiding it) and the
+    /// match-end screen (meos: CS2's chat stands higher then, and the column with it). A game whose HUD check named a content before the column gets the classes
+    /// alone: os_screen is in every content, the column's labels are not.</summary>
+    static void ChatColumn(World w, Human h, IScreen screen)
+    {
+        var slot = h.Slot;
+        var fed = w.Chat != null && !HudVersion.IsBefore(h.Version, HudChat.Level);
+        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive, slot);
+        screen.Class(HudView.Screen, "hb", HudChat.BeatA(w.Now), slot);
+        screen.Class(HudView.Screen, "meos", w.MatchScreen, slot);
+        if (!fed) return;
+        var (texts, classes) = HudChat.Column(w.Chat!.For(h.Account, h.Team));
+        foreach (var (id, text) in texts) screen.Text(id, text, slot);
+        foreach (var (id, cls, on) in classes) screen.Class(id, cls, on, slot);
+    }
+
+    /// <summary>A bar that steps up snaps there (content v4.14.0): Panorama takes a transition's length from the state it leaves, so the inactivity timer's bar, reset by a
+    /// moved vote, climbed back at its countdown's 1 s a step and fell short before the next step took it. Now when the bar's step goes up, it first gets snap (0 s)
+    /// for one frame and keeps its step; the next frame takes the new step from that 0 s state - at once - and the one after drops snap. Only the countdown moves.</summary>
+    public static List<(string Id, string Class, bool On)> Snapped(List<(string Id, string Class, bool On)> classes, string bar, HudPlayer p)
+    {
+        var want = classes.FirstOrDefault(x => x.Id == bar && x.On && Step(x.Class) >= 0).Class;
+        if (want == null) return classes;
+        var (shown, stage) = p.Snap.TryGetValue(bar, out var was) ? was : (want, 0);
+        string show;
+        bool snap;
+        if (stage == 1) (show, snap, p.Snap[bar]) = (want, true, (want, 2));                  // the new step, from the 0 s state: at once
+        else if (Step(want) > Step(shown)) (show, snap, p.Snap[bar]) = (shown, true, (shown, 1)); // up: snap first, the step as it was
+        else (show, snap, p.Snap[bar]) = (want, false, (want, 0));                              // down, or the frame after the snap: as it comes
+        var result = classes.Where(x => !(x.Id == bar && Step(x.Class) >= 0)).ToList();
+        for (var k = 0; k <= 10; k++) result.Add((bar, $"w{k}", $"w{k}" == show));
+        result.Add((bar, "snap", snap));
+        return result;
+    }
+
+    /// <summary>A step class's number, w0 ... w10; -1 for any other class.</summary>
+    static int Step(string cls) => cls.Length is 2 or 3 && cls[0] == 'w' && int.TryParse(cls[1..], out var k) && k is >= 0 and <= 10 ? k : -1;
 
     static HudCatalog? popularFor;
     static List<string> popular = [];

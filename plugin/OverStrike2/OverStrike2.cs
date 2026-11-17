@@ -59,6 +59,10 @@ public class OverStrike2Plugin : BasePlugin
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
+        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+        RegisterEventHandler<EventPlayerTeam>(OnPlayerTeam);
+        RegisterListener<Listeners.OnMapEnd>(() => mapEnding = true);        // the leaves of a map change are no leaves for the chat column
+        RegisterListener<Listeners.OnMapStart>(_ => mapEnding = false);
         AddCommandListener("say", OnSay);
         AddCommandListener("say_team", OnSay);
         // The settings module posts through the HUD (the block's notice); its console commands are os_fun, which the HUD and the bridge's reset
@@ -185,7 +189,24 @@ public class OverStrike2Plugin : BasePlugin
     {
         if (ev.Userid is not { IsValid: true } player) return HookResult.Continue;
         boosts.Remove(player.Slot); // a map change disconnects everyone too: nothing on screen survives it
+        if (!player.IsBot && !mapEnding) hud?.ChatEvent(HudChat.Left(player.PlayerName)); // the chat column's leave (HUD content v4.14.0)
         hud?.Gone(player.Slot);
+        return HookResult.Continue;
+    }
+
+    bool mapEnding; // between a map's end and the next map's start: the disconnects of a map change
+
+    /// <summary>A join and a team change, for the chat column (HUD content v4.14.0): a human's, as CS2's own chat says them; a bot's and a disconnect's are none.</summary>
+    HookResult OnPlayerConnectFull(EventPlayerConnectFull ev, GameEventInfo info)
+    {
+        if (ev.Userid is { IsValid: true, IsBot: false } player) hud?.ChatEvent(HudChat.Joined(player.PlayerName));
+        return HookResult.Continue;
+    }
+
+    HookResult OnPlayerTeam(EventPlayerTeam ev, GameEventInfo info)
+    {
+        if (ev.Userid is { IsValid: true, IsBot: false } player && !ev.Disconnect && !ev.Silent && !ev.Isbot && ev.Team != ev.Oldteam)
+            hud?.ChatEvent(HudChat.TeamChanged(player.PlayerName, ev.Team switch { 3 => "CT", 2 => "T", _ => "SPEC" }));
         return HookResult.Continue;
     }
 
@@ -213,6 +234,7 @@ public class OverStrike2Plugin : BasePlugin
         var text = info.ArgCount > 1 ? info.ArgString.Trim().Trim('"').Trim() : "";
         var who = player;
         var screen = hud;
+        screen.ChatLine(who, text, info.GetArg(0).Equals("say_team", StringComparison.OrdinalIgnoreCase)); // the chat column keeps it as CS2 shows it (HUD content v4.14.0)
         // A line that starts with ! or / does what the menu's click would, a frame later (not inside the player's own chat message: HudScreen's
         // summary), and answers in chat.
         var command = ChatCommands.Parse(text);

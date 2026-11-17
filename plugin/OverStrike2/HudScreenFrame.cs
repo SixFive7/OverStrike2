@@ -49,10 +49,26 @@ sealed partial class HudScreen
         drawing.Clear();
         foreach (var p in humans) drawing[p.Slot] = p;
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
-            FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs)); // the bars a step ahead (HudVote.BarLeadMs)
+            FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs), // the bars a step ahead (HudVote.BarLeadMs)
+            chat, ChatLive(now), MatchScreen(), download is { } d && now < d.Until ? d.Download : null);
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
         MarkChanged();
     }
+
+    /// <summary>Whether the chat column's feed is live (HudChat): the bridge answers - its last answer within ChatStaleSeconds. A bridge that stops answering turns the
+    /// column off at once, so CS2's own chat shows again; a plugin that stops drawing frames leaves its last beat, which the stylesheet lets run out.</summary>
+    bool ChatLive(DateTime now) => bridge is { } link && now - link.LastAnswer < TimeSpan.FromSeconds(ChatStaleSeconds);
+    const int ChatStaleSeconds = 15;
+
+    /// <summary>Whether the match-end screen is up (the game's phase, MatchPhase.Ended): CS2 lifts its chat then, and the chat column follows it.</summary>
+    bool MatchScreen()
+    {
+        if (rulesProxy is not { IsValid: true })
+            rulesProxy = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault();
+        return rulesProxy is { IsValid: true, GameRules: { } rules } && rules.GamePhase == MatchPhase.Ended;
+    }
+
+    CCSGameRulesProxy? rulesProxy;
 
     /// <summary>A human on the server as the frame needs them: the HUD their game showed, the check's clock, their time on, TAB's cursor, the hold.</summary>
     HudFrame.Human Human(CCSPlayerController p, DateTime now)
