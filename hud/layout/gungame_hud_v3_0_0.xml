@@ -47,54 +47,59 @@
 		<Panel id="os_global" class="os-global" hittest="false">
 			<Panel id="os_screen" class="os-screen" hittest="false">
 				<!-- The chat column (content v4.14.0): our own chat history beside the open window - the plugin's lines (HudChat), the newest at the bottom - over the whole
-				     of CS2's chat, from the window's top down to just above CS2's typing line. The dock's two spacers set its top (the window's, by the aspect) and its foot
-				     (y 1000 with CS2's chat closed; just above its typing line with it open, and higher once CS2 lifts it for a match end). A line's words are its panel's own
-				     text, which its label shows. It shows only while its feed is live (chaton) and beats (hb): a plugin that stops leaves its last beat, which runs out, and
-				     CS2's own chat shows again. -->
+				     of CS2's chat, from the window's top down to just above CS2's typing line, framed as the window is: its border, corners and shadow, the gold rule on top.
+				     The dock's two spacers set its top (the window's, by the aspect) and its foot (y 1000 with CS2's chat closed; just above its typing line with it open,
+				     higher once CS2 lifts it for a match end). Its rows are whole: one row of type each (a long line runs on in the rows under it), and the clip's height a whole
+				     number of rows in every state, the lift spacer taking up the rest at a match end. A row's words are its panel's own text, which its label shows. It shows
+				     only while its feed is live (chaton) and beats (hb): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. -->
 				<Panel class="os-chat-dock" hittest="false">
 					<Panel class="os-chat-top" hittest="false" />
 					<Panel class="os-chat" hittest="false">
-						<Panel class="os-chat-lines" hittest="false">
-							<Panel id="os_chat_1" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_2" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_3" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_4" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_5" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_6" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_7" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_8" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_9" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_10" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_11" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_12" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_13" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_14" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_15" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_16" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_17" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_18" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_19" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_20" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_21" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_22" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_23" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_24" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_25" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_26" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_27" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_28" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_29" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_30" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_31" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_32" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_33" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_34" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_35" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_36" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_37" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_38" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_39" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
-							<Panel id="os_chat_40" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+						<Panel class="os-chat-rule" hittest="false" />
+						<Panel class="os-chat-lift" hittest="false" />
+						<Panel class="os-chat-clip" hittest="false">
+							<Panel class="os-chat-lines" hittest="false">
+								<Panel id="os_chat_1" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_2" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_3" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_4" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_5" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_6" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_7" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_8" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_9" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_10" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_11" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_12" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_13" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_14" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_15" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_16" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_17" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_18" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_19" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_20" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_21" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_22" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_23" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_24" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_25" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_26" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_27" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_28" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_29" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_30" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_31" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_32" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_33" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_34" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_35" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_36" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_37" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_38" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_39" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+								<Panel id="os_chat_40" class="os-chat-line" hittest="false"><Panel hittest="false" /><Label hittest="false" text="{s:text}" /></Panel>
+							</Panel>
 						</Panel>
 					</Panel>
 					<Panel class="os-chat-foot" hittest="false" />
@@ -255,7 +260,7 @@
 									<Panel class="os-clocks">
 										<Panel class="os-clock"><Label class="os-clock-key" text="Ends in" /><Label class="os-clock-big" text="{s:osvlimn}" /><Panel id="os_vlim" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvlim}" /></Panel>
 										<Panel class="os-clock os-clock-idle"><Label class="os-clock-key os-clock-key-all" text="Decided in" /><Label class="os-clock-key os-clock-key-done" text="{s:osvidlek}" /><Label class="os-clock-big" text="{s:osvidlen}" /><Panel id="os_vidle" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-clock-text" text="{s:osvidle}" /></Panel>
-										<Panel class="os-vdl"><Label class="os-clock-key" text="Downloading" /><Label class="os-clock-big" text="{s:osvdlp}" /><Panel id="os_vdl" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-vdl-mb" text="{s:osvdlm}" /></Panel>
+										<Panel class="os-vdl"><Label class="os-clock-key os-vdl-key" text="Server downloading" /><Label class="os-clock-big" text="{s:osvdlp}" /><Panel id="os_vdl" class="os-clock-bar"><Panel class="os-clock-fill" /></Panel><Label class="os-vdl-mb" text="{s:osvdlm}" /></Panel>
 									</Panel>
 								</Panel>
 								<Panel class="os-vhowbar">

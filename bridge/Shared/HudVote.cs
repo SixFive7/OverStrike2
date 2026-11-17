@@ -169,7 +169,7 @@ public static class HudVote
 
     /// <summary>What the countdown of a decided vote counts to: the map change, the next match on the map played again (NextMatch.cs), or the window's close - or,
     /// for a winner still to download, no countdown: the map changes the moment it is in (VoteState.Fetching).</summary>
-    public static string DoneKey(VoteState v) => v.Fetching ? "Downloading" : v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : ChangingNow(v) ? "Changing now" : "Changing in";
+    public static string DoneKey(VoteState v) => v.Fetching ? "Server downloading" : v.NextMatchCounts ? "Next match in" : v.Kept ? "Closes in" : ChangingNow(v) ? "Changing now" : "Changing in";
 
     /// <summary>A decision for another map whose change has gone out at once, with no countdown (the bridge since release 218's vote: the change goes the moment the
     /// vote is decided, and the window stays until the map starts): decided, not kept, nothing to download, no end time. The window says Changing now - no digits,
@@ -292,7 +292,7 @@ public static class HudVote
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
             t.Add(($"{id}_side", "")); // the browser's Wingman player count: none on the ballot, whose cards share the browser's panels
             c.Add((id, "sided", false));
-            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? "Keep" : "Vote"));
+            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : v.Fetching ? "Server downloading" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? "Keep" : "Vote"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));
             c.Add((id, "risky", record?.Risky == true));

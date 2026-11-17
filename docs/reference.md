@@ -430,9 +430,11 @@ stood in v4.13.0, right of CS2's chat, in a window 920 px high on every page (y 
 page. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
 open (c, the default), always (a1) or never (d), `os_hud chat window|always|off` until the plugin reloads, the same stylesheet for all three. The plugin keeps
 the lines CS2's chat shows - every player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one
-player), joins, leaves and team changes - and draws each player's newest 40, the newest at the bottom, as many as fit (a line is about 23 px: some 38 at 16:9
-with CS2's chat closed, 36 with it open, 24 with it open at a match end). It covers the whole of CS2's chat, and nothing of it shows but its typing line: x 0-579
-(CS2's box runs from x 10 to 579, its text from about x 5), fully opaque, from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to y 1000
+player), joins, leaves and team changes - and draws each player's newest in rows of one row of type each, a long line running on in the rows under it
+(`HudChat.Rows`, at most four), the newest at the bottom and whole rows only: the column's inner height is a whole number of 24 px rows in every state (37 at
+16:9 with CS2's chat closed, 35 with it open, 23 with it open at a match end). It covers the whole of CS2's chat, and nothing of it shows but its typing line:
+x 0-579 (CS2's box runs from x 10 to 579, its text from about x 5), fully opaque and framed as the window is (its border, corners and shadow, the gold rule, the
+dots), from the window's top (80 at 16:9 and 21:9, 126 at 16:10, 227 at 4:3) down to y 1000
 with CS2's chat closed - in a match and at a match end alike, so CS2's lines are covered at either height, also in the second before CS2 lifts them for its end
 screen - and with it open (`HUD_CHAT_VISIBLE`) down to just above its typing line's box: y 952 in a match, 674 at a match end once CS2 has lifted it (`meos`, the
 plugin's `ChatLift`: the match ended 3 s ago; or the game's own classes for its end screen with the scoreboard). CS2's own chat cannot be made taller or kept on
@@ -448,8 +450,10 @@ and the one clock - no title and no state chip, as the tab says Vote and the clo
 says everybody is frozen. **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`): the inactivity
 timer's bar, reset by a moved vote, gets `snap` (0 s) for a frame before it refills, so only the countdown moves; its 0 s rules are by its id (`#os_vidle`),
 since its own 1 s is. **Decided with the change gone out at once** the clock says Changing now - no digits, no bar (`vnow`, `HudVote.ChangingNow`). **A winner
-downloading** shows its download in the window - its percent, its bar (`os_vdl`) and how much of how much, from the watcher's line (`HudVote.DownloadOf`) - and
-on its card in blue, and the top line's news of it stays away while the window shows it. **The browser's cards** are the ballot's: 285 x 181, twelve a page, four
+downloading** is the server's download, and the window says so: Server downloading, its percent, its bar (`os_vdl`) and how much of how much, from the
+watcher's line (`HudVote.DownloadOf`); its card says Server downloading, its bar in blue; the top line's news of it ("Server is downloading ...", os2-server's
+line) stays away while the window shows it. **Every page has one padding** (16 px under the tabs, 34 at the sides, 12 at the foot), and a row of a fixed
+height never runs past it: its words end in an ellipsis (Players, Fun and Bots, Sync). **The browser's cards** are the ballot's: 285 x 181, twelve a page, four
 across and three down, the picture on top with its rank, its mode, its likes and arrows and what a click on the card does (Put to the vote and the like), then
 the name and size and one row of tags; the whole card is its button, as on the ballot.
 
