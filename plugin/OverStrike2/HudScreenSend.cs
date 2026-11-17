@@ -119,7 +119,11 @@ sealed partial class HudScreen : HudFrame.IScreen
     /// <summary>CounterStrikeSharp's custom-HUD natives write the entity's networked vectors in place and notify nobody; CS2UIKit shows
     /// that clients see the changes anyway, but CS2KZ, which drives the same entity from C++, marks every change for the network
     /// explicitly. So after a frame that changed something, this marks the fields it touched as changed, the same way CounterStrikeSharp
-    /// marks any entity field. Harmless when the engine would have noticed by itself; a first failure switches it off and is logged.</summary>
+    /// marks any entity field. Harmless when the engine would have noticed by itself; a first failure switches it off and is logged. Never the
+    /// global state (m_globalLayoutState): an embedded CCSCustomHudLayoutState at offset 2064, not a field the engine can resolve - it wrote "Couldn't
+    /// resolve offset 2064 in CCSCustomHudLayout at path (-1 = '')" for each such mark, about 45 server console lines a minute with a client on, and
+    /// dropped it ("requested resolve all 5 changes, actually resolved only 4"). So that mark never did anything: the global state reaches the
+    /// clients without it, as the HUD has shown all along.</summary>
     void MarkChanged()
     {
         if ((!globalDirty && !playerDirty) || markBroken || !Live) { globalDirty = playerDirty = false; return; }
@@ -127,7 +131,6 @@ sealed partial class HudScreen : HudFrame.IScreen
         {
             foreach (var field in new[] { "m_vecPanelIds", "m_vecClassNames", "m_vecDialogVariableNames" })
                 Utilities.SetStateChanged(entity!, "CCSCustomHudLayout", field);
-            if (globalDirty) Utilities.SetStateChanged(entity!, "CCSCustomHudLayout", "m_globalLayoutState");
             if (playerDirty) Utilities.SetStateChanged(entity!, "CCSCustomHudLayout", "m_vecPlayerLayoutStates");
         }
         catch (Exception e)
