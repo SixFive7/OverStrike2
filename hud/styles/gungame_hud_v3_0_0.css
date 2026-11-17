@@ -8209,7 +8209,8 @@ Label
 	visibility: collapse;
 }
 
-/* -- the chat column (the owner's 2 and 8, HudChat): our own chat history at CS2's chat's place, x 18-571, up toward the radar - solid over CS2's whole chat area
+/* -- the chat column (the owner's 2 and 8, HudChat): our own chat history at CS2's chat's place, x 0-571 - from the screen's left edge, since CS2's text starts at
+   about x 5, left of its box's 18 (the live lab's re-check of release 218: its first letters showed in a strip there) - up toward the radar, solid over CS2's whole chat area
    (route a1, the live lab's film of release 218: CS2's own lines showed through a fading background, and below the column): with the chat closed CS2 draws its
    lines down to y 1000 (1080 high; its typing line hidden, the history drops 56 px), so the column reaches there; with it open (HUD_CHAT_VISIBLE, CS2's class) its
    history stands at y 617-944 over the typing line at 952-1000, so the column stops at 944 and the typing line stays free. Above CS2's area its background fades
@@ -8234,14 +8235,14 @@ Label
 .os-chat
 {
 	visibility: collapse;
-	width: 553px;
+	width: 571px;
 	height: 600px;
 	horizontal-align: left;
 	vertical-align: bottom;
-	margin: 0px 0px 80px 18px;
+	margin: 0px 0px 80px 0px;
 	overflow: clip;
 	opacity: 0;
-	border-radius: 4px;
+	border-radius: 0px 4px 4px 0px;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), color-stop( 0.3, #0A0D11B3 ), color-stop( 0.36, #0A0D11FF ), to( #0A0D11FF ) );
 }
 
@@ -8292,7 +8293,7 @@ Label
 	width: 100%;
 	vertical-align: bottom;
 	flow-children: down;
-	padding: 6px 12px 8px 10px;
+	padding: 6px 12px 8px 28px;
 }
 
 .os-chat-line

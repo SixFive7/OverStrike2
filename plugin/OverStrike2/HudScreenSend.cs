@@ -1,9 +1,11 @@
 // The HUD's entity, and what it was sent: the frame (HudFrame) says what is to be shown, and this sends only what changed, inside a budget of engine calls
 // (FrameBudget), and marks what it touched for the network (MarkChanged).
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Extensions;
+using CounterStrikeSharp.API.Modules.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
@@ -50,9 +52,66 @@ sealed partial class HudScreen : HudFrame.IScreen
         }
     }
 
-    /// <summary>Send this slot everything again. What its cards' pictures have on is kept, through a new player in the slot too: those
-    /// classes may still be on in the client, and the next maps page switches off whatever it does not want (only a new entity starts
-    /// clean).</summary>
+    /// <summary>Everything the entity holds for this slot goes - its classes and its words - so the new player in it starts clean. The natives only ever add an entry or
+    /// change one (CounterStrikeSharp's customhudlayout.cpp: an entry per panel and class, or panel and variable, in the slot's layout state), and a joining game is handed
+    /// the slot's entries as its last occupant left them: a v4.13.0 game that took the slot of a v4.14.0 one on the same map logged "Unable to find panel" for the 36
+    /// panels of the chat column, which it does not have, at the moment it entered (the live lab, release 218). The slot's state is where the natives find it (element
+    /// slot of m_vecPlayerLayoutStates, the schema's size apart), and is touched only once that layout is checked (SlotStatesOk). True when the slot holds nothing of
+    /// anybody's now.</summary>
+    bool ClearSlot(int slot)
+    {
+        try
+        {
+            var vector = entity!.Handle + Schema.GetSchemaOffset("CCSCustomHudLayout", "m_vecPlayerLayoutStates");
+            var count = NativeAPI.GetNetworkVectorSize(vector);
+            if (slot < 0 || slot >= count) return true; // no state for this slot yet: nothing of anybody's
+            var size = Schema.GetClassSize("CCSCustomHudLayoutState");
+            var first = count <= 128 && size > 0 ? NativeAPI.GetNetworkVectorElementAt(vector, 0) : IntPtr.Zero;
+            if (!SlotStatesOk(first, count, size)) return false;
+            var state = new CCSCustomHudLayoutState(first + slot * size);
+            if (state.HasClasses.Count == 0 && state.DialogVariableStrings.Count == 0) return true;
+            state.HasClasses.RemoveAll();
+            state.DialogVariableStrings.RemoveAll();
+            foreach (var key in thumbs.Keys.Where(k => k.Slot == slot).ToList()) thumbs.Remove(key); // its pictures' classes went with the rest
+            playerDirty = true;
+            return true;
+        }
+        catch (Exception e)
+        {
+            return SlotStatesTold(false, $"clearing slot {slot} failed: {e.Message}");
+        }
+    }
+
+    /// <summary>Whether the layout states lie as ClearSlot reads them: count elements of size bytes from first, every one beginning with the same class pointer
+    /// (CCSCustomHudLayoutState has virtual members) - checked again whenever the vector's memory or length moves, so one player in slot 0 checks all of them.</summary>
+    bool SlotStatesOk(IntPtr first, int count, int size)
+    {
+        if (first == IntPtr.Zero) return SlotStatesTold(false, $"{count} states of {size} bytes, none found");
+        if (statesChecked == (first, count, size)) return statesOk;
+        var kind = Marshal.ReadIntPtr(first);
+        var lined = kind != IntPtr.Zero && Enumerable.Range(1, count - 1).All(i => Marshal.ReadIntPtr(first + i * size) == kind);
+        var own = lined ? Enumerable.Range(0, count).Count(i => new CCSCustomHudLayoutState(first + i * size).PlayerSlot == i) : 0;
+        statesChecked = (first, count, size);
+        return SlotStatesTold(lined, lined ? $"{count} states of {size} bytes, {own} naming their own slot" : $"{count} states of {size} bytes that do not line up");
+    }
+
+    (IntPtr First, int Count, int Size)? statesChecked; // the layout states SlotStatesOk last checked
+    bool statesOk;
+    bool? statesTold;                                    // the verdict last logged
+
+    bool SlotStatesTold(bool ok, string what)
+    {
+        statesOk = ok;
+        if (statesTold == ok) return ok;
+        statesTold = ok;
+        if (ok) log.LogInformation("Over Strike 2 HUD: a new player's slot starts clean - the layout's {What}", what);
+        else log.LogWarning("Over Strike 2 HUD: a new player's slot keeps its last occupant's HUD entries - the layout's {What}", what);
+        return ok;
+    }
+
+
+    /// <summary>Send this slot everything again. What its cards' pictures have on is kept: those classes may still be on in the client, and the next
+    /// maps page switches off whatever it does not want (only a new entity starts clean, and a slot a new player takes: ClearSlot).</summary>
     void Forget(int slot) { playerTexts.Remove(slot); playerClasses.Remove(slot); playerVars.Remove(slot); }
 
     void ForgetAll() { globalTexts.Clear(); globalClasses.Clear(); globalVars.Clear(); playerTexts.Clear(); playerClasses.Clear(); playerVars.Clear(); thumbs.Clear(); frame.Forget(); }

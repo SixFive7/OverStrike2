@@ -20,7 +20,8 @@ namespace OverStrike2;
 ///   - no entity is touched before the first round start of a cold server: CounterStrikeSharp caches a failed entity-system lookup for the
 ///     life of the process. A spawned player proves a map is loaded, so a spawn may create it too;
 ///   - leftovers carrying our layout (a plugin reload, a crash) are removed before a new entity is made;
-///   - a slot's state is cleared when a new player takes it, so nobody inherits a captured mouse;
+///   - a slot's state is cleared when a new player takes it - all of what the entity holds for it (ClearSlot), which a joining game is handed as the last occupant
+///     left it - so nobody inherits a captured mouse, or entries for panels their HUD does not have;
 ///   - per-player state is sent again at spawn and two seconds later, because a class set while the client is still loading the layout
 ///     never lands;
 ///   - nothing heavy runs inside a player's own callbacks (spawn, chat command, click, hurt): those run while the server processes that
@@ -91,7 +92,10 @@ sealed partial class HudScreen
         MatchLoad();
         NextMatchLoad(); // HudScreenNextMatch.cs: the match-end screen cut short when the vote plays the map again
         WarmUp();
-        if (hotReload) { worldReady = true; EnsureEntity(); reloadPulse = true; } // a map is running: the one case where entities may be touched right away
+        // A map is on - the one case where entities may be touched right away: a hot reload, or css_plugins load, which passes hotReload false (GameSettings.Load) and
+        // made no entity until a round start, a spawn or the menu (the live lab, release 218: the column back only when the window opened). At a server start the
+        // plugin loads before the first map, with no map name.
+        if (hotReload || !string.IsNullOrEmpty(Server.MapName)) { worldReady = true; EnsureEntity(); }
     }
 
     /// <summary>Compiles every method of the HUD's own types now, at plugin load, so the first player's spawn or click does not pay for
@@ -264,16 +268,20 @@ sealed partial class HudScreen
         checkHigh = HudCheck.Mode.Off;
     }
 
-    /// <summary>A new player in a slot: whatever the last occupant had open is closed for them, before anything else is sent.</summary>
+    /// <summary>A new player in a slot: whatever the last occupant had open is closed for them, before anything else is sent - the slot's entries in the entity go
+    /// (ClearSlot), or where they could not, its window's classes are put off. Marked for the network at once: the joining game's first snapshot may go out before
+    /// the next frame.</summary>
     void OnPutInServer(int slot)
     {
         Leave(slot);
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
-            foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
-                entity!.SetHasClassForPlayer(p, HudView.Screen, cls, false);
+            if (!ClearSlot(slot))
+                foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
+                    entity!.SetHasClassForPlayer(p, HudView.Screen, cls, false);
             entity!.SetInputCaptureEnabled(p, false);
             playerDirty = true;
+            MarkChanged();
         }
         captured[slot] = false;
     }
