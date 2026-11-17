@@ -137,7 +137,7 @@ the window's page. The **centre text** and the **alert** are CS2's own.
 | A Fun click refused | A bubble at the button | That player | 8 s | That player | That player |
 | Catch-up's boost | The card, a green row per item | That player | 5 s | That player | That player |
 | The leader's bounty | The card, a red row per item | That player | 5 s | That player | |
-| A map change counting down | The countdown banner, with the map's picture | Everybody | Until the map changes | Everybody | Everybody |
+| A map change by the dice, as it goes out - at once, with no countdown (a vote's change is the vote's result) | Chat and the board alone | Everybody | | Everybody | Everybody |
 | The server downloading a map, or finishing a background download first; a download failed | The top line | Everybody | 10 s, or as the restart watcher asks | Everybody, at its start and each quarter | Everybody, one line that replaces itself |
 | A Workshop card downloading to the server | The card in the map browser | That player | While it downloads | Everybody, at its start and each quarter | Everybody, one line that replaces itself |
 | Play asks first: a risky map's padlock | A window line | That player | 30 s | That player | |
@@ -333,7 +333,7 @@ Any number of players plays on any Wingman map; its [spawn points](#wingman-and-
 
 Every vote opens everybody's window on the ballot and freezes everybody: nobody moves, shoots, takes damage or closes the window, bots
 included (`VoteFreeze.cs`). A player who joins meanwhile is frozen and counted. Everybody unfreezes at the same moment: when the vote keeps
-the map, once the window has said so for 8 s; when it changes the map, as the map starts - its change goes out at once at the decision, with no countdown, and
+the map mid-match, at once - the window closes, the result in chat and on the board; when it changes the map, as the map starts - its change goes out at once at the decision, with no countdown, and
 the window shows the result while it loads; a winner still to download, while the window says so ([below](#voting)); when it plays the map again at a match end,
 as the next match starts, a second or two after the decision ([below](#voting)). The plugin frees everybody by itself if the
 bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge never leaves anybody frozen.
@@ -395,8 +395,9 @@ match on the same map, as at any end of the screen (`mp_match_end_restart 1`): n
 any such end, CS2 moves every player to Unassigned and kicks the bots: everybody picks a side again at CS2's team select - a play of the same map again is often
 for other teams - and the bots come back with the first pick. A player who picks a side again is no join for the fairness restart: no map starts, so the map's
 record of who joined stays. 2 s after the new end the plugin logs whether the next match did start. A plugin without the command, or a screen that ends sooner by
-itself, leaves it as it was: the window says "Closes in" for 8 s, and the screen runs out. The dice's own changes - the start roll, an empty server's way back to
-Arms Race, a broken map - still count down `bridge.changeDelaySeconds` on the banner: nobody voted for them.
+itself, leaves it as it was: the window closes at once, and the screen runs out by itself. The dice's own changes - the start roll, an empty server's way back
+to Arms Race, a map gone from the Workshop or one that crashes the players' games, a match end nothing draws a vote for - go out at once too, with the line
+that says why (`StartChange`): nothing counts down before any map change.
 
 ### The ballot
 

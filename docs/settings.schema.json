@@ -89,7 +89,7 @@
           "maximum": 40
         },
         "changeDelaySeconds": {
-          "description": "The countdown before a map change.",
+          "description": "How long the window says, mid-match, that a vote's winner is still downloading before everybody plays on (a change itself goes out at once).",
           "type": "integer",
           "default": 8,
           "minimum": 0,

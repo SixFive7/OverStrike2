@@ -60,8 +60,8 @@ static partial class Program
             Land();
             h.Quiet(); h.Talk(alice, "!next");
             VoteFor(alice, Ballot!.Options.Single(o => o.Source == VoteSource.Keep).N);
-            Check("(a vote kept the map)", Ballot is { KeptUntil: not null } && h.Said("The vote kept"));
-            h.Run(MapVote.KeptSeconds + 1);
+            Check("(a vote kept the map: its window closed at once)", Ballot is null && h.Said("The vote kept"));
+            h.Run(1);
             h.Quiet(); h.Talk(alice, $"!map {Rank(3)}");
             Check($"After any vote, {MapVote.WaitSeconds / 60} minutes before anybody can call another on that map: a pick is refused, saying how long",
                 Ballot == null && Pending == null && !LoadPending && h.Said("You can call a vote again in") && h.Said("Alice tried to start another vote - The next one can start in"));
@@ -114,11 +114,10 @@ static partial class Program
             var keepN = vote.Options.Single(o => o.Source == VoteSource.Keep).N;
             Check("Start a vote opens one without a map, Keep playing on it, nobody's vote cast", vote is { Open: true } && vote.Choices.Count == 0 && h.Said("Alice started a vote"));
             foreach (var p in new[] { alice, bob, cara }) VoteFor(p, keepN);
-            Check("Keep playing wins: nothing changes, and the window says so, everybody still frozen", Pending == null && Ballot is { KeptUntil: not null } && BuildVoteState(h.Clock) is { Freeze: true, Kept: true } && h.Said("The vote kept"));
-            h.Run(MapVote.KeptSeconds);
-            Check("...until everybody unfreezes at the same moment", Pending == null && Ballot == null && !BuildVoteState(h.Clock).Freeze);
+            Check("Keep playing wins: nothing changes - the window closes at once, everybody unfreezes at the same moment, and chat and the board say it", Pending == null && Ballot == null
+                && !BuildVoteState(h.Clock).Freeze && h.Said("The vote kept"));
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
-            h.Talk(bob, "!next"); h.Run(MapVote.Seconds + MapVote.KeptSeconds + 1);
+            h.Talk(bob, "!next"); h.Run(MapVote.Seconds + 1);
             Check($"Nobody voting in the {MapVote.Seconds} s keeps the map mid-match", Pending == null && Ballot == null && h.Said("Nobody voted") && S.Map == m[3]);
             HudActive = () => true;
             h.Quiet(); h.MatchEnd();
@@ -281,14 +280,14 @@ static partial class Program
             S.CleanShutdown = true; Session("token-2"); h.Line("Loading map \"ar_shoots\""); h.Run(4);
             Check("A new server process is left alone for 5 s after its start map...", Pending == null);
             h.Run(2);
-            Check("...then rolls the dice", Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
+            Check("...then rolls the dice", Diced() && h.Said("Server started - Rolling the dice"));
             h.Join(alice); h.Join(dan);
             Land(); h.Run(61); Go(dan, 1); Land(); h.Run(30); Go(alice, 2);
             Check("(a change is under way when the server restarts)", S.Map == m[2] && LoadPending);
             S.CleanShutdown = true; Session("token-3"); h.Line("Loading map \"ar_shoots\""); h.Run(4);
             Check("A restarted server's start map ends the change that died with the old process, and the server is left alone for 5 s", Pending == null && !LoadPending);
             h.Run(2);
-            Check("...then the dice roll: there is no queue to serve any more", Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
+            Check("...then the dice roll: there is no queue to serve any more", Diced() && h.Said("Server started - Rolling the dice"));
 
             // ---- players on at a server start: they choose - a vote instead of the dice, and nobody voting rolls them ----
             Fresh();
@@ -301,7 +300,7 @@ static partial class Program
             HudActive = () => false;
             Fresh();
             S.CleanShutdown = true; Session("token-e"); h.Line("Loading map \"ar_shoots\""); h.Run(6);
-            Check("...an empty server's start: the dice, no vote", Ballot == null && Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
+            Check("...an empty server's start: the dice, no vote", Ballot == null && Diced() && h.Said("Server started - Rolling the dice"));
 
             // ---- the live boot of 2026-10-04: the token change went unseen, the one map start had no name, RCON answered 15 s later ----
             Fresh();
@@ -312,7 +311,7 @@ static partial class Program
             h.Run(15);
             Check("RCON not answering: no countdown into the void, the roll stays owed", Pending == null && !h.Said("rolling the dice") && StartRollOwed);
             rconDown = false; h.Run(11);
-            Check("RCON answering: the start roll goes out", Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
+            Check("RCON answering: the start roll goes out", Diced() && h.Said("Server started - Rolling the dice"));
             h.Run(ChangeDelay);
             Check("...and only a change command that went out settles it", h.Sent.Any(c => c.StartsWith("host_workshop_map")) && !StartRollOwed);
             Fresh();
@@ -320,7 +319,7 @@ static partial class Program
             File.WriteAllText(MaintenanceFile, ""); h.Run(30);
             Check("Maintenance: the owed start roll waits...", Pending == null && StartRollOwed);
             File.Delete(MaintenanceFile); h.Run(2);
-            Check("...and goes out once the flag is gone", Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
+            Check("...and goes out once the flag is gone", Diced() && h.Said("Server started - Rolling the dice"));
 
             // ---- production restarts as they really happen: CS2 keeps its X-Server-Instance-Token across process restarts (one token,
             // 5e1f0c2ab7d94a36, in state.json from 2026-09-15 to 2026-10-05, through every deploy, daily restart and !restart), so a
@@ -332,7 +331,7 @@ static partial class Program
                 statusSpawn = 1; if (statusMap != null) statusMap = header ?? StartMap; // the new process has loaded its start map
                 Session("prod"); Ingest($"{h.Clock:MM/dd/yyyy - HH:mm:ss}.000 - Started:  \"\"", header);
             }
-            bool Rolled() => Pending is { Auto: true } && h.Said("Server started - Rolling the dice");
+            bool Rolled() => Diced() && h.Said("Server started - Rolling the dice");
             void Confirm((string Name, string Id) p) { h.Talk(p, "!restart"); h.Talk(p, "!restart"); }
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
@@ -348,7 +347,7 @@ static partial class Program
             h.Join(alice); h.Run(5); Go(alice, 1); h.Run(ChangeDelay + 120); // the change went out; the download stalls
             Confirm(alice); h.Run(PressedSeconds + 1); h.Quiet();
             Restart(clean: true); h.Run(6);
-            Check("Restart path 2, !restart on a stuck load: the boot is not taken for the stuck map", !h.Said($"Now on {Label(m[1])}") && S.Map?.Name == "ar_shoots" && !LoadPending);
+            Check("Restart path 2, !restart on a stuck load: the boot is not taken for the stuck map - its start roll goes out from the start map", !h.Said($"Now on {Label(m[1])}") && S.Map != m[1]);
             Check("...and the dice roll", Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
@@ -359,16 +358,16 @@ static partial class Program
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             h.Join(alice); h.Run(5); Go(alice, 1); h.Run(1);
-            h.Sent.Clear(); Confirm(alice); h.Run(PressedSeconds + 1); // the map change counting down ends at the second click: its host_workshop_map would hit a dying server
-            Check("Restart path 3, !restart during a countdown: the change dies at the second click, its map command never goes out", h.Sent.Contains("quit") && !h.Sent.Any(c => c.StartsWith("host_workshop_map")));
+            h.Sent.Clear(); Confirm(alice); h.Run(PressedSeconds + 1); // the vote's change went out at once: the restart comes while its map loads
+            Check("Restart path 3, !restart while a vote's map loads: the quit goes out, and no second map command", h.Sent.Contains("quit") && !h.Sent.Any(c => c.StartsWith("host_workshop_map")));
             h.Quiet(); Restart(clean: true); h.Run(6);
             Check("...and the boot rolls", !h.Said($"Now on {Label(m[1])}") && Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             h.Join(alice); h.Join(bob); h.Run(30); h.MatchEnd();
-            Check("Restart path 4, the 07:00 restart with players on: the match ends, the dice count down...", Pending is { Auto: true });
+            Check("Restart path 4, the 07:00 restart with players on: the match ends, the dice's change goes out at once...", Diced());
             h.Run(3); h.Quiet(); Restart(clean: true); h.Run(6); // the restart watcher quits 3 s after Game Over
-            Check("...the watcher's quit lands inside that countdown, and the boot still rolls", Rolled());
+            Check("...the watcher's quit lands while that map loads, and the boot still rolls", Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             h.Join(alice); h.Run(5); Go(alice, 1); h.Run(ChangeDelay + 3); // the map crashes the server while it loads
@@ -430,14 +429,14 @@ static partial class Program
             File.Delete(MaintenanceFile); h.Run(1);
             Check("Flag gone: automatic changes resume; the players' vote settled the start map, so no start roll is left owed", !MaintenanceOn && Pending == null);
             MatchEndUntil = default; h.MatchEnd();
-            Check("...and a match end rolls the dice again (no plugin draws a vote here)", Pending is { Auto: true });
+            Check("...and a match end rolls the dice again (no plugin draws a vote here)", Diced());
 
             // ---- !previous ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             h.Talk(alice, "!previous");
             Check("!previous with nothing on record says so", h.Said("no previous map on record yet") && Pending == null && Ballot == null);
-            h.MatchEnd(); var first = Pending!.Map; Land(); h.Run(70); // no plugin draws a vote: the dice roll at a match end
+            h.MatchEnd(); var first = ChangeGone()!; Land(); h.Run(70); // no plugin draws a vote: the dice roll at a match end
             Go(alice, 1); Land(); h.Run(MapVote.WaitSeconds + 1);
             h.Talk(bob, "!previous");
             var prevCard = Ballot?.Options.FirstOrDefault(o => o.Source == VoteSource.Picked);
@@ -452,7 +451,7 @@ static partial class Program
             // ---- a risky previous map: Previous asks first, its second click counts it down - in Previous's button - and its Cancel stops it ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
-            h.MatchEnd(); var firstR = Pending!.Map; Land(); h.Run(70);
+            h.MatchEnd(); var firstR = ChangeGone()!; Land(); h.Run(70);
             Go(alice, 1); Land(); h.Run(MapVote.WaitSeconds + 1);
             Broken = new() { [Key(firstR)] = 3 };
             h.Talk(bob, "!previous"); h.Talk(bob, "!previous");
@@ -684,7 +683,7 @@ static partial class Program
             Land(); h.Run(30); h.Quiet();
             answer = ApplyRemovedReport(RemovedBody([(landing!.Id, Workshop.Hidden)]));
             Check("The map that is ON going private makes way at once: the dice roll another, and the news line says why",
-                landing == m[6] && Pending is { Auto: true } rolled && rolled.Map != landing && !IsRemoved(rolled.Map) && h.Said("is no longer public on the Workshop - Nobody new can download it - Rolling the dice"));
+                landing == m[6] && Diced() && ChangeGone() is { } rolled && rolled != landing && !IsRemoved(rolled) && h.Said("is no longer public on the Workshop - Nobody new can download it - Rolling the dice"));
             Land(); h.Run(30);
             var before = Removed.Count;
             answer = ApplyRemovedReport(RemovedBody(Maps.Take(200).Select((x, i) => (x.Id, i < 30 ? Workshop.Removed : Workshop.Ok))));

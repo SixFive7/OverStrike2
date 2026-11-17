@@ -4,7 +4,7 @@
     python tools/scan/scan.py                  the working tree: every file git would commit (tracked, and untracked but not ignored)
     python tools/scan/scan.py --staged         what is staged (the pre-commit hook)
     python tools/scan/scan.py --history        every blob of every commit, every commit message and identity, every tag
-    python tools/scan/scan.py --range A..B     the commits in A..B (the pre-push hook)
+    python tools/scan/scan.py --range A..B     the commits in A..B, or any git rev-list arguments: "B --not --remotes" (the pre-push hook)
     options: --report FILE (also write the findings there)   --no-gitleaks   --public-only
 
 Exit codes: 0 clean, 1 findings, 2 the scan could not run (gitleaks missing, or the private denylist missing without
@@ -32,6 +32,7 @@ import ipaddress
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -259,6 +260,12 @@ def _utf8(data):
         return False
 
 
+def range_args(rng):
+    """A --range as git rev-list's arguments: "A..B" one, "B --not --remotes" - the pre-push hook's for a new branch, the commits no remote ref
+    reaches - three. gitleaks takes the same text as its --log-opts."""
+    return shlex.split(rng)
+
+
 def git(*args, binary=False):
     r = subprocess.run(["git", "-C", ROOT, *args], capture_output=True)
     if r.returncode != 0:
@@ -407,7 +414,7 @@ def main():
         scan_commits(s, revs)
         scope = f"{len(revs)} commits (every ref), their messages, identities and every blob"
     else:
-        revs = [c for c in git("rev-list", args.range).split() if c]
+        revs = [c for c in git("rev-list", *range_args(args.range)).split() if c]
         scan_commits(s, revs)
         scope = f"{len(revs)} commits in {args.range}"
     gl_note = "gitleaks: skipped (--no-gitleaks)"

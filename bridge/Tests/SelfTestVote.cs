@@ -155,7 +155,7 @@ static partial class Program
             HudActive = () => false;
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             h.MatchEnd();
-            Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Pending is { Auto: true, By: "the dice" } && h.Said("Match over - Rolling the dice"));
+            Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Diced() && h.Said("Match over - Rolling the dice"));
 
             // ---- the ballot at a match end: Play this map again, the server's mode to a page, one map of each other mode, Random ----
             Fresh();
@@ -398,18 +398,11 @@ static partial class Program
                 h.Run(5);
                 var w6 = WinState();
                 var keptHud = BuildHud(h.Clock);
-                Check($"Kept the map: for {MapVote.KeptSeconds} s the window says so and closes in that time, vdone, the card lit, everybody frozen; no change, no top line; chat and the board say it",
-                    Header(w6) == $"Started by Bob | The vote kept {keptLabel} (4 of 6) |  |  | Closes in | {MapVote.KeptSeconds} s | " && w6 is { Open: false, Freeze: true, Kept: true, DoneSeconds: MapVote.KeptSeconds }
-                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "os_m1", "now") && TextOf(w6, "os_m1_score") == "4/6" && TextOf(w6, "os_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == HudVote.CountdownStep(MapVote.KeptSeconds, MapVote.KeptSeconds)
-                    && Pending is null && S.Map == keptMap && keptHud.TopText == "" && M.Plain(keptHud.Says[^1].Text) == $"The vote kept {keptLabel} (4 of 6)" && keptHud.Lately.Any(l => l.Text == $"The vote kept {keptLabel} (4 of 6)")
-                    && HudView.VoteLine(w6) == Hud.Clean($"The vote kept {keptLabel}", HudView.VoteLineMax));
-                Check("...its end time rides the change-driven text", VoteState.Decode(BuildVoteState(h.Clock).Encode(endTimes: true)).AsOf(HudState.Ms(h.Clock.AddSeconds(3))) is { Kept: true, DoneSeconds: MapVote.KeptSeconds } kept3 && kept3.SecondsLeft == MapVote.KeptSeconds - 3);
+                Check("Kept the map mid-match: the window closes at once and everybody unfreezes at the same moment - no change, no top line; chat and the board say it, and the wait before the next vote runs",
+                    Ballot is null && w6 is { Round: 0, Freeze: false, WaitFor: > 0 } && Pending is null && S.Map == keptMap && keptHud.TopText == ""
+                    && M.Plain(keptHud.Says[^1].Text) == $"The vote kept {keptLabel} (4 of 6)" && keptHud.Lately.Any(l => l.Text == $"The vote kept {keptLabel} (4 of 6)"));
                 ClearNotices(); StartVote(cara.Item1, cara.Item2);
-                Check("...a vote cannot be called meanwhile: the wait after a vote has begun", Ballot is { KeptUntil: not null } && h.Said("You can call a vote again in"));
-                h.Run(MapVote.KeptSeconds - 1);
-                Check("...still frozen a second before the end", WinState() is { Freeze: true, SecondsLeft: 1 } kept1 && VarOf(kept1, HudVote.IdleNumVar) == "1 s");
-                h.Run(1);
-                Check("...then everybody unfreezes and every window closes at the same moment: no vote, the wait before the next one", Ballot is null && WinState() is { Round: 0, Freeze: false, WaitFor: > 0 });
+                Check("...a vote cannot be called meanwhile: the wait after a vote has begun", Ballot is null && h.Said("You can call a vote again in"));
             }
             finally { MapVote.InactivitySeconds = 0; }
 
@@ -462,7 +455,7 @@ static partial class Program
             foreach (var p in six) h.Join(p);
             Ask(dan, m[7]); Land(); StartVote(dan.Item1, dan.Item2);
             foreach (var p in six) Click(p, OptOf(o => o.Source == VoteSource.Keep));
-            h.Run(MapVote.KeptSeconds + 1); ClearNotices(); // a vote just held on this map, which kept it: the wait runs (a map's start lifts it)
+            h.Run(1); ClearNotices(); // a vote just held on this map, which kept it: the wait runs (a map's start lifts it)
             var leftNow = MapVote.Left((int)Math.Ceiling((VoteWaitUntil - h.Clock).TotalSeconds));
             Command(bob.Item1, bob.Item2, "!next");
             var no1 = BuildHud(h.Clock);
@@ -694,18 +687,15 @@ static partial class Program
                 && kv.Options[0] is { Source: VoteSource.Keep, N: 1 } && LiveVote() is { Freeze: true, StarterName: "Bob" } ks && ks.Options[0].Label == "Keep playing this map" && Pending is null
                 && h.Said("Bob started a vote for the next map"));
             Click(alice, 1); Click(cara, 1); Click(bob, 2);
-            Check($"Keep wins once everybody has voted, 2 of 3: no change, the window says so for {MapVote.KeptSeconds} s, everybody still frozen",
-                Ballot is { Open: false, KeptUntil: not null, NextMatch: false } && Pending is null && S.Map == m[4] && LiveVote() is { Freeze: true, Kept: true, NextMatch: false } && h.Said("The vote kept")
-                && !h.Sent.Any(c => c.StartsWith(NextMatch.Command, StringComparison.Ordinal)));
-            h.Run(MapVote.KeptSeconds);
-            Check("...then the vote is gone and everybody unfreezes at the same moment", Ballot is null && Pending is null && !LiveVote().Freeze);
+            Check("Keep wins once everybody has voted, 2 of 3: no change - the window closes at once, everybody unfreezes at the same moment, and chat and the board say it",
+                Ballot is null && Pending is null && S.Map == m[4] && !LiveVote().Freeze && h.Said("The vote kept") && !h.Sent.Any(c => c.StartsWith(NextMatch.Command, StringComparison.Ordinal)));
             ClearNotices(); StartVote(cara.Item1, cara.Item2);
             Check($"...and for {MapVote.WaitSeconds / 60} minutes nobody may start another - the wait after every vote", Ballot is null && h.Said("You can call a vote again in") && h.Said("Cara tried to start another vote - The next one can start in"));
             h.Run(MapVote.WaitSeconds + 1);
             ClearNotices(); StartVote(cara.Item1, cara.Item2);
             Check("...then anybody may", Ballot is { Open: true } kc && kc.Starter == cara.Item2);
             h.Run(MapVote.Seconds);
-            Check("Nobody votes on a vote a player started: the map stays", Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && h.Said("Nobody voted -") && h.Said("stays"));
+            Check("Nobody votes on a vote a player started: the map stays, the window gone at once", Ballot is null && Pending is null && S.Map == m[4] && h.Said("Nobody voted -") && h.Said("stays"));
             h.Run(MapVote.WaitSeconds + 1);
             ClearNotices(); StartVote(bob.Item1, bob.Item2);
             var rolledN = OptOf(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace);
@@ -768,10 +758,9 @@ static partial class Program
             h.Quiet();
             Click(alice, again); Click(bob, again); Click(cara, again);
             var uncut = LiveVote();
-            Check("...a plugin without the command (5.14.2 and older): the window says Closes in for its 8 s, as it did, and the screen runs out - no word promises a sooner match",
-                h.Sent.Contains(NextMatch.Line(AgainSeconds)) && Ballot is { NextMatch: false, KeptUntil: { } keptUntil } && keptUntil == h.Clock.AddSeconds(MapVote.KeptSeconds) && h.Said("again (3 of 3) - Its next match starts on it")
-                && !h.Said("The next match starts in") && uncut is { Kept: true, NextMatch: false } && HudVote.DoneKey(uncut) == "Closes in" && uncut.DoneSeconds == MapVote.KeptSeconds
-                && HudVote.DoneLine(uncut).EndsWith("again (3 of 3) - Its next match starts on it", StringComparison.Ordinal) && MatchEndUntil > keptUntil);
+            Check("...a plugin without the command (5.14.2 and older): the window closes at once and the screen runs out by itself - no word promises a sooner match",
+                h.Sent.Contains(NextMatch.Line(AgainSeconds)) && Ballot is null && h.Said("again (3 of 3) - Its next match starts on it")
+                && !h.Said("The next match starts now") && uncut is { Round: 0, Freeze: false } && MatchEndUntil > h.Clock);
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land();
@@ -830,7 +819,7 @@ static partial class Program
             nextMatchReply = NextMatch.Reply(NextMatch.Result.NotEnded, "game phase 2, nothing moved");
             again = OptOf(o => o.Source == VoteSource.Keep);
             Click(alice, again); Click(bob, again); Click(cara, again);
-            Check("...and so does a plugin that finds no match-end screen up: nothing moved, nothing promised", Ballot is { NextMatch: false } && !h.Said("The next match starts in"));
+            Check("...and so does a plugin that finds no match-end screen up: nothing moved, nothing promised, the window gone at once", Ballot is null && !h.Said("The next match starts now"));
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land();

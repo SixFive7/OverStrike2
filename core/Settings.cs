@@ -496,7 +496,7 @@ public sealed class Settings
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
         Int("bridge.discoveryStock", B | S | Y, 10, 0, 40, "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set wants each of the stock's lanes this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
-        Int("bridge.changeDelaySeconds", B, 8, 0, 120, "The countdown before a map change.",
+        Int("bridge.changeDelaySeconds", B, 8, 0, 120, "How long the window says, mid-match, that a vote's winner is still downloading before everybody plays on (a change itself goes out at once).",
             s => s.Bridge.ChangeDelaySeconds, (s, v) => s.Bridge.ChangeDelaySeconds = v),
         Int("bridge.restartCooldownSeconds", B, 300, 0, 86400, "The least time between two !restart requests.",
             s => s.Bridge.RestartCooldownSeconds, (s, v) => s.Bridge.RestartCooldownSeconds = v),

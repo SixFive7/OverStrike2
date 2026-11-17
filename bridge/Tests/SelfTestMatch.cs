@@ -80,7 +80,7 @@ static partial class Program
             Click(alice, "!restart");
             var bannerNow = HudView.CountdownOf(Live());
             h.Run(PressedSeconds + 1);
-            Check("A map change counting down dies with it: its countdown banner gives way, and its map command never goes out", bannerNow?.Eyebrow == "Server" && h.Sent.Contains("quit") && !h.Sent.Any(c => c.StartsWith("host_workshop_map")));
+            Check("A map that is loading - a change goes out at once - does not hold the restart: its banner is the restart's, and the quit goes out", bannerNow?.Eyebrow == "Server" && h.Sent.Contains("quit"));
             Fresh();
             Twice(alice, "!restart");
             h.Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
@@ -251,7 +251,7 @@ static partial class Program
             StartChange(new Change(Maps[3], "Bob"), "Going");
             ClearNotices();
             Twice(alice, "!rematch");
-            Check("Refused while a map change counts down", h.Said("Already changing to") && h.Said("- Wait for it") && RematchDue == null);
+            Check("Refused while a map loads (a change goes out at once)", h.Said("The next map is still loading - Wait for it") && RematchDue == null);
             Fresh();
             LoadPending = true; LoadUntil = h.Clock.AddMinutes(5);
             ClearNotices();

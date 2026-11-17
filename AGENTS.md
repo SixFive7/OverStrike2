@@ -15,7 +15,8 @@ see [deploy/README.md](deploy/README.md)), from which the deploy scripts read th
   (`TZ=UTC git rebase ...`, `TZ=UTC git pull --rebase`, `TZ=UTC git cherry-pick ...`): they write each commit's committer date anew. A pushed
   commit that already carries another zone stays as it is - never rewrite a pushed commit to fix it.
 - **The hooks are mandatory.** `git config core.hooksPath .githooks` once per clone. Pre-commit scans what is staged, pre-push
-  scans the commits being pushed ([tools/scan/scan.py](tools/scan/scan.py)). Never `--no-verify`, never disable a hook.
+  scans the commits being pushed that the remote does not have yet - an update's remote..local, a new branch's commits no remote ref reaches
+  ([tools/scan/scan.py](tools/scan/scan.py)). Never `--no-verify`, never disable a hook.
 - **A finding is fixed at its cause**: scrub the text, or move the value into the private config. An entry in
   [tools/scan/allow.txt](tools/scan/allow.txt) is only for text that is genuinely not private (a version number that looks
   like an address, a constant that looks like a Steam id), each with its reason. Exceptions that name private text go in the

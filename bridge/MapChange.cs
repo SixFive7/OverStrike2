@@ -1,19 +1,19 @@
-// The one way the map changes: a change counting down, then sent; a load that never arrives is given up.
+// The one way the map changes: a change said and sent at once; a load that never arrives is given up.
 
 static partial class Program
 {
     /// <summary>The only path that changes the map: say so - the kind of message it is, the vote's result having its own (its window says it, the change's line
-    /// would say it twice) - let the HUD's banner count it down, then FireChange. A server restart, or a list that made the map unplayable, clears Pending, and the stale callback
-    /// sees that and stops.</summary>
+    /// would say it twice) - and send it at once (FireChange), with no countdown: a vote's change and the dice's automatic ones alike - the start roll, an empty
+    /// server's way back to Arms Race, a map gone from the Workshop or one that crashes the players' games, a match end nothing draws a vote for.</summary>
     static void StartChange(Change change, string announcement, Messages.Kind? kind = null)
     {
         Pending = change;
-        change.FiresAt = Now().AddSeconds(ChangeDelay);
-        Post(kind ?? Messages.MapCountdown, announcement, seconds: ChangeDelay); // the countdown banner counts it down; chat and the board say it
-        After(ChangeDelay * 1000, () => FireChange(change));
+        change.FiresAt = Now();
+        Post(kind ?? Messages.MapCountdown, announcement); // chat and the board say it
+        FireChange(change);
     }
 
-    /// <summary>The countdown is over: host_workshop_map / changelevel goes out, the mode's commands first (ModeSwitch.cs).</summary>
+    /// <summary>The change goes out: host_workshop_map / changelevel, the mode's commands first (ModeSwitch.cs).</summary>
     static void FireChange(Change change)
     {
         if (Pending != change) return; // cancelled in the meantime
@@ -47,16 +47,16 @@ static partial class Program
         LoadPending = true; LoadUntil = now.AddMinutes(LoadMinutes); LoadSentAt = now; LoadBehindDownload = false;
     }
 
-    // ---- the change that counts down ----
+    // ---- the change ----
 
-    /// <summary>A map change counting down CHANGE_DELAY_SECONDS: the vote's result, or one of the dice's automatic changes (Auto: the start roll,
-    /// the way back to Arms Race on an empty server, a map gone from the Workshop or one that crashes the players' games).</summary>
+    /// <summary>A map change: the vote's result, or one of the dice's automatic changes (Auto: the start roll, the way back to Arms Race on an empty server, a
+    /// map gone from the Workshop or one that crashes the players' games). Pending from its decision until it went out - the same moment now.</summary>
     sealed class Change(MapInfo map, string by)
     {
         public MapInfo Map { get; } = map;
         public string By { get; } = by;
         public bool Auto { get; init; }
-        public DateTime FiresAt; // when the countdown ends and the change goes out (StartChange); the HUD's banner counts down to it
+        public DateTime FiresAt; // when the change goes out (StartChange): at its decision
     }
 
     /// <summary>The dice's automatic change (one helper for the four): the start roll, the empty server's way back to Arms Race, a map gone from

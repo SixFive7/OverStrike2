@@ -10,6 +10,9 @@ static partial class Program
     /// <summary>The map a vote's change sent, while it loads: the change goes out at once at the decision (ChangeNow), so nothing counts down - null otherwise.</summary>
     static MapInfo? ChangeGone() => Pending == null && LoadPending ? S.Map : null;
 
+    /// <summary>The dice's automatic change has gone out - at once, as every change goes now: the map it sent, while it loads, picked by the dice.</summary>
+    static bool Diced() => ChangeGone() != null && S.PickedBy == "the dice";
+
     /// <summary>The run's own lists, as SelfTestRun loaded them (maps.json): what every reset puts back.</summary>
     static List<MapInfo> SelfTestMaps = new();
 

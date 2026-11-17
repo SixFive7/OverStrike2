@@ -46,7 +46,7 @@ static partial class Program
         h.Join(alice); h.Quiet();
         OnMatchEnd();
         HudActive = hudWas;
-        Check("...end to end: the dice's line names the map, and fits", Pending is { Auto: true } && Told.Any(t => t.StartsWith("Match over - Rolling the dice: ", StringComparison.Ordinal) && t.Length <= Messages.TopMax));
+        Check("...end to end: the dice's line names the map, and fits", Diced() && Told.Any(t => t.StartsWith("Match over - Rolling the dice: ", StringComparison.Ordinal) && t.Length <= Messages.TopMax));
         Fresh(); Maps = fixtures;
 
         // ---- too big: XL in sizes.json, or a too-big vote; 1 random pick in 100 ----

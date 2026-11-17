@@ -14,7 +14,6 @@ public static class MapVote
     public const int MaxMaps = 48;        // a ballot's cards at the most - six pages - however many maps players put on it; Random comes on top
     public const int MaxOptions = MaxMaps + 1;
     public const int WaitSeconds = 120;   // after any vote, this long before anybody can call another on that map - a map's start lifts it; a match end opens its vote anyway
-    public const int KeptSeconds = 8;     // the vote kept the map: everybody's window shows that for this long, everybody still frozen, and closes at the same moment
 
     /// <summary>The inactivity timer: once everybody present has voted, the vote closes this long after the last activity - a vote cast, changed or
     /// taken back, a map put on it, or a player's work in the map browser that reaches the server (a page, a sort, a filter, a search; scrolling and

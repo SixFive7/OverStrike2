@@ -55,7 +55,7 @@ public static class Messages
         VoteInactivity = new("voteidle", "Inactivity timer, and who reset it", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
         VoteLimit = new("votelimit", "The 60 s limit", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
         VoteWaiting = new("votewait", "Waiting for: the players who have not voted (chat and the board: VoteClick's line says it)", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
-        VoteDecided = new("votedone", "The vote decided, and the change counting down", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
+        VoteDecided = new("votedone", "The vote decided, and its change going out", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
         VoteKept = new("votekept", "The vote kept the map", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 8),
         VoteRefused = new("voteno", "You cannot call a vote yet", Surface.Line, Who.Player, Who.Everybody, Who.Everybody, Vote, 8),
         VoteRefusedYou = new("votenoyou", "You cannot call a vote yet: the player's own line, in their own words", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Vote, 8),
@@ -72,7 +72,7 @@ public static class Messages
         CatchUpBoost = new("boost", "Catch-up's boost", Surface.Card, Who.Player, Who.Player, Who.Player, CatchUp, 5),
         Bounty = new("bounty", "The leader's bounty", Surface.Card, Who.Player, Who.Player, Who.Nobody, CatchUp, 5),
         // maps, pictures and downloads
-        MapCountdown = new("change", "Map change counting down", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 0),
+        MapCountdown = new("change", "A map change by the dice, as it goes out", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 0),
         ServerDownload = new("download", "The server downloading a map", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         BackgroundFirst = new("background", "Finishing a background download first", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         DownloadFailed = new("dlfailed", "A download failed", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
