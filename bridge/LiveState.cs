@@ -124,7 +124,7 @@ static partial class Program
         h.Verified = HudVerifiedNow(now); // Program.cs: the HUD check, for the players on the server
         h.SearchVersion = Search.Version;
         h.DashVersion = DashVersion; // SyncDash.cs: the Sync page's block
-        if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), 40), ArgOf(prev));
+        if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), VoteState.LabelMax), ArgOf(prev)); // the HUD cuts it at the button's real width
         PutNotices(h, now);
         if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line
         PutWhy(h, now); // Likes.cs: the Dislike popups that are open
