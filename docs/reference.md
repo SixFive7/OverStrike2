@@ -386,7 +386,7 @@ that end, so the next match starts at its 0.
 
 **A winner still to download** - the watcher's fresh report says it is not on the server's disk (`ReportedMissing`), which a map put on the ballot late can
 be - goes out at once as every change does (`ChangeNow`): the server fetches the map, taking over the
-watcher's background download of it, and loads it the moment it is in. The decision's line and the window say so - "Downloading: it changes the moment it
+watcher's background download of it, and loads it the moment it is in. The decision's line and the window say so - "Server downloading: it changes the moment it
 is ready", no clock (`VoteState.Fetching`) - until the map starts. At a match end the screen holds for it, `os_nextmatch 120 hold` (`NextMatch.HoldSeconds`,
 sooner or later than it would end), so the next match never starts on the old map while the new one comes, and everybody stays on the scoreboard; a
 download that outlasts it lets the screen end there and the next match start on the old map, and the new map still comes the moment it is in. Mid-match the

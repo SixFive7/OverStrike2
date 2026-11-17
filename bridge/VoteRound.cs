@@ -568,7 +568,7 @@ static partial class Program
     }
 
     /// <summary>What the window and the decision's line say while the winner downloads: no countdown, since the map changes the moment it is in.</summary>
-    public const string FetchingWords = "Downloading: it changes the moment it is ready";
+    public const string FetchingWords = "Server downloading: it changes the moment it is ready"; // the server downloads it, said plainly (the owner, release 218), as the window says
 
     /// <summary>The vote decided for another map: its change goes out at once, with no countdown - no wait between the decision and the map's load. The window
     /// shows the result until the map starts - OnMapStart closes it - everybody frozen: mid-match LoadWindowSeconds at the most, at a match end
