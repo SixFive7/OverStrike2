@@ -435,8 +435,9 @@ at 16:10 82 %, y 246-1000; at 4:3 67 %, y 384-1000); it never moves from page to
 ratios (client.dll's table: 4:3 1.333, 16:10 1.6, 16:9 1.778 and 1.889, 21:9 2.333; its 17x9 to 20x9 classes are never set), so `AspectRatio4x3` covers 5:4 too,
 `AspectRatio16x10` 3:2 and 5:3, `AspectRatio16x9` up to 2:1 and `AspectRatio21x9` 21:9, 32:9 and three screens. Each class's window holds on its narrowest real
 canvas (1,080 high): 16:9 right-aligned 80 px from the edge (13 px clear of the column at 1,360 x 768), 16:10 at 82 % from x 598 (to x 1,615: 3:2's 1,620
-holds), 21:9 from x 950 (32:9 keeps it near the middle). 4:3 stays at 67 %, right-aligned: on 5:4's 1,350 it stands 70 px over the column's empty right margin,
-left so. Every word in the window is 2 px larger at 4:3 (the smallest 13-14 px: about 9 px on a 1,080-high screen, 8 at 1,280 x 960, where they were about
+holds), 21:9 from x 950 (32:9 keeps it near the middle). 4:3 stays at 67 %, right-aligned, from x 599: 20 px clear of the column. 5:4 holds the same: CS2 lays
+it out at 4:3's 1,440 x 1,080 and squeezes that about 6 % across onto the screen (its radar is an oval there), so on a 1,280 x 1,024 screen the column ends at
+x 514 and the window starts at 534 (the lab's final round of release 218). Every word in the window is 2 px larger at 4:3 (the smallest 13-14 px: about 9 px on a 1,080-high screen, 8 at 1,280 x 960, where they were about
 7) - a 4:3 twin of each rule that sizes a word in the window, the window above its subject so it outranks its original and keeps every state's own size - and
 the boxes the larger words outgrew are wider (the filter headings, the clock's keys, Random, the bots' choices, Help's group names, Start's steps, a card's
 body); the column keeps its 12 px there. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
@@ -462,10 +463,11 @@ animation that hides it): a plugin that stops leaves its last beat, which runs o
 later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel" - and a slot's entries go when its
 player leaves and again when a new one takes it (`ClearSlot`): the entity hands a joining game the slot's entries as they were left. **The pointer** to CS2's
 typing line has a slot of its own in the dock (`os-chat-ptrslot`, 48 px: two rows, three at 4:3) between the column's foot and the typing line, pointing down at
-it: the column ends above the slot, so the pointer covers no row of ours, CS2's lines under the dock are hidden by it whether the pointer shows or not, and it
-stays clear of the typing line - in a match (the slot at y 904-952 over the line at 952-1000) and at a match end (660-708 over 716-764), at every shape; it
-shows only beside our column (without it CS2's own chat shows in its strip, and the window's own line says how to search), and with the search helped while
-CS2's chat is still closed the column already makes room, so the pointer stands right over where the line will come. **Around the open window** what of CS2's
+it: the column ends above the slot, so the pointer covers no row of ours; the slot is opaque as the column is, so none of CS2's lines shows in it (dimmed only, it
+let CS2's newest line show through under the pointer - the lab's final round of release 218); and it stays clear of the typing line - in a match (the slot at
+y 904-952 over the line at 952-1000) and at a match end (660-708 over 716-764), at every shape. It shows only beside our column (without it CS2's own chat shows
+in its strip, and the window's own line says how to search), and with the search helped while CS2's chat is still closed the column already makes room, so the
+pointer stands right over where the line will come; the typing line's slot is opaque then too, as CS2's closed lines stand 56 px lower, in it, until its chat opens. **Around the open window** what of CS2's
 HUD stands outside it and the column lies behind a dim 80 % darker on screen (`os-dim`; the HUD is blended in linear light, so an alpha of a leaves
 (1 - a)^(1/2.2) of the brightness: 50 % alpha left 73 %, 80 % left 48 % - the lab's frames of 7d9ab5c, white 255 to 119-124 - and 97 %, `#05070AF8`, leaves 20 %):
 the dim starts right of the chat's strip (x 579) - above and under the column the dock dims itself, never CS2's typing line, whose slot under the column
@@ -477,7 +479,10 @@ how-to bar says Hold TAB to see the scores; while the server reads TAB held (`vp
 screen (`HUD_ENDOFMATCH_VISIBLE`) - the window, the chat column, the dim, the pointer and the dislike's dialog collapse at once, no fade, and come back the same
 way: mid-match CS2's scoreboard goes the instant TAB comes up, so the window is back with it whatever the server's lag; at a match end `vpeek` decides both
 ways. The player stays frozen and the window keeps the mouse.
-**The dislike's dialog** stays off the ballot (`.os-screen.why.voting`): a vote opening over it would sit under it.
+**The dislike's dialog** stays off the ballot (`.os-screen.why.voting.page-maps`: the window on Maps while a vote stands, not its map browser): a vote opening
+over it would sit under it. A question asked before the vote opened is the bridge's to hold (`PutWhy`): not sent while the ballot stands, on any page, its time
+standing still; back whole, 15 s, once the ballot goes with the map kept; closed by a decision for another map, as the map change would close it. One asked
+during the vote - a card's down arrow in the map browser, the welcome page's Dislike - shows on every page but the ballot.
 **The ballot's header** is the page bar every page has: Random, who has not voted (then what came of the vote)
 and the one clock - no title and no state chip, as the tab says Vote and the clock's word the state - with how to vote under it; nothing in the window's foot
 says everybody is frozen. **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`): the inactivity
@@ -694,7 +699,8 @@ it once TAB is held. The reasons appear only when a dislike is cast - never for 
 
 Choosing a reason updates that mark. With no choice the mark stays as it is; the plain dislike is what is kept and logged. Taking a mark back takes its effect with
 it. The popup takes no mouse of its own, so it never stops anybody playing: a click needs the cursor the player already has - the window's, or TAB's. A map change, or
-another mark by that player on that map, closes it.
+another mark by that player on that map, closes it. A vote that opens over it puts it aside: it waits, off the screen, while the ballot stands, and is back with its
+full 15 s once the ballot goes with the map kept; a vote decided for another map closes it. One asked during the vote runs as any other.
 
 Chat steers it directly: `!down big` on the map that is on, `!down <number> <reason>` on any map (`!down 12 big`), a new mark with its reason if there was none, and no
 popup. While a popup is open `!down big` sets the reason of the mark it asks about, without a second one. A reason replaces the one before; the same one again changes

@@ -97,7 +97,7 @@ static partial class Program
         mine[id] = value;
         SaveLikes();
         if (value < 0) Log($"likes: {by} {id} on {Label(map)}: {DownReasons.Of(value)?.Label}"); // the reason is kept per mark: votes.json's value
-        if (value == DownReasons.Plain && !named) WhyOpen[id] = new WhyAsked(map, Now().AddSeconds(DownReasons.PopupSeconds));
+        if (value == DownReasons.Plain && !named) WhyOpen[id] = new WhyAsked(map, Now().AddSeconds(DownReasons.PopupSeconds), Now());
         var tally = Tallied();
         static string To(int v) => v > 0 ? "up" : DownReasons.Of(v)?.Short ?? "down";
         Tell(id, M.Done(old != 0 ? $"You changed your mark on {M.A(Label(map))} to {M.V(To(value))}, {tally}"
@@ -110,17 +110,27 @@ static partial class Program
 
     const int PlainVoteLabel = 34; // a plain downvote's note names the map in this much, so "Why? ..." always fits the note line
 
-    /// <summary>The map a player's popup asks about, and until when it stands.</summary>
-    sealed record WhyAsked(MapInfo Map, DateTime Until);
+    /// <summary>The map a player's popup asks about, until when it stands, and when it was asked (a vote opened after that puts it aside: PutWhy).</summary>
+    sealed record WhyAsked(MapInfo Map, DateTime Until, DateTime Asked);
 
     static readonly Dictionary<string, WhyAsked> WhyOpen = new(); // SteamID -> the Dislike still waiting for its reason; in memory: a lost one stays "I did not like the map"
 
     /// <summary>Every tick's reading of the open popups, into the live state: each one's map and seconds left. One past its time goes after a short grace,
-    /// so that a click on its way still lands; its vote stays "I did not like the map".</summary>
+    /// so that a click on its way still lands; its vote stays "I did not like the map". A vote that opens over a popup puts it aside (the lab's final round of
+    /// release 218: it had stayed off the ballot, and its 15 s ran out unseen): off every page while the ballot stands, its time standing still, and back whole -
+    /// the full PopupSeconds - once the ballot goes with the map kept; a vote decided for another map closes it there and then, as the map change would. One asked
+    /// during the vote (a card's down arrow in the map browser, the welcome page's Dislike) runs as any other, off the ballot alone (the stylesheet's
+    /// .os-screen.why.voting.page-maps).</summary>
     static void PutWhy(HudState h, DateTime now)
     {
         foreach (var (id, asked) in WhyOpen.ToList())
         {
+            if (Ballot is { } b && b.Opened > asked.Asked) // put aside by the vote
+            {
+                if (b.Change != null) WhyOpen.Remove(id); // decided for another map
+                else WhyOpen[id] = asked with { Until = now.AddSeconds(DownReasons.PopupSeconds) };
+                continue;
+            }
             if (now >= asked.Until.AddSeconds(DownReasons.PopupGraceSeconds)) { WhyOpen.Remove(id); continue; }
             if (now < asked.Until && AccountId(id) is > 0 and var account) { h.Why[account] = (Clip(Label(asked.Map), 40), (int)Math.Ceiling((asked.Until - now).TotalSeconds)); h.WhyUntilMs[account] = HudState.Ms(asked.Until); }
         }

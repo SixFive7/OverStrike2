@@ -6578,12 +6578,14 @@ Label
 /* -- Every page beside CS2's chat (content v4.14.0; MAPS alone in v4.13.0): the chat's box stands at x 10-579 at every aspect (styles/hud/hudchat.css: 553 px and
    its margins), its line at y 952-1000 in a match and higher at a match end (y 674-722), and the chat column over it (os-chat, x 0-579). The window never moves
    from page to page and is 920 high on every one, its foot at y 1000 at every aspect, where the chat column's is. CS2 gives the HUD the class of the nearest of
-   four shapes (client.dll's table of ratios, the nearest wins): AspectRatio4x3 below 1.467 (canvas up to 1,584 wide: 5:4's 1,350 and 4:3's 1,440), 16x10 up to
+   four shapes (client.dll's table of ratios, the nearest wins): AspectRatio4x3 below 1.467 (canvas 1,440 to 1,584 wide - 5:4 is laid out at 4:3's 1,440 too), 16x10 up to
    1.689 (3:2's 1,620, 16:10's 1,728, 5:3's 1,800), 16x9 up to 2.111 (16:9's 1,912-1,921, 17:9, 2:1) and 21x9 beyond (21:9's 2,560, 3,440 x 1,440's 2,580, 32:9's
    3,840, three screens). So each class's window must hold on its narrowest real canvas: 16:9 right-aligned, 80 px from the edge (x 600 at 1,920; 13 px from the
    column at 1,912); 16:10 at 82 % from x 598, ending at 1,615 (3:2's 1,620 holds; 90 % ran over the column there), y 246-1000; 4:3 at 67 %, right-aligned 10 px
-   from the edge, y 384-1000 (x 599 at 1,440; 5:4's 1,350 puts it 70 px over the column's empty right margin, left so - 4:3's words are 2 px larger instead);
-   21:9 from x 950, so 32:9 keeps it near the middle. -- */
+   from the edge, y 384-1000 (x 599, 20 px clear of the column; 5:4 the same: CS2 lays it out at 4:3's 1,440 x 1,080 and squeezes that 6 % across onto the
+   screen - its radar is an oval there - so the window stands where it does at 4:3: on a 1,280 x 1,024 screen the column ends at x 514 and the window starts at
+   534, the lab's final round of release 218); 21:9 from x 950, so 32:9 keeps it near the middle. A canvas is 1,080 high at every shape and as wide as the
+   screen's ratio makes it, but for 5:4's: 4:3's 1,440. -- */
 
 .os-screen .os-win
 {
@@ -7995,9 +7997,11 @@ Label
 	color: #FFFFFF;
 }
 
+/* its bar 76 px, so the words after it have 138 px (156 at 4:3, in 15 px type): the longest the server sends, "1023.8 MB of 1023.9 MB" in a download's
+   last MB, is about 120 (139 at 4:3) - the cases in between, "1.141 GB of 1.145 GB" and "0.99 GB of 1.14 GB", about 104 and 92 */
 .os-vdl .os-clock-bar
 {
-	width: 96px;
+	width: 76px;
 }
 
 /* the server downloads, not the player's game: its key says so, at its own width */
@@ -8519,7 +8523,7 @@ Label
 }
 
 /* The foot: the slot of CS2's typing line (48 px while CS2's chat is open in a match, 56 at a match end - 708 to 764 - none while it is closed, but for the pointer),
-   then the rest to the screen's foot, dimmed with the window open. The slot is never dimmed. */
+   then the rest to the screen's foot, dimmed with the window open. The slot is never dimmed while CS2's chat is open. */
 .os-chat-slot
 {
 	width: 100%;
@@ -8556,19 +8560,29 @@ Label
 	height: 56px;
 }
 
+/* With the pointer up and CS2's chat still closed, the typing line's slot holds no typing line but CS2's newest lines (closed, they stand 56 px lower: to y 1000,
+   764 at a match end) - covered there, opaque as the pointer's slot, beside our column alone. Once CS2's chat opens the slot is clear again for its typing line. */
+.os-screen.win.qhelp.chaton .os-chat-slot
+{
+	background-color: #05070A;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win.qhelp.chaton .os-chat-slot
+{
+	background-color: #05070A00;
+}
+
 /* The pointer's slot, between the column's foot and the typing line's slot: 48 px, two rows (three at 4:3), so the column above it keeps whole rows. It shows when the
-   pointer does - the search help clicked (qhelp), or CS2's chat open on Maps but for the ballot - and only beside our column (chaton): there it covers no chat line,
-   ours or CS2's (the column ends above it, and CS2's lines under the dock are hidden by it whether the pointer shows or not); without the column CS2's own chat shows
-   in its strip, so the pointer stays away and the window's own line says how to search. It is dimmed as the dock is, and clear of the typing line under it. */
+   pointer does - the search help clicked (qhelp), or CS2's chat open on Maps but for the ballot - and only beside our column (chaton): there it covers no chat line
+   of ours (the column ends above it); without the column CS2's own chat shows in its strip, so the pointer stays away and the window's own line says how to search.
+   The slot is opaque, as the column is (the lab's final round of release 218: dimmed only, it let CS2's newest line show through under the pointer): CS2's lines
+   under it never show, so the pointer is all there is in it. It keeps clear of the typing line under it. */
 .os-chat-ptrslot
 {
 	visibility: collapse;
 	width: 100%;
 	height: 48px;
-	background-color: #05070A00;
-	transition-property: background-color;
-	transition-duration: 0.25s;
-	transition-timing-function: ease-out;
+	background-color: #05070A;
 }
 
 .os-screen.win.qhelp.chaton .os-chat-ptrslot
@@ -8584,11 +8598,6 @@ Label
 .HUD_CHAT_VISIBLE .os-screen.win.page-maps.voting.chaton .os-chat-ptrslot
 {
 	visibility: collapse;
-}
-
-.os-screen.win-in.chaton .os-chat-ptrslot
-{
-	background-color: #05070AF8;
 }
 
 .os-chat-under
@@ -9014,8 +9023,10 @@ Label
 	margin-left: 2px;
 }
 
-/* The dislike's dialog stays off the ballot (the lab's round 5): a vote opening over it would sit under it. */
-.os-screen.why.voting .os-why
+/* The dislike's dialog stays off the ballot (the lab's round 5): a vote opening over it would sit under it. The ballot is the window on Maps while a vote stands
+   and the player is not in its map browser (voting with page-maps). A question the vote put aside is not sent at all while the ballot stands, on any page, and comes
+   back whole once it goes with the map kept (the bridge's PutWhy, the lab's final round); one asked during the vote shows on every other page. */
+.os-screen.why.voting.page-maps .os-why
 {
 	visibility: collapse;
 }

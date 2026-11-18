@@ -435,6 +435,46 @@ static partial class Program
             }
             finally { MapVote.InactivitySeconds = 0; }
 
+            // ---- a Dislike's question and a vote that opens over it (the lab's final round of release 218): put aside while the ballot stands, its time standing
+            // still; back whole once the ballot goes with the map kept; gone with a decision for another map; one asked during the vote runs as any other ----
+            {
+                WinStart(0);
+                var (aliceAcc, caraAcc) = (AccountId(alice.Item2), AccountId(cara.Item2));
+                HudState Asking() => HudState.Decode(BuildHud(h.Clock).Encode())!;
+                bool WhyOn(HudState st, long account, string cls) => HudView.PlayerClasses(st, account).Single(x => x.Class == cls).On;
+                var whyMap = S.Map!;
+                Command(alice.Item1, alice.Item2, "!down"); // a plain Dislike of the map that is on: its question opens (Likes.cs)
+                h.Run(2);
+                var whyBefore = Asking();
+                StartVote(bob.Item1, bob.Item2);
+                var whyOpened = Asking();
+                h.Run(DownReasons.PopupSeconds + 5);
+                var whyAside = Asking();
+                Command(cara.Item1, cara.Item2, "!down"); // a Dislike during the vote
+                var whyDuring = Asking();
+                Check("A vote that opens over a Dislike's question puts it aside: not sent while the ballot stands, on any page, and still waiting when its 15 s would have run out; one asked during the vote runs as any other",
+                    whyBefore.Why.GetValueOrDefault(aliceAcc).For == (int)DownReasons.PopupSeconds - 2 && Ballot is { Open: true } && !whyOpened.Why.ContainsKey(aliceAcc) && !whyAside.Why.ContainsKey(aliceAcc)
+                    && !WhyOn(whyAside, aliceAcc, "why") && whyDuring.Why.GetValueOrDefault(caraAcc) == (Clip(Label(whyMap), 40), (int)DownReasons.PopupSeconds) && !whyDuring.Why.ContainsKey(aliceAcc));
+                var whyKeepN = OptOf(o => o.Source == VoteSource.Keep);
+                foreach (var p in six) Click(p, whyKeepN);
+                var whyBack = Asking();
+                h.Run(2);
+                var whyRunning = Asking();
+                Check("...the vote keeps the map, and once the ballot goes the question is back whole: the same map, the full 15 s, the line under it starting a second in",
+                    Ballot is null && S.Map == whyMap && whyBack.Why.GetValueOrDefault(aliceAcc) == (Clip(Label(whyMap), 40), (int)DownReasons.PopupSeconds) && WhyOn(whyBack, aliceAcc, "why") && !WhyOn(whyBack, aliceAcc, "why-run")
+                    && whyRunning.Why.GetValueOrDefault(aliceAcc).For == (int)DownReasons.PopupSeconds - 2 && WhyOn(whyRunning, aliceAcc, "why-run"));
+                Settle(); ClearNotices();
+                StartVote(dan.Item1, dan.Item2);
+                var whyOtherN = OptOf(o => o.Source == VoteSource.Rolled);
+                foreach (var p in six) Click(p, whyOtherN);
+                var whyChanging = Asking();
+                Check("...a vote decided for another map closes it there and then, as the map change would; the Dislike stays 'I did not like the map'",
+                    Ballot is { Open: false } && ChangeGone() != null && !whyChanging.Why.ContainsKey(aliceAcc) && !whyChanging.Why.ContainsKey(caraAcc)
+                    && Likes[Key(whyMap)][alice.Item2] == DownReasons.Plain && Likes[Key(whyMap)][cara.Item2] == DownReasons.Plain);
+                Land();
+                Likes = new();
+            }
+
             // ---- every vote says in chat and on the board who voted and who still has to ----
             WinStart(0);
             StartVote(alice.Item1, alice.Item2);
