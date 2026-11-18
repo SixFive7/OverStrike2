@@ -380,6 +380,10 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && hudSend.Contains("foreach (var field in new[] { \"m_vecPanelIds\", \"m_vecClassNames\", \"m_vecDialogVariableNames\" })", StringComparison.Ordinal)
           && !hudSend.Contains("\"m_globalLayoutState\")", StringComparison.Ordinal),
         "HUD: a frame marks for the network only what the engine resolves - the three name vectors and the player states, never the global state's embedded struct (offset 2064)");
+    // a click on the search area says how on the window's line alone: in chat it was CS2's newest line, showing through the pointer's slot (release 218's final round)
+    var hudChat = Source("plugin", "OverStrike2", "HudScreenChat.cs");
+    Check(hudChat.Contains("WindowNote(player.Slot, ChatReply.HowToSearch);", StringComparison.Ordinal) && !hudChat.Contains("LocalNote(player.Slot, ChatReply.HowToSearch)", StringComparison.Ordinal),
+        "HUD: a click on the search area says how on the window's line alone - not in chat or on the board, where CS2's newest chat line showed it through the pointer");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");

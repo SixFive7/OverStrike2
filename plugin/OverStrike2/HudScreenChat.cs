@@ -133,11 +133,13 @@ sealed partial class HudScreen
     /// <summary>A search that found maps, as this player's newest (HudBrowser.Remember): by account, through a map change's reconnect.</summary>
     void Searched(long account, string words) => recentSearches[account] = HudBrowser.Remember(recentSearches.GetValueOrDefault(account), words);
 
-    /// <summary>A click on the search area: how searching works, on the window's line and in chat, and the search helped for HudBrowser.HelpSeconds - the words row, the
-    /// box lit, the window lifted, a pointer at the chat line (content v4.11.0) - or no longer, at a second click.</summary>
+    /// <summary>A click on the search area: how searching works, on the window's line alone (WindowNote), and the search helped for HudBrowser.HelpSeconds - the words
+    /// row, the box lit, the window lifted, a pointer at the chat line (content v4.11.0) - or no longer, at a second click. Not in chat or on the board as well: the
+    /// click always comes from the open window, whose line says it, and the pointer says it beside the column - in chat it was CS2's own newest line, which showed
+    /// through the pointer's slot (the live lab's final round of release 218), and two gold rows in the column.</summary>
     void AskedHowToSearch(CCSPlayerController player, DateTime now)
     {
-        LocalNote(player.Slot, ChatReply.HowToSearch);
+        WindowNote(player.Slot, ChatReply.HowToSearch);
         var me = Player(player.Slot);
         me.SearchHelpUntil = now < me.SearchHelpUntil ? DateTime.MinValue : now.AddSeconds(HudBrowser.HelpSeconds);
     }
