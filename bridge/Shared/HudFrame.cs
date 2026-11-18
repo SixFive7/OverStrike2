@@ -138,10 +138,12 @@ public sealed class HudFrame
         // now, TAB or not (for a stylesheet that also goes by CS2's own HUD_SCOREBOARD_VISIBLE); vpeek - they may, and TAB is down as the server reads it, or
         // their SCORES look is on. At the match-end screen no key reaches the server, so there the ballot's SCORES button does it (HudScores, the owner's 292):
         // vscoresok - the button may show (meos is on, they may peek, no look on); vscores - the look is on, Back to the vote shows.
+        // TAB counts off the match-end screen alone: there CS2 has taken the pawn the server reads it from, so a TAB down as the match ended - people hold it to
+        // see the scores - would read as held all through the screen, its TAB-up never reaching the server, and keep the window aside with no way back.
         var peekOk = view.Window && Peekable(vote, account);
         var scores = view.Window && HudScores.On(p, vote, w.ChatLift, now);
         screen.Class(HudView.Screen, "vpeekok", peekOk, slot);
-        screen.Class(HudView.Screen, "vpeek", peekOk && (h.TabHeld || scores), slot);
+        screen.Class(HudView.Screen, "vpeek", peekOk && ((h.TabHeld && !w.MatchScreen) || scores), slot);
         screen.Class(HudView.Screen, "vscoresok", HudScores.Allowed(view.Window, w.ChatLift, vote, account) && !scores, slot);
         screen.Class(HudView.Screen, "vscores", scores, slot);
         screen.Var(HudView.Screen, HudScores.CountdownVar, scores ? HudScores.Countdown(p, now) : "", slot); // Back to the vote's countdown
