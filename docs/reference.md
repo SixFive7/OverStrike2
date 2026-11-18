@@ -442,7 +442,10 @@ ratios (client.dll's table: 4:3 1.333, 16:10 1.6, 16:9 1.778 and 1.889, 21:9 2.3
 `AspectRatio16x10` 3:2 and 5:3, `AspectRatio16x9` up to 2:1 and `AspectRatio21x9` 21:9, 32:9 and three screens. Each class's window holds on its narrowest real
 canvas (1,080 high): 16:9 right-aligned 80 px from the edge (13 px clear of the column at 1,360 x 768), 16:10 at 82 % from x 598 (to x 1,615: 3:2's 1,620
 holds), 21:9 from x 950 (32:9 keeps it near the middle). 4:3 stays at 67 %, right-aligned: on 5:4's 1,350 it stands 70 px over the column's empty right margin,
-and its smallest words are about 7 px at 1,280 x 960 - both the owner's call. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
+left so. Every word in the window is 2 px larger at 4:3 (the smallest 13-14 px: about 9 px on a 1,080-high screen, 8 at 1,280 x 960, where they were about
+7) - a 4:3 twin of each rule that sizes a word in the window, the window above its subject so it outranks its original and keeps every state's own size - and
+the boxes the larger words outgrew are wider (the filter headings, the clock's keys, Random, the bots' choices, Help's group names, Start's steps, a card's
+body); the column keeps its 12 px there. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
 open (c, the default), always (a1) or never (d), `os_hud chat window|always|off` until the plugin reloads, the same stylesheet for all three. The plugin keeps
 the lines CS2's chat shows - every player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one
 player), joins, leaves and team changes - and draws each player's newest in rows of one row of type each, a long line running on in the rows under it
