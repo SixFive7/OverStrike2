@@ -169,8 +169,8 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
             var p = bd > 0 && bt > 0 ? $" ({Percent(bd, bt)} percent)" : "";
             return $"Server is finishing the background download of {Title(bg, now)} first{p} - Then {name}, the map changes when it is ready";
         }
-        if (done > 0 && total > 0)    // no percent sign on a console line
-            return $"Server is downloading {name}: {Percent(done, total)} percent ({Downloads.SizeWords(done)} of {Downloads.SizeWords(total)}) - The map changes when it is ready";
+        if (done > 0 && total > 0 && Downloads.SizePair(done, total) is var (doneWords, totalWords))    // no percent sign on a console line
+            return $"Server is downloading {name}: {Percent(done, total)} percent ({doneWords} of {totalWords}) - The map changes when it is ready";
         if (done > 0)
             return $"Server is downloading {name}: {Downloads.SizeWords(done)} so far - The map changes when it is ready";
         if (total > 0)

@@ -109,6 +109,9 @@ static class WorkshopTests
         ln.Step(108.5, 2);
         Check($"line: the bytes in the size the list gives, never more than the whole ({sent[^1]})", sent[^1].Contains("99 percent (155 MB of 155 MB)"));
         Check("line: a size in the units the HUD shows", Downloads.SizeWords(464L << 20) == "464 MB" && Downloads.SizeWords(3L << 29) == "1.5 GB");
+        Check("line: two sizes never read alike before the end - a second decimal in GB then (1.1 GB of 1.1 GB at 93 %), as they were otherwise",
+            Downloads.SizePair(0.93 * 1.149 * (1L << 30), 1.149 * (1L << 30)) == ("1.07 GB", "1.15 GB") && Downloads.SizePair(1.1 * (1L << 30), 1.1 * (1L << 30)) == ("1.1 GB", "1.1 GB")
+            && Downloads.SizePair(500L << 20, 1L << 30) == ("500 MB", "1.0 GB") && Downloads.SizePair(78L << 20, 155L << 20) == ("78 MB", "155 MB"));
         ln.ConsoleLine("11/01 08:46:30 [Workshop] Updating 900: state 5", 107.0);
         var n = sent.Count;
         ln.Step(110.0, 2);

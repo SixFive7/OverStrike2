@@ -39,7 +39,7 @@ public static class HudBots
             c.Add((Row(r), "changed", s != null && showing != s.Normal && who != "")); // a player's choice stands out; Arms Race's own fill is nobody's
             for (var k = 1; k <= Bots.ChoicesPerRow; k++)
             {
-                var choice = s != null && k <= s.Choices.Length ? s.Choices[k - 1] : null;
+                var choice = s != null && k <= s.Choices.Length ? Fun.Shown(s)[k - 1] : null;
                 t.Add(($"{Button(r, k)}_txt", choice?.Label ?? ""));
                 c.Add((Button(r, k), "used", choice != null));
                 c.Add((Button(r, k), "on", choice != null && choice == showing));
@@ -84,6 +84,6 @@ public static class HudBots
             || !int.TryParse(row, NumberStyles.None, CultureInfo.InvariantCulture, out var r) || !int.TryParse(col, NumberStyles.None, CultureInfo.InvariantCulture, out var k)) return null;
         if (r < 1 || r > Math.Min(Bots.Rows, Bots.Settings.Length)) return null;
         var s = Bots.Settings[r - 1];
-        return k >= 1 && k <= s.Choices.Length ? new(s, s.Choices[k - 1], null, null) : null;
+        return k >= 1 && k <= s.Choices.Length ? new(s, Fun.Shown(s)[k - 1], null, null) : null;
     }
 }

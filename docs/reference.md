@@ -411,7 +411,11 @@ that says why (`StartChange`): nothing counts down before any map change.
 LEADING and TIE keep their chips but no frame, so on an open ballot the only framed card is yours, and Random's button lights the same white while your vote is on
 Random. White differs from every other state by brightness, not hue. A vote is never taken back (HUD content v4.12.0 drops v4.11.0's CLICK TO TAKE BACK under the
 mouse): it moves only to another card. **Wingman's player count** (v4.12.0): a Wingman card in the map browser says on its picture, beside the mode's label, how many
-a side its own spawn points take - "Made for 3v3", the catalog's `Side` (a bare "3v3" until v4.14.0) - a recommendation, never a limit; a map whose counts the sync does not know says none, and the
+a side its own spawn points take - "Made for 3v3", the catalog's `Side` (a bare "3v3" until v4.14.0) - a recommendation, never a limit (since hud-415 an official map's
+card says In the game where a size would be, with an OFFICIAL tag; words with a count of seconds are written as they are - "In 7 s", not "IN 7 S" - on the
+cards, Previous, the restart buttons and the window foot's restart line; the browser's sort buttons are plain words like its chips, and a Show heading stands
+over Liked by me, Official and Our maps; Our maps no longer glows while not chosen; a decided Changing now fills the clock's place; the Fun and Bots pages show
+every row's choices in one order, Off before On and an easier level first, `Fun.Shown`; and a download's two sizes never read alike before its end, `SizePair`); a map whose counts the sync does not know says none, and the
 ballot none. **A confirmed action's countdown** (v4.12.0): after the confirming click of Restart the server, Restart the match, Previous and a risky map's Play the
 button itself runs the countdown, lit red, with a line at its foot that drains a second at a time (`pending`, and `w0`-`w10` named for where the line is going,
 `HudVote.CountdownStep`), and a click on it cancels the action. From v4.12.1 the line rests in the layout, 0 px high, while nothing is pending, so a countdown after a
@@ -420,7 +424,7 @@ card's fill still kept the place a cancel left it at.
 
 **The chat beside the window** (v4.13.0): MAPS - Browse and the ballot - stands right of CS2's chat, which sits at x 18-571 (1080 high) at every aspect, its line at
 y 952-1000 in a match and higher at a match end (`.EndOfMatchChat`, y 674-722), so what a player types during a vote and every reply show beside the window. 16:10
-and 4:3 scale the window to fit there (`ui-scale` 90% and 67% since v4.14.0), 21:9 sets it in the room right of the chat, and the other pages stay in the middle; the chat's own
+and 4:3 scale the window to fit there (`ui-scale` 82% and 67% since v4.14.0), 21:9 sets it in the room right of the chat, and the other pages stay in the middle; the chat's own
 pointer for the search stays, and the window no longer lifts for it. The ballot shows its ten cards four across and three down, each with **the vote's own number** on
 its picture - the option's number on the wire, the same for everybody whatever the order of the cards (`os_m<k>_num`) - so `!vote <n>` in chat votes for it. The
 badges and the how-to line's words about them show only while the server sends the numbers (`vnum` on `os_screen`, plugin 5.16.5 on), so a game that has the
@@ -433,27 +437,40 @@ once decided - and for a downloading winner no digits, its words instead: it cha
 Vote (only while a vote is on, with a live dot; Maps is then the browser that adds to it), Maps, Fun, Bots, Players, Game, Sync, Help, How it works - and a tab
 with nothing to use right now is greyed (`off`: Game while the match-end screen is up, Sync while the server has no sync's block). Every page stands where MAPS
 stood in v4.13.0, right of CS2's chat, in a window 920 px high on every page, its foot at y 1000 at every aspect as the chat column's (y 80-1000 at 1080 high;
-at 16:10 90 %, y 172-1000; at 4:3 67 %, y 384-1000); it never moves from page to page. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
+at 16:10 82 %, y 246-1000; at 4:3 67 %, y 384-1000); it never moves from page to page. **Every screen shape**: CS2 gives the HUD the class of the nearest of its
+ratios (client.dll's table: 4:3 1.333, 16:10 1.6, 16:9 1.778 and 1.889, 21:9 2.333; its 17x9 to 20x9 classes are never set), so `AspectRatio4x3` covers 5:4 too,
+`AspectRatio16x10` 3:2 and 5:3, `AspectRatio16x9` up to 2:1 and `AspectRatio21x9` 21:9, 32:9 and three screens. Each class's window holds on its narrowest real
+canvas (1,080 high): 16:9 right-aligned 80 px from the edge (13 px clear of the column at 1,360 x 768), 16:10 at 82 % from x 598 (to x 1,615: 3:2's 1,620
+holds), 21:9 from x 950 (32:9 keeps it near the middle). 4:3 stays at 67 %, right-aligned: on 5:4's 1,350 it stands 70 px over the column's empty right margin,
+and its smallest words are about 7 px at 1,280 x 960 - both the owner's call. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
 open (c, the default), always (a1) or never (d), `os_hud chat window|always|off` until the plugin reloads, the same stylesheet for all three. The plugin keeps
 the lines CS2's chat shows - every player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one
 player), joins, leaves and team changes - and draws each player's newest in rows of one row of type each, a long line running on in the rows under it
 (`HudChat.Rows`, at most four), the newest at the bottom and whole rows only: the column's inner height is a whole number of 24 px rows in every state (37 at
-16:9 with CS2's chat closed, 35 with it open, 23 with it open at a match end; 33, 31 and 19 at 16:10; at 4:3, rows of 16 px in 12 px type as the window there is
-at 67 %, 36, 33 and 15). It covers the whole of CS2's chat, and nothing of it shows but its typing line:
+16:9 with CS2's chat closed, 35 with it open, 33 with the pointer, 23 and 21 at a match end; 30, 28, 26, 16, 14 at 16:10; at 4:3, rows of 16 px in 12 px type
+as the window there is at 67 %, 36, 33, 30, 15, 12), its type 15 px (17 before hud-415: louder than the window's 13-15), a line's mark down all its rows. It
+covers the whole of CS2's chat, and nothing of it shows but its typing line:
 x 0-579 (CS2's box runs from x 10 to 579, its text from about x 5), fully opaque and framed as the window is (its border, corners and shadow, the gold rule, the
-dots), from the window's top (80 at 16:9 and 21:9, 172 at 16:10, 384 at 4:3) down to y 1000
-with CS2's chat closed - in a match and at a match end alike, so CS2's lines are covered at either height, also in the second before CS2 lifts them for its end
-screen - and with it open (`HUD_CHAT_VISIBLE`) down to just above its typing line's box: y 952 in a match, 674 at a match end once CS2 has lifted it (`meos`, the
-plugin's `ChatLift`: the match ended 3 s ago; or the game's own classes for its end screen with the scoreboard). CS2's own chat cannot be made taller or kept on
+dots), from the window's top (80 at 16:9 and 21:9, 246 at 16:10, 384 at 4:3; route a1 with the window closed from CS2's chat box's top, 608, so the radar
+above it shows) down to y 1000 with CS2's chat closed - in a match and at a match end alike, so CS2's lines are covered at either height, also in the second
+before CS2 lifts them for its end screen - and with it open (`HUD_CHAT_VISIBLE`) down to just above its typing line's box: y 952 in a match, 708 at a match end
+once CS2 has lifted it (`meos`, the plugin's `ChatLift`: the match ended 3 s ago; or the game's own classes for its end screen with the scoreboard). At a match
+end CS2 moves its chat into the end screen's container (`#id-eom-chat-container`), which stands 42 px lower than its own stylesheet's numbers say: its history
+ends at 708 and its typing line is 716-764 (the lab's frame of 7d9ab5c), so the clear slot there is 56 px (`os-chat-slot`). CS2's own chat cannot be made taller or kept on
 screen: its history box is 327 px high in its own stylesheet, which ours cannot reach, and no setting a server may change keeps its lines. Any load while a map
 is on makes the HUD's entity at once - a hot reload, and `css_plugins load` after an unload, which CounterStrikeSharp passes as no hot reload; the column's
-lines start anew then. The column shows only while its feed is live and it has a line for that player (`chaton` on `os_screen`: no failed poll in a row and an
-answer within 60 s - the bridge's long poll answers every 25 s at the least) and beats (`hb`, on and off by turns every 10 s, each turn restarting a 35 s
+lines start anew then, and it shows empty until the next line (before hud-415 it waited for one, and the window stood without it). The column shows while its
+feed is live (`chaton` on `os_screen`: no failed poll in a row and an answer within 60 s - the bridge's long poll answers every 25 s at the least) and beats (`hb`, on and off by turns every 10 s, each turn restarting a 35 s
 animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. Only a game whose HUD check named v4.14.0 or
 later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel" - and a slot's entries go when its
 player leaves and again when a new one takes it (`ClearSlot`): the entity hands a joining game the slot's entries as they were left. **The pointer** to CS2's
-typing line stands right above it, pointing down. **Around the open window** what of CS2's HUD stands outside it and the column lies behind an 80 % dim
-(`os-dim`, 50 % before the review of 218r4, which read the radar's top, the weapon list, the top-centre tile and a match end's award card as cut by the window):
+typing line has a slot of its own in the dock (`os-chat-ptrslot`, 48 px: two rows, three at 4:3) between the column's foot and the typing line, pointing down at
+it: the column ends above the slot, so the pointer covers no row of ours, CS2's lines under the dock are hidden by it whether the pointer shows or not, and it
+stays clear of the typing line - in a match (the slot at y 904-952 over the line at 952-1000) and at a match end (660-708 over 716-764), at every shape; it
+shows only beside our column (without it CS2's own chat shows in its strip, and the window's own line says how to search), and with the search helped while
+CS2's chat is still closed the column already makes room, so the pointer stands right over where the line will come. **Around the open window** what of CS2's
+HUD stands outside it and the column lies behind a dim 80 % darker on screen (`os-dim`; the HUD is blended in linear light, so an alpha of a leaves
+(1 - a)^(1/2.2) of the brightness: 50 % alpha left 73 %, 80 % left 48 % - the lab's frames of 7d9ab5c, white 255 to 119-124 - and 97 %, `#05070AF8`, leaves 20 %):
 the dim starts right of the chat's strip (x 579) - above and under the column the dock dims itself, never CS2's typing line, whose slot under the column
 (`os-chat-slot`) stays clear while its chat is open, and the column's shadow goes then so it does not shade that line; without the column CS2's own chat shows
 in its strip undimmed. On route c the column fades in and out with the window (`chatwin`); nothing of the
@@ -463,6 +480,7 @@ how-to bar says Hold TAB to see the scores; while the server reads TAB held (`vp
 screen (`HUD_ENDOFMATCH_VISIBLE`) - the window, the chat column, the dim, the pointer and the dislike's dialog collapse at once, no fade, and come back the same
 way: mid-match CS2's scoreboard goes the instant TAB comes up, so the window is back with it whatever the server's lag; at a match end `vpeek` decides both
 ways. The player stays frozen and the window keeps the mouse.
+**The dislike's dialog** stays off the ballot (`.os-screen.why.voting`): a vote opening over it would sit under it.
 **The ballot's header** is the page bar every page has: Random, who has not voted (then what came of the vote)
 and the one clock - no title and no state chip, as the tab says Vote and the clock's word the state - with how to vote under it; nothing in the window's foot
 says everybody is frozen. **The pager** pulses on the button itself, its words still. **A bar that steps up snaps** (`HudFrame.Snapped`): the inactivity
