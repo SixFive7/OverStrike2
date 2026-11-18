@@ -213,7 +213,7 @@ static partial class Program
         bool On(string cls, int slot) => sc.C(HudView.Screen, cls, slot);
         mf.Draw(AtEnd(open, tm.AddSeconds(1), lifted: false), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
         var notYetLifted = !On("vscoresok", 1) && On("vpeekok", 1) && ms.WindowOpen(1) && ms.WindowOpen(2);
-        mf.Draw(AtEnd(open, tm.AddSeconds(4)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        mf.Draw(AtEnd(open, tm.AddSeconds(4)), [Alice() with { TabHeld = true }, Bob()], ms, MP, new FunClicks(), sc); // her TAB down as the match ended: never a peek there
         var buttonShown = On("vscoresok", 1) && !On("vscoresok", 2) && !On("vscores", 1) && !On("vpeek", 1);
         mf.Draw(World(live, open, tm.AddSeconds(5), locked: true), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
         var noButtonMidMatch = !On("vscoresok", 1) && On("vpeekok", 1);
@@ -229,7 +229,7 @@ static partial class Program
         var timeUp = !On("vscores", 1) && !On("vpeek", 1) && On("vscoresok", 1) && HudScores.Ended(MP(1), open, true, true, tm.AddSeconds(6 + HudScores.Seconds)) == $"{HudScores.Seconds} s up"
             && sc.V(HudView.Screen, HudScores.CountdownVar, 1) == "" && sc.Captured[1];
         Check($"Frame: the scores at a match-end vote - SCORES shows once she has voted, at the match-end screen once CS2 shows its scoreboard there (vscoresok, meos), never his "
-            + $"before he votes nor mid-match; its click steps her window aside (vscores, vpeek) for {HudScores.Seconds} s, Back to the vote counting them down (osvscs), the window open, frozen and with the mouse; a click "
+            + $"before he votes nor mid-match, and a TAB read as held there (its TAB-up never reaches the server) is no peek; its click steps her window aside (vscores, vpeek) for {HudScores.Seconds} s, Back to the vote counting them down (osvscs), the window open, frozen and with the mouse; a click "
             + "before the vote, mid-match or during the look changes nothing",
             notYetLifted && buttonShown && noButtonMidMatch && notVoted == "not now (not voted yet)" && MP(2).Scores == null
             && midMatch == "not now (not at the match-end screen - TAB is the way)" && started == $"the window steps aside for {HudScores.Seconds} s" && looking
