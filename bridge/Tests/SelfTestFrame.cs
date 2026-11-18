@@ -75,6 +75,20 @@ static partial class Program
             slots.WindowOpen(1) && slots.WindowOpen(2) && slots.PageOf(2) == HudSlots.Page.Maps && players[2].VoteOpened && screen.C(HudView.Screen, "vlock", 2) && screen.C(HudView.Screen, "voting", 2)
             && screen.T("os_m1_name", 2) == "#12 aim_x" && screen.V(HudView.Global, $"{HudView.PlayersVar}2d") == "waiting" && screen.V(HudView.Global, $"{HudView.PlayersVar}1d") == "voted"
             && players[2].VoteView.Round == 1793900000);
+        // the scoreboard's peek (the owner, 2026-11-17): Alice has voted (mvv 1001 1), Bob has not
+        frame.Draw(World(live, open, t0.AddSeconds(41), locked: true), [Alice() with { TabHeld = true }, Bob() with { TabHeld = true }], slots, PlayerOf, funClicks, screen);
+        var peekVoted = screen.C(HudView.Screen, "vpeek", 1) && screen.C(HudView.Screen, "vpeekok", 1) && !screen.C(HudView.Screen, "vpeek", 2)
+            && !screen.C(HudView.Screen, "vpeekok", 2) && slots.WindowOpen(1) && slots.WindowOpen(2) && screen.Captured[1] && screen.Captured[2];
+        frame.Draw(World(live, open, t0.AddSeconds(42), locked: true), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
+        var peekLetGo = !screen.C(HudView.Screen, "vpeek", 1) && screen.C(HudView.Screen, "vpeekok", 1) && slots.WindowOpen(1) && screen.Captured[1];
+        var shut = VoteState.Decode(open.Encode());
+        shut.Open = false;
+        frame.Draw(World(live, shut, t0.AddSeconds(43), locked: true), [Alice(), Bob() with { TabHeld = true }], slots, PlayerOf, funClicks, screen);
+        Check("Frame: the scoreboard's peek - once she has voted, TAB held steps her window aside (vpeek), never his before he votes; letting go brings it back; a decided "
+            + "vote lets everybody peek; the window stays open, frozen and with the mouse, throughout - only classes change",
+            peekVoted && peekLetGo && screen.C(HudView.Screen, "vpeek", 2) && screen.C(HudView.Screen, "vpeekok", 2) && !screen.C(HudView.Screen, "vpeek", 1)
+            && slots.WindowOpen(2) && screen.Captured[2] && screen.C(HudView.Screen, "vlock", 2)
+            && HudFrame.Peekable(shut, 1002) && !HudFrame.Peekable(open, 1002) && HudFrame.Peekable(open, 1001) && !HudFrame.Peekable(new VoteState(), 1001));
         frame.Draw(World(live, new VoteState { WaitFor = 120 }, t0.AddSeconds(50)), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
         Check("Frame: when the freeze ends, the windows it opened close together - but the welcome, which goes back to its start page and waits for its X",
             !slots.WindowOpen(2) && !players[2].VoteOpened && slots.WindowOpen(1) && slots.PageOf(1) == HudSlots.Page.Start);
@@ -163,10 +177,82 @@ static partial class Program
             levels.C(HudView.Global, HudVersion.LatestClass(HudVersion.Level + 1)) && levels.Sent(HudView.Global, HudVersion.LatestClass(HudVersion.Level)) && !levels.C(HudView.Global, HudVersion.LatestClass(HudVersion.Level))
             && levels.V(HudView.Global, HudVersion.Var) == HudVersion.OfLevel(HudVersion.Level + 1));
 
+        // ---- 287 b: the chat column's 40 line panels go only to a game whose click named v4.14.0 or later - never to the live item's v4.12.2, nor to one not seen yet ----
+        var chat = new HudChat();
+        chat.Say("Bob", "T", "hello", false);
+        var olderScreen = new RecordedScreen();
+        var chatSlots = new HudSlots();
+        var chatPlayers = new Dictionary<int, HudPlayer>();
+        foreach (var n in new[] { 1, 2, 3 }) chatSlots.Joined(n, first: false, alive: true, t0);
+        frame.Draw(new HudFrame.World(live, new VoteState(), null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, HudVersion.Level, false, true, _ => null, null,
+                t0.AddSeconds(5), HudState.Ms(t0.AddSeconds(5)), Chat: chat, ChatLive: true, ChatRoute: HudChat.Route.Always),
+            [new(1, 1001, "Alice", "CT", "v4.12.2", false, 0, null), new(2, 1002, "Bob", "T", HudVersion.Content, false, 0, null), new(3, 1003, "Cas", "CT", "", false, 0, null)],
+            chatSlots, n => chatPlayers.TryGetValue(n, out var cp) ? cp : chatPlayers[n] = new HudPlayer(), new FunClicks(), olderScreen);
+        bool ChatSent(int slot) => Enumerable.Range(1, HudChat.Lines).Any(k => olderScreen.Sent(HudChat.Line(k), "used", slot) || olderScreen.T(HudChat.Line(k), slot) != "");
+        Check($"Frame: the chat column's {HudChat.Lines} line panels (os_chat_1 to os_chat_{HudChat.Lines}) go to a game that named {HudVersion.Content} - never to v4.12.2's, "
+            + "which has none and would log \"Unable to find panel\" for each, nor to a game whose content is not known yet (287 b)",
+            ChatSent(2) && !ChatSent(1) && !ChatSent(3) && !olderScreen.C(HudView.Screen, "chaton", 1) && olderScreen.C(HudView.Screen, "chaton", 2));
+
         // ---- a slot's record: a new player starts from nothing of the last one's ----
         PlayerOf(1).Browser.Find("aim");
         PlayerOf(1).Note = ("Refused", t0.AddMinutes(5), "you");
         players.Remove(1); // what HudScreen.Leave does when a player leaves or a new one takes the slot
         Check("A slot's record: the next player in the slot starts with a fresh browser, no note, no vote of the last one's", PlayerOf(1) is { Browser.Query: "", Note: null, VoteOpened: false, VoteShown: 0 });
+
+        // ---- the scores at a match-end vote (the owner's 292): no key reaches the server there, so the ballot's SCORES button looks (HudScores) - on fresh
+        // slots of its own; the same vote as above, Alice voted (mvv 1001 1), Bob not ----
+        var ms = new HudSlots();
+        var mp = new Dictionary<int, HudPlayer>();
+        HudPlayer MP(int slot) => mp.TryGetValue(slot, out var p) ? p : mp[slot] = new HudPlayer();
+        var mf = new HudFrame();
+        var sc = new RecordedScreen();
+        var tm = t0.AddMinutes(10);
+        ms.Joined(1, first: false, alive: true, tm);
+        ms.Joined(2, first: false, alive: true, tm);
+        HudFrame.World AtEnd(VoteState v, DateTime now, bool lifted = true) => World(live, v, now, locked: true) with { MatchScreen = true, ChatLift = lifted };
+        bool On(string cls, int slot) => sc.C(HudView.Screen, cls, slot);
+        mf.Draw(AtEnd(open, tm.AddSeconds(1), lifted: false), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var notYetLifted = !On("vscoresok", 1) && On("vpeekok", 1) && ms.WindowOpen(1) && ms.WindowOpen(2);
+        mf.Draw(AtEnd(open, tm.AddSeconds(4)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var buttonShown = On("vscoresok", 1) && !On("vscoresok", 2) && !On("vscores", 1) && !On("vpeek", 1);
+        mf.Draw(World(live, open, tm.AddSeconds(5), locked: true), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var noButtonMidMatch = !On("vscoresok", 1) && On("vpeekok", 1);
+        var notVoted = HudScores.Click(MP(2), HudScores.Button, true, true, open, 1002, tm.AddSeconds(6));
+        var midMatch = HudScores.Click(MP(1), HudScores.Button, true, false, open, 1001, tm.AddSeconds(6));
+        var started = HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001, tm.AddSeconds(6));
+        mf.Draw(AtEnd(open, tm.AddSeconds(7)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var looking = On("vscores", 1) && On("vpeek", 1) && !On("vscoresok", 1) && ms.WindowOpen(1) && sc.Captured[1] && On("vlock", 1) && !On("vscores", 2) && !On("vpeek", 2)
+            && sc.V(HudView.Screen, HudScores.CountdownVar, 1) == "14 s" && sc.V(HudView.Screen, HudScores.CountdownVar, 2) == "";
+        var again = HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001, tm.AddSeconds(8));
+        var stillOn = HudScores.On(MP(1), open, true, tm.AddSeconds(6 + HudScores.Seconds).AddMilliseconds(-1));
+        mf.Draw(AtEnd(open, tm.AddSeconds(6 + HudScores.Seconds)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var timeUp = !On("vscores", 1) && !On("vpeek", 1) && On("vscoresok", 1) && HudScores.Ended(MP(1), open, true, true, tm.AddSeconds(6 + HudScores.Seconds)) == $"{HudScores.Seconds} s up"
+            && sc.V(HudView.Screen, HudScores.CountdownVar, 1) == "" && sc.Captured[1];
+        Check($"Frame: the scores at a match-end vote - SCORES shows once she has voted, at the match-end screen once CS2 shows its scoreboard there (vscoresok, meos), never his "
+            + $"before he votes nor mid-match; its click steps her window aside (vscores, vpeek) for {HudScores.Seconds} s, Back to the vote counting them down (osvscs), the window open, frozen and with the mouse; a click "
+            + "before the vote, mid-match or during the look changes nothing",
+            notYetLifted && buttonShown && noButtonMidMatch && notVoted == "not now (not voted yet)" && MP(2).Scores == null
+            && midMatch == "not now (not at the match-end screen - TAB is the way)" && started == $"the window steps aside for {HudScores.Seconds} s" && looking
+            && again == "already looking - nothing" && stillOn && timeUp);
+        MP(1).Scores = null;
+        HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001, tm.AddSeconds(30));
+        var onBefore = HudScores.On(MP(1), open, true, tm.AddSeconds(31));
+        mf.Draw(AtEnd(shut, tm.AddSeconds(31)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var decidedEnds = onBefore && !On("vscores", 1) && On("vscoresok", 1) && HudScores.Ended(MP(1), shut, true, true, tm.AddSeconds(31)) == "the vote decided";
+        var afterDecision = HudScores.Click(MP(1), HudScores.Button, true, true, shut, 1001, tm.AddSeconds(32)) == $"the window steps aside for {HudScores.Seconds} s"
+            && HudScores.Click(MP(2), HudScores.Button, true, true, shut, 1002, tm.AddSeconds(32)) == $"the window steps aside for {HudScores.Seconds} s";
+        mf.Draw(AtEnd(shut, tm.AddSeconds(33)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var bothLook = On("vscores", 1) && On("vscores", 2) && On("vpeek", 2);
+        var back = HudScores.Click(MP(1), HudScores.BackButton, true, true, shut, 1001, tm.AddSeconds(34));
+        var backAgain = HudScores.Click(MP(1), HudScores.BackButton, true, true, shut, 1001, tm.AddSeconds(34));
+        mf.Draw(AtEnd(shut, tm.AddSeconds(34)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var backShown = !On("vscores", 1) && !On("vpeek", 1) && On("vscoresok", 1) && On("vscores", 2);
+        mf.Draw(AtEnd(shut, tm.AddSeconds(35), lifted: false), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var screenGone = !On("vscores", 2) && !On("vpeek", 2) && !On("vscoresok", 2) && HudScores.Ended(MP(2), shut, true, false, tm.AddSeconds(35)) == "the match-end screen ended";
+        Check("Frame: the scores' look ends with the decision of the vote it began in - she sees the result - and once decided everybody may look, for its seconds; "
+            + "Back to the vote ends hers alone, and a second Back does nothing; the match-end screen's end ends every look; no other button is SCORES' or Back's",
+            decidedEnds && afterDecision && bothLook && back == "the window is back" && backAgain == "not looking - nothing" && backShown && screenGone
+            && HudScores.Click(MP(1), HudVote.RandomButton, true, true, shut, 1001, tm) == null && HudScores.Click(MP(1), HudVote.BackButton, true, true, shut, 1001, tm) == null
+            && HudScores.Button != HudVote.BackButton && HudScores.BackButton != HudVote.BackButton);
     }
 }

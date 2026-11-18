@@ -38,15 +38,32 @@ public static partial class Downloads
     /// connection to content servers)" (it was empty already).</summary>
     public static bool Stuck(params string?[] texts) => texts.Any(t => StuckRx().IsMatch(t ?? ""));
 
-    /// <summary>A download's two sizes as its line says them, "done of total": SizeWords, but with a second decimal in GB while the two would read alike before the
-    /// end ("1.1 GB of 1.1 GB" at 93 % of 1.15 GB: the review of 218r4; now "1.07 GB of 1.15 GB").</summary>
+    /// <summary>A download's two sizes as its line says them, "done of total": both in the whole's unit - MB below a gigabyte, GB from one, binary like SizeWords -
+    /// so never "1020 MB of 1.1 GB" (87 % of a 1.14 GB map in the live lab's final round of release 218, review point 46) but "0.99 GB of 1.14 GB". The whole is
+    /// rounded and the part rounded down, so the part never says more than has come: two decimals in GB, none in MB, and while the two would still read alike
+    /// before the end ("1.14 GB of 1.14 GB" with 3 MB to go) one decimal more for both ("1.141 GB of 1.145 GB"); past that the part reads one step under the
+    /// whole, so the words stay short in the window's clock. At the end, the part as large as the whole, both read the same. The whole is never under one step,
+    /// as SizeWords' 1 MB.</summary>
     public static (string Done, string Total) SizePair(double done, double total)
     {
-        var (d, t) = (SizeWords(done), SizeWords(total));
-        if (d != t || done >= total || total < 1L << 30) return (d, t);
-        static string Gb(double b) => (b / (1L << 30)).ToString("0.00", CultureInfo.InvariantCulture) + " GB";
-        return (done >= 1L << 30 ? Gb(done) : d, Gb(total));
+        var gb = total >= 1L << 30;
+        var unit = (double)(gb ? 1L << 30 : 1L << 20);
+        var (d, t) = (Math.Clamp(done, 0, total) / unit, total / unit);
+        var first = gb ? 2 : 0;
+        for (var places = first; ; places++)
+        {
+            var scale = Math.Pow(10, places);
+            var whole = Math.Max(1, Math.Round(t * scale, MidpointRounding.ToEven));
+            if (done >= total) return (Steps(whole, places, gb), Steps(whole, places, gb));
+            var part = Math.Min(whole, Math.Floor(d * scale + 1e-9)); // the epsilon: 1.15 GB is 1.1499999... in a double
+            if (part < whole) return (Steps(part, places, gb), Steps(whole, places, gb));
+            if (places == first + 1) return (Steps(Math.Max(0, whole - 1), places, gb), Steps(whole, places, gb));
+        }
     }
+
+    /// <summary>A whole number of steps of 10^-places of the unit, in words: "0.99 GB", "155 MB".</summary>
+    static string Steps(double steps, int places, bool gb) =>
+        (steps / Math.Pow(10, places)).ToString("F" + places.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture) + (gb ? " GB" : " MB");
 
     /// <summary>A map's size as the HUD shows it (the lists' sizeMb): binary units, labelled MB and GB.</summary>
     public static string SizeWords(double bytes) => bytes >= 1L << 30

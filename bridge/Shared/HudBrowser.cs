@@ -59,8 +59,8 @@ public sealed class HudBrowser
     public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
         FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
 
-    /// <summary>The search area's hint (content v4.9.0): "Search  Press Y and type a map name" (233), a button whose click says how on the window's line and in the
-    /// player's chat (ChatReply.HowToSearch) - typing is chat's, and neither the HUD nor the server can open the chat box (the client refuses messagemode from the server). Content v4.8.0 typed on an on-screen keyboard: its search box
+    /// <summary>The search area's hint (content v4.9.0): "Search  Press Y and type a map name" (233), a button whose click says how on the window's line
+    /// (ChatReply.HowToSearch) - typing is chat's, and neither the HUD nor the server can open the chat box (the client refuses messagemode from the server). Content v4.8.0 typed on an on-screen keyboard: its search box
     /// (OldSearchBox) opened it, and its forty keys were os_kb_*. Release 196 removed it: the keyboard never opens since, and a
     /// click on that box, or on any key, asks the same as the hint's own and changes nothing.</summary>
     public const string HintButton = "os_q_how", OldSearchBox = "os_q_kbd";
@@ -176,7 +176,7 @@ public sealed class HudBrowser
         WorkshopCard.IdOf(Query) is { } id && catalog != null && !catalog.Maps.Any(m => m.Id == id) ? id : null;
 
     /// <summary>A click on one of the browser's own controls. True when it was one (the page then has to be worked out again). The search hint and
-    /// v4.8.0's typing controls are none: the plugin answers them in chat (AsksHowToSearch).</summary>
+    /// v4.8.0's typing controls are none: the plugin answers them on the window's line (AsksHowToSearch).</summary>
     public bool Click(string buttonId, int matchCount)
     {
         foreach (var (id, sort) in SortButtons)

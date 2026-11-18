@@ -104,14 +104,34 @@ static class WorkshopTests
         Check("line: not more often than every 2 s", sent.Count == 1);
         ln.Staged = id => id == "900" ? (155L << 20) / 2 : 0;
         ln.Step(106.0, 2);
-        Check($"line: the progress from the staging folders ({sent[^1]})", sent[^1].Contains("50 percent (78 MB of 155 MB)") || sent[^1].Contains("50 percent (77 MB of 155 MB)"));
+        Check($"line: the progress from the staging folders, the part rounded down ({sent[^1]})", sent[^1].Contains("50 percent (77 MB of 155 MB)"));
         ln.Staged = id => id == "900" ? 155L << 20 : 0;
         ln.Step(108.5, 2);
         Check($"line: the bytes in the size the list gives, never more than the whole ({sent[^1]})", sent[^1].Contains("99 percent (155 MB of 155 MB)"));
         Check("line: a size in the units the HUD shows", Downloads.SizeWords(464L << 20) == "464 MB" && Downloads.SizeWords(3L << 29) == "1.5 GB");
-        Check("line: two sizes never read alike before the end - a second decimal in GB then (1.1 GB of 1.1 GB at 93 %), as they were otherwise",
-            Downloads.SizePair(0.93 * 1.149 * (1L << 30), 1.149 * (1L << 30)) == ("1.07 GB", "1.15 GB") && Downloads.SizePair(1.1 * (1L << 30), 1.1 * (1L << 30)) == ("1.1 GB", "1.1 GB")
-            && Downloads.SizePair(500L << 20, 1L << 30) == ("500 MB", "1.0 GB") && Downloads.SizePair(78L << 20, 155L << 20) == ("78 MB", "155 MB"));
+        const double G = 1L << 30, M = 1L << 20;
+        Check("line: a download's two sizes in the whole's unit, the part rounded down, two decimals in GB - the lab's 87 % of a 1.14 GB map read \"1020 MB of 1.1 GB\" (review point 46)",
+            Downloads.SizePair(1020 * M, 1172 * M) == ("0.99 GB", "1.14 GB") && Downloads.SizePair(500 * M, G) == ("0.48 GB", "1.00 GB")
+            && Downloads.SizePair(0.93 * 1.149 * G, 1.149 * G) == ("1.06 GB", "1.15 GB") && Downloads.SizePair(78 * M, 155 * M) == ("78 MB", "155 MB")
+            && Downloads.SizePair(167.90e6, 335.80e6) == ("160 MB", "320 MB") && Downloads.SizePair(0.1 * M, 0.3 * M) == ("0 MB", "1 MB"));
+        Check("line: at the end both read the same, and before it a decimal more while they would read alike - past that one, the part one step under the whole",
+            Downloads.SizePair(1.1 * G, 1.1 * G) == ("1.10 GB", "1.10 GB") && Downloads.SizePair(155 * M, 155 * M) == ("155 MB", "155 MB") && Downloads.SizePair(160 * M, 155 * M) == ("155 MB", "155 MB")
+            && Downloads.SizePair(155.2 * M, 155.4 * M) == ("155.2 MB", "155.4 MB") && Downloads.SizePair(1169 * M, 1172 * M) == ("1.141 GB", "1.145 GB")
+            && Downloads.SizePair(1.0004 * G - 1, 1.0004 * G) == ("0.999 GB", "1.000 GB") && Downloads.SizePair(155.41 * M, 155.43 * M) == ("155.3 MB", "155.4 MB"));
+        var misread = new List<string>();
+        static int Places(string number) { var dot = number.IndexOf('.'); return dot < 0 ? 0 : number.Length - dot - 1; } // the decimals a size is written with
+        var wholes = new[] { 0.3 * M, M, 155 * M, 155.4 * M, 999.6 * M, 1023.9 * M, G - 1, G, G + 1, 1.149 * G, 1172 * M, 2.5 * G, 7.77 * G };
+        foreach (var whole in wholes)
+            foreach (var part in Enumerable.Range(0, 1001).Select(i => whole * i / 1000).Concat([whole - 1, whole - 1000, whole - M, whole - 10 * M]).Where(x => x >= 0))
+            {
+                var (a, b) = Downloads.SizePair(part, whole);
+                var (na, nb) = (a.Split(' ')[0], b.Split(' ')[0]);
+                if (a[^2..] != b[^2..] || Places(na) != Places(nb) || (part < whole) != (a != b)
+                    || double.Parse(na, System.Globalization.CultureInfo.InvariantCulture) > double.Parse(nb, System.Globalization.CultureInfo.InvariantCulture))
+                    misread.Add($"{part:0} of {whole:0}: {a} of {b}");
+            }
+        Check($"line: {wholes.Length} wholes from 0.3 MB to 7.8 GB, each at up to 1005 points to its end - one unit and as many decimals in both, the part never over the whole, alike only at the end ({string.Join("; ", misread.Take(3))})",
+            misread.Count == 0);
         ln.ConsoleLine("11/01 08:46:30 [Workshop] Updating 900: state 5", 107.0);
         var n = sent.Count;
         ln.Step(110.0, 2);

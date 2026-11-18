@@ -38,7 +38,8 @@ sealed partial class HudScreen
     readonly HudSlots slots = new();
     readonly string addon;                            // the Workshop item the server hands out (hud.addon): its link is in the check's messages
     readonly HudGate gate = new();                    // the HUD check on this map (HudCheck.cs)
-    readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudVersion.IsWord); the bridge keeps the same for the players on the server
+    readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudVersion.IsWord); the bridge keeps the same
+    readonly HashSet<long> freshJoins = new();        // accounts that joined for real since this plugin loaded, until their own click: the bridge's word is not theirs yet for the players on the server
     readonly ItemWatch item;                          // whether Steam shows the item to everybody yet: nobody is disconnected until it does
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
     HudCheck.Mode checkHigh;                          // the strictest it has been on this map: only a stricter one re-arms the waiting players
@@ -81,7 +82,7 @@ sealed partial class HudScreen
         log.LogInformation("Over Strike 2 HUD: {Layout}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
             bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); scoresOn.Clear(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
         plugin.RegisterListener<Listeners.OnPlayerButtonsChanged>(OnButtons);
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
@@ -142,7 +143,8 @@ sealed partial class HudScreen
     {
         slots.Joined(player.Slot, first, player.PawnIsAlive, DateTime.UtcNow);
         joins.Joined(Account(player), DateTime.UtcNow);
-        hudSeen.Remove(Account(player)); // a real join: the HUD check asks again - a reconnecting player may have a new HUD
+        hudSeen.Remove(Account(player)); // a real join: the HUD check asks again - a reconnecting player may have a new HUD, or an older one
+        freshJoins.Add(Account(player));  // ...and until it does, the bridge's word may still be the last session's (HudCheck.VersionOf)
         Post(Messages.Tagline, Hud.Headline, Account(player));
         if (player.PawnIsAlive) { worldReady = true; Server.NextFrame(EnsureEntity); }
     }
@@ -201,14 +203,22 @@ sealed partial class HudScreen
     }
 
     /// <summary>TAB (HudTab.cs: down, or off). CounterStrikeSharp calls this inside the server's think for every button any player presses or
-    /// lets go, so it only does HudTab's bookkeeping; opening the window or switching the cursor waits for the next frame.</summary>
+    /// lets go, so it only does HudTab's bookkeeping; opening the window or switching the cursor waits for the next frame. TAB is read in either mode:
+    /// during a vote, holding it peeks at the scoreboard past the window (HudFrame's vpeek), and that follows TAB at the next frame.</summary>
     void OnButtons(CCSPlayerController player, PlayerButtons pressed, PlayerButtons released)
     {
         if (player is not { IsValid: true, IsBot: false }) return;
         var slot = player.Slot;
-        if (tabMode == HudTab.Mode.Off && !tab.Cursor(slot)) return;
+        var holding = tab.Holding(slot);
         var act = tab.Buttons(slot, (ulong)pressed, (ulong)released, tabMode, DateTime.UtcNow);
-        if (act == null) return;
+        if (vote.Round > 0 && holding != tab.Holding(slot)) // the scoreboard's peek, on and off with TAB: logged, as whether TAB reaches the server at a match end is the lab's to see
+            log.LogInformation("Over Strike 2 HUD: {Name} TAB {Way} during the vote ({Phase}) - {Peek}", player.PlayerName, holding ? "up" : "down", vote.Open ? "open" : "decided",
+                HudFrame.Peekable(vote, Account(player)) ? (holding ? "the window is back" : "peeks at the scores") : "no peek before their vote");
+        if (act == null)
+        {
+            if (vote.Round > 0 && holding != tab.Holding(slot)) Server.NextFrame(Frame); // the scoreboard's peek, on and off with TAB
+            return;
+        }
         Server.NextFrame(() =>
         {
             if (Utilities.GetPlayerFromSlot(slot) is not { IsValid: true, IsBot: false } p) return;
@@ -247,6 +257,7 @@ sealed partial class HudScreen
         slots.Gone(slot);
         gate.Gone(slot);
         tab.Gone(slot);
+        scoresOn.Remove(slot);
         funClicks.Gone(slot);
         botClicks.Gone(slot);
         Forget(slot);
@@ -283,7 +294,7 @@ sealed partial class HudScreen
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
             if (!ClearSlot(slot))
-                foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
+                foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback", "vpeek", "vpeekok" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
                     entity!.SetHasClassForPlayer(p, HudView.Screen, cls, false);
             entity!.SetInputCaptureEnabled(p, false);
             playerDirty = true;

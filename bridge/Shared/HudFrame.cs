@@ -26,8 +26,9 @@ public sealed class HudFrame
     /// (HudVersion.IsWord; "" not seen yet), whether the check waits for their click and its seconds left, how long they have been on since their last real
     /// join (null: not known), whether TAB's board has their cursor, and whether they were on when a hold began (they keep the HUD until the map changes).</summary>
     public sealed record Human(int Slot, long Account, string Name, string Team, string Version, bool Checking, int CheckSeconds, TimeSpan? JoinedFor,
-        bool TabCursor = false, bool KeptMenu = false, IReadOnlyList<string>? Recent = null);
-    // Recent: this player's last searches, newest first (HudBrowser.Remember): the search's words row shows them.
+        bool TabCursor = false, bool KeptMenu = false, IReadOnlyList<string>? Recent = null, bool TabHeld = false);
+    // Recent: this player's last searches, newest first (HudBrowser.Remember): the search's words row shows them. TabHeld: TAB is down as the server reads
+    // their buttons (HudTab.Holding) - the vote's scoreboard peek (vpeek).
 
     /// <summary>What the frame draws from: the live state as of this frame (its countdowns worked out) and the vote; the map list, the search index and the Sync
     /// page's block; the mode the map that is on was loaded in; TAB's mode; the content level the version classes say (os_hud level fakes it); whether a vote
@@ -132,6 +133,18 @@ public sealed class HudFrame
         if (vote.Round <= 0 || browsing) { screen.Class(HudView.Screen, "vall", false, slot); screen.Class(HudView.Screen, "vnum", false, slot); screen.Class(HudView.Screen, "vfetch", false, slot); } // the ballot's own (HudVote.Cards)
         screen.Class(HudView.Screen, "vbrowse", browsing, slot);       // MAPS, Browse: the map browser adds to the vote
         screen.Class(HudView.Screen, "vlock", w.VoteLocked, slot);     // a vote that freezes everybody has no close button
+        // The scoreboard's peek (the owner, 2026-11-17): once this player has voted, or the vote is decided, holding TAB steps the vote's window aside for CS2's
+        // scoreboard, and letting go brings it back. Only classes: the window stays open and keeps the mouse, the player stays frozen. vpeekok - they may peek
+        // now, TAB or not (for a stylesheet that also goes by CS2's own HUD_SCOREBOARD_VISIBLE); vpeek - they may, and TAB is down as the server reads it, or
+        // their SCORES look is on. At the match-end screen no key reaches the server, so there the ballot's SCORES button does it (HudScores, the owner's 292):
+        // vscoresok - the button may show (meos is on, they may peek, no look on); vscores - the look is on, Back to the vote shows.
+        var peekOk = view.Window && Peekable(vote, account);
+        var scores = view.Window && HudScores.On(p, vote, w.ChatLift, now);
+        screen.Class(HudView.Screen, "vpeekok", peekOk, slot);
+        screen.Class(HudView.Screen, "vpeek", peekOk && (h.TabHeld || scores), slot);
+        screen.Class(HudView.Screen, "vscoresok", HudScores.Allowed(view.Window, w.ChatLift, vote, account) && !scores, slot);
+        screen.Class(HudView.Screen, "vscores", scores, slot);
+        screen.Var(HudView.Screen, HudScores.CountdownVar, scores ? HudScores.Countdown(p, now) : "", slot); // Back to the vote's countdown
         if (browsing) screen.Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), slot);
         if (vote.Round > 0) screen.Var(HudView.Screen, HudVote.TabVar, HudVote.TabLabel(vote), slot); // the Vote sub-tab's label
         screen.Var(HudView.Screen, HudView.SubCaptionVar, HudView.SubCaption(view.Page, vote.Round > 0 && !browsing, browsing), slot);
@@ -159,6 +172,9 @@ public sealed class HudFrame
         // The window's cursor, or the board's while TAB is held. During a hold a player who joined has no HUD, so no window to close: nothing takes their mouse.
         screen.Capture(slot, (view.Capture || h.TabCursor) && (w.AddonRequired || h.KeptMenu));
     }
+
+    /// <summary>Whether a player may peek at the scoreboard past the vote's window: a vote is on, and they have voted - Random too - or it is decided.</summary>
+    public static bool Peekable(VoteState vote, long account) => vote.Round > 0 && (!vote.Open || vote.ChoiceOf(account) > 0);
 
     /// <summary>The menu page a player has open, for that player only: the ballot while a vote is on (its map browser while it adds to the vote), the map browser,
     /// or the Game page. Everything else on the window is the same for all.</summary>
