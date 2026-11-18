@@ -270,6 +270,8 @@
 								     them (vnum); a winner still to download says Downloading and no countdown (vfetch). The strip of where the votes go keeps its ids, hidden: the cards say it. -->
 								<Panel class="os-vhead">
 									<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
+									<!-- A look at the scores at a match end, where TAB never reaches the server: once this player has voted, or the vote is decided (vscoresok) -->
+									<Button id="os_v_scores" class="os-vbtn"><Label class="os-vbtn-text" text="Scores" /></Button>
 									<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
 									<Label class="os-vwait" text="{s:osvwait}" />
 									<Panel class="os-clocks">
@@ -281,8 +283,10 @@
 								<Panel class="os-vhowbar">
 									<Label class="os-vhow os-vhow-num" text="Click a card to vote  ·  !vote and the card's number votes too  ·  !play and a map's name adds that map  ·  Y opens the chat" />
 									<Label class="os-vhow os-vhow-plain" text="Click a card to vote  ·  !play and a map's name adds that map  ·  Y opens the chat" />
-									<!-- The TAB peek: once this player has voted, or the vote is decided (vpeekok, the server's), holding TAB shows CS2's scoreboard -->
+									<!-- A look at the scores: once this player has voted, or the vote is decided (vpeekok, the server's), holding TAB shows CS2's scoreboard mid-match;
+									     at a match end (meos) the SCORES button does, as TAB does not reach the server there -->
 									<Label class="os-vpeek-hint" text="Hold TAB to see the scores" />
+									<Label class="os-vpeek-hint os-vpeek-end" text="Click SCORES to see the scores" />
 								</Panel>
 								<Panel class="os-mbar">
 									<Label class="os-mbar-label" text="Sort" />
@@ -1470,6 +1474,12 @@
 						</Panel>
 					</Panel>
 				</Panel>
+
+				<!-- The look at the scores at a match end (vscores, the server's): the window, the column and the dim step aside for CS2's end screen, and this pill at the
+				     top centre brings them back - as do its seconds running out (osvscs), the vote's decision and the match-end screen's end. Its click is the server's -->
+				<Button id="os_v_tovote">
+					<Label text="Back to the vote  ·  {s:osvscs}" />
+				</Button>
 
 				<!-- After the window, so it draws above the dim layer and the window. Why the dislike - the reasons of a Dislike, for its player (why on os_screen), at the
 				     centre, and only while the player has a cursor: the window open, or TAB held. It takes no mouse of its own: a click needs that cursor -->

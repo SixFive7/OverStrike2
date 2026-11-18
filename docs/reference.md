@@ -485,11 +485,15 @@ the dim starts right of the chat's strip (x 579) - above and under the column th
 (`os-chat-slot`) stays clear while its chat is open, and the column's shadow goes then so it does not shade that line; without the column CS2's own chat shows
 in its strip undimmed. On route c the column fades in and out with the window (`chatwin`); nothing of the
 top stack (the top line, the banners) or the card stack (now playing, catch-up) shows over the open window - every kind of top-line news has its chat copy in
-the column. **A peek at the scores during a vote**: once a player has voted, or the vote is decided (`vpeekok` on `os_screen`, the server's), the ballot's
-how-to bar says Hold TAB to see the scores; while the server reads TAB held (`vpeek`) and CS2's own scoreboard is up (`HUD_SCOREBOARD_VISIBLE`) - or its end
-screen (`HUD_ENDOFMATCH_VISIBLE`) - the window, the chat column, the dim, the pointer and the dislike's dialog collapse at once, no fade, and come back the same
-way: mid-match CS2's scoreboard goes the instant TAB comes up, so the window is back with it whatever the server's lag; at a match end `vpeek` decides both
-ways. The player stays frozen and the window keeps the mouse.
+the column. **A look at the scores during a vote**: once a player has voted, or the vote is decided (`vpeekok` on `os_screen`, the server's). Mid-match the
+ballot's how-to bar says Hold TAB to see the scores; while the server reads TAB held (`vpeek`) and CS2's own scoreboard is up (`HUD_SCOREBOARD_VISIBLE`) the
+window, the chat column, the dim, the pointer and the dislike's dialog collapse at once, no fade, and come back the same way - CS2's scoreboard goes the
+instant TAB comes up, so the window is back with it whatever the server's lag. At a match end TAB never reaches the server, so a button does it: **SCORES**,
+beside Random and in its style, while the server lets the player look (`vscoresok`: the match-end screen on, `meos`, and no look on), and the how-to bar says
+Click SCORES to see the scores in place of TAB's words. During the look (`vscores`, and `vpeek` with it) the same panels step aside for CS2's end screen and
+its scoreboard - by our own classes (`vpeek` with `meos`), never by CS2's end-screen classes - and a pill at the top centre, **Back to the vote** with the
+seconds left (`osvscs`), brings them back; so do its 15 s, the vote's decision and the end of the match-end screen (the server's side is under A look at the
+scores, above). The player stays frozen and the window keeps the mouse.
 **The dislike's dialog** stays off the ballot (`.os-screen.why.voting.page-maps`: the window on Maps while a vote stands, not its map browser): a vote opening
 over it would sit under it. A question asked before the vote opened is the bridge's to hold (`PutWhy`): not sent while the ballot stands, on any page, its time
 standing still; back whole, 15 s, once the ballot goes with the map kept; closed by a decision for another map, as the map change would close it. One asked

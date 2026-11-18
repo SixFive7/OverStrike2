@@ -8880,14 +8880,15 @@ Label
 	font-size: 11px;
 }
 
-/* -- the TAB peek (content v4.14.0): once a player has voted, or the vote is decided (vpeekok on os_screen, the server's: HudFrame.Peekable), holding TAB
-   shows CS2's scoreboard. While the server reads TAB held (vpeek: IN_SCORE in the player's buttons) and CS2's own scoreboard is up (HUD_SCOREBOARD_VISIBLE, the
-   client's class), the window, the chat column with its dims, the dim, the pointer and the dislike's dialog collapse - visibility only, no fade - and come back
-   the same way. Mid-match CS2's scoreboard goes the instant TAB comes up, so the window is back with it, whatever the server's lag; at a match end CS2's end
-   screen keeps its scoreboard up, so there vpeek decides both ways - and the end screen's own class (HUD_ENDOFMATCH_VISIBLE) keeps the peek working should its
-   scoreboard not carry the scoreboard's class. The rules act on vpeek alone, so neither client class can hide the window by itself. The board, the top stack
-   and the card stack stay away (win stays on); the mouse and the freeze are the server's and do not change. Six classes each: no rule that shows one of these
-   panels has more than five. -- */
+/* -- a look at the scores during a vote (content v4.14.0): once a player has voted, or the vote is decided (vpeekok on os_screen, the server's: HudFrame.Peekable).
+   Mid-match by TAB: while the server reads TAB held (vpeek: IN_SCORE in the player's buttons) and CS2's own scoreboard is up (HUD_SCOREBOARD_VISIBLE, the client's
+   class), the window, the chat column with its dims, the dim, the pointer and the dislike's dialog collapse - visibility only, no fade - and come back the same way;
+   CS2's scoreboard goes the instant TAB comes up, so the window is back with it, whatever the server's lag. At a match end TAB never reaches the server (the game
+   is over), so a button does it: SCORES beside Random (vscoresok, the server's: the match-end screen on - meos - and no look on yet) starts the look (vscores, and
+   vpeek with it), and the same panels step aside for CS2's end screen and its scoreboard until the pill at the top centre is clicked, its 15 s run out (osvscs
+   counts them), the vote is decided or the match-end screen ends - the server's HudScores. There the rules hide on our own classes alone (vpeek with meos), never
+   on CS2's end-screen classes. The rules act on vpeek, so no client class can hide the window by itself. The board, the top stack and the card stack stay away
+   (win stays on); the mouse and the freeze are the server's and do not change. Six classes each: no rule that shows one of these panels has more than five. -- */
 .HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-win
 {
 	visibility: collapse;
@@ -8913,32 +8914,33 @@ Label
 	visibility: collapse;
 }
 
-.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-win
+.os-global .os-screen.win.vpeek.meos .os-win
 {
 	visibility: collapse;
 }
 
-.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-dim
+.os-global .os-screen.win.vpeek.meos .os-dim
 {
 	visibility: collapse;
 }
 
-.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-chat-dock
+.os-global .os-screen.win.vpeek.meos .os-chat-dock
 {
 	visibility: collapse;
 }
 
-.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-chatptr
+.os-global .os-screen.win.vpeek.meos .os-chatptr
 {
 	visibility: collapse;
 }
 
-.HUD_ENDOFMATCH_VISIBLE .os-global .os-screen.win.vpeek .os-why
+.os-global .os-screen.win.vpeek.meos .os-why
 {
 	visibility: collapse;
 }
 
-/* The hint at the right of the ballot's how-to bar while the player may peek; alone there once the vote is decided (the how-to goes then). */
+/* The hint at the right of the ballot's how-to bar while the player may look; alone there once the vote is decided (the how-to goes then). Mid-match it names TAB,
+   at a match end (meos) the button, as TAB does not reach the server there. */
 .os-vpeek-hint
 {
 	visibility: collapse;
@@ -8953,6 +8955,78 @@ Label
 .os-screen.vpeekok .os-vpeek-hint
 {
 	visibility: visible;
+}
+
+.os-screen.vpeekok .os-vpeek-hint.os-vpeek-end
+{
+	visibility: collapse;
+}
+
+.os-screen.vpeekok.meos .os-vpeek-hint
+{
+	visibility: collapse;
+}
+
+.os-screen.vpeekok.meos .os-vpeek-hint.os-vpeek-end
+{
+	visibility: visible;
+}
+
+/* SCORES, beside Random and in its style, while the player may look at a match end (vscoresok); hidden during the look itself. */
+#os_v_scores
+{
+	height: 30px;
+	vertical-align: center;
+}
+
+.os-screen.vscoresok #os_v_scores
+{
+	visibility: visible;
+}
+
+/* The pill that brings the vote back during a look at a match end (vscores), at the top centre over CS2's end screen - above its scoreboard and clear of its
+   tabs at the top left - with the seconds until the window comes back by itself. Outside the window, so at the screen's own scale at every shape; its seconds
+   written as the clock writes them ("12 s"), so no capitals. */
+#os_v_tovote
+{
+	visibility: collapse;
+	horizontal-align: center;
+	vertical-align: top;
+	margin-top: 24px;
+	height: 40px;
+	padding: 0px 22px;
+	border-radius: 20px;
+	border: 2px solid os-gold;
+	background-color: #0A0D11F2;
+	box-shadow: #000000b3 0px 6px 18px 0px;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.os-screen.win.vscores #os_v_tovote
+{
+	visibility: visible;
+}
+
+#os_v_tovote:hover
+{
+	border: 2px solid os-gold-hi;
+	background-color: #2A2210F2;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+#os_v_tovote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+#os_v_tovote Label
+{
+	vertical-align: center;
+	font-size: 16px;
+	font-weight: bold;
+	letter-spacing: 0.5px;
+	color: #FFFFFF;
 }
 
 .os-screen.vpeekok .os-vhow

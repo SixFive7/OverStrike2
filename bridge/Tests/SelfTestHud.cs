@@ -273,7 +273,7 @@ static partial class Program
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"os_m{k}_play", $"os_m{k}_up", $"os_m{k}_down" }))
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
-                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).ToList();
+                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton]).ToList();
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the twelve cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -344,10 +344,10 @@ static partial class Program
                     && Enumerable.Range(1, HudChat.Lines).All(k => !last.Contains(HudChat.Line(k))));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
                 // ...its own version button, the chat column's lines (os_chat_<k>, a line's words its own text), the browser's eleventh and twelfth cards (os_m11, os_m12
-                // and their parts) and the download's bar (os_vdl).
+                // and their parts), the download's bar (os_vdl), and B's SCORES and Back to the vote (HudScores).
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
-                var expectedAdded = new HashSet<string>(Enumerable.Range(1, HudChat.Lines).Select(HudChat.Line).Concat(ids.Where(id => Regex.IsMatch(id, @"^os_m1[12](_|$)")))) { HudVersion.Button(HudVersion.Content), HudVote.DownloadBar };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, the chat column's {HudChat.Lines} lines, the browser's eleventh and twelfth cards, and the download's bar - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                var expectedAdded = new HashSet<string>(Enumerable.Range(1, HudChat.Lines).Select(HudChat.Line).Concat(ids.Where(id => Regex.IsMatch(id, @"^os_m1[12](_|$)")))) { HudVersion.Button(HudVersion.Content), HudVote.DownloadBar, HudScores.Button, HudScores.BackButton };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, the chat column's {HudChat.Lines} lines, the browser's eleventh and twelfth cards, the download's bar, and B's SCORES and Back to the vote - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 var noTakeBack = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
                 Check($"Content {HudVersion.Content}: a vote is never taken back - no CLICK TO TAKE BACK on your own card's badge, and no hover that swaps the badge's words",
@@ -414,11 +414,11 @@ static partial class Program
                     && Regex.IsMatch(rules0, @"(?m)^\.os-mnum\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mnum\s*\{\s*visibility:\s*visible;")
                     && !Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mnum\s*\{") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting\.vnum \.os-mmode\s*\{\s*margin:\s*8px 0px 0px 46px;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mmode\s*\{[^}]*margin:\s*8px 0px 0px 8px;")); // the badges and the step aside only with the numbers (vnum)
-                Check($"Content {HudVersion.Content}: the ballot's header is the page bar every page has - Random, who has not voted (then what came of the vote) and the one clock: the limit's, the decision's once everybody has voted (vall), the change's once decided (vdone) - with how to vote under it, by a click or with !vote and the number; no title, no state chip, no count of its own (the tab says Vote, the clock's word the state); the strip hidden",
+                Check($"Content {HudVersion.Content}: the ballot's header is the page bar every page has - Random (and SCORES beside it at a match end, B), who has not voted (then what came of the vote) and the one clock: the limit's, the decision's once everybody has voted (vall), the change's once decided (vdone) - with how to vote under it, by a click or with !vote and the number; no title, no state chip, no count of its own (the tab says Vote, the clock's word the state); the strip hidden",
                     !Regex.IsMatch(noCommentsXml + rules0, @"os-vote-title|os-vchip|os-vcount|os-vhead-main|os-vhead-top|os-vhead-row")
-                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhead"">\s*<Button id=""os_v_random"" class=""os-vbtn os-vrandom"">.*?</Button>\s*<Panel class=""os-vstrip"">.*?</Panel></Panel>\s*<Label class=""os-vwait"" text=""\{s:" + HudVote.WaitVar + @"\}"" />\s*<Panel class=""os-clocks"">", RegexOptions.Singleline)
+                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhead"">\s*<Button id=""os_v_random"" class=""os-vbtn os-vrandom"">.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Label class=""os-vbtn-text"" text=""Scores"" /></Button>\s*<Panel class=""os-vstrip"">.*?</Panel></Panel>\s*<Label class=""os-vwait"" text=""\{s:" + HudVote.WaitVar + @"\}"" />\s*<Panel class=""os-clocks"">", RegexOptions.Singleline)
                     && Regex.IsMatch(rules0, @"(?m)^\.os-vhead\s*\{[^}]*height:\s*34px;[^}]*flow-children:\s*right;[^}]*margin-bottom:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.os-mbar\s*\{[^}]*height:\s*34px;[^}]*margin-bottom:\s*8px;")
-                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhowbar"">\s*<Label class=""os-vhow os-vhow-num"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />\s*<Label class=""os-vhow os-vhow-plain"" text=""Click a card to vote[^""!]*!play[^""]*"" />\s*<Label class=""os-vpeek-hint"" text=""Hold TAB to see the scores"" />\s*</Panel>")
+                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhowbar"">\s*<Label class=""os-vhow os-vhow-num"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />\s*<Label class=""os-vhow os-vhow-plain"" text=""Click a card to vote[^""!]*!play[^""]*"" />\s*<Label class=""os-vpeek-hint"" text=""Hold TAB to see the scores"" />\s*<Label class=""os-vpeek-hint os-vpeek-end"" text=""Click SCORES to see the scores"" />\s*</Panel>")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-vhowbar\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-vhowbar\s*\{\s*visibility:\s*visible;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-vhow-num\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vnum \.os-vhow-num\s*\{\s*visibility:\s*visible;")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.vnum \.os-vhow-plain\s*\{\s*visibility:\s*collapse;")
@@ -653,13 +653,32 @@ static partial class Program
             static int Specificity(string selector) => Regex.Matches(selector, @"\.[A-Za-z_][\w-]*").Count + 100 * Regex.Matches(selector, @"#[\w-]+").Count;
             var showsPeekPanel = Regex.Matches(noCommentsCss, @"([^{}]+)\{([^}]*)\}").Where(m => Regex.IsMatch(m.Groups[2].Value, @"visibility:\s*visible")
                 && peekPanels.Any(p => Regex.IsMatch(m.Groups[1].Value.Trim(), $@"\.{p}$"))).Select(m => Specificity(m.Groups[1].Value)).DefaultIfEmpty(0).Max();
-            Check($"The TAB peek (content v4.14.0): while the server reads TAB held by a player who may peek (vpeek) and CS2's own scoreboard is up - or its end screen - the window, the chat column, the dim, the pointer and the dislike's dialog collapse, no fade, by rules of six classes that outrank every rule that shows them ({showsPeekPanel} at the most); the board, the top stack and the card stack stay away; vpeekok says Hold TAB to see the scores at the right of the ballot's how-to bar",
-                peekPanels.All(p => new[] { "HUD_SCOREBOARD_VISIBLE", "HUD_ENDOFMATCH_VISIBLE" }.All(r => Regex.IsMatch(noCommentsCss, $@"(?m)^\.{r} \.os-global \.os-screen\.win\.vpeek \.{p}\s*\{{\s*visibility:\s*collapse;\s*\}}")))
-                && Specificity(".HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-win") == 6 && showsPeekPanel is > 0 and < 6
+            Check($"The look at the scores (content v4.14.0): while the server reads a look on (vpeek) - mid-match TAB held with CS2's own scoreboard up, at a match end SCORES (the server's meos with it, never CS2's end-screen classes) - the window, the chat column, the dim, the pointer and the dislike's dialog collapse, no fade, by rules of six classes that outrank every rule that shows them ({showsPeekPanel} at the most); the board, the top stack and the card stack stay away; vpeekok says Hold TAB to see the scores at the right of the ballot's how-to bar",
+                peekPanels.All(p => Regex.IsMatch(noCommentsCss, $@"(?m)^\.HUD_SCOREBOARD_VISIBLE \.os-global \.os-screen\.win\.vpeek \.{p}\s*\{{\s*visibility:\s*collapse;\s*\}}")
+                    && Regex.IsMatch(noCommentsCss, $@"(?m)^\.os-global \.os-screen\.win\.vpeek\.meos \.{p}\s*\{{\s*visibility:\s*collapse;\s*\}}"))
+                && !Regex.IsMatch(noCommentsCss, @"(?m)^[^{]*HUD_ENDOFMATCH_VISIBLE[^{]*\.vpeek") && !Regex.IsMatch(noCommentsCss, @"(?m)^[^{]*HUD_ENDOFMATCH_VISIBLE[^{]*\.vscores")
+                && Specificity(".HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-win") == 6 && Specificity(".os-global .os-screen.win.vpeek.meos .os-win") == 6 && showsPeekPanel is > 0 and < 6
                 && !Regex.IsMatch(noCommentsCss, @"\.vpeek(ok)?\b[^{]*\{[^}]*(opacity|transition|animation)") && !Regex.IsMatch(noCommentsCss, @"\.vpeek(ok)?\b[^{]*\.os-(board|topstack|cardstack)\s*\{")
                 && !Regex.IsMatch(noCommentsCss, @"(?m)^[^{]*\.vpeekok\b[^{]*\.os-(win|dim|chat-dock|chatptr|why)\s*\{")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-vpeek-hint\s*\{\s*visibility:\s*collapse;\s*horizontal-align:\s*right;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vpeekok \.os-vpeek-hint\s*\{\s*visibility:\s*visible;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vpeekok \.os-vhow\s*\{\s*width:\s*940px;") && noComments.Contains("<Label class=\"os-vpeek-hint\" text=\"Hold TAB to see the scores\" />"));
+            // B (content v4.14.0): at a match end TAB never reaches the server, so a button starts the look - the server's vscoresok shows it, vscores is the look.
+            var randomAt = noComments.IndexOf("<Button id=\"os_v_random\"", StringComparison.Ordinal);
+            var pillAt = noComments.IndexOf("<Button id=\"os_v_tovote\">", StringComparison.Ordinal);
+            Check("The look at a match end's scores (content v4.14.0, B): SCORES right after Random, in its style, shown only while the server lets this player look (vscoresok); the pill that brings the vote back at the top centre, outside the window and drawn after it, shown only during the look (vscores) with its seconds (osvscs, written as the clock writes them); the how-to names TAB mid-match and the button at a match end (meos)",
+                HudScores.Button == "os_v_scores" && HudScores.BackButton == "os_v_tovote" && HudScores.CountdownVar == "osvscs"
+                && randomAt > 0 && Regex.IsMatch(noComments[randomAt..], @"^<Button id=""os_v_random""[^>]*>.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Label class=""os-vbtn-text"" text=""Scores"" /></Button>")
+                && pillAt > noComments.IndexOf("class=\"os-win-foot\"", StringComparison.Ordinal) && pillAt < noComments.IndexOf("class=\"os-topstack\"", StringComparison.Ordinal)
+                && Regex.IsMatch(noComments[pillAt..], @"^<Button id=""os_v_tovote"">\s*<Label text=""Back to the vote  \u00b7  \{s:osvscs\}"" />\s*</Button>")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^#os_v_tovote\s*\{\s*visibility:\s*collapse;\s*horizontal-align:\s*center;\s*vertical-align:\s*top;\s*margin-top:\s*24px;")
+                && Regex.Matches(noCommentsCss, @"(?m)^([^{\n]*#os_v_tovote)\s*\{[^}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([".os-screen.win.vscores #os_v_tovote"])
+                && Regex.Matches(noCommentsCss, @"(?m)^([^{\n]*#os_v_scores)\s*\{[^}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([".os-screen.vscoresok #os_v_scores"])
+                && !Regex.IsMatch(noCommentsCss, @"(?m)^#os_v_tovote Label\s*\{[^}]*text-transform") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-vbtn\s*\{\s*visibility:\s*collapse;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vpeekok \.os-vpeek-hint\.os-vpeek-end\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vpeekok\.meos \.os-vpeek-hint\s*\{\s*visibility:\s*collapse;")
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vpeekok\.meos \.os-vpeek-hint\.os-vpeek-end\s*\{\s*visibility:\s*visible;")
+                && noComments.Contains("<Label class=\"os-vpeek-hint os-vpeek-end\" text=\"Click SCORES to see the scores\" />", StringComparison.Ordinal)
+                && Specificity(".os-screen.vpeekok.meos .os-vpeek-hint.os-vpeek-end") > Specificity(".os-screen.vpeekok .os-vpeek-hint.os-vpeek-end")
+                && Specificity(".os-screen.vpeekok.meos .os-vpeek-hint") > Specificity(".os-screen.vpeekok .os-vpeek-hint"));
             var chatTest = new HudChat();
             chatTest.Say("Alice", "CT", "gg all", teamOnly: false);
             chatTest.Say("Bob", "T", "rush b", teamOnly: true);
