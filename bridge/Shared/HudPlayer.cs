@@ -42,9 +42,9 @@ public sealed class HudPlayer
     /// second click.</summary>
     public DateTime SearchHelpUntil;
 
-    /// <summary>The scores at a match-end vote (HudScores, content v4.14.0): the vote round this player's look at CS2's scoreboard is for, until when, and whether it
-    /// began while that vote was open - its decision ends it then. Null: none.</summary>
-    public (long Round, DateTime Until, bool WhileOpen)? Scores;
+    /// <summary>The scores at a match-end vote (HudScores, content v4.14.0): the vote round this player's look at CS2's scoreboard is for, and whether it began while
+    /// that vote was open - its decision ends it then. No timer (292 a). Null: none.</summary>
+    public (long Round, bool WhileOpen)? Scores;
 
     /// <summary>When everything this player was sent is sent again: a class set while the client is still loading the layout never lands (HudScreen).</summary>
     public DateTime? ResendAt;

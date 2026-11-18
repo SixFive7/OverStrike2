@@ -141,12 +141,11 @@ public sealed class HudFrame
         // TAB counts off the match-end screen alone: there CS2 has taken the pawn the server reads it from, so a TAB down as the match ended - people hold it to
         // see the scores - would read as held all through the screen, its TAB-up never reaching the server, and keep the window aside with no way back.
         var peekOk = view.Window && Peekable(vote, account);
-        var scores = view.Window && HudScores.On(p, vote, w.ChatLift, now);
+        var scores = view.Window && HudScores.On(p, vote, w.ChatLift);
         screen.Class(HudView.Screen, "vpeekok", peekOk, slot);
         screen.Class(HudView.Screen, "vpeek", peekOk && ((h.TabHeld && !w.MatchScreen) || scores), slot);
         screen.Class(HudView.Screen, "vscoresok", HudScores.Allowed(view.Window, w.ChatLift, vote, account) && !scores, slot);
         screen.Class(HudView.Screen, "vscores", scores, slot);
-        screen.Var(HudView.Screen, HudScores.CountdownVar, scores ? HudScores.Countdown(p, now) : "", slot); // Back to the vote's countdown
         if (browsing) screen.Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), slot);
         if (vote.Round > 0) screen.Var(HudView.Screen, HudVote.TabVar, HudVote.TabLabel(vote), slot); // the Vote sub-tab's label
         screen.Var(HudView.Screen, HudView.SubCaptionVar, HudView.SubCaption(view.Page, vote.Round > 0 && !browsing, browsing), slot);

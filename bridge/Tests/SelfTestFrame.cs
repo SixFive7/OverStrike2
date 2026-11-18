@@ -217,42 +217,46 @@ static partial class Program
         var buttonShown = On("vscoresok", 1) && !On("vscoresok", 2) && !On("vscores", 1) && !On("vpeek", 1);
         mf.Draw(World(live, open, tm.AddSeconds(5), locked: true), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
         var noButtonMidMatch = !On("vscoresok", 1) && On("vpeekok", 1);
-        var notVoted = HudScores.Click(MP(2), HudScores.Button, true, true, open, 1002, tm.AddSeconds(6));
-        var midMatch = HudScores.Click(MP(1), HudScores.Button, true, false, open, 1001, tm.AddSeconds(6));
-        var started = HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001, tm.AddSeconds(6));
+        var notVoted = HudScores.Click(MP(2), HudScores.Button, true, true, open, 1002);
+        var midMatch = HudScores.Click(MP(1), HudScores.Button, true, false, open, 1001);
+        var started = HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001);
         mf.Draw(AtEnd(open, tm.AddSeconds(7)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
-        var looking = On("vscores", 1) && On("vpeek", 1) && !On("vscoresok", 1) && ms.WindowOpen(1) && sc.Captured[1] && On("vlock", 1) && !On("vscores", 2) && !On("vpeek", 2)
-            && sc.V(HudView.Screen, HudScores.CountdownVar, 1) == "14 s" && sc.V(HudView.Screen, HudScores.CountdownVar, 2) == "";
-        var again = HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001, tm.AddSeconds(8));
-        var stillOn = HudScores.On(MP(1), open, true, tm.AddSeconds(6 + HudScores.Seconds).AddMilliseconds(-1));
-        mf.Draw(AtEnd(open, tm.AddSeconds(6 + HudScores.Seconds)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
-        var timeUp = !On("vscores", 1) && !On("vpeek", 1) && On("vscoresok", 1) && HudScores.Ended(MP(1), open, true, true, tm.AddSeconds(6 + HudScores.Seconds)) == $"{HudScores.Seconds} s up"
-            && sc.V(HudView.Screen, HudScores.CountdownVar, 1) == "" && sc.Captured[1];
-        Check($"Frame: the scores at a match-end vote - SCORES shows once she has voted, at the match-end screen once CS2 shows its scoreboard there (vscoresok, meos), never his "
-            + $"before he votes nor mid-match, and a TAB read as held there (its TAB-up never reaches the server) is no peek; its click steps her window aside (vscores, vpeek) for {HudScores.Seconds} s, Back to the vote counting them down (osvscs), the window open, frozen and with the mouse; a click "
-            + "before the vote, mid-match or during the look changes nothing",
+        var looking = On("vscores", 1) && On("vpeek", 1) && !On("vscoresok", 1) && ms.WindowOpen(1) && sc.Captured[1] && On("vlock", 1) && !On("vscores", 2) && !On("vpeek", 2);
+        var again = HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001);
+        mf.Draw(AtEnd(open, tm.AddSeconds(22)), [Alice(), Bob()], ms, MP, new FunClicks(), sc); // 15 s on: no timer (292 a)
+        var at15 = On("vscores", 1) && On("vpeek", 1);
+        mf.Draw(AtEnd(open, tm.AddSeconds(67)), [Alice(), Bob()], ms, MP, new FunClicks(), sc); // 60 s on, the vote still open
+        var at60 = On("vscores", 1) && On("vpeek", 1) && !On("vscoresok", 1) && sc.Captured[1] && HudScores.Ended(MP(1), open, true, true) == "";
+        Check("Frame: the scores at a match-end vote - SCORES shows once she has voted, at the match-end screen once CS2 shows its scoreboard there (vscoresok, meos), never his "
+            + "before he votes nor mid-match, and a TAB read as held there (its TAB-up never reaches the server) is no peek; its click steps her window aside (vscores, vpeek) "
+            + "with no timer (292 a) - still aside 15 s and 60 s on while the vote is open - the window open, frozen and with the mouse; a click before the vote, mid-match "
+            + "or during the look changes nothing",
             notYetLifted && buttonShown && noButtonMidMatch && notVoted == "not now (not voted yet)" && MP(2).Scores == null
-            && midMatch == "not now (not at the match-end screen - TAB is the way)" && started == $"the window steps aside for {HudScores.Seconds} s" && looking
-            && again == "already looking - nothing" && stillOn && timeUp);
-        MP(1).Scores = null;
-        HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001, tm.AddSeconds(30));
-        var onBefore = HudScores.On(MP(1), open, true, tm.AddSeconds(31));
-        mf.Draw(AtEnd(shut, tm.AddSeconds(31)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
-        var decidedEnds = onBefore && !On("vscores", 1) && On("vscoresok", 1) && HudScores.Ended(MP(1), shut, true, true, tm.AddSeconds(31)) == "the vote decided";
-        var afterDecision = HudScores.Click(MP(1), HudScores.Button, true, true, shut, 1001, tm.AddSeconds(32)) == $"the window steps aside for {HudScores.Seconds} s"
-            && HudScores.Click(MP(2), HudScores.Button, true, true, shut, 1002, tm.AddSeconds(32)) == $"the window steps aside for {HudScores.Seconds} s";
-        mf.Draw(AtEnd(shut, tm.AddSeconds(33)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
-        var bothLook = On("vscores", 1) && On("vscores", 2) && On("vpeek", 2);
-        var back = HudScores.Click(MP(1), HudScores.BackButton, true, true, shut, 1001, tm.AddSeconds(34));
-        var backAgain = HudScores.Click(MP(1), HudScores.BackButton, true, true, shut, 1001, tm.AddSeconds(34));
-        mf.Draw(AtEnd(shut, tm.AddSeconds(34)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+            && midMatch == "not now (not at the match-end screen - TAB is the way)" && started == "the window steps aside until Back to the vote or the vote's decision" && looking
+            && again == "already looking - nothing" && at15 && at60);
+        var back1 = HudScores.Click(MP(1), HudScores.BackButton, true, true, open, 1001);
+        mf.Draw(AtEnd(open, tm.AddSeconds(68)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var backOff = !On("vscores", 1) && !On("vpeek", 1) && On("vscoresok", 1);
+        HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001);
+        var onBefore = HudScores.On(MP(1), open, true);
+        mf.Draw(AtEnd(shut, tm.AddSeconds(70)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var decidedEnds = onBefore && !On("vscores", 1) && On("vscoresok", 1) && HudScores.Ended(MP(1), shut, true, true) == "the vote decided";
+        var afterDecision = HudScores.Click(MP(1), HudScores.Button, true, true, shut, 1001) == "the window steps aside until Back to the vote"
+            && HudScores.Click(MP(2), HudScores.Button, true, true, shut, 1002) == "the window steps aside until Back to the vote";
+        mf.Draw(AtEnd(shut, tm.AddMinutes(5)), [Alice(), Bob()], ms, MP, new FunClicks(), sc); // minutes on: still aside, no timer
+        var bothLook = On("vscores", 1) && On("vscores", 2) && On("vpeek", 2) && HudScores.Ended(MP(1), shut, true, true) == "";
+        var back = HudScores.Click(MP(1), HudScores.BackButton, true, true, shut, 1001);
+        var backAgain = HudScores.Click(MP(1), HudScores.BackButton, true, true, shut, 1001);
+        mf.Draw(AtEnd(shut, tm.AddMinutes(5).AddSeconds(1)), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
         var backShown = !On("vscores", 1) && !On("vpeek", 1) && On("vscoresok", 1) && On("vscores", 2);
-        mf.Draw(AtEnd(shut, tm.AddSeconds(35), lifted: false), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
-        var screenGone = !On("vscores", 2) && !On("vpeek", 2) && !On("vscoresok", 2) && HudScores.Ended(MP(2), shut, true, false, tm.AddSeconds(35)) == "the match-end screen ended";
-        Check("Frame: the scores' look ends with the decision of the vote it began in - she sees the result - and once decided everybody may look, for its seconds; "
-            + "Back to the vote ends hers alone, and a second Back does nothing; the match-end screen's end ends every look; no other button is SCORES' or Back's",
-            decidedEnds && afterDecision && bothLook && back == "the window is back" && backAgain == "not looking - nothing" && backShown && screenGone
-            && HudScores.Click(MP(1), HudVote.RandomButton, true, true, shut, 1001, tm) == null && HudScores.Click(MP(1), HudVote.BackButton, true, true, shut, 1001, tm) == null
+        mf.Draw(AtEnd(shut, tm.AddMinutes(5).AddSeconds(2), lifted: false), [Alice(), Bob()], ms, MP, new FunClicks(), sc);
+        var screenGone = !On("vscores", 2) && !On("vpeek", 2) && !On("vscoresok", 2) && HudScores.Ended(MP(2), shut, true, false) == "the match-end screen ended";
+        Check("Frame: the scores' look ends at Back to the vote, at the decision of the vote it began in - she sees the result - or at the match-end screen's end, and at "
+            + "nothing else; once decided everybody may look, and a look begun then stays, minutes on, until Back to the vote or the screen's end; a second Back does "
+            + "nothing; no other button is SCORES' or Back's",
+            back1 == "the window is back" && backOff && decidedEnds && afterDecision && bothLook && back == "the window is back" && backAgain == "not looking - nothing"
+            && backShown && screenGone
+            && HudScores.Click(MP(1), HudVote.RandomButton, true, true, shut, 1001) == null && HudScores.Click(MP(1), HudVote.BackButton, true, true, shut, 1001) == null
             && HudScores.Button != HudVote.BackButton && HudScores.BackButton != HudVote.BackButton);
     }
 }

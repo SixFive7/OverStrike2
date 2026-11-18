@@ -54,7 +54,7 @@ sealed partial class HudScreen
             FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs), // the bars a step ahead (HudVote.BarLeadMs)
             chat, ChatLive(now), matchScreen, download is { } d && now < d.Until ? d.Download : null, chatRoute, matchEndLifted);
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
-        ScoresEnded(humans, now);
+        ScoresEnded(humans);
         MarkChanged();
     }
 
@@ -75,17 +75,17 @@ sealed partial class HudScreen
 
     CCSGameRulesProxy? rulesProxy;
 
-    /// <summary>A SCORES look that ended by itself - its seconds, the vote's decision, the screen's end, the window's close (HudScores.Ended) - is logged once, and
-    /// forgotten; Back to the vote's own click logs itself. scoresOn: the slots whose look was on at the last frame or click.</summary>
-    void ScoresEnded(IEnumerable<CCSPlayerController> humans, DateTime now)
+    /// <summary>A SCORES look that ended by itself - the vote's decision, the screen's end, the window's close (HudScores.Ended; no timer, 292 a) - is logged once,
+    /// and forgotten; Back to the vote's own click logs itself. scoresOn: the slots whose look was on at the last frame or click.</summary>
+    void ScoresEnded(IEnumerable<CCSPlayerController> humans)
     {
         foreach (var p in humans)
         {
             var me = Player(p.Slot);
             var window = slots.WindowOpen(p.Slot);
-            if (window && HudScores.On(me, vote, matchEndLifted, now)) { scoresOn.Add(p.Slot); continue; }
+            if (window && HudScores.On(me, vote, matchEndLifted)) { scoresOn.Add(p.Slot); continue; }
             if (!scoresOn.Remove(p.Slot) || me.Scores == null) continue;
-            log.LogInformation("Over Strike 2 HUD: {Name} the window is back ({Why})", p.PlayerName, HudScores.Ended(me, vote, window, matchEndLifted, now));
+            log.LogInformation("Over Strike 2 HUD: {Name} the window is back ({Why})", p.PlayerName, HudScores.Ended(me, vote, window, matchEndLifted));
             me.Scores = null;
         }
     }

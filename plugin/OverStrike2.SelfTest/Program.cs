@@ -388,9 +388,9 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     // frame saw it (meos), and a look that ends by itself logged once
     var hudClicks = Source("plugin", "OverStrike2", "HudScreenClicks.cs");
     var hudFrameSrc = Source("plugin", "OverStrike2", "HudScreenFrame.cs");
-    Check(hudClicks.Contains("HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who, now)", StringComparison.Ordinal)
+    Check(hudClicks.Contains("HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who)", StringComparison.Ordinal)
           && hudClicks.IndexOf("HudScores.Click(", StringComparison.Ordinal) < hudClicks.IndexOf("if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)", StringComparison.Ordinal)
-          && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans, now);", StringComparison.Ordinal),
+          && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans);", StringComparison.Ordinal),
         "HUD: SCORES and Back to the vote are handled before the ballot's own clicks, by the match-end screen as the last frame saw it, and a look that ends by itself is logged");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");

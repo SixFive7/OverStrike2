@@ -343,10 +343,10 @@ stays frozen, and the window stays open and keeps the mouse throughout. **Mid-ma
 The plugin reads TAB from the player's buttons (IN_SCORE) in either `hud.tab` mode, from their own pawn alone: a dead or spectating player's buttons are not read
 (they go to the observer), and death forgets a TAB held. **At a match end, by the SCORES button:** CS2 takes every player's own pawn away for its
 whole end screen, so no key reaches the server there. The ballot's SCORES button, beside Random, steps the window aside for CS2's end-screen scoreboard, up
-behind it all along, for 15 s (`HudScores.Seconds`), until a click on Back to the vote (the pill at the top centre, with its countdown), or until the vote the
-look began in is decided - the player sees the result - whichever comes first. The server sends the player's screen `vpeekok` while they may look at all
+behind it all along, and it stays aside - no timer - until a click on Back to the vote (the pill at the top centre), until the vote the look began in is
+decided - the player sees the result - or until the match-end screen ends; a look begun after the decision ends only at the pill or the screen's end. The server sends the player's screen `vpeekok` while they may look at all
 (`HudFrame.Peekable`), `vpeek` while they look - TAB held, or the SCORES look on - and at the match-end screen, once CS2 shows its scoreboard there (`meos`),
-`vscoresok` while the button may show and `vscores` while its look is on, with `osvscs` its seconds left; the stylesheet hides the window by these classes of
+`vscoresok` while the button may show and `vscores` while its look is on; the stylesheet hides the window by these classes of
 ours alone, never by CS2's own end-screen classes.
 
 ### Voting
@@ -491,8 +491,8 @@ window, the chat column, the dim, the pointer and the dislike's dialog collapse 
 instant TAB comes up, so the window is back with it whatever the server's lag. At a match end TAB never reaches the server, so a button does it: **SCORES**,
 beside Random and in its style, while the server lets the player look (`vscoresok`: the match-end screen on, `meos`, and no look on), and the how-to bar says
 Click SCORES to see the scores in place of TAB's words. During the look (`vscores`, and `vpeek` with it) the same panels step aside for CS2's end screen and
-its scoreboard - by our own classes (`vpeek` with `meos`), never by CS2's end-screen classes - and a pill at the top centre, **Back to the vote** with the
-seconds left (`osvscs`), brings them back; so do its 15 s, the vote's decision and the end of the match-end screen (the server's side is under A look at the
+its scoreboard - by our own classes (`vpeek` with `meos`), never by CS2's end-screen classes - and a pill at the top centre, **Back to the vote**, brings them
+back; so do the vote's decision and the end of the match-end screen, and nothing else - no timer (the server's side is under A look at the
 scores, above). The player stays frozen and the window keeps the mouse.
 **The dislike's dialog** stays off the ballot (`.os-screen.why.voting.page-maps`: the window on Maps while a vote stands, not its map browser): a vote opening
 over it would sit under it. A question asked before the vote opened is the bridge's to hold (`PutWhy`): not sent while the ballot stands, on any page, its time

@@ -44,11 +44,11 @@ sealed partial class HudScreen
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
-        if (HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who, now) is { } scoresDid) // SCORES, or Back to the vote, at the match-end screen (HudScores)
+        if (HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who) is { } scoresDid) // SCORES, or Back to the vote, at the match-end screen (HudScores)
         {
             log.LogInformation("Over Strike 2 HUD: {Name} {Button} during the vote ({Phase}) - {Did}", player.PlayerName, buttonId == HudScores.Button ? "SCORES" : "Back to the vote",
                 vote.Open ? "open" : "decided", scoresDid);
-            if (HudScores.On(me, vote, matchEndLifted, now)) scoresOn.Add(player.Slot); else scoresOn.Remove(player.Slot);
+            if (HudScores.On(me, vote, matchEndLifted)) scoresOn.Add(player.Slot); else scoresOn.Remove(player.Slot);
             Server.NextFrame(Frame);
             return;
         }

@@ -665,11 +665,11 @@ static partial class Program
             // B (content v4.14.0): at a match end TAB never reaches the server, so a button starts the look - the server's vscoresok shows it, vscores is the look.
             var randomAt = noComments.IndexOf("<Button id=\"os_v_random\"", StringComparison.Ordinal);
             var pillAt = noComments.IndexOf("<Button id=\"os_v_tovote\">", StringComparison.Ordinal);
-            Check("The look at a match end's scores (content v4.14.0, B): SCORES right after Random, in its style, shown only while the server lets this player look (vscoresok); the pill that brings the vote back at the top centre, outside the window and drawn after it, shown only during the look (vscores) with its seconds (osvscs, written as the clock writes them); the how-to names TAB mid-match and the button at a match end (meos)",
-                HudScores.Button == "os_v_scores" && HudScores.BackButton == "os_v_tovote" && HudScores.CountdownVar == "osvscs"
+            Check("The look at a match end's scores (content v4.14.0, B): SCORES right after Random, in its style, shown only while the server lets this player look (vscoresok); the pill that brings the vote back at the top centre, outside the window and drawn after it, shown only during the look (vscores), with no seconds - the look has no timer (292 a); the how-to names TAB mid-match and the button at a match end (meos)",
+                HudScores.Button == "os_v_scores" && HudScores.BackButton == "os_v_tovote" && !noComments.Contains("osvscs", StringComparison.Ordinal) && !noCommentsCss.Contains("osvscs", StringComparison.Ordinal)
                 && randomAt > 0 && Regex.IsMatch(noComments[randomAt..], @"^<Button id=""os_v_random""[^>]*>.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Label class=""os-vbtn-text"" text=""Scores"" /></Button>")
                 && pillAt > noComments.IndexOf("class=\"os-win-foot\"", StringComparison.Ordinal) && pillAt < noComments.IndexOf("class=\"os-topstack\"", StringComparison.Ordinal)
-                && Regex.IsMatch(noComments[pillAt..], @"^<Button id=""os_v_tovote"">\s*<Label text=""Back to the vote  \u00b7  \{s:osvscs\}"" />\s*</Button>")
+                && Regex.IsMatch(noComments[pillAt..], @"^<Button id=""os_v_tovote"">\s*<Label text=""Back to the vote"" />\s*</Button>")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^#os_v_tovote\s*\{\s*visibility:\s*collapse;\s*horizontal-align:\s*center;\s*vertical-align:\s*top;\s*margin-top:\s*24px;")
                 && Regex.Matches(noCommentsCss, @"(?m)^([^{\n]*#os_v_tovote)\s*\{[^}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([".os-screen.win.vscores #os_v_tovote"])
                 && Regex.Matches(noCommentsCss, @"(?m)^([^{\n]*#os_v_scores)\s*\{[^}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([".os-screen.vscoresok #os_v_scores"])

@@ -1476,9 +1476,9 @@
 				</Panel>
 
 				<!-- The look at the scores at a match end (vscores, the server's): the window, the column and the dim step aside for CS2's end screen, and this pill at the
-				     top centre brings them back - as do its seconds running out (osvscs), the vote's decision and the match-end screen's end. Its click is the server's -->
+				     top centre brings them back - as do the vote's decision and the match-end screen's end; no timer (292 a). Its click is the server's -->
 				<Button id="os_v_tovote">
-					<Label text="Back to the vote  ·  {s:osvscs}" />
+					<Label text="Back to the vote" />
 				</Button>
 
 				<!-- After the window, so it draws above the dim layer and the window. Why the dislike - the reasons of a Dislike, for its player (why on os_screen), at the

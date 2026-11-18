@@ -8885,8 +8885,8 @@ Label
    class), the window, the chat column with its dims, the dim, the pointer and the dislike's dialog collapse - visibility only, no fade - and come back the same way;
    CS2's scoreboard goes the instant TAB comes up, so the window is back with it, whatever the server's lag. At a match end TAB never reaches the server (the game
    is over), so a button does it: SCORES beside Random (vscoresok, the server's: the match-end screen on - meos - and no look on yet) starts the look (vscores, and
-   vpeek with it), and the same panels step aside for CS2's end screen and its scoreboard until the pill at the top centre is clicked, its 15 s run out (osvscs
-   counts them), the vote is decided or the match-end screen ends - the server's HudScores. There the rules hide on our own classes alone (vpeek with meos), never
+   vpeek with it), and the same panels step aside for CS2's end screen and its scoreboard until the pill at the top centre is clicked, the vote is decided or
+   the match-end screen ends - no timer (292 a), the server's HudScores. There the rules hide on our own classes alone (vpeek with meos), never
    on CS2's end-screen classes. The rules act on vpeek, so no client class can hide the window by itself. The board, the top stack and the card stack stay away
    (win stays on); the mouse and the freeze are the server's and do not change. Six classes each: no rule that shows one of these panels has more than five. -- */
 .HUD_SCOREBOARD_VISIBLE .os-global .os-screen.win.vpeek .os-win
@@ -8985,8 +8985,8 @@ Label
 }
 
 /* The pill that brings the vote back during a look at a match end (vscores), at the top centre over CS2's end screen - above its scoreboard and clear of its
-   tabs at the top left - with the seconds until the window comes back by itself. Outside the window, so at the screen's own scale at every shape; its seconds
-   written as the clock writes them ("12 s"), so no capitals. */
+   tabs at the top left. No seconds: the look has no timer (292 a) - only this pill, the vote's decision and the screen's end end it. Outside the window, so at
+   the screen's own scale at every shape; its words as written, no capitals. */
 #os_v_tovote
 {
 	visibility: collapse;
