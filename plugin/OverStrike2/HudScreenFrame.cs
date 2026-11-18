@@ -49,10 +49,12 @@ sealed partial class HudScreen
         drawing.Clear();
         foreach (var p in humans) drawing[p.Slot] = p;
         var matchScreen = MatchScreen();
+        matchEndLifted = ChatLift(matchScreen, now);
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
             FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs), // the bars a step ahead (HudVote.BarLeadMs)
-            chat, ChatLive(now), matchScreen, download is { } d && now < d.Until ? d.Download : null, chatRoute, ChatLift(matchScreen, now));
+            chat, ChatLive(now), matchScreen, download is { } d && now < d.Until ? d.Download : null, chatRoute, matchEndLifted);
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
+        ScoresEnded(humans, now);
         MarkChanged();
     }
 
@@ -72,6 +74,26 @@ sealed partial class HudScreen
     }
 
     CCSGameRulesProxy? rulesProxy;
+
+    /// <summary>A SCORES look that ended by itself - its seconds, the vote's decision, the screen's end, the window's close (HudScores.Ended) - is logged once, and
+    /// forgotten; Back to the vote's own click logs itself. scoresOn: the slots whose look was on at the last frame or click.</summary>
+    void ScoresEnded(IEnumerable<CCSPlayerController> humans, DateTime now)
+    {
+        foreach (var p in humans)
+        {
+            var me = Player(p.Slot);
+            var window = slots.WindowOpen(p.Slot);
+            if (window && HudScores.On(me, vote, matchEndLifted, now)) { scoresOn.Add(p.Slot); continue; }
+            if (!scoresOn.Remove(p.Slot) || me.Scores == null) continue;
+            log.LogInformation("Over Strike 2 HUD: {Name} the window is back ({Why})", p.PlayerName, HudScores.Ended(me, vote, window, matchEndLifted, now));
+            me.Scores = null;
+        }
+    }
+
+    readonly HashSet<int> scoresOn = new();
+
+    /// <summary>Whether CS2 has lifted its chat for the match-end screen (meos), as of the last frame - the SCORES button's clicks go by it (HudScores).</summary>
+    bool matchEndLifted;
 
     /// <summary>Whether CS2 has lifted its chat for the match-end screen: the phase has been Ended for ChatLiftSeconds. CS2 lifts it only once that screen shows its
     /// scoreboard, a second or two after the phase changes - the column lifted with the phase while CS2's fresh line still stood below it (the live lab's film of

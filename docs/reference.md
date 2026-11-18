@@ -338,11 +338,16 @@ the window shows the result while it loads; a winner still to download, while th
 as the next match starts, a second or two after the decision ([below](#voting)). The plugin frees everybody by itself if the
 bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge never leaves anybody frozen.
 
-**A look at the scores.** Once a player has voted - or for everybody once the vote is decided - holding **TAB** steps the window aside for CS2's scoreboard, at a
-mid-match vote and at a match end's alike, and letting go brings it back. The player stays frozen, and the window keeps the mouse throughout. The plugin reads
-TAB from the player's buttons (IN_SCORE) in either `hud.tab` mode and sends the player's screen `vpeek` while they hold it and may peek, and `vpeekok` while they
-may peek at all (`HudFrame.Peekable`); the stylesheet hides the window by them. A dead player's buttons are not read (they go to the observer), and death forgets a
-TAB held.
+**A look at the scores.** Once a player has voted - or for everybody once the vote is decided - the window can step aside for CS2's scoreboard; the player
+stays frozen, and the window stays open and keeps the mouse throughout. **Mid-match, by TAB:** holding it steps the window aside, and letting go brings it back.
+The plugin reads TAB from the player's buttons (IN_SCORE) in either `hud.tab` mode, from their own pawn alone: a dead or spectating player's buttons are not read
+(they go to the observer), and death forgets a TAB held. **At a match end, by the SCORES button:** CS2 takes every player's own pawn away for its
+whole end screen, so no key reaches the server there. The ballot's SCORES button, beside Random, steps the window aside for CS2's end-screen scoreboard, up
+behind it all along, for 15 s (`HudScores.Seconds`), until a click on Back to the vote (the pill at the top centre, with its countdown), or until the vote the
+look began in is decided - the player sees the result - whichever comes first. The server sends the player's screen `vpeekok` while they may look at all
+(`HudFrame.Peekable`), `vpeek` while they look - TAB held, or the SCORES look on - and at the match-end screen, once CS2 shows its scoreboard there (`meos`),
+`vscoresok` while the button may show and `vscores` while its look is on, with `osvscs` its seconds left; the stylesheet hides the window by these classes of
+ours alone, never by CS2's own end-screen classes.
 
 ### Voting
 

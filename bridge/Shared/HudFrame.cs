@@ -135,10 +135,16 @@ public sealed class HudFrame
         screen.Class(HudView.Screen, "vlock", w.VoteLocked, slot);     // a vote that freezes everybody has no close button
         // The scoreboard's peek (the owner, 2026-11-17): once this player has voted, or the vote is decided, holding TAB steps the vote's window aside for CS2's
         // scoreboard, and letting go brings it back. Only classes: the window stays open and keeps the mouse, the player stays frozen. vpeekok - they may peek
-        // now, TAB or not (for a stylesheet that also goes by CS2's own HUD_SCOREBOARD_VISIBLE); vpeek - they may, and TAB is down as the server reads it.
+        // now, TAB or not (for a stylesheet that also goes by CS2's own HUD_SCOREBOARD_VISIBLE); vpeek - they may, and TAB is down as the server reads it, or
+        // their SCORES look is on. At the match-end screen no key reaches the server, so there the ballot's SCORES button does it (HudScores, the owner's 292):
+        // vscoresok - the button may show (meos is on, they may peek, no look on); vscores - the look is on, Back to the vote shows.
         var peekOk = view.Window && Peekable(vote, account);
+        var scores = view.Window && HudScores.On(p, vote, w.ChatLift, now);
         screen.Class(HudView.Screen, "vpeekok", peekOk, slot);
-        screen.Class(HudView.Screen, "vpeek", peekOk && h.TabHeld, slot);
+        screen.Class(HudView.Screen, "vpeek", peekOk && (h.TabHeld || scores), slot);
+        screen.Class(HudView.Screen, "vscoresok", HudScores.Allowed(view.Window, w.ChatLift, vote, account) && !scores, slot);
+        screen.Class(HudView.Screen, "vscores", scores, slot);
+        screen.Var(HudView.Screen, HudScores.CountdownVar, scores ? HudScores.Countdown(p, now) : "", slot); // Back to the vote's countdown
         if (browsing) screen.Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), slot);
         if (vote.Round > 0) screen.Var(HudView.Screen, HudVote.TabVar, HudVote.TabLabel(vote), slot); // the Vote sub-tab's label
         screen.Var(HudView.Screen, HudView.SubCaptionVar, HudView.SubCaption(view.Page, vote.Round > 0 && !browsing, browsing), slot);

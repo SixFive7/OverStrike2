@@ -44,6 +44,14 @@ sealed partial class HudScreen
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
+        if (HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who, now) is { } scoresDid) // SCORES, or Back to the vote, at the match-end screen (HudScores)
+        {
+            log.LogInformation("Over Strike 2 HUD: {Name} {Button} during the vote ({Phase}) - {Did}", player.PlayerName, buttonId == HudScores.Button ? "SCORES" : "Back to the vote",
+                vote.Open ? "open" : "decided", scoresDid);
+            if (HudScores.On(me, vote, matchEndLifted, now)) scoresOn.Add(player.Slot); else scoresOn.Remove(player.Slot);
+            Server.NextFrame(Frame);
+            return;
+        }
         if (HudDash.Click(dash, buttonId, me.DashPages)) { Server.NextFrame(Frame); return; } // the Sync page's pagers
         if (HudBrowser.AsksHowToSearch(buttonId)) { AskedHowToSearch(player, now); Server.NextFrame(Frame); return; } // the search hint, or v4.8.0's search box and keys: typing is chat's - how, and the search helped
         if (HudBrowser.WordButton(buttonId) is { } word) { WordClicked(player, word); Server.NextFrame(Frame); return; } // one of the search's words (content v4.11.0)

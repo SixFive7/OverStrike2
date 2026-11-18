@@ -384,6 +384,14 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var hudChat = Source("plugin", "OverStrike2", "HudScreenChat.cs");
     Check(hudChat.Contains("WindowNote(player.Slot, ChatReply.HowToSearch);", StringComparison.Ordinal) && !hudChat.Contains("LocalNote(player.Slot, ChatReply.HowToSearch)", StringComparison.Ordinal),
         "HUD: a click on the search area says how on the window's line alone - not in chat or on the board, where CS2's newest chat line showed it through the pointer");
+    // the scores at a match-end vote (HudScores, the owner's 292): SCORES and Back to the vote before the ballot's own clicks, by the match-end screen as the last
+    // frame saw it (meos), and a look that ends by itself logged once
+    var hudClicks = Source("plugin", "OverStrike2", "HudScreenClicks.cs");
+    var hudFrameSrc = Source("plugin", "OverStrike2", "HudScreenFrame.cs");
+    Check(hudClicks.Contains("HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who, now)", StringComparison.Ordinal)
+          && hudClicks.IndexOf("HudScores.Click(", StringComparison.Ordinal) < hudClicks.IndexOf("if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)", StringComparison.Ordinal)
+          && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans, now);", StringComparison.Ordinal),
+        "HUD: SCORES and Back to the vote are handled before the ballot's own clicks, by the match-end screen as the last frame saw it, and a look that ends by itself is logged");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");

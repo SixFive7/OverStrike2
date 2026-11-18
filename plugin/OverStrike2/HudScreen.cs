@@ -82,7 +82,7 @@ sealed partial class HudScreen
         log.LogInformation("Over Strike 2 HUD: {Layout}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
             bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); scoresOn.Clear(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
         plugin.RegisterListener<Listeners.OnPlayerButtonsChanged>(OnButtons);
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
@@ -257,6 +257,7 @@ sealed partial class HudScreen
         slots.Gone(slot);
         gate.Gone(slot);
         tab.Gone(slot);
+        scoresOn.Remove(slot);
         funClicks.Gone(slot);
         botClicks.Gone(slot);
         Forget(slot);
