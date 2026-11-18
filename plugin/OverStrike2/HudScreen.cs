@@ -38,7 +38,8 @@ sealed partial class HudScreen
     readonly HudSlots slots = new();
     readonly string addon;                            // the Workshop item the server hands out (hud.addon): its link is in the check's messages
     readonly HudGate gate = new();                    // the HUD check on this map (HudCheck.cs)
-    readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudVersion.IsWord); the bridge keeps the same for the players on the server
+    readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudVersion.IsWord); the bridge keeps the same
+    readonly HashSet<long> freshJoins = new();        // accounts that joined for real since this plugin loaded, until their own click: the bridge's word is not theirs yet for the players on the server
     readonly ItemWatch item;                          // whether Steam shows the item to everybody yet: nobody is disconnected until it does
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
     HudCheck.Mode checkHigh;                          // the strictest it has been on this map: only a stricter one re-arms the waiting players
@@ -142,7 +143,8 @@ sealed partial class HudScreen
     {
         slots.Joined(player.Slot, first, player.PawnIsAlive, DateTime.UtcNow);
         joins.Joined(Account(player), DateTime.UtcNow);
-        hudSeen.Remove(Account(player)); // a real join: the HUD check asks again - a reconnecting player may have a new HUD
+        hudSeen.Remove(Account(player)); // a real join: the HUD check asks again - a reconnecting player may have a new HUD, or an older one
+        freshJoins.Add(Account(player));  // ...and until it does, the bridge's word may still be the last session's (HudCheck.VersionOf)
         Post(Messages.Tagline, Hud.Headline, Account(player));
         if (player.PawnIsAlive) { worldReady = true; Server.NextFrame(EnsureEntity); }
     }

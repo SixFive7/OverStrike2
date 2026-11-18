@@ -48,6 +48,16 @@ public static class HudCheck
     /// <summary>Verified since the player's last real join, as far as the bridge knows.</summary>
     public static bool IsVerified(HudState? state, long account) => state != null && state.Verified.ContainsKey(account);
 
+    /// <summary>The HUD a player's game showed at the check's click (HudVersion.IsWord), "" while not seen: the plugin's own record of the click (seen), else the
+    /// bridge's word (state.Verified, which keeps it through a plugin reload) - but not after a real join the plugin saw (joined) until this connection's own click:
+    /// the bridge forgets the account at the join too, and until its next state says so its word is the last session's, maybe another content's (the same account
+    /// on another PC with an older copy of the item). A game fed by a content it does not have finds none of its panels: a v4.12.2 game told v4.14.0 logged
+    /// "Unable to find panel with id 'os_chat_N'" 40 times at every full update (the live lab, release 218; there the lab's own click had named the wrong content).</summary>
+    public static string VersionOf(IReadOnlyDictionary<long, string> seen, bool joined, HudState? state, long account) =>
+        seen.TryGetValue(account, out var v) && v != HudVersion.Unknown ? v
+        : !joined && state?.Verified.TryGetValue(account, out var b) == true && b != HudVersion.Unknown ? b
+        : seen.ContainsKey(account) || (!joined && state?.Verified.ContainsKey(account) == true) ? HudVersion.Unknown : "";
+
     /// <summary>The Web API's view of the HUD item (GetPublishedFileDetails, api.steampowered.com: anonymous, and not rate-limited like the
     /// community site that answers the page visits with 429 half the time): its Workshop verdict (Workshop.Ok, Removed, Hidden, Banned),
     /// when it last changed (time_updated, unix seconds) and its content's handle (hcontent_file). It cannot see moderation - a held item

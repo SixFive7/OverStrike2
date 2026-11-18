@@ -302,6 +302,16 @@ static partial class Program
     {
         var t0 = new DateTime(2026, 10, 11, 20, 0, 0, DateTimeKind.Utc);
         const ulong TAB = HudTab.Scoreboard, E = HudTab.Use, RMB = 1UL << 11, W = 1UL << 3, JUMP = 1UL << 1;
+        var bridgeSays = new HudState();
+        bridgeSays.Verified[1001] = "v4.14.0";
+        bridgeSays.Verified[1003] = HudVersion.Unknown;
+        var seenHere = new Dictionary<long, string> { [1002] = "v4.12.2", [1004] = HudVersion.Unknown };
+        Check("HUD check: which content a game shows is its own click's - here, else the bridge's word, which a plugin reload keeps - but after a real join only "
+            + "this connection's click: the bridge's word may be the last session's, another PC's older content (287 b: a v4.12.2 game told v4.14.0 logged 40 lines)",
+            HudCheck.VersionOf(seenHere, false, bridgeSays, 1001) == "v4.14.0" && HudCheck.VersionOf(seenHere, true, bridgeSays, 1001) == ""
+            && HudCheck.VersionOf(seenHere, true, bridgeSays, 1002) == "v4.12.2" && HudCheck.VersionOf(seenHere, false, bridgeSays, 1003) == HudVersion.Unknown
+            && HudCheck.VersionOf(seenHere, true, bridgeSays, 1003) == "" && HudCheck.VersionOf(seenHere, true, bridgeSays, 1004) == HudVersion.Unknown
+            && HudCheck.VersionOf(seenHere, false, null, 1005) == "" && !HudChat.Feeds(HudCheck.VersionOf(seenHere, true, bridgeSays, 1001)));
         Check("TAB: the bits are CounterStrikeSharp's (IN_SCORE 1<<33, IN_USE 1<<5)", HudTab.Scoreboard == 0x200000000UL && HudTab.Use == 0x20UL);
         Check("TAB: the mode flag reads down and off; the names of the modes TAB had before read as down, anything else as off - and every name reads back",
             HudTab.Parse("down") == HudTab.Mode.Down && HudTab.Parse(" Down ") == HudTab.Mode.Down && HudTab.Parse("off") == HudTab.Mode.Off
