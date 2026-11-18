@@ -338,6 +338,12 @@ the window shows the result while it loads; a winner still to download, while th
 as the next match starts, a second or two after the decision ([below](#voting)). The plugin frees everybody by itself if the
 bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge never leaves anybody frozen.
 
+**A look at the scores.** Once a player has voted - or for everybody once the vote is decided - holding **TAB** steps the window aside for CS2's scoreboard, at a
+mid-match vote and at a match end's alike, and letting go brings it back. The player stays frozen, and the window keeps the mouse throughout. The plugin reads
+TAB from the player's buttons (IN_SCORE) in either `hud.tab` mode and sends the player's screen `vpeek` while they hold it and may peek, and `vpeekok` while they
+may peek at all (`HudFrame.Peekable`); the stylesheet hides the window by them. A dead player's buttons are not read (they go to the observer), and death forgets a
+TAB held.
+
 ### Voting
 
 A vote is a click on a card, moved as often as the player likes - a click on another card moves it - and **never taken back**: a click on the card your vote is on does nothing, and a vote goes only to another card. A voter who leaves takes their vote along.

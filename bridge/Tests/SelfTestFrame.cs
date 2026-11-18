@@ -75,6 +75,20 @@ static partial class Program
             slots.WindowOpen(1) && slots.WindowOpen(2) && slots.PageOf(2) == HudSlots.Page.Maps && players[2].VoteOpened && screen.C(HudView.Screen, "vlock", 2) && screen.C(HudView.Screen, "voting", 2)
             && screen.T("os_m1_name", 2) == "#12 aim_x" && screen.V(HudView.Global, $"{HudView.PlayersVar}2d") == "waiting" && screen.V(HudView.Global, $"{HudView.PlayersVar}1d") == "voted"
             && players[2].VoteView.Round == 1793900000);
+        // the scoreboard's peek (the owner, 2026-11-17): Alice has voted (mvv 1001 1), Bob has not
+        frame.Draw(World(live, open, t0.AddSeconds(41), locked: true), [Alice() with { TabHeld = true }, Bob() with { TabHeld = true }], slots, PlayerOf, funClicks, screen);
+        var peekVoted = screen.C(HudView.Screen, "vpeek", 1) && screen.C(HudView.Screen, "vpeekok", 1) && !screen.C(HudView.Screen, "vpeek", 2)
+            && !screen.C(HudView.Screen, "vpeekok", 2) && slots.WindowOpen(1) && slots.WindowOpen(2) && screen.Captured[1] && screen.Captured[2];
+        frame.Draw(World(live, open, t0.AddSeconds(42), locked: true), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
+        var peekLetGo = !screen.C(HudView.Screen, "vpeek", 1) && screen.C(HudView.Screen, "vpeekok", 1) && slots.WindowOpen(1) && screen.Captured[1];
+        var shut = VoteState.Decode(open.Encode());
+        shut.Open = false;
+        frame.Draw(World(live, shut, t0.AddSeconds(43), locked: true), [Alice(), Bob() with { TabHeld = true }], slots, PlayerOf, funClicks, screen);
+        Check("Frame: the scoreboard's peek - once she has voted, TAB held steps her window aside (vpeek), never his before he votes; letting go brings it back; a decided "
+            + "vote lets everybody peek; the window stays open, frozen and with the mouse, throughout - only classes change",
+            peekVoted && peekLetGo && screen.C(HudView.Screen, "vpeek", 2) && screen.C(HudView.Screen, "vpeekok", 2) && !screen.C(HudView.Screen, "vpeek", 1)
+            && slots.WindowOpen(2) && screen.Captured[2] && screen.C(HudView.Screen, "vlock", 2)
+            && HudFrame.Peekable(shut, 1002) && !HudFrame.Peekable(open, 1002) && HudFrame.Peekable(open, 1001) && !HudFrame.Peekable(new VoteState(), 1001));
         frame.Draw(World(live, new VoteState { WaitFor = 120 }, t0.AddSeconds(50)), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
         Check("Frame: when the freeze ends, the windows it opened close together - but the welcome, which goes back to its start page and waits for its X",
             !slots.WindowOpen(2) && !players[2].VoteOpened && slots.WindowOpen(1) && slots.PageOf(1) == HudSlots.Page.Start);
@@ -162,6 +176,22 @@ static partial class Program
         Check($"Frame: the newest content the server knows is one class; a faked level turns the real one's off and names a newer content ({HudVersion.OfLevel(HudVersion.Level + 1)})",
             levels.C(HudView.Global, HudVersion.LatestClass(HudVersion.Level + 1)) && levels.Sent(HudView.Global, HudVersion.LatestClass(HudVersion.Level)) && !levels.C(HudView.Global, HudVersion.LatestClass(HudVersion.Level))
             && levels.V(HudView.Global, HudVersion.Var) == HudVersion.OfLevel(HudVersion.Level + 1));
+
+        // ---- 287 b: the chat column's 40 line panels go only to a game whose click named v4.14.0 or later - never to the live item's v4.12.2, nor to one not seen yet ----
+        var chat = new HudChat();
+        chat.Say("Bob", "T", "hello", false);
+        var olderScreen = new RecordedScreen();
+        var chatSlots = new HudSlots();
+        var chatPlayers = new Dictionary<int, HudPlayer>();
+        foreach (var n in new[] { 1, 2, 3 }) chatSlots.Joined(n, first: false, alive: true, t0);
+        frame.Draw(new HudFrame.World(live, new VoteState(), null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, HudVersion.Level, false, true, _ => null, null,
+                t0.AddSeconds(5), HudState.Ms(t0.AddSeconds(5)), Chat: chat, ChatLive: true, ChatRoute: HudChat.Route.Always),
+            [new(1, 1001, "Alice", "CT", "v4.12.2", false, 0, null), new(2, 1002, "Bob", "T", HudVersion.Content, false, 0, null), new(3, 1003, "Cas", "CT", "", false, 0, null)],
+            chatSlots, n => chatPlayers.TryGetValue(n, out var cp) ? cp : chatPlayers[n] = new HudPlayer(), new FunClicks(), olderScreen);
+        bool ChatSent(int slot) => Enumerable.Range(1, HudChat.Lines).Any(k => olderScreen.Sent(HudChat.Line(k), "used", slot) || olderScreen.T(HudChat.Line(k), slot) != "");
+        Check($"Frame: the chat column's {HudChat.Lines} line panels (os_chat_1 to os_chat_{HudChat.Lines}) go to a game that named {HudVersion.Content} - never to v4.12.2's, "
+            + "which has none and would log \"Unable to find panel\" for each, nor to a game whose content is not known yet (287 b)",
+            ChatSent(2) && !ChatSent(1) && !ChatSent(3) && !olderScreen.C(HudView.Screen, "chaton", 1) && olderScreen.C(HudView.Screen, "chaton", 2));
 
         // ---- a slot's record: a new player starts from nothing of the last one's ----
         PlayerOf(1).Browser.Find("aim");

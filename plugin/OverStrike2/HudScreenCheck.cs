@@ -11,9 +11,9 @@ sealed partial class HudScreen
     /// <summary>Seen clicking since the player's last real join: here, or by the bridge (which keeps it through a plugin reload).</summary>
     bool Verified(long account) => hudSeen.ContainsKey(account) || HudCheck.IsVerified(state, account);
 
-    /// <summary>The HUD a player's game showed at the check's click (HudVersion.IsWord), "" while not seen: here, else the bridge's word.</summary>
-    string VersionOf(long account) => hudSeen.TryGetValue(account, out var v) && v != HudVersion.Unknown ? v
-        : state?.Verified.TryGetValue(account, out var b) == true && b != HudVersion.Unknown ? b : hudSeen.ContainsKey(account) || state?.Verified.ContainsKey(account) == true ? HudVersion.Unknown : "";
+    /// <summary>The HUD a player's game showed at the check's click (HudVersion.IsWord), "" while not seen: here, else the bridge's word - but after a real join only
+    /// this connection's own click (HudCheck.VersionOf): what decides the content's own panels, the chat column's above all, for that game.</summary>
+    string VersionOf(long account) => HudCheck.VersionOf(hudSeen, freshJoins.Contains(account), state, account);
 
     /// <summary>The check's window for a slot: the welcome window, until its X.</summary>
     void Prompt(int slot, DateTime now) => slots.Check(slot, now);
@@ -29,6 +29,7 @@ sealed partial class HudScreen
         if (account <= 0) return;
         if (version == HudVersion.Unknown && hudSeen.TryGetValue(account, out var known)) version = known;
         hudSeen[account] = version;
+        freshJoins.Remove(account); // this connection's own click: the bridge's word, when it comes, says the same
         gate.Verified(player.Slot);
         bridge?.Act(account, player.PlayerName, HudCheck.Command(version));
         log.LogInformation("Over Strike 2 HUD check: {Name} [U:1:{Account}] clicked in the HUD ({Version})", player.PlayerName, account, version == HudVersion.Unknown ? "which content not known" : version);
