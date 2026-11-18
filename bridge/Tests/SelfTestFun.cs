@@ -115,7 +115,7 @@ static partial class Program
             Fun.Find("drops") is { } dr && Fun.ArmsRaceOnly(dr) && Fun.IsEffect(Fun.Drops) && Fun.Find("catchup") is { } cu && Fun.ArmsRaceOnly(cu) && Fun.IsEffect(Fun.CatchUp)
             && Fun.EffectsOn.Any(e => e.Effect == Fun.Drops && e.Value == "1") && Fun.EffectsOn.Any(e => e.Effect == Fun.CatchUp && e.Value == "1")
             && HudMenu.FunClick("os_set_nades_off") == null && HudMenu.FunClick("os_set_catchup_on") == null && HudMenu.FunClick("gg_f17_1") == null
-            && HudMenu.FunClick(HudMenu.FunButton(17, 1)) is { Setting.Id: "drops", Choice.Id: "on" } && HudMenu.FunClick(HudMenu.FunButton(18, 2)) is { Setting.Id: "catchup", Choice.Id: "off" }
+            && HudMenu.FunClick(HudMenu.FunButton(17, 2)) is { Setting.Id: "drops", Choice.Id: "on" } && HudMenu.FunClick(HudMenu.FunButton(18, 1)) is { Setting.Id: "catchup", Choice.Id: "off" }
             && HudMenu.FunClick(HudMenu.FunButton(17, 3)) == null && HudMenu.FunClick(HudMenu.FunButton(19, 1)) == null);
         FunPageSelfTest(Check);
     }

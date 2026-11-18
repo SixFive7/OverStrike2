@@ -143,7 +143,7 @@ public static class HudMenu
             var mine = m == null || catalog == null ? 0 : catalog.MyVote(account, m.Key);
             t.Add(($"{id}_rank", m == null ? "" : RankText(m, b.Mode)));
             t.Add(($"{id}_name", m?.Name ?? ""));
-            t.Add(($"{id}_size", m == null || m.Official ? "" : m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB"));
+            t.Add(($"{id}_size", m == null ? "" : m.Official ? OfficialSize : m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB"));
             t.Add(($"{id}_votes", m == null ? "" : Likes(m)));
             t.Add(($"{id}_who", ""));   // the ballot's line under the name
             t.Add(($"{id}_score", "")); // the ballot's count
@@ -208,6 +208,9 @@ public static class HudMenu
 
     public static string FunRow(int r) => $"os_f{r}";
 
+    /// <summary>An official map's card where a size would be: it comes with the game, nothing to download (and an OFFICIAL tag in its row of tags, the stylesheet's).</summary>
+    public const string OfficialSize = "In the game";
+
     public static string FunButton(int r, int c) => $"os_f{r}_{c}";
 
     /// <summary>A setting off its default, with who set it: "Moon - Set by Alice", the words of its row; "" while it is at its default or nobody is
@@ -238,7 +241,7 @@ public static class HudMenu
             c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // a setting off its default stands out
             for (var k = 1; k <= Fun.ChoicesPerRow; k++)
             {
-                var choice = s != null && k <= s.Choices.Length ? s.Choices[k - 1] : null;
+                var choice = s != null && k <= s.Choices.Length ? Fun.Shown(s)[k - 1] : null;
                 t.Add(($"{FunButton(r, k)}_txt", choice?.Label ?? ""));
                 c.Add((FunButton(r, k), "used", choice != null));
                 c.Add((FunButton(r, k), "on", choice != null && choice == showing));
@@ -267,7 +270,7 @@ public static class HudMenu
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var k)) return null; // os_fl_* are the size chips, os_fun_note a label
         if (r < 1 || r > Math.Min(Fun.Rows, Fun.Settings.Length)) return null;
         var s = Fun.Settings[r - 1];
-        return k >= 1 && k <= s.Choices.Length ? (s, s.Choices[k - 1]) : null;
+        return k >= 1 && k <= s.Choices.Length ? (s, Fun.Shown(s)[k - 1]) : null;
     }
 
     /// <summary>What a restart button says after its first click: press it again, and the seconds left of

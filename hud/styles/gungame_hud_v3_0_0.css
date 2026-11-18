@@ -1212,8 +1212,10 @@ Label
 
 /* ---- 4. the window -------------------------------------------------------------------------------------------------- */
 
-/* The dim behind the open window (content v4.14.0, the review of 218r4): 80 %, so what of CS2's HUD stands outside the window and the chat column - the radar's
-   top, the weapon list, the top-centre tile, a match end's award card - lies behind them rather than reading as cut by them (at 50 % it read as cut). It starts
+/* The dim behind the open window (content v4.14.0, the review of 218r4): 80 % darker on screen, so what of CS2's HUD stands outside the window and the chat column -
+   the radar's top, the weapon list, the top-centre tile, a match end's award card - lies behind them rather than reading as cut by them. The HUD is blended in linear
+   light, so an alpha of a leaves (1 - a)^(1/2.2) of the brightness on screen: 80 % alpha left 48 % (the lab's frames of 7d9ab5c: white 255 went to 119-124), and 97 %
+   (F8) leaves 20 %, white 255 to about 50. It starts
    right of the chat's strip (x 579), never over it: with the column up the column covers CS2's chat there and the dock dims above and under it itself
    (os-chat-top, os-chat-under), never CS2's typing line in the slot between them; without the column (route d, or before its first line) CS2's own chat shows
    there undimmed, its typing line too. */
@@ -1224,7 +1226,7 @@ Label
 	width: 100%;
 	height: 100%;
 	margin-left: 579px;
-	background-color: #05070ACC;
+	background-color: #05070AF8;
 	opacity: 0;
 	transition-property: opacity;
 	transition-duration: 0.25s;
@@ -3018,35 +3020,19 @@ Label
 
 /* No lift any more (content v4.13.0): MAPS docks right of Valve's chat, so its line has its room without one. */
 
-/* the pointer: right above Valve's chat line, which runs from x 18 to 571 at y 952-1000 at 1080 high (styles/hud/hudchat.css), pointing down at it - beside the
-   line is the window's foot now, as the window runs down to y 1000 (content v4.14.0) */
+/* the pointer: in its slot in the chat dock (os-chat-ptrslot), right above CS2's typing line (x 18-571, y 952-1000 in a match, 716-764 at a match end), pointing down
+   at it; the column's rows end above the slot, so it never covers one (the lab's frames of 7d9ab5c: it stood over the column's last rows). Its slot shows and hides it. */
 .os-chatptr
 {
-	visibility: collapse;
 	horizontal-align: left;
-	vertical-align: bottom;
-	margin: 0px 0px 136px 18px;
+	vertical-align: center;
+	margin: 0px 0px 0px 18px;
 	flow-children: right;
-	padding: 8px 16px 8px 12px;
+	padding: 7px 16px 7px 12px;
 	border-radius: 4px;
 	border: 1px solid #E9B44C99;
 	background-color: #0A0D11EB;
 	box-shadow: #000000b3 0px 6px 18px 0px;
-}
-
-.os-screen.win.qhelp .os-chatptr
-{
-	visibility: visible;
-}
-
-.HUD_CHAT_VISIBLE .os-screen.win.page-maps .os-chatptr
-{
-	visibility: visible;
-}
-
-.HUD_CHAT_VISIBLE .os-screen.win.page-maps.voting .os-chatptr
-{
-	visibility: collapse;
 }
 
 .os-chatptr-arrow
@@ -3058,16 +3044,6 @@ Label
 	border-left: 3px solid os-gold;
 	border-bottom: 3px solid os-gold;
 	transform: rotateZ( -45deg );
-}
-
-.os-screen.meos .os-chatptr
-{
-	margin-bottom: 414px;
-}
-
-.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE .os-screen .os-chatptr
-{
-	margin-bottom: 414px;
 }
 
 .os-chatptr-text
@@ -5436,8 +5412,8 @@ Label
 .os-ours-wrap .os-chipb-ours
 {
 	margin-right: 0px;
-	border: 1px solid #E9B44C8C;
-	background-color: #14171CF0;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF08;
 }
 
 .os-ours-wrap .os-chipb-ours .os-chipb-text
@@ -5458,14 +5434,9 @@ Label
 
 .os-ours-glow
 {
+	visibility: collapse;
 	width: 100%;
 	height: 28px;
-	border-radius: 14px;
-	background-color: #E9B44C1F;
-	box-shadow: #E9B44C80 0px 0px 10px 1px;
-	transition-property: box-shadow, background-color;
-	transition-duration: 1.2s;
-	transition-timing-function: ease-in-out;
 }
 
 .os-screen.fl-ours .os-ours-glow
@@ -6606,10 +6577,13 @@ Label
 
 /* -- Every page beside CS2's chat (content v4.14.0; MAPS alone in v4.13.0): the chat's box stands at x 10-579 at every aspect (styles/hud/hudchat.css: 553 px and
    its margins), its line at y 952-1000 in a match and higher at a match end (y 674-722), and the chat column over it (os-chat, x 0-579). The window never moves
-   from page to page and is 920 high on every one, its foot at y 1000 at every aspect, where the chat column's is (the review of 218r4: centred, the two ended
-   apart outside 16:9): y 80-1000 at 16:9 and 21:9, 172-1000 at 16:10 (90 %), 384-1000 at 4:3 (67 %). Its left edge stays at about 600 (1080 high) - 16:9
-   right-aligned, 16:10 and 4:3 scaled to fit there (90 %: 604; 67 %: 599 - at 68 % it stood 8 px from the column, the review of 218r4), 21:9 in the middle of
-   the room right of the chat. -- */
+   from page to page and is 920 high on every one, its foot at y 1000 at every aspect, where the chat column's is. CS2 gives the HUD the class of the nearest of
+   four shapes (client.dll's table of ratios, the nearest wins): AspectRatio4x3 below 1.467 (canvas up to 1,584 wide: 5:4's 1,350 and 4:3's 1,440), 16x10 up to
+   1.689 (3:2's 1,620, 16:10's 1,728, 5:3's 1,800), 16x9 up to 2.111 (16:9's 1,912-1,921, 17:9, 2:1) and 21x9 beyond (21:9's 2,560, 3,440 x 1,440's 2,580, 32:9's
+   3,840, three screens). So each class's window must hold on its narrowest real canvas: 16:9 right-aligned, 80 px from the edge (x 600 at 1,920; 13 px from the
+   column at 1,912); 16:10 at 82 % from x 598, ending at 1,615 (3:2's 1,620 holds; 90 % ran over the column there), y 246-1000; 4:3 at 67 %, right-aligned 10 px
+   from the edge, y 384-1000 (x 599 at 1,440; 5:4's 1,350 puts it 70 px over the column's empty right margin - left for the owner, with 4:3's size of type);
+   21:9 from x 950, so 32:9 keeps it near the middle. -- */
 
 .os-screen .os-win
 {
@@ -6619,8 +6593,10 @@ Label
 
 .AspectRatio16x10 .os-screen .os-win
 {
-	ui-scale: 90%;
-	margin-right: 8px;
+	ui-scale: 82%;
+	horizontal-align: left;
+	margin-left: 598px;
+	margin-right: 0px;
 }
 
 .AspectRatio4x3 .os-screen .os-win
@@ -6631,7 +6607,9 @@ Label
 
 .AspectRatio21x9 .os-screen .os-win
 {
-	margin-right: 360px;
+	horizontal-align: left;
+	margin-left: 950px;
+	margin-right: 0px;
 }
 
 /* -- the ballot (voting on os_screen): the window's 1,240 px, taller; its header with the vote's state, how to vote and one clock, then ten tiles, four across and three
@@ -7977,10 +7955,11 @@ Label
 
 .os-screen.vnow .os-clock-key-done
 {
-	width: 300px;
-	font-size: 16px;
+	width: 100%;
+	text-align: right;
+	font-size: 18px;
 	letter-spacing: 2px;
-	color: #FFFFFF;
+	color: os-gold-hi;
 }
 
 /* -- a winner still to download, with its download known (vdl, the owner's 7): in the clock's place its percent, its bar and how much of how much; the winner's card
@@ -8320,7 +8299,10 @@ Label
    at 97 % CS2's lines read through it (the live lab's film of release 218) - and its foot is y 1000 with CS2's chat closed, in a match and at a match end alike
    (no typing line there; CS2's lines are covered at either height, also in the second before CS2 lifts them), and with it open just above the typing line's box:
    y 952 in a match, 674 at a match end (meos: the plugin's ChatLift; or the game's own classes for its end screen with the scoreboard, the moment CS2 lifts it).
-   The dock sets the top: the window's, 80 at 16:9 and 21:9, 172 at 16:10 (90 %), 384 at 4:3 (67 %) - the window's foot at 1000 as the column's. The newest line at the bottom, as many
+   The dock sets the top: the window's while it is open and at a match end - 80 at 16:9 and 21:9, 246 at 16:10 (82 %), 384 at 4:3 (67 %; CS2's lifted history
+   there has its words from y 391), the window's foot at 1000 as the column's; with the window closed (route a1) CS2's chat box's top, so the radar above it shows
+   (608, 606 at 16:10, 608 at 4:3, by the rows). The column is always in the dock's flow (opacity 0 without chaton), so the pointer's slot under it and the
+   foot keep their places. The newest line at the bottom, as many
    as fit (the rest are clipped at the top); a team's lines tinted, the server's gold, an event's dim; a mark at each line's left in its sender's team's colour.
    It shows only while its feed is live (chaton) and beats: hb goes on and off by turns every HudChat.BeatSeconds, each turn restarting an animation that hides the
    column after 35 s - a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. On the default route (chatwin) the dock fades in and
@@ -8363,13 +8345,13 @@ Label
 
 .os-screen.win-in.chaton .os-chat-top
 {
-	background-color: #05070ACC;
+	background-color: #05070AF8;
 }
 
 .os-chat-top
 {
 	width: 100%;
-	height: 80px;
+	height: 608px;
 	background-color: #05070A00;
 	transition-property: background-color;
 	transition-duration: 0.25s;
@@ -8378,19 +8360,49 @@ Label
 
 .AspectRatio16x10 .os-chat-top
 {
-	height: 172px;
+	height: 606px;
 }
 
 .AspectRatio4x3 .os-chat-top
+{
+	height: 608px;
+}
+
+.os-screen.win .os-chat-top
+{
+	height: 80px;
+}
+
+.AspectRatio16x10 .os-screen.win .os-chat-top
+{
+	height: 246px;
+}
+
+.AspectRatio4x3 .os-screen.win .os-chat-top
+{
+	height: 384px;
+}
+
+.os-screen.meos .os-chat-top
+{
+	height: 80px;
+}
+
+.AspectRatio16x10 .os-screen.meos .os-chat-top
+{
+	height: 246px;
+}
+
+.AspectRatio4x3 .os-screen.meos .os-chat-top
 {
 	height: 384px;
 }
 
 /* The column, framed as the window is (.os-win, .os-win-rule): its border, its corners, its shadow, the gold rule on top and the dots - fully opaque, as CS2's
-   chat is under it. */
+   chat is under it. Always in the dock's flow, at opacity 0 until chaton: its slot and foot below keep their places whether it shows or not. */
 .os-chat
 {
-	visibility: collapse;
+	visibility: visible;
 	width: 100%;
 	height: fill-parent-flow( 1 );
 	flow-children: down;
@@ -8418,10 +8430,12 @@ Label
 	box-shadow: #E9B44C66 0px 0px 14px 0px;
 }
 
-/* Whole rows only: a row is 24 px (21 and its gap of 3, under it), and the clip - the column less its border (2), the rule (3), the lift and its margins - is a whole
-   number of rows in every state. Its top margin sets that by the aspect (16:9 and 21:9: 920 - 2 - 3 - 15 - 12 = 888, 37 rows; 16:10, from 172: 792, 33; 4:3,
-   from 384, rows of 16 px (15 and 1) in 12 px type, as the window there is at 67 %: 576, 36); CS2's chat open takes the foot up 48 px (35, 31, 33); at a match end
-   326 px more, which the lift's 10 px rounds to whole rows (23, 19, 15). A row a pixel or two too many shows its gap only, never its words. */
+/* Whole rows only: a row is 24 px (21 and its gap of 3, under it; 16 px at 4:3), and the clip - the column less its border (2), the rule (3), the lift and its margins
+   - is a whole number of rows in every state. The column's foot: y 1000 with CS2's chat closed; 952 with it open in a match (its typing line 952-1000) and 708 at a
+   match end (CS2 moves its chat into the end screen's container: its history ends at 708, its typing line is 716-764 - the lab's frame of 7d9ab5c); 48 px higher
+   again while the pointer shows (its slot). The top margin sets whole rows by the aspect (16:9 and 21:9 from 80: 15; 16:10 from 246: 17; 4:3 from 384 and 608:
+   23), and at a match end the lift's 44 px (a whole number of rows at 24 and at 16 alike). Rows: 16:9 37, 35, 33 in a match, 23 and 21 at a match end; 16:10 30,
+   28, 26 / 16, 14; 4:3 36, 33, 30 / 15, 12. A row a pixel or two too many shows its gap only. */
 .os-chat-lift
 {
 	width: 100%;
@@ -8430,12 +8444,22 @@ Label
 
 .HUD_CHAT_VISIBLE .os-screen.meos .os-chat-lift
 {
-	height: 10px;
+	height: 44px;
 }
 
 .HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE.HUD_CHAT_VISIBLE .os-screen .os-chat-lift
 {
-	height: 10px;
+	height: 44px;
+}
+
+.os-screen.win.qhelp.meos .os-chat-lift
+{
+	height: 44px;
+}
+
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE .os-screen.win.qhelp .os-chat-lift
+{
+	height: 44px;
 }
 
 .os-chat-clip
@@ -8448,7 +8472,7 @@ Label
 
 .AspectRatio16x10 .os-chat-clip
 {
-	margin-top: 19px;
+	margin-top: 17px;
 }
 
 .AspectRatio4x3 .os-chat-clip
@@ -8470,15 +8494,32 @@ Label
 
 .HUD_CHAT_VISIBLE .os-screen.meos .os-chat-foot
 {
-	height: 406px;
+	height: 372px;
 }
 
 .HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE.HUD_CHAT_VISIBLE .os-screen .os-chat-foot
 {
-	height: 406px;
+	height: 372px;
 }
 
-/* The foot: the slot of CS2's typing line (48 px while CS2's chat is open, none while it is closed), then the rest to the screen's foot, dimmed with the window open. */
+/* The search's pointer with CS2's chat still closed: the foot as if it were open, so the pointer stands right over where the typing line will come. */
+.os-screen.win.qhelp .os-chat-foot
+{
+	height: 128px;
+}
+
+.os-screen.win.qhelp.meos .os-chat-foot
+{
+	height: 372px;
+}
+
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE .os-screen.win.qhelp .os-chat-foot
+{
+	height: 372px;
+}
+
+/* The foot: the slot of CS2's typing line (48 px while CS2's chat is open in a match, 56 at a match end - 708 to 764 - none while it is closed, but for the pointer),
+   then the rest to the screen's foot, dimmed with the window open. The slot is never dimmed. */
 .os-chat-slot
 {
 	width: 100%;
@@ -8488,6 +8529,66 @@ Label
 .HUD_CHAT_VISIBLE .os-screen .os-chat-slot
 {
 	height: 48px;
+}
+
+.os-screen.win.qhelp .os-chat-slot
+{
+	height: 48px;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.meos .os-chat-slot
+{
+	height: 56px;
+}
+
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE.HUD_CHAT_VISIBLE .os-screen .os-chat-slot
+{
+	height: 56px;
+}
+
+.os-screen.win.qhelp.meos .os-chat-slot
+{
+	height: 56px;
+}
+
+.HUD_ENDOFMATCH_VISIBLE.HUD_SCOREBOARD_VISIBLE .os-screen.win.qhelp .os-chat-slot
+{
+	height: 56px;
+}
+
+/* The pointer's slot, between the column's foot and the typing line's slot: 48 px, two rows (three at 4:3), so the column above it keeps whole rows. It shows when the
+   pointer does - the search help clicked (qhelp), or CS2's chat open on Maps but for the ballot - and only beside our column (chaton): there it covers no chat line,
+   ours or CS2's (the column ends above it, and CS2's lines under the dock are hidden by it whether the pointer shows or not); without the column CS2's own chat shows
+   in its strip, so the pointer stays away and the window's own line says how to search. It is dimmed as the dock is, and clear of the typing line under it. */
+.os-chat-ptrslot
+{
+	visibility: collapse;
+	width: 100%;
+	height: 48px;
+	background-color: #05070A00;
+	transition-property: background-color;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.os-screen.win.qhelp.chaton .os-chat-ptrslot
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win.page-maps.chaton .os-chat-ptrslot
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win.page-maps.voting.chaton .os-chat-ptrslot
+{
+	visibility: collapse;
+}
+
+.os-screen.win-in.chaton .os-chat-ptrslot
+{
+	background-color: #05070AF8;
 }
 
 .os-chat-under
@@ -8502,7 +8603,7 @@ Label
 
 .os-screen.win-in.chaton .os-chat-under
 {
-	background-color: #05070ACC;
+	background-color: #05070AF8;
 }
 
 .os-screen.chaton .os-chat
@@ -8563,7 +8664,7 @@ Label
 {
 	width: fill-parent-flow( 1 );
 	height: 21px;
-	font-size: 17px;
+	font-size: 15px;
 	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -8618,7 +8719,7 @@ Label
 
 .os-chat-line.k-evt Label
 {
-	font-size: 15px;
+	font-size: 13px;
 	color: os-dim;
 }
 
@@ -8848,4 +8949,73 @@ Label
 .os-screen.vpeekok .os-vhow
 {
 	width: 940px;
+}
+
+/* -- round 5's review, the points left then (hud-415) -- */
+
+/* 32: words with a count of seconds are written as they are, so a second is an s as in the clock ("In 7 s", not "IN 7 S"): the browser card's click words, Previous,
+   the restart buttons and the window foot's restart line. The ballot's words, which never count, keep their small capitals. */
+.os-mplay-text
+{
+	text-transform: none;
+	letter-spacing: 0.3px;
+}
+
+.os-screen.voting .os-mplay-text
+{
+	text-transform: uppercase;
+	letter-spacing: 1.5px;
+}
+
+#os_q_prev_text
+{
+	text-transform: none;
+	letter-spacing: 0.3px;
+	font-size: 12px;
+}
+
+#os_rst_text
+{
+	text-transform: none;
+	letter-spacing: 0.3px;
+	font-size: 12px;
+}
+
+.os-restart-text
+{
+	text-transform: none;
+	letter-spacing: 0.5px;
+}
+
+/* 35: an official map's card says what it is: In the game where a size would be, and an OFFICIAL tag in its row of tags. */
+.os-mtag-official
+{
+	visibility: collapse;
+	background-color: #CFD6DE;
+	color: #10141A;
+}
+
+.os-mcard.official .os-mtag-official
+{
+	visibility: visible;
+}
+
+/* 38: the browser's bars - their headings in small capitals (Sort, Mode, Size, Show), every control in plain words: the sort buttons as the chips. Show heads Liked by
+   me, Official and Our maps, which are no sizes. */
+.os-seg-text
+{
+	text-transform: none;
+	letter-spacing: 0.3px;
+	font-size: 13px;
+}
+
+.os-mbar-label-show
+{
+	margin-left: 2px;
+}
+
+/* The dislike's dialog stays off the ballot (the lab's round 5): a vote opening over it would sit under it. */
+.os-screen.why.voting .os-why
+{
+	visibility: collapse;
 }

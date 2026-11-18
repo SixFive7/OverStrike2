@@ -38,6 +38,16 @@ public static partial class Downloads
     /// connection to content servers)" (it was empty already).</summary>
     public static bool Stuck(params string?[] texts) => texts.Any(t => StuckRx().IsMatch(t ?? ""));
 
+    /// <summary>A download's two sizes as its line says them, "done of total": SizeWords, but with a second decimal in GB while the two would read alike before the
+    /// end ("1.1 GB of 1.1 GB" at 93 % of 1.15 GB: the review of 218r4; now "1.07 GB of 1.15 GB").</summary>
+    public static (string Done, string Total) SizePair(double done, double total)
+    {
+        var (d, t) = (SizeWords(done), SizeWords(total));
+        if (d != t || done >= total || total < 1L << 30) return (d, t);
+        static string Gb(double b) => (b / (1L << 30)).ToString("0.00", CultureInfo.InvariantCulture) + " GB";
+        return (done >= 1L << 30 ? Gb(done) : d, Gb(total));
+    }
+
     /// <summary>A map's size as the HUD shows it (the lists' sizeMb): binary units, labelled MB and GB.</summary>
     public static string SizeWords(double bytes) => bytes >= 1L << 30
         ? (bytes / (1L << 30)).ToString("0.0", CultureInfo.InvariantCulture) + " GB"
