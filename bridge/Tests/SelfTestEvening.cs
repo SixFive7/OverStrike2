@@ -137,15 +137,18 @@ static partial class Program
             Check("...and so it rolls the dice", LoadPending && h.Said("Nobody voted - Rolling the dice"));
             Land();
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
-            h.Talk(alice, $"!map {Rank(5)}");
-            var dan5 = Ballot!.Options.Single(o => o.Map == m[5]).N;
+            // The dice above roll any map of the mode, m[5] too - and a !map of the map that is on opens no vote ("... is on now"), which left Ballot null here
+            // now and then. Then it is m[6]: the dice rolled one map, and the twelve are distinct.
+            var pick = S.Map == m[5] ? 6 : 5;
+            h.Talk(alice, $"!map {Rank(pick)}");
+            var danPick = Ballot!.Options.Single(o => o.Map == m[pick]).N;
             h.Join(dan);
             vs = BuildVoteState(h.Clock);
             Check("A player who joins during a vote is counted present and waited for (and the plugin freezes them too)", vs.Present == 4 && vs.Waiting.Contains("Dan") && vs.Freeze);
-            VoteFor(bob, dan5); VoteFor(cara, dan5);
+            VoteFor(bob, danPick); VoteFor(cara, danPick);
             Check("...so three of four is not everybody yet", Pending == null && Ballot is { Open: true });
-            VoteFor(dan, dan5);
-            Check("...and their vote ends it", S.Map == m[5] && LoadPending);
+            VoteFor(dan, danPick);
+            Check("...and their vote ends it", S.Map == m[pick] && LoadPending);
             Land();
 
             // ---- the crash counter (CrashWatch.cs): RCON status's spawn counter tells a new server process from the old one ----
