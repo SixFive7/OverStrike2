@@ -532,6 +532,69 @@ static partial class Program
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line Label\s*\{[^}]*height:\s*21px;\s*font-size:\s*15px;[^}]*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-line\.k-cont Panel\s*\{\s*height:\s*21px;\s*margin-top:\s*0px;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-line Label\s*\{\s*height:\s*15px;\s*font-size:\s*12px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-chat-line\.k-cont Panel\s*\{\s*height:\s*15px;")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{\s*width:\s*543px;[^}]*vertical-align:\s*bottom;[^}]*margin-left:\s*18px;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-chat-lines\s*\{[^}]*padding") && 18 + 543 + 16 == 579 - 2);
+            // 288 b: at 4:3 (the window at 67 %) every word in the window 2 px larger, the smallest at 14 px (the tags 13): about 9 px on a 1,080-high screen. The classes
+            // the window alone has, from the layout; every rule that sizes such a word has its 4:3 twin - AspectRatio4x3 in front, the window above its subject - at its
+            // size plus 2 and at least 14, but where a 4:3 rule was there already (it is raised in place). Widths by 0.44 em a character (the lab's frames: 0.39 for
+            // words, 0.62 for bold capitals).
+            var winAt = noComments.IndexOf("<Panel class=\"os-win\"", StringComparison.Ordinal);
+            var winEnd = winAt;
+            for (int depth = 0, at = winAt; at >= 0;)
+            {
+                var tag = Regex.Match(noComments[at..], @"<(/?)(Panel|Button)\b[^>]*?(/?)>");
+                if (!tag.Success) break;
+                at += tag.Index + tag.Length;
+                depth += tag.Groups[1].Value == "/" ? -1 : tag.Groups[3].Value == "/" ? 0 : 1;
+                if (depth == 0) { winEnd = at; break; }
+            }
+            var winXml = noComments[winAt..winEnd];
+            var restXml = noComments[..winAt] + noComments[winEnd..];
+            HashSet<string> Classes(string x) => [.. Regex.Matches(x, @"class=""([^""]*)""").SelectMany(m => m.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))];
+            HashSet<string> Ids(string x) => [.. Regex.Matches(x, @"\bid=""([^""]*)""").Select(m => m.Groups[1].Value)];
+            var windowOnly = Classes(winXml).Except(Classes(restXml)).ToHashSet();
+            var windowIds = Ids(winXml);
+            var cssRules = Regex.Matches(noCommentsCss, @"([^{}]+)\{([^}]*)\}").Select(m => (Sel: m.Groups[1].Value.Trim(), Body: m.Groups[2].Value)).ToList();
+            var missingTwins = new List<string>();
+            var twinsChecked = 0;
+            foreach (var (sel, body) in cssRules)
+            {
+                var size = Regex.Match(body, @"font-size:\s*(\d+)px;");
+                if (!size.Success || sel.StartsWith('@') || sel.Contains("AspectRatio", StringComparison.Ordinal) || sel.Contains(',')) continue;
+                var parts = sel.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+                var subject = parts[^1];
+                var subjectClasses = Regex.Matches(subject, @"\.([\w-]+)").Select(m => m.Groups[1].Value).ToList();
+                var subjectIds = Regex.Matches(subject, @"#([\w-]+)").Select(m => m.Groups[1].Value).ToList();
+                if (!subjectClasses.Any(windowOnly.Contains) && !subjectIds.Any(windowIds.Contains)) continue;
+                if (!parts.Any(p => Regex.IsMatch(p, @"\.os-win(?![\w-])")))
+                {
+                    var k = 0;
+                    while (k < parts.Count - 1 && (Regex.IsMatch(parts[k], @"^(\.HUD_[A-Z_]+)+$") || Regex.IsMatch(parts[k], @"\.os-(root|global|screen)(?![\w-])"))) k++;
+                    parts.Insert(k, ".os-win");
+                }
+                var twin = ".AspectRatio4x3 " + string.Join(" ", parts);
+                twinsChecked++;
+                // its size plus 2, at least 14 - or more where a 4:3 rule was there already and was raised in place; the tags 13
+                var want = twin.EndsWith(" .os-mtag", StringComparison.Ordinal) ? 13 : Math.Max(int.Parse(size.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) + 2, 14);
+                if (!cssRules.Any(r => r.Sel == twin && Regex.Match(r.Body, @"font-size:\s*(\d+)px;") is { Success: true } f && int.Parse(f.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) >= want))
+                    missingTwins.Add($"{twin} ({want} px)");
+            }
+            var sizes43 = cssRules.Where(r => r.Sel.StartsWith(".AspectRatio4x3 ", StringComparison.Ordinal) && Regex.IsMatch(r.Sel, @"\.os-win(?![\w-])"))
+                .Select(r => Regex.Match(r.Body, @"font-size:\s*(\d+)px;")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)).ToList();
+            static double Caps(string word, double px, double spacing) => word.Sum(ch => (ch == ' ' ? 0.3 : 0.62) * px + spacing); // bold capitals; a space narrower
+            const double Em = 0.44;
+            static int Rows43(string text, double width) => Math.Max(1, (int)Math.Ceiling(text.Length * Em * 16 / width));
+            var help43 = Hud.Help.Sum(g => g.Rows.Sum(r => Rows43(r.Also == "" ? r.Words : $"{r.Words}  ·  {r.Also}", 1172 - 420 - 112 - 214) * 19 + 4) + 14);
+            var how43 = Hud.How.Sum(s => 24 * 1.25 + 10 + 8 + s.Lines.Sum(l => Rows43(l, 1172 - 22) * 19 + 3));
+            var stepRows = Hud.Steps.Max(st => Rows43(st.Words, 231 - 32));
+            Check($"288 b, 4:3: every word in the window 2 px larger, the smallest at 13-14 px (about 9 px on screen at 67 %) - {twinsChecked} rules that size a word the window alone has, each with its 4:3 twin{(missingTwins.Count > 0 ? ": missing " + string.Join(", ", missingTwins.Take(5)) : "")}; the boxes the larger words outgrew are wider (the filter headings, Recent and Popular, the clock's keys, Random, the bots' choices, Help's group names, Start's steps); a ballot card's name, line and tags inside its 66 px; Help about {help43} px of 675 and How it works about {how43:0} of 681 at 0.44 em a character",
+                missingTwins.Count == 0 && twinsChecked > 100 && sizes43.Count > 100 && sizes43.Min() >= 13
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-win \.os-mtag\s*\{\s*font-size:\s*13px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-win Label\s*\{\s*font-size:\s*17px;")
+                && new[] { (@"\.os-mbar-label", "width: 62px"), (@"\.os-qlabel", "width: 92px"), (@"\.os-clock-key", "width: 130px"), (@"\.os-vdl \.os-vdl-key", "width: 182px"), (@"#os_v_random \.os-vbtn-text", "max-width: 190px"),
+                    (@"\.os-botb", "width: 86px"), (@"\.os-botb \.os-setb-text", "max-width: 80px"), (@"\.os-group-name", "width: 112px"), (@"\.os-step", "height: 196px"), (@"\.os-mname", "height: 22px"), (@"\.os-dmat", "width: 120px") }
+                    .All(b => Regex.IsMatch(noCommentsCss, $@"(?m)^\.AspectRatio4x3 \.os-win {b.Item1}\s*\{{\s*{Regex.Escape(b.Item2)};"))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-screen\.vnow \.os-win \.os-clock-key-done\s*\{\s*width:\s*100%;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.AspectRatio4x3 \.os-screen\.vfetch \.os-clock-key-done\s*\{\s*width:\s*182px;")
+                && Caps("SHOTGUNS", 14, 1) <= 80 && Caps("NEXT MATCH IN", 14, 1) <= 130 && Caps("SERVER DOWNLOADING", 14, 1) <= 182 && Caps("SHOW", 15, 2.5) <= 62 && Caps("POPULAR", 15, 2.5) <= 92
+                && Caps("THE BOARD", 14, 2.5) <= 112 && Caps("RANDOM  ·  12 VOTES", 15, 1) <= 190 && 2 + 22 + 14 * 1.25 + 1 + 21 <= 181 - 3 - 112
+                && help43 <= 675 && how43 <= 681 && stepRows <= 3 && 30 + 28 + (18 + 20 * 1.25 + 10) + (14 + stepRows * 20) <= 196);
             var wrapLine = string.Join(" ", Enumerable.Repeat("a long line to wrap over the column's rows", 9));
             var wrapped = HudChat.Rows(wrapLine);
             var wide = HudChat.Rows(new string('W', 60) + " " + new string('\u4E2D', 40));
@@ -580,7 +643,7 @@ static partial class Program
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-phead \.os-phud\s*\{\s*height:\s*fit-children;") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-prow\s*\{[^}]*border") && !Regex.IsMatch(noCommentsCss, @"(?m)^\.os-psum\s*\{[^}]*uppercase")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-step\s*\{\s*width:\s*231px;") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-wback\s*\{[^}]*width:\s*721px;") && 3 * 231 + 2 * 14 == 721 && 3 * 231 + 3 * 14 <= 736
                 && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.vlow \.os-clock-fill\s*\{\s*background-color:\s*#F07C6B;") && noComments.Contains("<Panel class=\"os-logo os-preload\" hittest=\"false\" />")
-                && new[] { "os-mmode", "os-mtag", "os-mplay-text", "os-clock-key" }.All(c => Regex.IsMatch(noCommentsCss, $@"(?m)^\.AspectRatio4x3 \.os-win \.{c}\s*\{{[^}}]*font-size:\s*1[2-4]px;"))
+                && new[] { "os-mmode", "os-mtag", "os-mplay-text", "os-clock-key" }.All(c => Regex.IsMatch(noCommentsCss, $@"(?m)^\.AspectRatio4x3 \.os-win \.{c}\s*\{{[^}}]*font-size:\s*1[3-6]px;"))
                 && !noComments.Contains("Hold TAB and click, or type", StringComparison.Ordinal) && !noComments.Contains("Or type !vote", StringComparison.Ordinal));
             // The TAB peek (content v4.14.0): the server's vpeek (TAB held by a player who may peek) and vpeekok (he may: voted, or the vote decided) on os_screen.
             var peekPanels = new[] { "os-win", "os-dim", "os-chat-dock", "os-chatptr", "os-why" };

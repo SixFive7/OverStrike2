@@ -6582,7 +6582,7 @@ Label
    1.689 (3:2's 1,620, 16:10's 1,728, 5:3's 1,800), 16x9 up to 2.111 (16:9's 1,912-1,921, 17:9, 2:1) and 21x9 beyond (21:9's 2,560, 3,440 x 1,440's 2,580, 32:9's
    3,840, three screens). So each class's window must hold on its narrowest real canvas: 16:9 right-aligned, 80 px from the edge (x 600 at 1,920; 13 px from the
    column at 1,912); 16:10 at 82 % from x 598, ending at 1,615 (3:2's 1,620 holds; 90 % ran over the column there), y 246-1000; 4:3 at 67 %, right-aligned 10 px
-   from the edge, y 384-1000 (x 599 at 1,440; 5:4's 1,350 puts it 70 px over the column's empty right margin - left for the owner, with 4:3's size of type);
+   from the edge, y 384-1000 (x 599 at 1,440; 5:4's 1,350 puts it 70 px over the column's empty right margin, left so - 4:3's words are 2 px larger instead);
    21:9 from x 950, so 32:9 keeps it near the middle. -- */
 
 .os-screen .os-win
@@ -8750,36 +8750,36 @@ Label
 	opacity: 0.01;
 }
 
-/* -- 4:3: the window is at 67 %, so its smallest words came out at about 7 px; there they are 2 px larger (about 8 px on screen), within their boxes -- */
+/* -- 4:3: the window is at 67 %, so its smallest words came out at about 7 px; there they are 4 px larger (about 9 px on screen), within their boxes (288 b) -- */
 .AspectRatio4x3 .os-win .os-mmode
 {
-	font-size: 12px;
+	font-size: 14px;
 }
 
 .AspectRatio4x3 .os-win .os-mside
 {
-	font-size: 12px;
+	font-size: 14px;
 }
 
 .AspectRatio4x3 .os-win .os-mtag
 {
-	font-size: 12px;
+	font-size: 13px;
 }
 
 .AspectRatio4x3 .os-win .os-mwarn
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .AspectRatio4x3 .os-win .os-mplay-text
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .AspectRatio4x3 .os-screen.voting .os-mplay-text
 {
 	width: 130px;
-	font-size: 12px;
+	font-size: 14px;
 	letter-spacing: 1px;
 }
 
@@ -8790,13 +8790,13 @@ Label
 
 .AspectRatio4x3 .os-win .os-mpop-title
 {
-	font-size: 12px;
+	font-size: 14px;
 }
 
 .AspectRatio4x3 .os-win .os-clock-key
 {
 	width: 100px;
-	font-size: 12px;
+	font-size: 14px;
 	letter-spacing: 1px;
 }
 
@@ -8812,32 +8812,32 @@ Label
 
 .AspectRatio4x3 .os-win .os-mbar-label
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .AspectRatio4x3 .os-win #os_q_prev_text
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .AspectRatio4x3 .os-win .os-pgb-text
 {
-	font-size: 14px;
+	font-size: 16px;
 }
 
 .AspectRatio4x3 .os-win .os-phead .os-phl
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .AspectRatio4x3 .os-win .os-foot-ver
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 .AspectRatio4x3 .os-win .os-drain-word
 {
-	font-size: 13px;
+	font-size: 15px;
 }
 
 /* 4:3: the column's rows are 16 px (15 and 1) in 12 px type, closer to the window's at 67 % (17 px type was twice its size: the review of 218r4). The plugin's
@@ -9018,4 +9018,752 @@ Label
 .os-screen.why.voting .os-why
 {
 	visibility: collapse;
+}
+
+/* -- 4:3, every word in the window 2 px larger (288 b): the window is at 67 % there, so a word came out at two thirds of its size - the smallest
+   at about 8 px on a 1,080-high screen, 7 px at 1,280 x 960. Each rule that sizes a word in the window has a twin here, AspectRatio4x3 in front and the
+   window (.os-win) above its subject: two classes more than its original, so it outranks it and keeps every state's own size, and the global Label's twin
+   stays under every class's. The size: its own plus 2, at least 14 px (9.4 px on screen); the 4:3 rules above are raised in place, the tags to 13. Written
+   from the stylesheet by the HUD builder's script: a new rule that sizes a word in the window wants its twin. -- */
+
+.AspectRatio4x3 .os-win Label
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-eyebrow
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-label
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-map
+{
+	font-size: 24px;
+}
+
+.AspectRatio4x3 .os-win .os-by
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-status
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-row-num
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-row-map
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-row-side
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-empty
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-title
+{
+	font-size: 32px;
+}
+
+.AspectRatio4x3 .os-win #os_w_headline
+{
+	font-size: 24px;
+}
+
+.AspectRatio4x3 .os-win .os-sub
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-tab-text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win #os_w_hello
+{
+	font-size: 40px;
+}
+
+.AspectRatio4x3 .os-win #os_w_back
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win #os_w_back_hint
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_w_crash
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-step-num Label
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-step-title
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-step-cmd
+{
+	font-size: 20px;
+}
+
+.AspectRatio4x3 .os-win .os-step-txt
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win #os_w_hint
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-group-name
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-crow-cmd
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-crow-txt
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-rule-title
+{
+	font-size: 24px;
+}
+
+.AspectRatio4x3 .os-win #os_w_map
+{
+	font-size: 28px;
+}
+
+.AspectRatio4x3 .os-win .os-vote-word
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-vote-num
+{
+	font-size: 22px;
+}
+
+.AspectRatio4x3 .os-win .os-act-text
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-act-sub
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-seg-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-chipb-text
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_m_count
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-search-label
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-search.used .os-search-label
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-search-text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win #os_pg_text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-set-title
+{
+	font-size: 24px;
+}
+
+.AspectRatio4x3 .os-win #os_set_time_now
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-setb-text
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-restart-text
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-restart-sub
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-search-key
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-search-typing
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_ws_title
+{
+	font-size: 22px;
+}
+
+.AspectRatio4x3 .os-win #os_ws_info
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_ws_status
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win #os_ws_play_text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-hline-txt
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-fun-note
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-frow-title
+{
+	font-size: 20px;
+}
+
+.AspectRatio4x3 .os-win .os-frow-txt
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-fwhy
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-botb .os-setb-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-bpresets-title
+{
+	font-size: 20px;
+}
+
+.AspectRatio4x3 .os-win .os-bpresets-hint
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-bpreset-title
+{
+	font-size: 19px;
+}
+
+.AspectRatio4x3 .os-win .os-bpreset-txt
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dtitle
+{
+	font-size: 24px;
+}
+
+.AspectRatio4x3 .os-win .os-dstate
+{
+	font-size: 23px;
+}
+
+.AspectRatio4x3 .os-win .os-dage
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-dwhy
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-dmap
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-dstep
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-dline
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-dlabel
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dshown
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dpgb-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dpgtext
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-dqhead
+{
+	font-size: 18px;
+}
+
+.AspectRatio4x3 .os-win .os-dqpos
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-dqname
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-dqmeta
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dqwhy
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dempty
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-drwhen
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-drend
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-drwhat
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dmat
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dmev
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-dmname
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-dmwhy
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-vbtn-text
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-vmore
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-vwait
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-vseg-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-stab-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-subcap
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-psum
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-pname
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-pteam
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-phud-ok
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-phud-old
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-phud-chk
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-pvote
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-pfor
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-plegend
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mrank
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mcard.official .os-mrank
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mname
+{
+	font-size: 18px;
+}
+
+.AspectRatio4x3 .os-win .os-msize
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mwho
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mvotes
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_m_empty
+{
+	font-size: 18px;
+}
+
+.AspectRatio4x3 .os-screen.vdone .os-win .os-vhead .os-vwait
+{
+	font-size: 19px;
+}
+
+.AspectRatio4x3 .os-win .os-vhow
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-clock-big
+{
+	font-size: 28px;
+}
+
+.AspectRatio4x3 .os-win .os-clock-text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-screen.voting.vfetch .os-win .os-clock-idle .os-clock-text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-screen.vdone .os-win .os-clock-big
+{
+	font-size: 30px;
+}
+
+.AspectRatio4x3 .os-screen.voting.vnum .os-win .os-mnum
+{
+	font-size: 19px;
+}
+
+.AspectRatio4x3 .os-win .os-mnames
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-screen.voting .os-win .os-mname
+{
+	font-size: 18px;
+}
+
+.AspectRatio4x3 .os-screen.voting .os-win .os-mscore
+{
+	font-size: 32px;
+}
+
+.AspectRatio4x3 .os-screen.voting .os-win .os-mplay-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mmine-text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-mpop-none
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-mpop-names
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-closeword
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_rst_text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win #os_rst_secs
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-hline-txt
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win #os_wl_text
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-screen.vnow .os-win .os-clock-key-done
+{
+	font-size: 20px;
+}
+
+.AspectRatio4x3 .os-win .os-vdl .os-clock-big
+{
+	font-size: 28px;
+}
+
+.AspectRatio4x3 .os-win .os-vdl-mb
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-vpeek-hint
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win #os_rst_text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-seg-text
+{
+	font-size: 15px;
+}
+
+/* 288 b's boxes: what the larger words outgrew at 4:3, measured at 0.44 em a character (the lab's frames show 0.39; a tenth to spare). */
+.AspectRatio4x3 .os-win .os-mbar-label
+{
+	width: 62px;
+}
+
+.AspectRatio4x3 .os-win .os-qlabel
+{
+	width: 92px;
+}
+
+.AspectRatio4x3 .os-win .os-clock-key
+{
+	width: 130px;
+}
+
+.AspectRatio4x3 .os-screen.vnow .os-win .os-clock-key-done
+{
+	width: 100%;
+}
+
+.AspectRatio4x3 .os-win .os-vdl .os-vdl-key
+{
+	width: 182px;
+}
+
+.AspectRatio4x3 .os-screen.vfetch .os-clock-key-done
+{
+	width: 182px;
+}
+
+.AspectRatio4x3 .os-screen.vdl .os-clocks
+{
+	width: 490px;
+}
+
+.AspectRatio4x3 .os-screen.vfetch .os-clocks
+{
+	width: 510px;
+}
+
+.AspectRatio4x3 .os-win #os_v_random .os-vbtn-text
+{
+	max-width: 190px;
+}
+
+.AspectRatio4x3 .os-win .os-botb
+{
+	width: 86px;
+}
+
+.AspectRatio4x3 .os-win .os-botb .os-setb-text
+{
+	max-width: 80px;
+}
+
+.AspectRatio4x3 .os-win .os-group-name
+{
+	width: 112px;
+}
+
+.AspectRatio4x3 .os-win .os-step
+{
+	height: 196px;
+}
+
+.AspectRatio4x3 .os-win .os-mname
+{
+	height: 22px;
+}
+
+.AspectRatio4x3 .os-win .os-mbody
+{
+	padding: 2px 10px 0px 10px;
+}
+
+.AspectRatio4x3 .os-win .os-mtags
+{
+	height: 21px;
+	margin-top: 1px;
+}
+
+.AspectRatio4x3 .os-win .os-dmat
+{
+	width: 120px;
 }
