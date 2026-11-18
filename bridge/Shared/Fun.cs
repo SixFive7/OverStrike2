@@ -99,7 +99,7 @@ public static class Fun
         new("bhop", "Bunny hopping", "Hold jump to keep hopping without losing speed; Turbo adds strong air strafing",
             [new("off", "Off", []), new("on", "On", BhopOn), new("turbo", "Turbo", [.. BhopOn, ("sv_airaccelerate", "100")])],
             Set(("sv_enablebunnyhopping", "0"), ("sv_autobunnyhopping", "0"), ("sv_staminajumpcost", "0.08"), ("sv_staminalandcost", "0.05"), ("sv_staminamax", "80"), ("sv_airaccelerate", "12"))),
-        new("fall", "Fall damage", "Off: no fall hurts, from any height",
+        new("fall", "Fall damage", "A long fall hurts, as it always does. Off: no fall hurts, from any height",
             [new("on", "On", []), new("off", "Off", Set(("sv_falldamage_scale", "0")))],
             Set(("sv_falldamage_scale", "1"))),
         new("ice", "Ice floor", "Every floor as slippery as ice: you slide on after letting go",
@@ -139,10 +139,10 @@ public static class Fun
         new("ffnades", $"Grenades x{GrenadeShare}", $"A grenade does {GrenadeShare} times the damage to teammates. Off: the damage an enemy takes",
             [new("off", "Off", []), new("on", "On", Set(("ff_damage_reduction_grenade", GrenadeShare)))],
             Set(("ff_damage_reduction_grenade", "1")), [NotWithFreeForAll, NeedsFriendlyFire]), // off by default: the cfg's 1
-        new("drops", "Grenade drops", "Every player spawns with a grenade, dropped where they die; off: the ladder's weapons only",
+        new("drops", "Grenade drops", "Every player spawns with a grenade, dropped where they die. Off: the ladder's weapons only",
             [new("on", "On", Set((Drops, "1"))), new("off", "Off", Set((Drops, "0")))],
             Set((Drops, "1"))),
-        new("catchup", "Catch-up", "Boosts against players ahead of you, more the further; off: everybody plays even",
+        new("catchup", "Catch-up", "Boosts against players ahead of you, more the further. Off: everybody plays even",
             [new("on", "On", Set((CatchUp, "1"))), new("off", "Off", Set((CatchUp, "0")))],
             Set((CatchUp, "1"))),
     ];
@@ -154,6 +154,13 @@ public static class Fun
     public static IEnumerable<string> ConVarsOf(Setting s) => s.Choices.SelectMany(c => c.Sets).Select(x => x.ConVar).Distinct(StringComparer.OrdinalIgnoreCase);
 
     public static Setting? Find(string id) => Settings.FirstOrDefault(s => s.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A setting's choices in the order its buttons show them (the Fun and Bots pages): one order for every row - Off before On, an easier level before a
+    /// harder one - whichever is its default (Normal, the first of Choices; the review of 218r4: ON|OFF on one row and OFF|ON on the next).</summary>
+    public static Choice[] Shown(Setting s) =>
+        s.Choices.Length == 2 && s.Choices.Any(c => c.Id == "off") && s.Choices.Any(c => c.Id == "on") ? [.. s.Choices.OrderBy(c => c.Id == "off" ? 0 : 1)]
+        : s.Choices.Any(c => c.Id == "easy") && s.Choices.Any(c => c.Id == "normal") ? [.. s.Choices.OrderBy(c => c.Id switch { "easy" => 0, "normal" => 1, "hard" => 2, "expert" => 3, _ => 4 })]
+        : s.Choices;
 
     public static Choice? Find(Setting s, string id) => s.Choices.FirstOrDefault(c => c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 

@@ -210,13 +210,14 @@ public sealed class HudFrame
     /// <summary>The chat column for one player (content v4.14.0, HudChat): the newest lines they may see, the newest at the bottom, and on os_screen whether it
     /// shows (chaton: its feed is live), its beat (hb, on and off by turns every HudChat.BeatSeconds, which keeps the stylesheet's animation from hiding it) and
     /// CS2's chat lifted for the match-end screen (meos: with it open the column's foot follows its typing line up). Only a game whose HUD check named v4.14.0 or later gets the column's words
-    /// (HudChat.Feeds) - any other the classes on os_screen alone, which every content has - and the column shows only once it has a line for that player.</summary>
+    /// (HudChat.Feeds) - any other the classes on os_screen alone, which every content has. The column shows empty too: after a plugin reload it has no line until the
+    /// next one is said, and the window should not stand without it (the lab's round 5 of release 218: it did, and CS2's own chat showed beside the window).</summary>
     static void ChatColumn(World w, Human h, IScreen screen, bool windowOpen)
     {
         var slot = h.Slot;
         var fed = w.Chat != null && HudChat.Feeds(h.Version) && w.ChatRoute != HudChat.Route.Never;
         var shown = fed ? w.Chat!.For(h.Account, h.Team) : [];
-        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && shown.Count > 0 && HudChat.Shows(w.ChatRoute, windowOpen), slot); // no line yet (a plugin just loaded): CS2's own chat shows meanwhile
+        screen.Class(HudView.Screen, "chaton", fed && w.ChatLive && HudChat.Shows(w.ChatRoute, windowOpen), slot); // empty too - after a plugin reload, before its first line - so the window always has its column
         screen.Class(HudView.Screen, "hb", HudChat.BeatA(w.Now), slot);
         screen.Class(HudView.Screen, "chatwin", w.ChatRoute == HudChat.Route.Window, slot); // the column comes and goes with the window: it fades with it
         screen.Class(HudView.Screen, "meos", w.ChatLift, slot);

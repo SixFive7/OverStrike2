@@ -29,9 +29,9 @@ public sealed class HudChat
     /// rest at its top, whole. A line too long for a row runs on in the rows under it (Rows).</summary>
     public const int Lines = 40;
 
-    /// <summary>A row's width in the column's own measure of its type (Width: a unit is about 10 px of 17 px Stratum2): the row has 532 px; this leaves a tenth to
-    /// spare for a wider guess, and the label still ends in an ellipsis rather than take a second row.</summary>
-    public const double RowUnits = 48;
+    /// <summary>A row's width in the column's own measure of its type (Width: a unit is about 9 px of the column's 15 px Stratum2 - 17 px before round 5's review,
+    /// whose 48 units held): the row has 525 px; this leaves a tenth to spare for a wider guess, and the label still ends in an ellipsis rather than take a second row.</summary>
+    public const double RowUnits = 54;
 
     /// <summary>At most this many rows a line; the last ends in an ellipsis when the words run on.</summary>
     public const int MaxRows = 4;
