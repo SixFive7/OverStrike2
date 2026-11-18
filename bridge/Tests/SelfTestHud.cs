@@ -767,6 +767,17 @@ static partial class Program
             Check("The dialog stays off the ballot alone - the window on Maps while a vote stands, not its map browser (voting with page-maps) - and shows on every other page during a vote; a question the vote put aside is the bridge's to hold (the lab's final round of release 218)",
                 Regex.IsMatch(rules, @"(?m)^\.os-screen\.why\.voting\.page-maps \.os-why\s*\{\s*visibility:\s*collapse;\s*\}")
                 && Regex.Matches(rules, @"(?m)^[^{\n]*\.voting[^{\n]*\.os-why\s*\{").Count == 1);
+            // ...and the lab's case on 85d76b5 by the stylesheet's own cascade - of the rules that set the dialog's visibility, the most specific that applies wins
+            // (a later one on a tie): the window open on Start with a vote on and a question asked during it shows the dialog; on the ballot it is collapsed.
+            var whyRules = Regex.Matches(rules, @"(?m)^([^{\n]*\.os-why)\s*\{([^}]*)\}").Select(m => (Sel: m.Groups[1].Value.Trim(), Vis: Regex.Match(m.Groups[2].Value, @"visibility:\s*(\w+)").Groups[1].Value))
+                .Where(r => r.Vis != "").ToList();
+            string WhyVisibility(string[] on) => whyRules.Select((r, i) => (r, i))
+                .Where(x => !x.r.Sel.Contains('#') && Regex.Matches(x.r.Sel, @"\.([A-Za-z_][\w-]*)").Select(c => c.Groups[1].Value).Where(c => c != "os-why").All(on.Contains))
+                .OrderBy(x => Regex.Matches(x.r.Sel, @"\.[A-Za-z_][\w-]*").Count).ThenBy(x => x.i).Select(x => x.r.Vis).LastOrDefault() ?? "";
+            string[] startInVote = ["os-global", "os-screen", "win", "win-in", "why", "voting", "vnum", "page-start"];
+            Check("A Dislike on Start during a vote shows its dialog there at once - by the stylesheet's cascade for the window on Start with a vote on; collapsed on the ballot (Maps while the vote stands), shown in the map browser during the vote (voting off there), and none without a question (the lab's round on 85d76b5)",
+                whyRules.Count >= 3 && WhyVisibility(startInVote) == "visible" && WhyVisibility([.. startInVote.Where(c => c != "page-start"), "page-maps"]) == "collapse"
+                && WhyVisibility(["os-global", "os-screen", "win", "win-in", "why", "vbrowse", "page-maps"]) == "visible" && WhyVisibility(["os-global", "os-screen", "win", "win-in", "voting", "page-start"]) == "collapse");
             Check($"The popup's line drains over its {DownReasons.PopupSeconds} s, from the moment the plugin starts it, a second in",
                 Regex.IsMatch(rules, $@"\.os-why-fill\s*\{{[^}}]*transition-duration:\s*{DownReasons.PopupSeconds - 1}s;") && Regex.IsMatch(rules, @"\.os-screen\.why-run \.os-why-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
             var fixedWords = Regex.Matches(noComments, @"\btext=""([^""]*)""").Select(m => m.Groups[1].Value).ToList();

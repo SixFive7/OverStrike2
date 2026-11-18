@@ -455,6 +455,13 @@ static partial class Program
                 Check("A vote that opens over a Dislike's question puts it aside: not sent while the ballot stands, on any page, and still waiting when its 15 s would have run out; one asked during the vote runs as any other",
                     whyBefore.Why.GetValueOrDefault(aliceAcc).For == (int)DownReasons.PopupSeconds - 2 && Ballot is { Open: true } && !whyOpened.Why.ContainsKey(aliceAcc) && !whyAside.Why.ContainsKey(aliceAcc)
                     && !WhyOn(whyAside, aliceAcc, "why") && whyDuring.Why.GetValueOrDefault(caraAcc) == (Clip(Label(whyMap), 40), (int)DownReasons.PopupSeconds) && !whyDuring.Why.ContainsKey(aliceAcc));
+                var danAcc = AccountId(dan.Item2);
+                HudAct($"{dan.Item2}\t{dan.Item1}\t{HudView.Command(HudView.ButtonDown, null)}"); // Start's Dislike button during the vote, as the plugin forwards it
+                var whyStart = Asking();
+                Check("...a Dislike on Start during the vote, by its button (os_btn_down, which the plugin forwards as !down): its question at once, the full 15 s, the dialog's class on - the stylesheet hides it on the ballot alone; the count inside that button (os_w_down) is a label, no button, and asks nothing (the lab's round on 85d76b5 pressed it)",
+                    HudView.Command(HudView.ButtonDown, null) == "!down" && HudView.Command("os_w_down", null) == null && Ballot is { Open: true }
+                    && whyStart.Why.GetValueOrDefault(danAcc) == (Clip(Label(whyMap), 40), (int)DownReasons.PopupSeconds) && WhyOn(whyStart, danAcc, "why") && !WhyOn(whyStart, danAcc, "why-run")
+                    && Likes[Key(whyMap)][dan.Item2] == DownReasons.Plain);
                 var whyKeepN = OptOf(o => o.Source == VoteSource.Keep);
                 foreach (var p in six) Click(p, whyKeepN);
                 var whyBack = Asking();
