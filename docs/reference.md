@@ -415,7 +415,7 @@ a side its own spawn points take - "Made for 3v3", the catalog's `Side` (a bare 
 card says In the game where a size would be, with an OFFICIAL tag; words with a count of seconds are written as they are - "In 7 s", not "IN 7 S" - on the
 cards, Previous, the restart buttons and the window foot's restart line; the browser's sort buttons are plain words like its chips, and a Show heading stands
 over Liked by me, Official and Our maps; Our maps no longer glows while not chosen; a decided Changing now fills the clock's place; the Fun and Bots pages show
-every row's choices in one order, Off before On and an easier level first, `Fun.Shown`; and a download's two sizes never read alike before its end, `SizePair`); a map whose counts the sync does not know says none, and the
+every row's choices in one order, Off before On and an easier level first, `Fun.Shown`; and a download's two sizes in one unit, the whole's, never alike before its end, `SizePair`); a map whose counts the sync does not know says none, and the
 ballot none. **A confirmed action's countdown** (v4.12.0): after the confirming click of Restart the server, Restart the match, Previous and a risky map's Play the
 button itself runs the countdown, lit red, with a line at its foot that drains a second at a time (`pending`, and `w0`-`w10` named for where the line is going,
 `HudVote.CountdownStep`), and a click on it cancels the action. From v4.12.1 the line rests in the layout, 0 px high, while nothing is pending, so a countdown after a
