@@ -594,7 +594,11 @@ Anybody may change the length and press the two restarts, on the Game page or in
   change restart CS2's count as CS:GO's did, or from the warm-up's start, as the next look sees; a clock more than a second off is set again, three times on a map
   at the most. The block keeps `mp_warmup_pausetimer` at 0, so nothing pauses it. Should CS2's own end not come, the bridge ends it 3 s past it and the plugin
   15 s past it (`EarlyJoin.SafetySeconds`); should CS2 leave it before anybody has spawned, the plugin begins it again, three times on a map at the most - after
-  a spawn an end is the end. Catch-up counts nothing in a warm-up, and a match length set during it is the match's after it (`From this match on`). **Who is
+  a spawn an end is the end. Catch-up counts nothing in a warm-up, and a match length set during it is the match's after it (`From this match on`). **Team
+  damage:** in Arms Race and Wingman a teammate's hit hurts at least as an enemy's does while it runs (`EarlyJoin.TeamDamage`) - at its begin the plugin turns
+  friendly fire on and raises every `ff_damage_reduction_*` share below 1 to 1 (Wingman's are Valve's - 0.33 for bullets; Arms Race's cfg has friendly fire
+  on and deadly already, Instakill's 100, which stays), and at its end - any end, a map change that cuts it short, the plugin's unload - puts back
+  each value it raised, unless something changed it meanwhile: a player's choice on the Fun page keeps. Not in Deathmatch, nor while everybody is an enemy. **Who is
   coming,** by any of three: the plugin's `os_joining` (the humans whose controller is still connecting or reconnecting, and the humans in the game who have not
   spawned on a team since they entered it, CS2's team menu after every load, for **30 s** at the most - `EarlyJoin.SpawnMostSeconds`; the longest seen live from
   entering to the first spawn was 17 s), the server's own client list (`status`: every human not yet active) and the bridge's log stream (a human logged as
@@ -825,7 +829,8 @@ chat and the TAB board's Lately list say who made it and that it lasts until the
 | `!catchup` | [Catch-up](#catch-up), on by default; Arms Race's | on, off |
 
 Instakill and Grenades x10 do nothing while friendly fire is off, and friendly fire's three nothing while free-for-all is on; the page says so and they can still be
-switched. Ghost hides a player the way the [spawn cloak](#in-game-hud) does (`Cloak.cs`); the plugin's own effects (Vampire, Ghost, no recoil, the drops, catch-up) are kept
+switched. A map's [warm-up](#the-match-length-and-the-restarts) raises team damage in Arms Race and Wingman to at least an enemy's while it runs and puts it back at its
+end; a choice made here meanwhile keeps. Ghost hides a player the way the [spawn cloak](#in-game-hud) does (`Cloak.cs`); the plugin's own effects (Vampire, Ghost, no recoil, the drops, catch-up) are kept
 like convars, so they are undone like one.
 
 **Random** (`!fun random`) sets every setting the page shows in the mode that is on to one of its own choices, each equally likely, and catch-up on three times in four - never a

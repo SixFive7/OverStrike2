@@ -91,21 +91,24 @@ static partial class Program
                 && vs.Maps.Count(o => o.Mode == Modes.DeathmatchId) == 1 && vs.Maps.Count(o => o.Mode == Modes.WingmanId) == 1 && vs.Random is { N: MapVote.RandomOption }
                 && vs.Choices[1001] == firstCard.N && vs.Waiting.SequenceEqual(["Bob", "Cara"]) && vs.Present == 3);
             var cardsBefore = vs.Maps.Select(o => o.N).ToList();
-            h.Quiet(); h.Talk(bob, $"!map {Rank(3)}");
+            // Bob's pick is a map the ballot does not have yet: its random cards may hold m[3] (a run of 2026-11-19 on srv-522) - and a map on it already only
+            // gets his vote. Twelve distinct maps and ten cards leave one off it from m[3] on; the map on from here is his.
+            var bobPick = Enumerable.Range(3, m.Count - 3).First(k => !vote.Options.Any(o => o.Map == m[k]));
+            h.Quiet(); h.Talk(bob, $"!map {Rank(bobPick)}");
             vs = BuildVoteState(h.Clock);
             Check("A pick while the vote is open goes on it with the picker's vote, as his own card - in nobody's place, with a number of its own: the ballot grows, a second page",
-                vs.Maps.Count == MapVote.PageCards + 1 && vs.Maps.Single(o => o.Key == Key(m[3])) is { Source: VoteSource.Picked, Votes: 1, Who: "Bob" } bobs && !cardsBefore.Contains(bobs.N)
+                vs.Maps.Count == MapVote.PageCards + 1 && vs.Maps.Single(o => o.Key == Key(m[bobPick])) is { Source: VoteSource.Picked, Votes: 1, Who: "Bob" } bobs && !cardsBefore.Contains(bobs.N)
                 && cardsBefore.All(n => vs.Maps.Any(o => o.N == n)) && vote.Choices["[U:1:1002]"] == bobs.N && h.Said("Bob added") && !h.Said("in place of") && HudVote.Pages(vs) == 2);
             var bobsN = vote.Choices["[U:1:1002]"];
             Check("...the cards with the most votes first, live, ties in the ballot's own order: Alice's pick, then Bob's, then Keep and the rest as they went on",
                 vs.Maps.Take(3).Select(o => o.Source).SequenceEqual([VoteSource.Picked, VoteSource.Picked, VoteSource.Keep]) && vs.Maps[1].N == bobsN
                 && vs.Maps.Skip(2).Select(o => o.N).SequenceEqual(cardsBefore.Skip(1)) && vs.ForPlayer(1002).Maps[0].N == bobsN);
-            h.Quiet(); h.Talk(cara, $"!map {Rank(3)}");
+            h.Quiet(); h.Talk(cara, $"!map {Rank(bobPick)}");
             Check("...a map on it already gets the vote, and joins its picker", vote.Choices["[U:1:1003]"] == bobsN && BuildVoteState(h.Clock).Maps.Single(o => o.N == bobsN).Who == "Bob and Cara");
-            Check("...that was everybody: the most votes win, the change goes out at once, everybody frozen until the map starts", S.Map == m[3] && LoadPending && h.Said("Everybody has voted") && BuildVoteState(h.Clock).Freeze);
+            Check("...that was everybody: the most votes win, the change goes out at once, everybody frozen until the map starts", S.Map == m[bobPick] && LoadPending && h.Said("Everybody has voted") && BuildVoteState(h.Clock).Freeze);
             Check("...decided, the cards show with the most votes first: Bob's and Cara's card, then Alice's pick", BuildVoteState(h.Clock) is { Open: false } dv && dv.Maps[0].N == bobsN && dv.Maps[1].Source == VoteSource.Picked);
             h.Quiet(); h.Talk(alice, $"!map {Rank(4)}");
-            Check("A pick while that map loads is refused", h.Said("The next map is still loading") && S.Map == m[3] && LoadPending);
+            Check("A pick while that map loads is refused", h.Said("The next map is still loading") && S.Map == m[bobPick] && LoadPending);
             Land();
 
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
@@ -118,14 +121,14 @@ static partial class Program
                 && !BuildVoteState(h.Clock).Freeze && h.Said("The vote kept"));
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();
             h.Talk(bob, "!next"); h.Run(MapVote.Seconds + 1);
-            Check($"Nobody voting in the {MapVote.Seconds} s keeps the map mid-match", Pending == null && Ballot == null && h.Said("Nobody voted") && S.Map == m[3]);
+            Check($"Nobody voting in the {MapVote.Seconds} s keeps the map mid-match", Pending == null && Ballot == null && h.Said("Nobody voted") && S.Map == m[bobPick]);
             HudActive = () => true;
             h.Quiet(); h.MatchEnd();
             vote = Ballot!;
             Check("A match end opens the vote by itself, the wait after the last one notwithstanding: Play this map again on it",
                 vote is { Open: true, MatchEnded: true } && BuildVoteState(h.Clock).Maps.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again" && h.Said("Match over - Vote for the next map"));
             h.Run(MapVote.Seconds + 1);
-            Check("...nobody voting there is Random: the dice roll a map of this mode", LoadPending && S.PickedBy == "the vote" && S.Map != m[3] && h.Said("Nobody voted - Rolling the dice"));
+            Check("...nobody voting there is Random: the dice roll a map of this mode", LoadPending && S.PickedBy == "the vote" && S.Map != m[bobPick] && h.Said("Nobody voted - Rolling the dice"));
             HudActive = () => false;
             Land();
             h.Run(MapVote.WaitSeconds + 1); h.Quiet();

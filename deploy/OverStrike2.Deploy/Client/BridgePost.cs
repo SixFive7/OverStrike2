@@ -21,10 +21,17 @@ namespace OverStrike2.Deploy;
 ///     bridgepost fake-on [n]                        /log: n of the fake players (1-4: Test A to Test D) connect and enter the game
 ///     bridgepost fake-off                           /log: all of them leave, and HUDtest
 ///     bridgepost fake-crash                         /log: the first three time out (marks the map, rolls the dice)
+///     bridgepost fake-reload [n]                    /log: n of them go through a reconnect, as at a map change (NETWORK_DISCONNECT_SHUTDOWN): the bridge has
+///                                                   them on the way back - coming, for the warm-up - until they enter the game, 150 s at the most. fake-on
+///                                                   first: the bridge names a player from their connect
+///     bridgepost fake-join &lt;fake 0-3&gt;               /log: that fake player's "connected" alone - a joiner on the way in; the server's own list, which lacks
+///                                                   them, ends it 5 s on - after a fake-reload not before fake-enter or 150 s
+///     bridgepost fake-enter &lt;fake 0-3&gt;              /log: that fake player's "entered the game"
 ///     bridgepost client-off &lt;account&gt;               /log: the bridge takes that real player for gone
 ///     bridgepost client-on &lt;account&gt;                /log: a chat line under the test name
-///     bridgepost act &lt;fake 0-3&gt; &lt;word&gt;              /act: that fake player's click: next, random, previous, restart, rematch, time10, time60,
-///                                                   cancel-restart, cancel-rematch, cancel-previous (a click on that button's countdown: its Cancel)
+///     bridgepost act &lt;fake 0-3&gt; &lt;word&gt;              /act: that fake player's click: next, random, previous, restart, rematch, start (the warm-up's
+///                                                   !start), time10, time60, cancel-restart, cancel-rematch, cancel-previous (a click on that button's
+///                                                   countdown: its Cancel)
 ///     bridgepost vote &lt;fake 0-3&gt; &lt;card&gt;             /act: that fake player's click on the open vote's card
 ///     bridgepost add &lt;fake 0-3&gt; &lt;rank|id&gt;           /act: that fake player's Play on a map's card in the map browser (!map &lt;rank|id&gt;)
 ///     bridgepost cancel-pick &lt;fake 0-3&gt; &lt;key&gt;       /act: that fake player's click on a map's card whose confirmed pick counts down (!cancel pick &lt;key&gt;)
@@ -39,7 +46,7 @@ sealed class BridgePost(TestCopy tc)
     const string ClientName = "Alice";   // docshots' test name for the real client, in what the bridge says about them
     public static readonly Dictionary<string, string> Acts = new()
     {
-        ["next"] = "!next", ["random"] = "!next random", ["previous"] = "!previous", ["restart"] = "!restart", ["rematch"] = "!rematch",
+        ["next"] = "!next", ["random"] = "!next random", ["previous"] = "!previous", ["restart"] = "!restart", ["rematch"] = "!rematch", ["start"] = "!start",
         ["time10"] = "!time 10", ["time60"] = "!time 60",
         ["cancel-restart"] = "!cancel restart", ["cancel-rematch"] = "!cancel rematch", ["cancel-previous"] = "!cancel previous",
     };
@@ -181,8 +188,8 @@ sealed class BridgePost(TestCopy tc)
         : throw Out.Stop($"a fake player is 0-{Fakes.Length - 1}, not {arg}");
 
     public const string Doc = "bridgepost restart <kind> <when> <seconds> | restart-cancel <kind> | updated <kind> <words...> | quit-notice | fake-on [n] | fake-off | "
-                              + "fake-crash | client-off <account> | client-on <account> | act <fake 0-3> <word> | vote <fake 0-3> <card> | add <fake 0-3> <rank|id> | "
-                              + "cancel-pick <fake 0-3> <key> | names-check | check";
+                              + "fake-crash | fake-reload [n] | fake-join <fake 0-3> | fake-enter <fake 0-3> | client-off <account> | client-on <account> | "
+                              + "act <fake 0-3> <word> | vote <fake 0-3> <card> | add <fake 0-3> <rank|id> | cancel-pick <fake 0-3> <key> | names-check | check";
 
     public void Main(IReadOnlyList<string> argv)
     {
@@ -241,6 +248,20 @@ sealed class BridgePost(TestCopy tc)
                 break;
             case "fake-crash":
                 Send(b, "log", LogLines(Fakes.Take(3).Select((f, i) => $"\"{f.Name}<9{i}><{f.Sid}><CT>\" disconnected (reason \"NETWORK_DISCONNECT_TIMEDOUT\")")), answers: false);
+                break;
+            case "fake-reload": // the warm-up's: n of them on the way back through a reconnect, as at a map change
+                var reloads = args.Count > 0 && Py.IsDigits(args[0]) ? int.Parse(args[0], CultureInfo.InvariantCulture) : args.Count == 0 ? Fakes.Length : 0;
+                if (reloads < 1 || reloads > Fakes.Length)
+                    throw Out.Stop($"usage: fake-reload [1-{Fakes.Length}]");
+                Send(b, "log", LogLines(Fakes.Take(reloads).Select((f, i) => $"\"{f.Name}<9{i}><{f.Sid}><CT>\" disconnected (reason \"NETWORK_DISCONNECT_SHUTDOWN\")")), answers: false);
+                break;
+            case "fake-join":
+            case "fake-enter": // the warm-up's: one fake player's connect, then their entering the game
+                if (args.Count != 1)
+                    throw Out.Stop($"usage: {verb} <fake 0-{Fakes.Length - 1}>");
+                var (joiner, joinerSid) = Fake(args[0]);
+                var joinerSlot = Array.FindIndex(Fakes, f => f.Sid == joinerSid);
+                Send(b, "log", LogLines([verb == "fake-join" ? $"\"{joiner}<9{joinerSlot}><{joinerSid}><>\" connected, address \"\"" : $"\"{joiner}<9{joinerSlot}><{joinerSid}><CT>\" entered the game"]), answers: false);
                 break;
             case "quit-notice":
                 Send(b, "quitting", "os2-quit\t1\tdaily");

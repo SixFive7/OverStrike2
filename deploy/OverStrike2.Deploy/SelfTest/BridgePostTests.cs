@@ -184,6 +184,22 @@ static class BridgePostTests
             check("fake-off: every fake leaves for real, and HUDtest (a reason with SHUTDOWN in it would only be a reload)",
                   code is null && gone.Length == 5 && gone.All(l => l.Contains("disconnected (reason") && !l.Contains("SHUTDOWN")) && gone[^1].Contains("HUDtest"));
 
+            (code, output) = RunBp("fake-reload", "2");
+            var reload = Cmd3(execs[^1]).Split('\n');
+            check("fake-reload 2: the first two go through a reconnect as at a map change - a reason with SHUTDOWN, which the bridge takes for on the way back, not gone",
+                  code is null && Env0(execs[^1]).Contains("/log/") && reload.Length == 2 && reload.All(l => player.IsMatch(l) && l.Contains("NETWORK_DISCONNECT_SHUTDOWN"))
+                  && reload[0].Contains("Test A") && reload[1].Contains("Test B"));
+            (code, output) = RunBp("fake-join", "1");
+            var join = Cmd3(execs[^1]).Split('\n');
+            check("fake-join 1: Test B's connect alone - a joiner on the way in, for the warm-up",
+                  code is null && join.Length == 1 && player.Match(join[0]) is { Success: true } joined && joined.Groups[1].Value == "Test B"
+                  && joined.Groups[5].Value.StartsWith("connected, address", StringComparison.Ordinal));
+            (code, output) = RunBp("fake-enter", "1");
+            check("fake-enter 1: ...and their entering the game", code is null && player.Match(Cmd3(execs[^1])) is { Success: true } entered && entered.Groups[1].Value == "Test B"
+                  && entered.Groups[5].Value == "entered the game");
+            RunBp("act", "2", "start");
+            check("act: a fake's !start, the warm-up's end", Cmd3(execs[^1]) == "[U:1:42424253]\tTest C\t!start");
+
             (code, output) = RunBp("act", "0", "next");
             check("act: the fake's Start a vote", code is null && Cmd3(execs[^1]) == "[U:1:42424251]\tTest A\t!next" && Env0(execs[^1]).Contains("/act/"));
             check("an /act answer, the live state with its names, is not printed", !output.Contains("Secret Name"));

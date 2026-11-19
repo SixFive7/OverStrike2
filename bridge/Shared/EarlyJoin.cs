@@ -9,7 +9,9 @@
 //     friend who connects meanwhile still gets the same start; WarmUpMostSeconds after the first spawn, whoever is still coming then joining the match
 //     that runs; !start, by anybody (a friend who is not coming). The two early ends are CS2's own warm-up end (mp_warmup_end), and neither comes while a vote
 //     is open, a map change counts down or loads, or the server's restart counts down: they come as soon as those are over. The most is CS2's clock's own;
-//   - after it nothing restarts the match: whoever comes later joins the match that runs.
+//   - after it nothing restarts the match: whoever comes later joins the match that runs;
+//   - while it runs, in Arms Race and Wingman, a teammate's hit hurts at least as an enemy's does (TeamDamage): friendly fire on, every team-damage share
+//     at least 1 - Arms Race's own Instakill, 100, stays - and each value it raised is put back at its end, unless something else changed it meanwhile.
 //
 // Who is coming, by any of three (the bridge's JoiningNow): the plugin's os_joining - its controllers connecting or reconnecting, and the humans in the game
 // who have not spawned on a team since they entered it (CS2's team menu after every load), SpawnMostSeconds at the most (StillToSpawn); the server's own
@@ -226,6 +228,41 @@ public sealed class EarlyJoin
     /// <summary>The line for everybody in chat and on the board as the match starts: why, and who is still on the way (they join the match that runs).</summary>
     public static string StartLine(string why, IReadOnlyList<string> coming) =>
         $"The match starts now - {why}" + (coming.Count > 0 ? $" - {M.N(Names(coming))} {(coming.Count > 1 ? "join" : "joins")} it on arrival" : "");
+
+    // ---- the warm-up's team damage: a teammate's hit hurts at least as an enemy's does while it runs, in the modes with teams ----
+
+    /// <summary>The convars of the warm-up's team damage, and the least each holds while it runs: friendly fire on, and every share of an enemy's damage a
+    /// teammate takes (ff_damage_reduction_*: the share, despite the name - 1 is an enemy's damage, Arms Race's cfg sets 100, Instakill) at least 1. Wingman's
+    /// own are Valve's (0.33 for bullets); a share above 1 stays.</summary>
+    public static readonly (string ConVar, double Least)[] TeamDamage =
+        [("mp_friendlyfire", 1), ("ff_damage_reduction_bullets", 1), ("ff_damage_reduction_other", 1), ("ff_damage_reduction_grenade", 1)];
+
+    /// <summary>Whether the warm-up raises team damage: in Arms Race and Wingman, whose teams are teams - not in Deathmatch, nor while everybody is an enemy
+    /// (mp_teammates_are_enemies, the Fun page's free-for-all).</summary>
+    public static bool TeamDamageMode(string modeId, string? teammatesAreEnemies) => modeId is Modes.ArmsRaceId or Modes.WingmanId && !Fun.Same(teammatesAreEnemies, "1");
+
+    /// <summary>A convar's value as a number: true and false as 1 and 0; null when it is none.</summary>
+    static double? Number(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        null => null, "true" => 1, "false" => 0,
+        var v => double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null,
+    };
+
+    /// <summary>What the warm-up's begin raises: each TeamDamage convar below its least, with its value now (a bool as 1 or 0) and the value written. One that
+    /// cannot be read is left alone.</summary>
+    public static List<(string ConVar, string Was, string Ours)> RaiseTeamDamage(Func<string, string?> read) =>
+        [.. TeamDamage.Select(t => (t.ConVar, Value: Number(read(t.ConVar)), t.Least)).Where(t => t.Value is { } v && v < t.Least - 1e-6)
+            .Select(t => (t.ConVar, t.Value!.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), t.Least.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)))];
+
+    /// <summary>What the warm-up's end puts back of what its begin raised: each convar still at the warm-up's value gets its own again; one that something else
+    /// changed meanwhile - a player's Fun page choice, the map - keeps that (Kept).</summary>
+    public static (List<(string ConVar, string Value)> Back, List<string> Kept) PutBackTeamDamage(IEnumerable<(string ConVar, string Was, string Ours)> raised, Func<string, string?> read)
+    {
+        var (back, kept) = (new List<(string, string)>(), new List<string>());
+        foreach (var (convar, was, ours) in raised)
+            if (Fun.Same(read(convar), ours)) back.Add((convar, was)); else kept.Add(convar);
+        return (back, kept);
+    }
 
     // ---- the plan, the plugin's: who has spawned on this map, and since when somebody has ----
 

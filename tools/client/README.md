@@ -191,7 +191,8 @@ session with `-Console`, the client console types chat too: `cmd -Cmd "say !help
 
 **What only the bridge's own callers say: `os2-deploy bridgepost`.** The restart watcher's notices - a restart announced or taken back
 (`restart`, `restart-cancel`), an update done (`updated`), its quit notice (`quit-notice`) - and other players: fake players who join,
-leave, time out, click and vote (`fake-on`, `fake-off`, `fake-crash`, `act`, `vote`), and the real client out of the bridge's lists and back
+leave, time out, click and vote (`fake-on`, `fake-off`, `fake-crash`, `act`, `vote`), fake players on their way in for the warm-up - back through a
+reconnect, a connect alone, then in (`fake-reload`, `fake-join`, `fake-enter`; `act <fake> start` is their `!start`) - and the real client out of the bridge's lists and back
 (`client-off`, `client-on`); and `names-check`, which refuses when a private name - the client's own Steam name, `client.private_names` - is among
 the vote's names in the bridge's state, printing none. **A candidate bridge on a test copy, or the release rehearsal's own stack, only**: before every call it checks
 the server lock, the copy's label, the candidate's label and its `-candidate` data - or the rehearsal's label on both the game server and the
