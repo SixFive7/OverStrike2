@@ -354,7 +354,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs") };
     Check(harness.All(t => t.Contains("os_restart 1", StringComparison.Ordinal) && !t.Contains("mp_restartgame", StringComparison.Ordinal)),
         "restart guard: the docs' harness restarts the match with os_restart, which goes through - never with a bare mp_restartgame, which is refused");
-    // the warm-up (EarlyJoinWatch.cs; its rule and plan, ../../bridge/Shared/EarlyJoin.cs, are the bridge's --selftest's): CS2's own warm-up begun and kept, the game fed in
+    // the warm-up (EarlyJoinWatch.cs; its rule and plan, ../../bridge/Shared/EarlyJoin.cs, are the bridge's --selftest's): by the mode's method CS2's own warm-up begun and kept, or the match itself the waiting time; the game fed in
     var host = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var warm = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
     Check(host.Contains("earlyJoin.Load(hotReload);", StringComparison.Ordinal)
@@ -366,15 +366,35 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !warm.Contains("mp_endwarmup_player_count 0", StringComparison.Ordinal) && EarlyJoin.EndWarmUpNever >= 64 && EarlyJoin.EndWarmUpNow == 0
           && warm.Contains("if (!rules.WarmupPeriod) Send(\"mp_warmup_start\");", StringComparison.Ordinal)
           && !warm.Contains("mp_warmup_pausetimer 1", StringComparison.Ordinal)
-          && !warm.Contains("mp_restartgame", StringComparison.Ordinal) && !warm.Contains("os_restart", StringComparison.Ordinal),
-        "warm-up: CS2's own - begun a second into every map with mp_warmup_start, all players connected off and a player count no server reaches (64: 0 ended it at the first spawn, the live lab), an idle clock until somebody spawns; never a restart of the match, never the blocked pause");
-    Check(warm.Contains("ending = (why, DateTime.UtcNow, 0);\n        Send($\"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}\");", StringComparison.Ordinal)
-          && warm.Contains("if (ending is { } asked) { KeepEnding(rules, asked); return; }\n            if (!ours) return;", StringComparison.Ordinal)
-          && warm.Contains("if (asked.Step == 0 && waited >= EarlyJoin.EndStepSeconds)", StringComparison.Ordinal) && warm.Contains("Send(\"mp_warmup_end\");", StringComparison.Ordinal)
-          && warm.Contains("Send($\"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}; mp_warmup_end\");", StringComparison.Ordinal)
+          && !warm.Contains("mp_restartgame", StringComparison.Ordinal)
+          && System.Text.RegularExpressions.Regex.Matches(warm, @"Send\(""os_restart 1""\);").Count == 1
+          && warm.Contains("if (method == EarlyJoin.Restart)\n        {\n            Send(\"os_restart 1\");", StringComparison.Ordinal),
+        "warm-up: the native kind CS2's own - begun a second into the map with mp_warmup_start, all players connected off and a player count no server reaches (64: 0 ended it at the first spawn, the live lab), an idle clock until somebody spawns; "
+        + "a restart of the match only as the restart kind's end (os_restart 1, which the guard lets through), never a bare mp_restartgame, never the blocked pause");
+    Check(warm.Contains("method = methodOf(modeId());", StringComparison.Ordinal) && warm.Contains("if (method == EarlyJoin.Off)", StringComparison.Ordinal)
+          && warm.Contains("(ours, waiting, matchOver, begunAt) = (true, true, false, DateTime.UtcNow);", StringComparison.Ordinal)
+          && warm.Contains("bool On(CCSGameRules rules) => method == EarlyJoin.Restart ? waiting : rules.WarmupPeriod;", StringComparison.Ordinal)
+          && host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, setup.WarmUpMethod);", StringComparison.Ordinal)
+          && new PluginSetup().WarmUpMethod(Modes.ArmsRaceId) == EarlyJoin.Restart && new PluginSetup().WarmUpMethod(Modes.DeathmatchId) == EarlyJoin.Restart
+          && new PluginSetup().WarmUpMethod(Modes.WingmanId) == EarlyJoin.Native && new PluginSetup { WarmUpArmsRace = EarlyJoin.Off }.WarmUpMethod(Modes.ArmsRaceId) == EarlyJoin.Off,
+        "warm-up: by the mode's method, a setting (warmup.<mode>): restart - the match itself is the waiting time - in Arms Race and Deathmatch, whose mode rules refuse mp_warmup_end (server.dll; the live lab), CS2's own in Wingman; off none");
+    Check(warm.Contains("Send(\"os_restart 1\");", StringComparison.Ordinal) && warm.Contains("if (method == EarlyJoin.Restart && (rules.GamePhase == MatchPhase.Ended || matchOver))", StringComparison.Ordinal)
+          && warm.Contains("Send(\"mp_warmup_end\");", StringComparison.Ordinal)
+          && warm.Contains("if (method == EarlyJoin.Restart ? roundStarts > asked.Starts : !rules.WarmupPeriod)", StringComparison.Ordinal)
+          && warm.Contains("var again = method == EarlyJoin.Restart ? \"os_restart 1\" : $\"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}; mp_warmup_end\";", StringComparison.Ordinal)
+          && warm.Contains("if (asked.Step < 2 && waited >= (asked.Step + 1) * EarlyJoin.EndStepSeconds)", StringComparison.Ordinal)
           && warm.Contains("else if (asked.Step == 2 && waited >= 4 * EarlyJoin.EndStepSeconds)", StringComparison.Ordinal)
+          && warm.Contains("if (ending is { } asked) { KeepEnding(rules, asked); return; }\n            if (!ours) return;", StringComparison.Ordinal)
+          && warm.Contains("plugin.RegisterEventHandler<EventRoundStart>((_, _) => { roundStarts++; return HookResult.Continue; });", StringComparison.Ordinal)
           && warm.Contains("log.LogInformation(\"Over Strike 2 warm-up: ended ({Why}), {Waited:0.0} s after it was asked for - the match starts\", asked.Why, waited);", StringComparison.Ordinal),
-        "warm-up: every end goes through CS2's own player-count check - the count to 0 (in Arms Race the one way it ends, the live lab) - and is seen to come: still on 5 s later mp_warmup_end too (Wingman's), 10 s both again, 20 s given up and logged; ended only once CS2 says so");
+        "warm-up: its end by the method and seen to come - the restart's os_restart 1 (the guard lets it through) by the next round start, CS2's own mp_warmup_end by its warm-up off; not come 5 s later the restart again, or the count with mp_warmup_end, 10 s the same, 20 s given up and logged; a match end during the waiting time leaves its next match the real one");
+    Check(warm.Contains("if (method == EarlyJoin.Restart) // the match itself is the waiting time", StringComparison.Ordinal)
+          && warm.Contains("if (firstSpawnTime is { } from && Server.CurrentTime >= from + EarlyJoin.WarmUpMostSeconds) End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\");", StringComparison.Ordinal)
+          && warm.Contains("if (rules.GamePhase == MatchPhase.Ended)\n                {\n                    if (!matchOver)", StringComparison.Ordinal)
+          && warm.Contains("matchOver = true;\n                    return;\n                }\n                if (matchOver)\n                {\n                    (ours, waiting, ended) = (false, false, \"the match ended during the waiting time\");", StringComparison.Ordinal)
+          && warm.Contains("if (!ours || method != EarlyJoin.Native) return HookResult.Continue;", StringComparison.Ordinal),
+        "warm-up: the restart kind's waiting time ends at the most from the first spawn with its restart; a match end during it (an Arms Race win) is its end - on for the bridge "
+        + "through the match-end screen, so its look never finds it off before the match end, and ended by its word with no restart, or here once the next match began; CS2's clock is the native kind's alone");
     Check(warm.Contains("Watch(rules);", StringComparison.Ordinal) && warm.Contains("CS2's warm-up began - not at this plugin's word", StringComparison.Ordinal)
           && warm.Contains("CS2's warm-up ended - not at this plugin's word", StringComparison.Ordinal)
           && warm.Contains("plugin.AddCommandListener(name, (caller, info) =>", StringComparison.Ordinal)
@@ -398,14 +418,14 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && warm.Contains("SetClock(rulesNow, from + EarlyJoin.WarmUpMostSeconds, \"begun again after the first spawn\")", StringComparison.Ordinal)
           && warm.Contains("CS2 left it by itself again, {soon:0.0} s after the first spawn - the match runs as CS2 has it", StringComparison.Ordinal),
         "warm-up: CS2 leaving it by itself within EarlyLeaveSeconds of the first spawn (the live lab's first spawn, mp_endwarmup_player_count 0) begins it again once, its clock still from that spawn; a second time it is the end, logged");
-    Check(host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id);", StringComparison.Ordinal)
+    Check(host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, setup.WarmUpMethod);", StringComparison.Ordinal)
           && host.IndexOf("settings?.Unload();", StringComparison.Ordinal) is var settingsGo and >= 0 && host.IndexOf("earlyJoin?.Unload();", StringComparison.Ordinal) > settingsGo
           && warm.Contains("(ours, begunAt, lastSet) = (true, DateTime.UtcNow, null);\n            RaiseTeamDamage();", StringComparison.Ordinal)
           && warm.Contains("if (raised.Count > 0 || !EarlyJoin.TeamDamageMode(modeId(), Read(\"mp_teammates_are_enemies\"))) return;", StringComparison.Ordinal)
           && warm.Contains("plugin.RegisterListener<Listeners.OnMapEnd>(() => PutBackTeamDamage(\"the map ends during it\"));", StringComparison.Ordinal)
-          && warm.Contains("(ours, ended, ending) = (false, why, null);\n            PutBackTeamDamage(why);", StringComparison.Ordinal)
-          && warm.Contains("(ours, ended, ending) = (false, asked.Why, null);\n            PutBackTeamDamage(asked.Why);", StringComparison.Ordinal)
-          && System.Text.RegularExpressions.Regex.Matches(warm, @"PutBackTeamDamage\(ended\);").Count == 3
+          && warm.Contains("(ours, ended, ending, waiting) = (false, why, null, false);\n            PutBackTeamDamage(why);", StringComparison.Ordinal)
+          && warm.Contains("(ours, ended, ending, waiting) = (false, asked.Why, null, false);\n            PutBackTeamDamage(asked.Why);", StringComparison.Ordinal)
+          && System.Text.RegularExpressions.Regex.Matches(warm, @"PutBackTeamDamage\(ended\);").Count == 4
           && warm.Contains("public void Unload() => PutBackTeamDamage(\"the plugin unloads\");", StringComparison.Ordinal),
         "warm-up's team damage: raised at its begin in Arms Race and Wingman (the settings' mode, and not while everybody is an enemy), once a map; put back at every end - the bridge's or the console's, CS2's own clock, CS2 leaving it for good, a map change that cuts it short, the plugin's unload, after the fun changes' own undo");
     Check(warm.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)

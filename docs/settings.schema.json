@@ -159,6 +159,42 @@
       },
       "additionalProperties": false
     },
+    "warmup": {
+      "type": "object",
+      "properties": {
+        "armsrace": {
+          "description": "Arms Race's warm-up: restart - the match itself is the waiting time, and one restart (os_restart) begins the real match; native - CS2's own warm-up, which CS2 ends on no request in Arms Race (its mode rules refuse mp_warmup_end); off - none, the match is on at once.",
+          "type": "string",
+          "default": "restart",
+          "enum": [
+            "native",
+            "restart",
+            "off"
+          ]
+        },
+        "deathmatch": {
+          "description": "Deathmatch's warm-up, the same choices: its mode rules refuse mp_warmup_end as Arms Race's do, so restart by default.",
+          "type": "string",
+          "default": "restart",
+          "enum": [
+            "native",
+            "restart",
+            "off"
+          ]
+        },
+        "wingman": {
+          "description": "Wingman's warm-up, the same choices: CS2's own warm-up, which mp_warmup_end ends there, by default.",
+          "type": "string",
+          "default": "native",
+          "enum": [
+            "native",
+            "restart",
+            "off"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "restarts": {
       "type": "object",
       "properties": {

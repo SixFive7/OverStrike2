@@ -1,15 +1,16 @@
-// The warm-up: no mode starts its match the moment the first player is in any more. Every map starts in CS2's own warm-up - everybody respawns, plays freely,
-// and nothing counts - while everybody who is coming gets there, and the real match then starts for all of them at once, the one restart a map makes:
+// The warm-up: no mode starts its match the moment the first player is in any more. Every map starts with a warm-up - CS2's own, or the match itself (the
+// mode's method, below) - everybody respawns, plays freely, and nothing counts - while everybody who is coming gets there, and the real match then starts for
+// all of them at once, the one restart a map makes:
 //
-//   - its clock: WarmUpMostSeconds at the most, from the first human's spawn on the map - CS2's own warm-up clock, set then to end there, so the game's
-//     own timer counts down to the latest start, and the plugin ends it then. A map nobody has spawned on yet sits in its warm-up;
+//   - its clock: WarmUpMostSeconds at the most, from the first human's spawn on the map - in Wingman CS2's own warm-up clock, set then to end there, so the
+//     game's own timer counts down to the latest start - and the plugin ends it then. A map nobody has spawned on yet sits in its warm-up;
 //   - who is coming: whoever was on the map before and is on the way back through the change, and whoever connects during the warm-up. A real departure
 //     takes a player out of it (Reconnects: the bridge's log stream and the plugin decide alike);
 //   - it ends, at the first of: everybody coming has spawned on a team and at least two humans have, SettleSeconds later - one human alone is no "all", so a
 //     friend who connects meanwhile still gets the same start; WarmUpMostSeconds after the first spawn, whoever is still coming then joining the match
-//     that runs; !start, by anybody (a friend who is not coming). Every end is CS2's own warm-up end, which only its player-count check brings about in every mode
-//     (EndWarmUpNever holds it, EndWarmUpNow lets it end). The two early ends do not come while a vote is open, a map change counts down or loads, or the
-//     server's restart counts down: they come as soon as those are over. The most comes whatever is on;
+//     that runs; !start, by anybody (a friend who is not coming). The two early ends do not come while a vote is open, a map change counts down or loads,
+//     or the server's restart counts down: they come as soon as those are over. The most comes whatever is on. How it runs is the mode's method (Native,
+//     Restart, Off): CS2's own warm-up in Wingman, whose end mp_warmup_end is; the match itself in Arms Race and Deathmatch, whose end is one restart;
 //   - after it nothing restarts the match: whoever comes later joins the match that runs;
 //   - while it runs, in Arms Race and Wingman, a teammate's hit hurts at least as an enemy's does (TeamDamage): friendly fire on, every team-damage share
 //     at least 1 - Arms Race's own Instakill, 100, stays - and each value it raised is put back at its end, unless something else changed it meanwhile.
@@ -35,10 +36,18 @@ public sealed class EarlyJoin
     /// <summary>Everybody coming is in: the real match starts this much later - a breath for the last one in.</summary>
     public const int SettleSeconds = 5;
 
-    /// <summary>How long an end asked for may take before the plugin presses harder (EarlyJoinWatch.KeepEnding): CS2's own player-count check ends the warm-up about
-    /// 2 s after the count drops (the live lab, 2026-11-19); still on after this, mp_warmup_end too - it ends CS2's warm-up in Wingman, never in Arms Race - after
-    /// twice as long both again, after four times given up and logged.</summary>
+    /// <summary>How long an end asked for may take before the plugin presses harder (EarlyJoinWatch.KeepEnding): the restart's round start comes a second after it,
+    /// CS2's warm-up end within a few; not come after this, the restart again, or the count down to EndWarmUpNow with mp_warmup_end - after twice as long the same,
+    /// after four times given up and logged.</summary>
     public const int EndStepSeconds = 5;
+
+    /// <summary>How a mode's warm-up runs (settings warmup.armsrace, warmup.deathmatch, warmup.wingman; EarlyJoinWatch). Native: CS2's own warm-up - begun
+    /// with mp_warmup_start, held with EndWarmUpNever and ended with mp_warmup_end, which only Wingman's mode rules take (CS2's server.dll: the mp_warmup_end
+    /// command asks the mode rules, and CCSGameModeRules_ArmsRace's and _Deathmatch's say no - "mp_warmup_end not supported for current game mode", the
+    /// live lab's run of 2026-11-19 on 83ab552 too). Restart: no CS2 warm-up - the match itself is the waiting time, with the same rule, banner and most, and
+    /// one restart (os_restart) begins the real match; a match end during it (an Arms Race win, its length run out) is no match end: its next match is the
+    /// real one (the bridge's WarmUp.cs). Off: none, the match is on at once.</summary>
+    public const string Native = "native", Restart = "restart", Off = "off";
 
     /// <summary>CS2's own warm-up clock (mp_warmuptime) until somebody spawns: an empty map sits in its warm-up, never in a match nobody started - the bridge's
     /// empty-server reset changes the map after 10 minutes anyway.</summary>
@@ -49,8 +58,8 @@ public sealed class EarlyJoin
     /// in Arms Race, Deathmatch and Wingman alike, and Valve's Arms Race cfg has 6 (the live lab, 2026-11-19).</summary>
     public const int EndWarmUpNever = 64;
 
-    /// <summary>...and to end it: the count dropped to 0, so CS2's own check ends it within seconds of the drop. In Arms Race it is the one way the warm-up ends -
-    /// neither mp_warmup_end nor CS2's own clock ended it there while the count held (the live lab, 2026-11-19); in Wingman mp_warmup_end does too.</summary>
+    /// <summary>...and the count the native kind's end tries next, with mp_warmup_end, should mp_warmup_end alone not have ended it: 0. Nothing ended a held Arms
+    /// Race warm-up in the live lab of 2026-11-19 - not this, not mp_warmup_end, not CS2's own clock - which is why Arms Race restarts (Restart).</summary>
     public const int EndWarmUpNow = 0;
 
     /// <summary>CS2 leaving its warm-up by itself this soon after the first spawn - not at its clock's end, not at the bridge's word - is begun again by the
@@ -240,6 +249,9 @@ public sealed class EarlyJoin
         allIn ? "The match starts in a moment"
         : coming > 0 ? $"The match starts when everyone is in - {Hud.StartWord} to begin now"
         : $"Anyone who joins now starts with you - {Hud.StartWord} to begin now";
+
+    /// <summary>Why the match starts, as the line says it, when the restart kind's waiting time ended in a match end (an Arms Race win, its length run out).</summary>
+    public const string WonInWarmUp = "The warm-up's win does not count";
 
     /// <summary>The line for everybody in chat and on the board as the match starts: why, and who is still on the way (they join the match that runs).</summary>
     public static string StartLine(string why, IReadOnlyList<string> coming) =>

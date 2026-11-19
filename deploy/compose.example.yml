@@ -28,6 +28,8 @@
 #   hud.addon         required: the Over Strike 2 HUD on the Steam Workshop
 #   hud.tab           down: TAB puts the board down while held; off
 #   hud.check         off, warn, or enforce (disconnect a player whose game has not loaded the HUD)
+#   warmup.<mode>     how a mode's warm-up runs: restart (the match itself is the waiting time, one restart begins the real one), native (CS2's own,
+#                     which only Wingman ends on request) or off
 #   restarts.daily    local time (each service's TZ), only while nobody is on; "off" for none
 #   paths.syncCfg     the mode cfgs the sync's test engine loads maps with (the sync's volumes below)
 #   sync.excludeCreators   SteamID64s of authors whose maps you list by hand (your own)
@@ -52,6 +54,11 @@ x-settings: &settings |
       "addon": "3823993566",
       "tab": "down",
       "check": "warn"
+    },
+    "warmup": {
+      "armsrace": "restart",
+      "deathmatch": "restart",
+      "wingman": "native"
     },
     "restarts": {
       "daily": "07:00"

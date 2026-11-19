@@ -1,9 +1,10 @@
-// The warm-up (Shared/EarlyJoin.cs): every map starts in CS2's own warm-up. The plugin begins it a second into the map and keeps its clock (EarlyJoinWatch):
-// from the first human's spawn it runs WarmUpMostSeconds, so the game's own timer counts down to the latest start, and the plugin ends it then. The bridge,
-// which knows who is still coming, asks the plugin to end it sooner (os_warmup end): once everybody coming has spawned and at least two humans have,
-// SettleSeconds later, or at a player's !start - and says so once a look finds it ended (WarmUpEnding): CS2 ends it within seconds of the plugin's request.
-// That end is the one restart a map makes; nothing restarts the match after it. While it lasts the countdown banner says whom it waits for and counts down
-// to the latest start (PutWarmUp, HudView.CountdownOf).
+// The warm-up (Shared/EarlyJoin.cs): every map starts with one, by the mode's method (the plugin's EarlyJoinWatch, settings warmup.<mode>) - CS2's own in
+// Wingman, the match itself in Arms Race and Deathmatch, whose end is one restart. The plugin begins it a second into the map and ends it WarmUpMostSeconds
+// from the first human's spawn at the most. The bridge, which knows who is still coming, asks the plugin to end it sooner (os_warmup end): once everybody
+// coming has spawned and at least two humans have, SettleSeconds later, or at a player's !start - and says so once a look finds it ended (WarmUpEnding): the
+// plugin's end comes within seconds of the request. That end is the one restart a map makes; nothing restarts the match after it. A match end during the
+// waiting time (an Arms Race win) is no end of the real match (WarmUpWonAtMatchEnd). While it lasts the countdown banner says whom it waits for and counts
+// down to the latest start (PutWarmUp, HudView.CountdownOf).
 static partial class Program
 {
     /// <summary>The warm-up on this map as the bridge follows it: on since (null: none seen, or over), the first human's spawn by the plugin's word, CS2's own
@@ -24,8 +25,9 @@ static partial class Program
     /// how often it has asked. The line for everybody goes out once a look finds CS2's warm-up off.</summary>
     static (DateTime At, string Why, string Says, List<string> Coming, int Asks)? WarmUpEnding;
 
-    /// <summary>An end the bridge asked for and not come this long after its last ask is asked for again, three times at the most: CS2 ends it about 2 s after the
-    /// plugin's request, and the plugin presses harder on its own after 5 (EarlyJoin.EndStepSeconds).</summary>
+    /// <summary>An end the bridge asked for and not come this long after its last ask is asked for again, three times at the most: the plugin's end comes within
+    /// seconds - the restart's round start a second after it, CS2's warm-up end within a few - and the plugin presses harder on its own after 5
+    /// (EarlyJoin.EndStepSeconds).</summary>
     const int WarmUpEndWaitSeconds = 10;
 
     /// <summary>How long into a map the bridge looks for the plugin's warm-up to begin (a second in, by the plugin's clock), a look a second; and how long one that
@@ -216,16 +218,41 @@ static partial class Program
         WarmUpTickSoon();
     }
 
-    /// <summary>The warm-up went off after somebody had spawned: CS2's own clock ended it at the most - the latest start, the match on for everybody - or the game
-    /// left it sooner by itself (an operator's mp_warmup_end, say). Either way the match is on, and who is still coming joins it.</summary>
+    /// <summary>The warm-up went off after somebody had spawned, the bridge not having asked: at the most - the plugin's own end there, or CS2's clock - the latest
+    /// start, the match on for everybody; or sooner by itself (an operator's mp_warmup_end, say). Either way the match is on, and who is still coming joins it.</summary>
     static void WarmUpGone(DateTime now)
     {
         var coming = WarmUpComing.Select(c => c.Name).ToList();
         var atMost = WarmUpLatest() is { } latest && now >= latest.AddSeconds(-2);
-        Log($"warm-up: {(atMost ? $"CS2's own clock ended it, {EarlyJoin.WarmUpMostSeconds} s since the first spawn" : "the game left it by itself")}, {(now - WarmUpSince!.Value).TotalSeconds:0} s on{(coming.Count > 0 ? $", still coming: {string.Join(", ", coming)}" : "")} - the match is on");
+        Log($"warm-up: {(atMost ? $"it ended at the most, {EarlyJoin.WarmUpMostSeconds} s since the first spawn" : "the game left it by itself")}, {(now - WarmUpSince!.Value).TotalSeconds:0} s on{(coming.Count > 0 ? $", still coming: {string.Join(", ", coming)}" : "")} - the match is on");
         WarmUpOver();
         MatchHistory.WarmUpEnded(HistoryNow()); // History.cs: the real match is on, for everybody in
         Post(Messages.News, EarlyJoin.StartLine(atMost ? $"{EarlyJoin.WarmUpMostSeconds} s are up" : "The warm-up is over", coming));
+    }
+
+    /// <summary>A match end while the warm-up is on - the restart kind's waiting time, where the match itself runs: an Arms Race win, its length run out - is no end of
+    /// the real match: no vote. The plugin's warm-up ends (os_warmup end: its next match is the real one) and the match-end screen ends at once (os_nextmatch, as
+    /// Play this map again does), so the next match on the same map, from nothing, is the real one. True when it was such an end (OnMatchEnd). A vote that is open
+    /// or a map change counting down decides what comes next, as at any match end - Play this map again's next match is the real one too: the warm-up ends all
+    /// the same, with no line, and OnMatchEnd goes on. A map loading: that was the old map's match, and the new map's warm-up is a new one.</summary>
+    static bool WarmUpWonAtMatchEnd(DateTime now)
+    {
+        if (WarmUpSince == null || !WarmUpOnNow || LoadPending) return false;
+        var coming = WarmUpComing.Select(c => c.Name).ToList();
+        var reply = Send($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}");
+        var answer = reply?.Replace('\n', ' ') ?? "(rcon failed)";
+        if (Pending != null || Ballot is { Open: true })
+        {
+            Log($"warm-up: the match ended during it, {(Pending != null ? "a map change counting down" : "a vote open")} - that decides what comes next; {EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord} -> {answer}");
+            WarmUpOver();
+            return false;
+        }
+        var (result, _) = CutMatchEnd(AgainSeconds, "the match ended during the warm-up: its next match is the real one");
+        Log($"warm-up: the match ended during it, {(now - WarmUpSince.Value).TotalSeconds:0} s on - no vote; {EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord} -> {answer}; "
+            + $"the next match {(result == NextMatch.Result.Set ? "starts at once" : "starts as the screen runs out")}");
+        WarmUpOver();
+        Post(Messages.News, EarlyJoin.StartLine(EarlyJoin.WonInWarmUp, coming));
+        return true;
     }
 
     /// <summary>!start: the warm-up ends now, for everybody - a friend who is not coming. Anybody present may; refused outside a warm-up, and while a vote decides,

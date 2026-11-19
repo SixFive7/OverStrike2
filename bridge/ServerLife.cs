@@ -191,6 +191,7 @@ static partial class Program
         EndScreenAt = now; // Restarts.cs: no restart of the match while its screen is up
         MatchLengthAtMatchEnd(); // MatchTime.cs: Wingman's next match plays the chosen rounds - a kept map's starts without a load
         if (RestartAtMatchEnd(now)) return; // Restarts.cs: a restart was waiting for this match's end - no vote, the server goes down
+        if (WarmUpWonAtMatchEnd(now)) return; // WarmUp.cs: a match end during the warm-up's waiting time - its next match is the real one, no vote (a vote open or a change counting down decides, below)
         if (Pending != null) { Log($"match end: a change to {Label(Pending.Map)} is already counting down"); return; }
         if (LoadPending) { Log("match end: the next map is still loading - that was the old map's match"); return; }
         if (Ballot is { Open: true } running)

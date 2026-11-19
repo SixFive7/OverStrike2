@@ -45,7 +45,7 @@ public static class MatchLength
     public static bool ThisMatch(int played, int current, int wanted) => played < (current > 0 ? Math.Min(current, wanted) : wanted) / 2;
 
     /// <summary>What the command did. Set: the match that is on lasts the new length. EndsSoon: it is past that, or nearly, and ends LeastSeconds from now. NoMatch: no match is on
-    /// (the warm-up every map starts in, the match-end screen, a map still loading or nobody on a team yet), so the new length starts the match that comes - after a
+    /// (CS2's own warm-up, the match-end screen, a map still loading or nobody on a team yet), so the new length starts the match that comes - after a
     /// warm-up, the one its end starts. NotHere: nothing was set (a plugin before release 199 in Wingman). Later: a
     /// Wingman match past the halftime the new count would move - nothing set, and the next match takes it.</summary>
     public enum Result { Set, EndsSoon, NoMatch, NotHere, Later }

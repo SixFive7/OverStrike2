@@ -39,6 +39,11 @@
     "tab": "down",                         // down: TAB puts the board down while held; off
     "check": "warn",                       // off, warn, or enforce (disconnect a player whose game has not loaded the HUD)
   },
+  "warmup": {
+    "armsrace": "restart",                 // restart: the match itself is the waiting time, one restart begins the real match; native: CS2's own; off
+    "deathmatch": "restart",
+    "wingman": "native",                   // CS2's own warm-up ends on request in Wingman only
+  },
   "restarts": {
     "daily": "07:00",                      // local time (the containers' TZ), only while nobody is on; "off" for none
   },

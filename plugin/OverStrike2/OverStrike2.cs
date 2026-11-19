@@ -89,9 +89,9 @@ public class OverStrike2Plugin : BasePlugin
         new SpawnRoom(this, Logger, () => settings.Mode.Id).Load();
         // The live lab's probe for the spawn invisibility (InvisProbe.cs, os_probe): inert until the console tells it what to watch.
         new InvisProbe(this, Logger).Load();
-        // The warm-up (EarlyJoinWatch.cs): every map starts in CS2's own, while everybody coming gets there; the bridge ends it, and the real match starts for all
+        // The warm-up (EarlyJoinWatch.cs): every map starts with one, while everybody coming gets there - CS2's own, or the match itself; the bridge ends it, and the real match starts for all
         // of them at once - nothing restarts it after that. In Arms Race and Wingman a teammate's hit hurts as an enemy's while it runs (the mode is the settings').
-        earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id);
+        earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, setup.WarmUpMethod); // the method a mode's warm-up runs by: warmup.<mode>
         earlyJoin.Load(hotReload);
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
