@@ -76,8 +76,10 @@ public sealed class HudSearch
     public static string[] Words(string? query) => Normal(query).Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>Every word somewhere in the map's name or its indexed text (name, tags, description). Word starts count most, so
-    /// "aim" finds "aim_redline" and "AIM Map" before a description that mentions "claim".</summary>
-    public int Score(string key, string name, string[] words)
+    /// "aim" finds "aim_redline" and "AIM Map" before a description that mentions "claim". <paramref name="textIsName"/>: the text counts as the name - an
+    /// official map's, which is Valve's name of it and its modes (SearchIndex.cs), so "dust ii" or "cobblestone" scores the official map as a Workshop port
+    /// named so (G3, the lab round on rel-220).</summary>
+    public int Score(string key, string name, string[] words, bool textIsName = false)
     {
         if (words.Length == 0) return 1;
         if (!names.TryGetValue(name, out var n)) names[name] = n = Normal(name);
@@ -85,8 +87,8 @@ public sealed class HudSearch
         var score = 0;
         foreach (var w in words)
         {
-            if (StartsWord(n, w)) score += 100;
-            else if (n.Contains(w, StringComparison.Ordinal)) score += 40;
+            if (StartsWord(n, w) || textIsName && StartsWord(t, w)) score += 100;
+            else if (n.Contains(w, StringComparison.Ordinal) || textIsName && t.Contains(w, StringComparison.Ordinal)) score += 40;
             else if (StartsWord(t, w)) score += 10;
             else if (t.Contains(w, StringComparison.Ordinal)) score += 3;
             else return 0;
