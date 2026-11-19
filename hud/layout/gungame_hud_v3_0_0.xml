@@ -171,6 +171,10 @@
 
 				<!-- 2. The window: the full menu -->
 				<Panel class="os-dim" hittest="false" />
+				<!-- Beyond our box, at a match end with the window open, for a HUD pulled in from the screen's edges (CS2's HUD Edge Positions): the band left of the
+				     column covers CS2's end-screen chat, the dim runs on to the right. With the edges at full width both lie off the screen -->
+				<Panel class="os-edge-l" hittest="false" />
+				<Panel class="os-edge-r" hittest="false" />
 				<Panel class="os-win" hittest="true">
 					<Panel class="os-win-rule" />
 
