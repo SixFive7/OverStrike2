@@ -100,14 +100,15 @@ public sealed class HudFrame
         screen.Var(HudView.Global, HudVote.ModeVar, w.Mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) screen.Var(HudView.Global, name, words); // the popup's words
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
-        // The STATS page's words, the same for everybody: on os_global, and the bars' and pictures' panels, while somebody's window shows the page (content v4.15.0)
-        // - the screen sends only what changed, so a block that stands costs nothing after its first frame.
+        // The STATS page's words, the same for everybody: on os_global, which every content has, while somebody's window shows the page (content v4.15.0) - the
+        // screen sends only what changed, so a block that stands costs nothing after its first frame. Its bars' and pictures' panels are content v4.15.0's own:
+        // they go to each viewer's slot alone (Menu), never to everybody's state, which every game reads - one holding an older content logs "Unable to find
+        // panel" for each (the lab round on ce3e9af).
         if (w.Stats is { } stats && humans.Any(h => views.GetValueOrDefault(h.Slot) is { Window: true, Page: HudSlots.Page.Stats } && HudBrowser.HasHistory(h.Version)))
         {
             var (statVars, statClasses) = stats.Global();
             foreach (var (name, words) in statVars) screen.Var(HudView.Global, name, words);
-            foreach (var (id, cls, on) in statClasses) screen.Class(id, cls, on);
-            screen.Pictures(Everybody, [.. HudStats.PicturePanels.Select(p => (p, ThumbOf(w.Catalog, stats.Pictures.GetValueOrDefault(p) ?? "")))]);
+            foreach (var (id, cls, on) in statClasses.Where(c => c.Id == HudView.Global)) screen.Class(id, cls, on);
         }
         foreach (var h in humans) Player(w, h, playerOf(h.Slot), views.GetValueOrDefault(h.Slot), funClicks, funWhy, screen, botClicks, botWhy);
     }
@@ -196,7 +197,14 @@ public sealed class HudFrame
         if (page is HudSlots.Page.History or HudSlots.Page.Stats) // content v4.15.0's own pages: a game known to hold an older content has no tab to open them
         {
             if (!HudBrowser.HasHistory(h.Version)) return;
-            if (page == HudSlots.Page.Stats) { foreach (var (name, words) in (w.Stats ?? new HudStats()).YouOf(h.Account)) screen.Var(HudView.Screen, name, words, slot); return; }
+            if (page == HudSlots.Page.Stats)
+            {
+                foreach (var (name, words) in (w.Stats ?? new HudStats()).YouOf(h.Account)) screen.Var(HudView.Screen, name, words, slot);
+                if (w.Stats is not { } stats) return;
+                foreach (var (id, cls, on) in stats.Global().Classes.Where(c => c.Id != HudView.Global)) screen.Class(id, cls, on, slot); // the bars: this viewer's alone
+                screen.Pictures(slot, [.. HudStats.PicturePanels.Select(p => (p, ThumbOf(w.Catalog, stats.Pictures.GetValueOrDefault(p) ?? "")))]);
+                return;
+            }
             var (historyVars, historyClasses, historyPictures) = p.History.View(w.History, w.Catalog, w.State, p.Browser, h.Account, now, vote, w.Mode.Id);
             foreach (var (name, words) in historyVars) screen.Var(HudView.Screen, name, words, slot);
             foreach (var (id, cls, on) in historyClasses) screen.Class(id, cls, on, slot);

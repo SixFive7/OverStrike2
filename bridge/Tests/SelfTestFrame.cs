@@ -22,6 +22,10 @@ static partial class Program
 
         /// <summary>Every panel anything went to.</summary>
         public HashSet<string> Ids => [.. texts.Keys.Select(k => k.Item2), .. classes.Keys.Select(k => k.Item2), .. vars.Keys.Select(k => k.Item2), .. Pictured.Keys.Select(k => k.Panel)];
+
+        /// <summary>Every panel anything went to for one slot - Everybody (-1) for the state every game reads.</summary>
+        public HashSet<string> IdsOf(int slot) => [.. texts.Keys.Where(k => k.Item1 == slot).Select(k => k.Item2), .. classes.Keys.Where(k => k.Item1 == slot).Select(k => k.Item2),
+            .. vars.Keys.Where(k => k.Item1 == slot).Select(k => k.Item2), .. Pictured.Keys.Where(k => k.Slot == slot).Select(k => k.Panel)];
     }
 
     static void FrameSelfTest(Action<string, bool> Check)
@@ -192,6 +196,43 @@ static partial class Program
         Check($"Frame: the chat column's {HudChat.Lines} line panels (os_chat_1 to os_chat_{HudChat.Lines}) go to a game that named {HudVersion.Content} - never to v4.12.2's, "
             + "which has none and would log \"Unable to find panel\" for each, nor to a game whose content is not known yet (287 b)",
             ChatSent(2) && !ChatSent(1) && !ChatSent(3) && !olderScreen.C(HudView.Screen, "chaton", 1) && olderScreen.C(HudView.Screen, "chaton", 2));
+
+        // ---- P6 (the lab round on rel-220's ce3e9af): content v4.15.0's own panels - the HISTORY and STATS pages', their tabs, the seventh reason - go only to a
+        // game whose click named v4.15.0 or a newer content: never into everybody's state, never to v4.14.0's, nor to a game not seen yet or not known, whatever
+        // page its window shows. The panels are those content v4.15.0 added to v4.14.0's layout, the published one ----
+        string[] newIn415 =
+        [
+            .. Enumerable.Range(1, 4).SelectMany(k => new[] { HudHistoryPage.Card(k), HudHistoryPage.Thumb(k), $"{HudHistoryPage.Card(k)}_up", $"{HudHistoryPage.Card(k)}_down", $"{HudHistoryPage.Card(k)}_play" }),
+            "os_hf_all", "os_hf_ar", "os_hf_dm", "os_hf_wm", "os_hf_mine", "os_hf_order", "os_hf_clear", "os_hpg_first", "os_hpg_prev", "os_hpg_next", "os_hpg_last",
+            .. HudStats.BarPanels, .. HudStats.PicturePanels, HudBrowser.HistoryTab, HudStats.Tab, HudVote.WhyButton(7),
+        ];
+        var pageStats = new HudStats { Version = 3, Vars = [("osst", "15 matches")], Classes = { ["stf1"] = true } };
+        pageStats.Bars["os_st_bar1"] = 10;
+        pageStats.Bars["os_st_mar"] = 4;
+        pageStats.Pictures["os_st_pic1"] = live.Key;
+        var pageHistory = new HudHistory { Version = 2 };
+        pageHistory.Entries.Add(new HudHistory.Entry(new DateTimeOffset(t0.AddHours(-1)), new DateTimeOffset(t0.AddMinutes(-45)), 3084291312, "aim_x", "aim_x", Modes.ArmsRaceId,
+            HudHistory.ByMatchEnd, "", [new HudHistory.Player(1001, "Alice", 900, new DateTimeOffset(t0.AddHours(-1)))], [], "live"));
+        var pageSlots = new HudSlots();
+        var pagePlayers = new Dictionary<int, HudPlayer>();
+        foreach (var n in new[] { 1, 2, 3, 4, 5, 6 }) pageSlots.Joined(n, first: false, alive: true, t0);
+        foreach (var (n, page) in new[] { (1, HudSlots.Page.Stats), (2, HudSlots.Page.History), (3, HudSlots.Page.Stats), (4, HudSlots.Page.History), (5, HudSlots.Page.Stats), (6, HudSlots.Page.Start) })
+            pageSlots.Show(n, page, t0.AddSeconds(6));
+        var pageScreen = new RecordedScreen();
+        for (var i = 0; i < 2; i++) // a second frame: what changed since the first one too
+            frame.Draw(new HudFrame.World(live, new VoteState(), null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, HudVersion.Level, false, true, _ => null, null,
+                    t0.AddSeconds(7 + i), HudState.Ms(t0.AddSeconds(7 + i)), History: pageHistory, Stats: pageStats),
+                [new(1, 1001, "Alice", "CT", HudVersion.Content, false, 0, null), new(2, 1002, "Bob", "T", HudVersion.Content, false, 0, null),
+                 new(3, 1003, "Cas", "CT", "v4.14.0", false, 0, null), new(4, 1004, "Dan", "T", "", false, 0, null), new(5, 1005, "Eve", "CT", HudVersion.Unknown, false, 0, null),
+                 new(6, 1006, "Fay", "T", "v4.14.0", false, 0, null)],
+                pageSlots, n => pagePlayers.TryGetValue(n, out var pp) ? pp : pagePlayers[n] = new HudPlayer(), new FunClicks(), pageScreen);
+        var reachedOld = new[] { HudFrame.Everybody, 3, 4, 5, 6 }.SelectMany(n => pageScreen.IdsOf(n).Intersect(newIn415).Select(id => $"{(n < 0 ? "everybody" : $"slot {n}")}: {id}")).ToList();
+        var layoutHas = !File.Exists(HudLayoutFile) || newIn415.All(id => File.ReadAllText(HudLayoutFile).Contains($"id=\"{id}\"", StringComparison.Ordinal));
+        Check($"Frame: content v4.15.0's own panels ({newIn415.Length}: HISTORY's, STATS', their tabs, the seventh reason) go only to a game that named it - STATS' bars and pictures "
+            + "to each viewer's slot, never into everybody's state; none to v4.14.0's games, nor to one not seen yet or not known, on any page (P6)"
+            + (reachedOld.Count > 0 ? ": " + string.Join(", ", reachedOld) : ""),
+            reachedOld.Count == 0 && layoutHas && pageScreen.C("os_st_bar1", "w10", 1) && pageScreen.Pictured.ContainsKey((1, "os_st_pic1")) && pageScreen.C(HudHistoryPage.Card(1), "used", 2)
+            && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.Thumb(1))) && pageScreen.V(HudView.Global, "osst") == "15 matches" && pageScreen.C(HudView.Global, "stf1"));
 
         // ---- a slot's record: a new player starts from nothing of the last one's ----
         PlayerOf(1).Browser.Find("aim");

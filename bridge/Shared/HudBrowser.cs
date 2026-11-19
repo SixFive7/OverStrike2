@@ -62,13 +62,16 @@ public sealed class HudBrowser
     /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19; a page of its own since the owner's 304 a): the HISTORY page (HudHistoryPage).</summary>
     public const string HistoryTab = "os_tab_history";
 
-    /// <summary>The first content with the HISTORY and STATS pages (content v4.15.0): until this server's own content is that one, and for a game whose HUD check
-    /// named an older one, the plugin sends none of their words and classes, so no game logs "Unable to find panel" for a panel its content lacks (as
-    /// HudVote.NumbersLevel).</summary>
+    /// <summary>The first content with the HISTORY and STATS pages (content v4.15.0): until this server's own content is that one, and for every game whose HUD
+    /// check has not named that one or a newer, the plugin sends none of their words, classes and pictures, so no game logs "Unable to find panel" for a panel
+    /// its content lacks (as HudChat.Feeds, the owner's 287 b).</summary>
     public const int HistoryLevel = 57;
 
-    /// <summary>Whether a game gets the HISTORY and STATS pages: this server's content has them, and the game is not known to hold an older one.</summary>
-    public static bool HasHistory(string version) => HudVersion.Level >= HistoryLevel && !HudVersion.IsBefore(version, HistoryLevel);
+    /// <summary>Whether a game gets the HISTORY and STATS pages: this server's content has them, and the game's HUD check named v4.15.0 or a newer content -
+    /// never a game not seen yet, nor one whose content is not known (a v4.14.0 game logged "Unable to find panel" for their panels 5 s after it joined, the
+    /// lab round on rel-220's ce3e9af, before it had asked for any page).</summary>
+    public static bool HasHistory(string version) =>
+        HudVersion.Level >= HistoryLevel && HudVersion.Is(version) && version != HudVersion.Unknown && !HudVersion.IsBefore(version, HistoryLevel);
 
     /// <summary>The search area's hint (content v4.9.0): "Search  Press Y and type a map name" (233), a button whose click says how on the window's line
     /// (ChatReply.HowToSearch) - typing is chat's, and neither the HUD nor the server can open the chat box (the client refuses messagemode from the server). Content v4.8.0 typed on an on-screen keyboard: its search box
