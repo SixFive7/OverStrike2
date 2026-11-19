@@ -42,10 +42,10 @@ static partial class Program
             V("osst") == "5 matches  ·  3 players  ·  since Tue 10 Nov" && V("osstnw") == "2 maps: Gamma, Beta" && !st.Classes["stnone"]);
         Check("...the most played maps, a bar each against the first, the first's picture; ties go to the most recent",
             V("osstp1n") == "Alpha" && V("osstp1v") == "3 matches" && V("osstp2n") == "Gamma" && V("osstp3n") == "Beta" && V("osstp2v") == "1 match" && V("osstp4n") == ""
-            && st.Bars["os_st_bar1"] == 10 && st.Bars["os_st_bar2"] == 3 && st.Bars["os_st_bar4"] == 0 && st.Pictures["os_st_pic1"] == "3000000001");
+            && !st.Steps.ContainsKey("stp1") && st.Steps["stp2"] == 3 && st.Steps["stp4"] == 0 && st.Pictures[HudStats.PlayedPicture] == "3000000001");
         Check("...the most voted for in our ballots (Random no map), the most liked (fewer dislikes first in a tie) with its picture, the least liked, the hall of shame - the crashes counted and the crash dislikes",
             V("osstv1n") == "Gamma" && V("osstv1v") == "2 votes" && V("osstv2n") == "Alpha" && V("osstv3n") == "Beta" && V("osstv3v") == "1 vote" && V("osstv4n") == ""
-            && V("osstl1n") == "Alpha" && V("osstl1v") == "+2  -1" && V("osstl2n") == "Gamma" && V("osstl2v") == "+1" && st.Pictures["os_st_pic2"] == "3000000001"
+            && V("osstl1n") == "Alpha" && V("osstl1v") == "+2  -1" && V("osstl2n") == "Gamma" && V("osstl2v") == "+1" && st.Pictures[HudStats.LikedPicture] == "3000000001"
             && V("osstd1n") == "Beta" && V("osstd1v") == "2 dislikes" && V("osstd2n") == "Alpha" && V("osstd2v") == "1 dislike"
             && V("osstc1n") == "Beta" && V("osstc1v") == "3 crashes" && V("osstc2n") == "");
         Check("...the players' records: matches, hours, evenings, the night owl, the first one in; Arms Race's wins and the kills shown only when there are some",
@@ -55,7 +55,7 @@ static partial class Program
         Check("...the matches' records: the longest, the shortest real one (a minute and its match end), the busiest evening, the Wingman blowout - the winner's rounds first",
             V("ossm1n") == "Beta  ·  Wed 18 Nov" && V("ossm1v") == "50 min" && V("ossm2n") == "Alpha  ·  Tue 10 Nov" && V("ossm2v") == "12 min"
             && V("ossm3n") == "Wed 18 Nov  ·  3 players" && V("ossm3v") == "2 matches" && V("ossm4n") == "Gamma  ·  Thu 19 Nov" && V("ossm4v") == "13:2");
-        Check($"...the modes' shares, a bar each ({V("osstmd")})", V("osstmd") == "Arms Race 60 %  ·  Deathmatch 20 %  ·  Wingman 20 %" && st.Bars["os_st_mar"] == 6 && st.Bars["os_st_mdm"] == 2 && st.Bars["os_st_mwm"] == 2);
+        Check($"...the modes' shares, a bar each ({V("osstmd")})", V("osstmd") == "Arms Race 60 %  ·  Deathmatch 20 %  ·  Wingman 20 %" && st.Steps["stmar"] == 6 && st.Steps["stmdm"] == 2 && st.Steps["stmwm"] == 2);
         Check("...the fun records from the frags: the top fragger in one match, the sharpshooter past 50 kills, knives, chickens, the longest shot, the nemesis; counting since",
             V("ossf1n") == "Alice" && V("ossf1v") == "30 kills" && V("ossf2n") == "" && !st.Classes["stf2"] && V("ossf3n") == "Alice" && V("ossf3v") == "3 knife kills"
             && V("ossf4n") == "Bob" && V("ossf4v") == "9 chickens" && V("ossf5n") == "Alice" && V("ossf5v") == "41 m" && V("ossf6n") == "Alice on Bob" && V("ossf6v") == "7 kills"
@@ -66,10 +66,14 @@ static partial class Program
             && st.YouOf(1009).Select(x => x.Text).SequenceEqual(["No match yet", "", "", "1 like  ·  0 dislikes", "", ""]) && st.YouOf(4242)[0].Text == "No match yet");
         var round = HudStats.Decode(st.Encode());
         var (globalVars, globalClasses) = round!.Global();
-        Check("Stats block: read back as sent - every word, class, bar, picture and every player's own line - and put on os_global, the bars' panels a class w0-w10 each",
+        bool Bit(string cls) => globalClasses.Single(c => c.Class == cls).On;
+        Check("Stats block: read back as sent - every word, class, bar, picture and every player's own line - and put on os_global alone: the page's classes and each "
+            + "bar's step as its four bits (row 2's 3: stp2-1 and stp2-2; Arms Race's 6: stmar-2 and stmar-4), row 1 none - no panel of the page's own (content v4.16.0)",
             round.Encode() == st.Encode() && round.Vars.SequenceEqual(st.Vars) && round.You.Count == st.You.Count && round.YouOf(1001).SequenceEqual(you)
-            && globalVars.Count == st.Vars.Count && globalClasses.Count(c => c.Id == HudView.Global) == HudStats.ClassNames.Length
-            && globalClasses.Single(c => c.Id == "os_st_bar1" && c.On).Class == "w10" && globalClasses.Count(c => c.Id == "os_st_bar2") == 11 && HudStats.Decode("nonsense") == null);
+            && globalVars.Count == st.Vars.Count && globalClasses.All(c => c.Id == HudView.Global)
+            && globalClasses.Count == HudStats.ClassNames.Length + HudStats.Bars.Length * HudStats.StepBits.Length
+            && Bit("stp2-1") && Bit("stp2-2") && !Bit("stp2-4") && !Bit("stp2-8") && !Bit("stmar-1") && Bit("stmar-2") && Bit("stmar-4") && !Bit("stmar-8")
+            && !globalClasses.Any(c => c.Class.StartsWith("stp1", StringComparison.Ordinal)) && HudStats.Decode("nonsense") == null);
         var empty = MakeStats([], new(), [], new Dictionary<string, int>(), D(19, 1, 0), null);
         Check("...with no history yet: the page says so (stnone), every row empty, every fun record hidden",
             empty.Classes["stnone"] && empty.Vars.Where(x => x.Name.StartsWith("ossr", StringComparison.Ordinal) || x.Name.StartsWith("osstp", StringComparison.Ordinal)).All(x => x.Text == "")

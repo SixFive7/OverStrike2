@@ -488,10 +488,13 @@ static partial class Program
             && Var("osh3c") == "Played twice" && Var("osh3f") == $"First played {HudHistory.Day(again.From)}  ·  Most at once: 2" && Var("osh3v") == "+3  -1" && Var("osh3s") == "200 MB"
             && Var("osh3a") == "Put to the vote" && Var("osh1s") == HudMenu.OfficialSize && Var("osh1c") == "Played once" && Var("osh2a") == "On now"
             && Var("osh4v") == "" && Var("osh4a") == "Not on the list" && Var("osh4s") == "");
-        Check("...a card's classes: used, the player's own like or dislike, official, the match's mode, a record known in part, on now, mine; its picture the map's",
-            On("os_h3", "used") && On("os_h3", "liked") && On("os_h2", "disliked") && On("os_h1", "official") && !On("os_h3", "official") && On("os_h3", "mode-wingman") && On("os_h1", "mode-armsrace")
-            && On("os_h1", "hinc") && !On("os_h3", "hinc") && On("os_h2", "now") && !On("os_h3", "now") && On("os_h3", "mine") && !On("os_h4", "mine") && !On("os_h4", "liked")
-            && pictures.Count == HudHistoryPage.Cards && pictures[2].Panel == "os_h3_thumb" && pictures[3].Classes.Length == 0);
+        bool Card(int k, string state) => On(HudView.Screen, HudHistoryPage.CardClass(k, state));
+        Check("...a card's states, classes on os_screen (content v4.16.0: h<k>-used and so on) - used, the player's own like or dislike, official, the match's mode, "
+            + "a record known in part, on now, mine - and its picture the map's, on picture panel k; nothing to a panel of the card's own",
+            Card(3, "used") && Card(3, "liked") && Card(2, "disliked") && Card(1, "official") && !Card(3, "official") && Card(3, "wm") && !Card(3, "ar") && Card(1, "ar") && !Card(1, "dm")
+            && Card(1, "inc") && !Card(3, "inc") && Card(2, "now") && !Card(3, "now") && Card(3, "mine") && !Card(4, "mine") && !Card(4, "liked")
+            && classes.All(c => c.Id == HudView.Screen) && pictures.Count == HudHistoryPage.Cards && pictures.Select(x => x.Panel).SequenceEqual(HudHistoryPage.PicturePanels)
+            && pictures[3].Classes.Length == 0 && HudHistoryPage.CardStates.All(st => classes.Any(c => c.Class == HudHistoryPage.CardClass(4, st))));
         Check("...a card's Like, Dislike and Vote for it are the browser's own, for that match's map; Vote for it in the match's mode; nothing for a map on no list or the map that is on",
             page.Command("os_h3_up", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!up 12" && page.Command("os_h2_down", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!down 40"
             && page.Command("os_h3_play", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!map 12 wingman" && page.Command("os_h1_play", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!map ar_shoots"
@@ -500,7 +503,7 @@ static partial class Program
         var fifthCard = page.Click(HudHistoryPage.NextButton, page.Matches(past, 1001).Count) ? page.View(past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) : default;
         Check("...the pager: the next page has the fifth match, its last; the cards with none are empty and unused",
             fifthCard.Vars?.LastOrDefault(x => x.Name == "osh1f").Text == $"First played {HudHistory.Day(again.From)}  ·  Most at once: 3  ·  Won by Alice"
-            && fifthCard.Vars.LastOrDefault(x => x.Name == "osh2n").Text == "" && fifthCard.Classes.LastOrDefault(x => x.Id == "os_h2" && x.Class == "used") is { On: false }
+            && fifthCard.Vars.LastOrDefault(x => x.Name == "osh2n").Text == "" && fifthCard.Classes.LastOrDefault(x => x.Class == HudHistoryPage.CardClass(2, "used")) is { On: false }
             && fifthCard.Classes.LastOrDefault(x => x.Id == HudView.Screen && x.Class == "hlast") is { On: true });
         page.Click("os_hf_wm", 5);
         var wingmanOnly = page.Matches(past, 1001).Select(e => e.MapName).ToList();
@@ -523,8 +526,8 @@ static partial class Program
             && searchVars.LastOrDefault(x => x.Name == "oshcount").Text == "1 of 5 matches" && searchClasses.LastOrDefault(x => x.Class == "hquery").On
             && oldest == again.Start && noneVars.LastOrDefault(x => x.Name == "oshempty").Text == "No match on a map or with a player like \"nobody at all\"" && noneClasses.LastOrDefault(x => x.Class == "hnone").On
             && emptyVars.LastOrDefault(x => x.Name == "oshempty").Text == HudHistoryPage.Empty && loadingVars.LastOrDefault(x => x.Name == "oshcount").Text == "Loading the history...");
-        Check("...the page's buttons all take clicks only, and only to a content that has the page (level 57, content v4.15.0)",
-            HudHistoryPage.Buttons.Count() == 4 * 3 + 11 && HudHistoryPage.Buttons.All(b => b.StartsWith("os_h", StringComparison.Ordinal)) && !HudBrowser.HasHistory("v4.14.0")
+        Check($"...the page's buttons all take clicks only, and only to a content that has the page (level {HudBrowser.HistoryLevel}, content {HudVersion.OfLevel(HudBrowser.HistoryLevel)})",
+            HudHistoryPage.Buttons.Count() == 4 * 3 + 11 && HudHistoryPage.Buttons.All(b => b.StartsWith("os_h", StringComparison.Ordinal)) && !HudBrowser.HasHistory("v4.14.0") && !HudBrowser.HasHistory("v4.15.0")
             && HudBrowser.HasHistory(HudVersion.Content) == HudVersion.Level >= HudBrowser.HistoryLevel && HudView.Tabs.Any(x => x.Id == HudBrowser.HistoryTab && x.Page == HudSlots.Page.History)
             && HudView.Tabs.Any(x => x.Id == HudStats.Tab && x.Page == HudSlots.Page.Stats));
     }

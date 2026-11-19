@@ -100,15 +100,14 @@ public sealed class HudFrame
         screen.Var(HudView.Global, HudVote.ModeVar, w.Mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) screen.Var(HudView.Global, name, words); // the popup's words
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
-        // The STATS page's words, the same for everybody: on os_global, which every content has, while somebody's window shows the page (content v4.15.0) - the
-        // screen sends only what changed, so a block that stands costs nothing after its first frame. Its bars' and pictures' panels are content v4.15.0's own:
-        // they go to each viewer's slot alone (Menu), never to everybody's state, which every game reads - one holding an older content logs "Unable to find
-        // panel" for each (the lab round on ce3e9af).
+        // The STATS page's words and classes, the same for everybody: on os_global, which every content has, while somebody's window shows the page - its bars
+        // too, a step's four bits each (HudStats.Global) - the screen sends only what changed, so a block that stands costs nothing after its first frame. Its two
+        // pictures go to each viewer's own picture panels (Menu), never to everybody.
         if (w.Stats is { } stats && humans.Any(h => views.GetValueOrDefault(h.Slot) is { Window: true, Page: HudSlots.Page.Stats } && HudBrowser.HasHistory(h.Version)))
         {
             var (statVars, statClasses) = stats.Global();
             foreach (var (name, words) in statVars) screen.Var(HudView.Global, name, words);
-            foreach (var (id, cls, on) in statClasses.Where(c => c.Id == HudView.Global)) screen.Class(id, cls, on);
+            foreach (var (id, cls, on) in statClasses) screen.Class(id, cls, on);
         }
         foreach (var h in humans) Player(w, h, playerOf(h.Slot), views.GetValueOrDefault(h.Slot), funClicks, funWhy, screen, botClicks, botWhy);
     }
@@ -137,6 +136,8 @@ public sealed class HudFrame
         screen.Class(HudView.Screen, "toast-1", view.Toast == 1, slot);
         screen.Class(HudView.Screen, "toast-in", view.ToastIn, slot);
         screen.Class(HudView.Screen, "vjoin", h.JoinedFor is { } joined && joined.TotalSeconds < HudVersion.JoinSeconds, slot); // a newer content's banner, for a while after a join
+        if (HudVersion.IsBefore(h.Version, w.Level)) // an outdated game: its banner and its window's foot say why it needs the server's content (osver on its own os_screen)
+            screen.Var(HudView.Screen, HudVersion.Var, HudVersion.OutdatedLine(w.Level == HudVersion.Level ? HudVersion.Content : HudVersion.OfLevel(w.Level)), slot);
         screen.Class(HudView.Screen, "qhelp", view.Window && view.Page == HudSlots.Page.Maps && now < p.SearchHelpUntil && !OnBallot(p, vote), slot); // the search helped, after a click on its area
         var perPage = MapVote.PageCards;
         var vv = VoteView(p, vote, perPage);
@@ -162,6 +163,8 @@ public sealed class HudFrame
         if (vote.Round > 0) screen.Var(HudView.Screen, HudVote.TabVar, HudVote.TabLabel(vote), slot); // the Vote sub-tab's label
         screen.Var(HudView.Screen, HudView.SubCaptionVar, HudView.SubCaption(view.Page, vote.Round > 0 && !browsing, browsing), slot);
         foreach (var page in Enum.GetValues<HudSlots.Page>()) screen.Class(HudView.Screen, "page-" + page.ToString().ToLowerInvariant(), view.Window && view.Page == page, slot);
+        if (HudBrowser.HasHistory(h.Version) && !(view.Window && view.Page is HudSlots.Page.History or HudSlots.Page.Stats))
+            screen.Pictures(slot, NoPictures); // off HISTORY and STATS: their pictures leave the picture panels (a game below their content never gets one)
         if (view.Window)
         {
             Menu(w, h, p, view.Page, perPage, screen);
@@ -194,21 +197,19 @@ public sealed class HudFrame
     static void Menu(World w, Human h, HudPlayer p, HudSlots.Page page, int perPage, IScreen screen)
     {
         var (vote, now, slot) = (w.Vote, w.Now, h.Slot);
-        if (page is HudSlots.Page.History or HudSlots.Page.Stats) // content v4.15.0's own pages: a game known to hold an older content has no tab to open them
+        if (page is HudSlots.Page.History or HudSlots.Page.Stats) // the HISTORY and STATS pages: a game whose check named their content or a newer one alone
         {
             if (!HudBrowser.HasHistory(h.Version)) return;
             if (page == HudSlots.Page.Stats)
             {
                 foreach (var (name, words) in (w.Stats ?? new HudStats()).YouOf(h.Account)) screen.Var(HudView.Screen, name, words, slot);
-                if (w.Stats is not { } stats) return;
-                foreach (var (id, cls, on) in stats.Global().Classes.Where(c => c.Id != HudView.Global)) screen.Class(id, cls, on, slot); // the bars: this viewer's alone
-                screen.Pictures(slot, [.. HudStats.PicturePanels.Select(p => (p, ThumbOf(w.Catalog, stats.Pictures.GetValueOrDefault(p) ?? "")))]);
+                screen.Pictures(slot, StatsPictures(w.Catalog, w.Stats)); // picture panels 1 and 2, 3 and 4 none
                 return;
             }
             var (historyVars, historyClasses, historyPictures) = p.History.View(w.History, w.Catalog, w.State, p.Browser, h.Account, now, vote, w.Mode.Id);
             foreach (var (name, words) in historyVars) screen.Var(HudView.Screen, name, words, slot);
             foreach (var (id, cls, on) in historyClasses) screen.Class(id, cls, on, slot);
-            screen.Pictures(slot, historyPictures);
+            screen.Pictures(slot, historyPictures); // the four cards' pictures on the four picture panels, a card with none none
             return;
         }
         var ballot = page == HudSlots.Page.Maps && OnBallot(p, vote);
@@ -417,5 +418,17 @@ public sealed class HudFrame
             vote is { Open: true, Round: > 0 } ? vote.ChoiceOf(h.Account) > 0 ? "voted" : "waiting" : "", HudView.OnFor(h.JoinedFor))).ToList();
 
     /// <summary>The picture of the map with this key: its two classes, none for no key or a map without one.</summary>
+    /// <summary>STATS' pictures for a viewer's picture panels: the most played map's on panel 1, the most liked one's on panel 2, panels 3 and 4 none.</summary>
+    static List<(string Panel, string[] Classes)> StatsPictures(HudCatalog? catalog, HudStats? stats) =>
+    [
+        (HudHistoryPage.PicturePanel(1), stats == null ? [] : ThumbOf(catalog, stats.Pictures.GetValueOrDefault(HudStats.PlayedPicture) ?? "")),
+        (HudHistoryPage.PicturePanel(2), stats == null ? [] : ThumbOf(catalog, stats.Pictures.GetValueOrDefault(HudStats.LikedPicture) ?? "")),
+        (HudHistoryPage.PicturePanel(3), []),
+        (HudHistoryPage.PicturePanel(4), []),
+    ];
+
+    /// <summary>The picture panels with no picture: a viewer off HISTORY and STATS.</summary>
+    static readonly List<(string Panel, string[] Classes)> NoPictures = [.. HudHistoryPage.PicturePanels.Select(panel => (panel, Array.Empty<string>()))];
+
     static string[] ThumbOf(HudCatalog? catalog, string key) => key != "" && catalog?.Find(key) is { } entry ? HudThumbs.Classes(entry) : [];
 }

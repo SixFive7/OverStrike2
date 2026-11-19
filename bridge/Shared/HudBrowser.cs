@@ -56,18 +56,22 @@ public sealed class HudBrowser
     /// <summary>The class on os_screen that lights a mode chip.</summary>
     public static string ModeClass(string mode) => mode == "" ? "fm-all" : $"fm-{mode}";
 
-    public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
+    /// <summary>The search's Clear: os_q_clear up to content v4.15.0, os_q_clr from v4.16.0 on - whose os_q_clear carries a picture of HISTORY's fourth card
+    /// (HudHistoryPage.PicturePanel): both clear the search.</summary>
+    public const string ClearButton = "os_q_clear", ClearButtonNew = "os_q_clr";
+
+    public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours",
         FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
 
     /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19; a page of its own since the owner's 304 a): the HISTORY page (HudHistoryPage).</summary>
     public const string HistoryTab = "os_tab_history";
 
-    /// <summary>The first content with the HISTORY and STATS pages (content v4.15.0): until this server's own content is that one, and for every game whose HUD
-    /// check has not named that one or a newer, the plugin sends none of their words, classes and pictures, so no game logs "Unable to find panel" for a panel
-    /// its content lacks (as HudChat.Feeds, the owner's 287 b).</summary>
-    public const int HistoryLevel = 57;
+    /// <summary>The first content the HISTORY and STATS pages go to (content v4.16.0, level 58 - the pages came with v4.15.0, which named panels of their own
+    /// that an older content lacks): until this server's own content is that one, and for every game whose HUD check has not named that one or a newer, the
+    /// plugin sends none of their words, classes and pictures (as HudChat.Feeds, the owner's 287 b).</summary>
+    public const int HistoryLevel = 58;
 
-    /// <summary>Whether a game gets the HISTORY and STATS pages: this server's content has them, and the game's HUD check named v4.15.0 or a newer content -
+    /// <summary>Whether a game gets the HISTORY and STATS pages: this server's content has them, and the game's HUD check named v4.16.0 or a newer content -
     /// never a game not seen yet, nor one whose content is not known (a v4.14.0 game logged "Unable to find panel" for their panels 5 s after it joined, the
     /// lab round on rel-220's ce3e9af, before it had asked for any page).</summary>
     public static bool HasHistory(string version) =>
@@ -209,7 +213,7 @@ public sealed class HudBrowser
             case LikedButton: Liked = !Liked; Page = 0; return true;
             case OfficialButton: Official = !Official; if (Official) { Size = Band.All; Ours = false; } Page = 0; return true;
             case OursButton: Ours = !Ours; if (Ours) { Size = Band.All; Official = false; } Page = 0; return true;
-            case ClearButton: Query = ""; Page = 0; return true;
+            case ClearButton or ClearButtonNew: Query = ""; Page = 0; return true;
             case FirstButton: Page = 0; return true;
             case PrevButton: Page = Math.Max(0, Page - 1); return true;
             case NextButton: Page = Math.Min(PagesFor(matchCount) - 1, Page + 1); return true;

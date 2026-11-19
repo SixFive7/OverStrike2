@@ -73,9 +73,9 @@ static partial class Program
             var x = k <= plays.Count ? plays[k - 1] : default;
             V($"osstp{k}n", k <= plays.Count ? MapName(x.Key) : "");
             V($"osstp{k}v", k <= plays.Count ? Count(x.N, "match", "matches") : "");
-            st.Bars[$"os_st_bar{k}"] = k <= plays.Count ? (int)Math.Round(10.0 * x.N / plays[0].N) : 0;
+            if (k >= 2) st.Steps[$"stp{k}"] = k <= plays.Count ? (int)Math.Round(10.0 * x.N / plays[0].N) : 0; // row 1 is always full: no step of its own
         }
-        st.Pictures["os_st_pic1"] = plays.Count > 0 ? plays[0].Key : "";
+        st.Pictures[HudStats.PlayedPicture] = plays.Count > 0 ? plays[0].Key : "";
         var votes = new Dictionary<string, (int N, DateTimeOffset Last)>(StringComparer.OrdinalIgnoreCase);
         foreach (var b in ballots)
             foreach (var c in b.Cards.Where(c => c.Key != RandomKey && c.Votes > 0))
@@ -94,7 +94,7 @@ static partial class Program
             V($"osstl{k}n", k <= liked.Count ? MapName(liked[k - 1].Key) : "");
             V($"osstl{k}v", k <= liked.Count ? $"+{N(liked[k - 1].Up)}{(liked[k - 1].Down > 0 ? $"  -{N(liked[k - 1].Down)}" : "")}" : "");
         }
-        st.Pictures["os_st_pic2"] = liked.Count > 0 ? liked[0].Key : "";
+        st.Pictures[HudStats.LikedPicture] = liked.Count > 0 ? liked[0].Key : "";
         var disliked = tally.Where(t => t.Down > 0).OrderByDescending(t => t.Down).ThenBy(t => t.Up).ThenByDescending(t => Recent(t.Key)).Take(3).ToList();
         for (var k = 1; k <= 3; k++)
         {
@@ -165,7 +165,7 @@ static partial class Program
         var shares = Modes.All.Select(m => (Mode: m, Share: moded.Count == 0 ? 0 : (double)moded.Count(e => e.Mode == m.Id) / moded.Count)).ToList();
         V("osstmd", moded.Count == 0 ? "" : string.Join("  ·  ", shares.Select(s => $"{s.Mode.Name} {Math.Round(100 * s.Share).ToString(CultureInfo.InvariantCulture)} %")));
         foreach (var (mode, share) in shares)
-            st.Bars[mode.Id switch { Modes.ArmsRaceId => "os_st_mar", Modes.DeathmatchId => "os_st_mdm", _ => "os_st_mwm" }] = (int)Math.Round(10 * share);
+            st.Steps[mode.Id switch { Modes.ArmsRaceId => "stmar", Modes.DeathmatchId => "stmdm", _ => "stmwm" }] = (int)Math.Round(10 * share);
 
         // ---- the fun records: the frags, counted since `since` ----
         var inMatch = entries.SelectMany(e => e.Players.Where(p => p.Frags is { Kills: > 0 }).Select(p => (e, p))).OrderByDescending(x => x.p.Frags!.Kills).ThenByDescending(x => x.e.End).FirstOrDefault();

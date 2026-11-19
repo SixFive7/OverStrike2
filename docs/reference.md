@@ -490,11 +490,8 @@ the dim starts right of the chat's strip (x 579) - above and under the column th
 in its strip undimmed. **Beyond our box**: CS2 lays the custom HUD out inside its HUD edges (the convar `safezonex`, the setting HUD Edge Positions), so a
 player who pulls them in gets our whole HUD in a box centred on the screen - at 32:9 with the slider at its minimum a 21:9 one, about 660 in from each side -
 while at a match end CS2's own chat moves into its end screen, at the screen's true left edge, where our column no longer covers it (a player's 32:9 frame,
-2026-11-19). At a match end (`meos`) with the window open and the column up, a solid band (`os-edge-l`) runs from the column out past the box's left edge and
-covers that chat, and the dim (`os-edge-r`) runs on past its right edge, so both sides look even; each is 1,400 wide (the deepest inset the convar allows at
-32:9 is 1,380, and 1,400 still fits the narrowest box, 4:3's 1,440) and moved out of the box by its own width, so with the edges at full width both lie off the
-screen and nothing changes. They fade with the window and step aside for the SCORES look. Whether CS2 draws past its box at all is the lab's to see; if it
-clips there, they show nothing, and a player who wants one chat sets the edges to full width. On route c the column fades in and out with the window (`chatwin`); nothing of the
+2026-11-19). CS2 clips the custom HUD to that box, so nothing of ours can cover it (content v4.15.0's band beyond the box showed nothing in the lab and went
+with v4.16.0): a player who wants one chat sets the edges to full width. On route c the column fades in and out with the window (`chatwin`); nothing of the
 top stack (the top line, the banners) or the card stack (now playing, catch-up) shows over the open window - every kind of top-line news has its chat copy in
 the column. **A look at the scores during a vote**: once a player has voted, or the vote is decided (`vpeekok` on `os_screen`, the server's). Mid-match the
 ballot's how-to bar says Hold TAB to see the scores; while the server reads TAB held (`vpeek`) and CS2's own scoreboard is up (`HUD_SCOREBOARD_VISIBLE`) the
@@ -857,22 +854,28 @@ cards, each vote and its moves, each added card, each decision - and looks each 
 `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`); a name no list has stays a name (`name:` and the label). Every crash counted on a map is kept too
 (`crashesEver` in `state.json`, begun with the crash marks there were), where the crash marks are lifted by a Workshop update.
 
-**The pages** (content v4.15.0, `HudBrowser.HistoryLevel` 57; only a game whose HUD check named v4.15.0 or a newer content gets anything of them - not one
-not seen yet or not known, which may hold an older content and would log "Unable to find panel" for each of their panels): HISTORY and STATS are pages of their own, tabs in the top row
+**The pages** (content v4.15.0; drawn from content v4.16.0 on with no panel of their own - `HudBrowser.HistoryLevel` 58: only a game whose HUD check named
+v4.16.0 or a newer content gets anything of them - not v4.15.0's, nor one not seen yet or not known): HISTORY and STATS are pages of their own, tabs in the top row
 after MAPS (`os_tab_history`, `os_tab_stats`), current while they show (`page-history`, `page-stats`) and as wide as the window. Every word on them is a variable
 and every state a class; the buttons take clicks only, so CS2 keeps a name for none of them. MAPS' History button (`os_fl_hist`, the first History view's) is
 gone from the layout. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px.
 
-**Known issue, an older content's console** (the re-checks of rel-220 at 997c7bb and cd4b877): CS2's game looks up every panel id the HUD's entity has been
-given on the map at its full update - the entity's list of ids (`m_vecPanelIds`) only ever grows, and every player's entries name ids from it - so a game on an
-older content that joins after a v4.15.0 player has shown HISTORY or STATS on that map logs "Unable to find panel with id" in its console for those pages'
-panels (up to 18: `os_h1` to `os_h4` and their thumbs, STATS' eight bars and two pictures), whichever slot it takes and whatever was cleared: its own slot's
-entries are cleared when a player leaves and when the next is put in (`ClearSlot`), and the server sends it none of the pages' own (`HasHistory`). The entity is
-new with every map, so the lines go with the next map change. Console lines only: nothing shows in the game, and a game on the current content has every one
-of those panels.
+**Every panel the server names is one every content in use has** (content v4.16.0): CS2's game looks up every panel id the HUD's
+entity has been given on the map at its full update - the entity's list of ids (`m_vecPanelIds`) only ever grows, and every player's entries name ids from it -
+so a panel the server names for one player's newer content is looked for by every game that joins the map later, whichever slot it takes and whatever was
+cleared. Content v4.15.0's pages named 18 of their own (`os_h1` to `os_h4` and their thumbs, STATS' eight bars and two pictures), and a v4.14.0 game that joined
+after a v4.15.0 player had shown them logged "Unable to find panel with id" for each. Since v4.16.0 the pages name none: a card's state and a bar's step are
+classes on `os_screen` and `os_global`, and the pictures lie on four panels every content from v4.14.0 on has. The self-tests hold every panel the frame names
+to v4.14.0's layout and every later one's (the floor, `PanelFloor`); contents before v4.14.0 already miss the chat column's and the 11th and 12th cards' (since
+release 218). A v4.15.0 game sees empty HISTORY and STATS pages under the outdated banner until Steam updates it. The server half
+(`HudHistoryPage.PicturePanel`) sends the pictures per viewer, and only to a game whose content has the pages - in v4.14.0 and v4.15.0 `os_q_clear` is the
+visible Clear button, so a picture class never goes to everybody - replacing them as the viewer moves between the pages or leaves them (an unused picture
+panel gets none); nothing goes to `os_h*` or `os_st_*` any more. The browser's Clear is `os_q_clr` from v4.16.0 on (`HudBrowser.ClearButtonNew`); `os_q_clear`
+still clears for v4.14.0 and v4.15.0.
 
-- **HISTORY** (`HudHistoryPage`, the plugin's own, from its copy of the history): four wide cards a page, newest first (`os_h1` to `os_h4`, 142 px high). A card
-  has the map's picture (`os_h<k>_thumb`, the map's own as on the browser's cards) with its mode and On now, its name, Official and size, when it ran and how long,
+- **HISTORY** (`HudHistoryPage`, the plugin's own, from its copy of the history): four wide cards a page, newest first (142 px high, no ids). A card
+  has the map's picture (since content v4.16.0 in a layer over the pages: picture k on the panel `os_tab_server`, `os_sub_fun`, `os_sub_help` or `os_q_clear` -
+  the old sub-tab bar's buttons and the search's first Clear, ids every content in use has - by the map's picture classes, per viewer) with its mode and On now, its name, Official and size, when it ran and how long,
   how it ended, who joined, how often the map has been played and a fun line; at its right the map's likes with the player's own Like and Dislike
   (`os_h<k>_up`, `os_h<k>_down`: the dislike's dialog, the crash among its reasons) and Vote for it (`os_h<k>_play`: the browser's Play for that map, with all its
   states, in the match's mode where the map plays in it). Its words, on `os_screen`: `osh<k>n` the map's name as the browser's card says it, `osh<k>w` when
@@ -881,11 +884,11 @@ of those panels.
   partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`), `osh<k>c` how often
   its map was played in any mode (`Played once`, `Played twice`, `Played 14 times`), `osh<k>f` the fun line (`First played Fri 3 Oct  ·  Most at once: 9`, and
   `  ·  Won by Alice` in Arms Race or `  ·  Most kills: Bob` where recorded), `osh<k>v` its likes now (`+3  -1`), `osh<k>s` its size (`763 MB`, `In the game` for
-  an official map), `osh<k>a` Vote for it's words (`Not on the list` for a map no list has now); all empty on a card with no match. The card's classes are `used`,
-  `liked`, `disliked`, `official`, `mode-armsrace` / `mode-deathmatch` / `mode-wingman`, `hinc`, `now`, `queued` (the map on the open vote) and `mine` (the player
-  was in it). The page's words are `oshcount` (`75 matches  ·  42 maps  ·  since Fri 3 Oct`, filtered `12 of 75 matches`), `oshpage` and `oshempty`; its classes on
+  an official map), `osh<k>a` Vote for it's words (`Not on the list` for a map no list has now); all empty on a card with no match. Card k's state is a class on the
+  viewer's `os_screen` (content v4.16.0; `HudHistoryPage.CardClass`), `h<k>-` and one of `used`, `liked`, `disliked`, `official`, `ar` / `dm` / `wm` (the match's mode), `inc` (known in part),
+  `now`, `queued` (the map on the open vote) and `mine` (the player was in it). The page's words are `oshcount` (`75 matches  ·  42 maps  ·  since Fri 3 Oct`, filtered `12 of 75 matches`), `oshpage` and `oshempty`; its classes on
   `os_screen` are `hm-all` / `hm-armsrace` / `hm-deathmatch` / `hm-wingman`, `hmine`, `holdest`, `hquery`, `hnone`, `hfirst` and `hlast`. The bar's chips
-  (`os_hf_all`, `os_hf_ar`, `os_hf_dm`, `os_hf_wm`), Mine (`os_hf_mine`), the order (`os_hf_order`), Clear (`os_hf_clear`) and the pager (`os_hpg_*`) are buttons.
+  (`os_hf_all`, `os_hf_ar`, `os_hf_dm`, `os_hf_wm`), Mine (`os_hf_mine`), the order (`os_hf_order`), Clear (`os_hf_clear`) and the pager (`os_hpg_*`) are buttons; MAPS' search's Clear is `os_q_clr` since content v4.16.0.
   A line typed in chat while HISTORY shows searches the matches by the map's name or a player's, found or not; Clear then takes the hint's place. The plugin
   fetches the newest 2,400 matches (`/history/`, when `hist` in the live state moves) - compact: a player's frags but the kills, and the pairs, stay in the file -
   and decodes them on the thread pool.
@@ -894,18 +897,19 @@ of those panels.
   most recent - the map played last, the player in a match last. The head's line (`osst`: `412 matches  ·  37 players  ·  since Fri 3 Oct`) with the maps whose
   first match was in the last 7 days (`osstnw`: `5 maps: x, y, z and 2 more`, or `none yet`); the viewing player's own line (`ossy1` to `ossy6`: matches, hours,
   the favourite map, the likes and dislikes they have given, since when, their place by matches - `No match yet` for one with none); and three columns of tiles,
-  a row each a name (`<row>n`) and a value (`<row>v`): the most played maps (`osstp1` to `osstp5`, matches per map; the first's picture `os_st_pic1`, a bar each
-  `os_st_bar<k>` against the first, in steps `w0` to `w10`), the modes' shares of the matches (`osstmd`, bars `os_st_mar`, `os_st_mdm`, `os_st_mwm`) and the hall of
-  shame (`osstc1` to `osstc3`: every crash counted on a map and the `crash` dislikes); the most voted for in our ballots (`osstv1` to `osstv5`, the cards' votes,
-  every mode), the most liked (`osstl1` to `osstl5`, likes in `votes.json`, fewer dislikes first in a tie; the first's picture `os_st_pic2`) and the least liked
+  a row each a name (`<row>n`) and a value (`<row>v`): the most played maps (`osstp1` to `osstp5`, matches per map; the first's picture on the pictures' first panel, a
+  bar each against the first - full for the first, the rest's steps 0 to 10 as bits on `os_global`, `stp2-1` to `stp5-8`), the modes' shares of the matches
+  (`osstmd`, bars `stmar-`, `stmdm-` and `stmwm-` with their bits) and the hall of
+  shame (`osstc1` to `osstc3`: every crash counted on a map and the `crash` dislikes); the most liked (`osstl1` to `osstl5`, likes in `votes.json`, fewer dislikes first in a tie; the first's
+  picture on the pictures' second panel, beside the most played one's since content v4.16.0), the most voted for in our ballots (`osstv1` to `osstv5`, the cards'
+  votes, every mode) and the least liked
   (`osstd1` to `osstd3`, dislikes of any reason); the players' records (`ossr1` to `ossr7`: the most matches, hours, evenings - days with a match - matches ended
   after midnight and before five, the first one in, and, shown by `str6` and `str7` once there are some, Arms Race's wins and kills), the matches' (`ossm1` to
   `ossm4`: the longest, the shortest real one - a minute at least, ended by its match end - the busiest evening, the Wingman blowout) and the fun ones (`ossf1` to
   `ossf6`, each shown by its class `stf1` to `stf6` once it has data: the most kills in one match, the Sharpshooter - the best share of head shots past 50 kills -
   knife kills, chickens, the longest shot, the nemesis - the most kills of one player on another - and `ossfnote`, `Counting since` the day the frags began). The
-  page dims while there is no history (`stnone`). Its words are the same for everybody, on `os_global`, which every content has; its bars and pictures - panels
-  of content v4.15.0's own - and You go to each viewer's own slot, You on their `os_screen`, only while their window shows the page: never into everybody's
-  state, which every game reads.
+  page dims while there is no history (`stnone`). Its words, classes and bars are the same for everybody, on `os_global`, which every content has; You goes on
+  each viewer's `os_screen` and the two pictures on their own picture panels 1 and 2 (3 and 4 none), only while their window shows the page.
 
 **The lab's seed**: `bridge --lab-seed DIR` writes a made-up `history.jsonl`, `ballots.jsonl` and `votes.json` into DIR - Test A to Test D and four more names,
 fifteen matches over the five evenings before the day it runs, on maps with pictures, every record of STATS with data - so the pages can be filmed and tested
@@ -1097,7 +1101,9 @@ the three (`Limit:`) and keeps each under 900, our margin under the 1,024. So ne
 classes on `os_screen`, and ids for buttons only.
 The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
 its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
-banner stays and names both versions; a newer game's shows for 15 s at the join.
+banner stays and names both versions; a newer game's shows for 15 s at the join. The server's version is `osver` on `os_global`; for a game the server knows
+to be older (its HUD check named an older content) `osver` on its own `os_screen` says why too - "v4.16.0 - HISTORY and STATS need it"
+(`HudVersion.OutdatedLine`), which its banner ("Yours v4.15.0 · The server's ...") and its window's foot show in place of the plain version.
 
 **The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click, and it comes from [the welcome](#in-game-hud): until the
 server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds

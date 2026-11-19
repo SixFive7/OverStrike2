@@ -40,6 +40,7 @@ public static class HudVersion
         ("v4.13.0", 55), // MAPS right of CS2's chat; the ballot four across with the vote's own numbers, its state, how to vote and one clock
         ("v4.14.0", 56), // one row of tabs; every page beside the chat; our own chat column, taller and always there; the download in the window; the browser's cards as the vote's
         ("v4.15.0", 57), // the HISTORY and STATS pages of their own (HudBrowser.HistoryLevel); a seventh reason, the crash; the warm-up banner's own look; the band beyond our box; de_cbble's and de_ancient's pictures
+        ("v4.16.0", 58), // HISTORY and STATS with no panel id the server names that an older content lacks: their state in classes, their pictures over the pages; the band gone
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older
@@ -65,8 +66,16 @@ public static class HudVersion
     public const int LatestLast = 99;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The dialog variable on os_global that the layouts' labels inherit for the server's HUD version.</summary>
+    /// <summary>The dialog variable on os_global that the layouts' labels inherit for the server's HUD version - and on an outdated game's own os_screen the
+    /// version with why it is needed (OutdatedLine), which overrides os_global's for that game alone.</summary>
     public const string Var = "osver";
+
+    /// <summary>Why a game needs the server's content, as the outdated banner and the window's foot say it after the version: "v4.16.0 - HISTORY and STATS need
+    /// it" (content v4.16.0's reason; a later content's reason changes these words alone).</summary>
+    public const string OutdatedWhy = "HISTORY and STATS need it";
+
+    /// <summary>osver for an outdated game: the server's version and why it needs it.</summary>
+    public static string OutdatedLine(string serverVersion) => $"{serverVersion} - {OutdatedWhy}";
 
     /// <summary>The version class on os_global for everybody: the newest content the server knows (latest-N). The plugin turns the latest class it sent before off
     /// itself when the level moves.</summary>
