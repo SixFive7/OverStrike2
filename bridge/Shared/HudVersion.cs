@@ -39,7 +39,7 @@ public static class HudVersion
         ("v4.12.2", 54), // ...on a card's Play and on Previous too: there the line stays drawn while nothing is pending, clear by its colours alone
         ("v4.13.0", 55), // MAPS right of CS2's chat; the ballot four across with the vote's own numbers, its state, how to vote and one clock
         ("v4.14.0", 56), // one row of tabs; every page beside the chat; our own chat column, taller and always there; the download in the window; the browser's cards as the vote's
-        ("v4.15.0", 57), // the match history: a HISTORY tab and MAPS' History view, a card a match with when, who and a note (HudBrowser.HistoryLevel); a seventh reason, the crash
+        ("v4.15.0", 57), // the HISTORY and STATS pages of their own (HudBrowser.HistoryLevel); a seventh reason, the crash; the warm-up banner's own look; the band beyond our box; de_cbble's and de_ancient's pictures
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older
