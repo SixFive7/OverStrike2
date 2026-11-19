@@ -457,9 +457,9 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(hudClicks.Contains("if (slots.PageOf(player.Slot) == HudSlots.Page.History && HudBrowser.HasHistory(VersionOf(who)))", StringComparison.Ordinal)
           && hudClicks.Contains("page.Click(buttonId, page.Matches(history, who).Count)", StringComparison.Ordinal)
           && hudClicks.Contains("page.Command(buttonId, history, catalog, state, me.Browser, who, now, mode.Id, vote) is { } said", StringComparison.Ordinal)
-          && hudClicks.Contains("buttonId == HudBrowser.HistoryButton && HudBrowser.HasHistory(VersionOf(who))", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
+          && !hudClicks.Contains("HistoryButton", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
           && historyChat.Contains("|| HistoryOpen(player), VoteOpen);", StringComparison.Ordinal) && historyChat.Contains("Player(player.Slot).History.Find(words);", StringComparison.Ordinal),
-        "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs) - and a chat line typed while it shows searches it");
+        "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs; MAPS' old History button is gone, its click with it) - and a chat line typed while it shows searches it");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");

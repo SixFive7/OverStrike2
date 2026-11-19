@@ -44,7 +44,6 @@ sealed partial class HudScreen
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
-        if (buttonId == HudBrowser.HistoryButton && HudBrowser.HasHistory(VersionOf(who))) { slots.Show(player.Slot, HudSlots.Page.History, now); Server.NextFrame(Frame); return; } // MAPS' old way in (out of sight)
         if (slots.PageOf(player.Slot) == HudSlots.Page.History && HudBrowser.HasHistory(VersionOf(who))) // the HISTORY page (content v4.15.0; the tab opened it, HudView.Tabs)
         {
             var page = me.History;

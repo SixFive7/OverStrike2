@@ -62,10 +62,6 @@ public sealed class HudBrowser
     /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19; a page of its own since the owner's 304 a): the HISTORY page (HudHistoryPage).</summary>
     public const string HistoryTab = "os_tab_history";
 
-    /// <summary>MAPS' History button, the first way into the matches played: out of sight since content v4.15.0, which has the HISTORY page in its place. Its
-    /// click opens that page too, and nothing is sent to it, until the layout drops it.</summary>
-    public const string HistoryButton = "os_fl_hist";
-
     /// <summary>The first content with the HISTORY and STATS pages (content v4.15.0): until this server's own content is that one, and for a game whose HUD check
     /// named an older one, the plugin sends none of their words and classes, so no game logs "Unable to find panel" for a panel its content lacks (as
     /// HudVote.NumbersLevel).</summary>
