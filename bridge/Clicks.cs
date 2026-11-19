@@ -27,7 +27,6 @@ static partial class Program
         Log($"hud: {name} {f[0]} clicked {f[2]}");
         Present(f[0], name);
         if (f[2].StartsWith("!hudok ", StringComparison.Ordinal)) { HudVerify(f[0], name, f[2][7..]); return true; } // never a chat command: only a click says it
-        if (f[2] == EarlyJoin.Command) { FairRestart(f[0], name); return true; } // never a chat command nor a click: the plugin's own ask (EarlyJoin.cs)
         Command(name, f[0], f[2]);
         return true;
     }
@@ -78,7 +77,7 @@ static partial class Program
         var now = Now();
         var mine = new List<(DateTime Since, Action Stop)>();
         foreach (var p in PicksDue.Values.Where(p => p.SteamId == steamId && p.At > now)) mine.Add((p.At.AddSeconds(-PickCountdownSeconds), () => CancelPick(name, steamId, Key(p.Map))));
-        if (RematchDue is { Fair: false } r && r.SteamId == steamId && r.At > now) mine.Add((r.At.AddSeconds(-PressedSeconds), () => CancelRematch(name, steamId)));
+        if (RematchDue is { } r && r.SteamId == steamId && r.At > now) mine.Add((r.At.AddSeconds(-PressedSeconds), () => CancelRematch(name, steamId)));
         if (RestartDue is { Kind: PlayerKind, GoesAt: { } goes } d && d.ById == steamId && goes > now) mine.Add((d.NoticeAt, () => CancelRestart(name, steamId)));
         if (mine.Count == 0) { Tell(steamId, M.Refused("No countdown of yours runs - A countdown's own button in the menu stops anybody's")); return; }
         mine.MaxBy(x => x.Since).Stop();
@@ -93,6 +92,7 @@ static partial class Program
         if (cmd == "!map" && arg != "") { var (map, mode) = Hud.SplitMode(arg); PickMap(name, steamId, map, mode); }
         else if (cmd == "!restart") RestartServer(name, steamId);
         else if (cmd == "!rematch") RestartMatch(name, steamId);
+        else if (cmd == Hud.StartWord) StartNow(name, steamId); // WarmUp.cs: the warm-up ends now
         else if (cmd == "!cancel") Cancel(name, steamId, arg); // a countdown a click started: its button's Cancel
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
         else if (cmd == "!next") StartVote(name, steamId, arg == "random"); // VoteRound.cs: Start a vote; "!next random" is !random's

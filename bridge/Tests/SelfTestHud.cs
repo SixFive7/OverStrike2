@@ -197,7 +197,7 @@ static partial class Program
             && HudMenu.Command(HudMenu.Restart, back, asNow, new HudBrowser(), 1, now) == "!cancel restart" && HudMenu.Command(HudMenu.Rematch, back, asNow, new HudBrowser(), 1, now) == "!cancel rematch");
         var fair = new HudState { RematchAtMs = t0Ms + 4000, RematchBy = "Eve", RematchFair = true, RestartKind = "daily", RestartWhen = "now", RestartAt = t0Ms / 1000 + 30 }.AsOf(t0Ms);
         var (fgt, fgc) = HudMenu.Game(fair, 0);
-        Check("...the fairness restart and the watcher's restart are no button's: no countdown in the buttons, and a click there asks as ever",
+        Check("...an older bridge's fairness restart and the watcher's restart are no button's: no countdown in the buttons, and a click there asks as ever",
             !fgc.Single(x => x.Id == HudMenu.Restart && x.Class == "pending").On && !fgc.Single(x => x.Id == HudMenu.Rematch && x.Class == "pending").On
             && fgt.Single(x => x.Id == "os_set_rematch_text").Text == "Restart the match" && HudMenu.Command(HudMenu.Rematch, back, fair, new HudBrowser(), 1, now) == "!rematch");
         var (pqt, pqc) = HudMenu.PreviousButton(asNow, asBars);

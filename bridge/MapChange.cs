@@ -61,12 +61,12 @@ static partial class Program
 
     /// <summary>The dice's automatic change (one helper for the four): the start roll, the empty server's way back to Arms Race, a map gone from
     /// the Workshop, a map that crashes the players' games - the times nobody can vote. A map on the server's disk (Stock.cs). Lead says why.
-    /// False: nothing to roll.</summary>
-    static bool AutoRoll(string lead, Modes.Mode? mode = null)
+    /// The map rolled, whose change has gone out by the return (StartChange fires it at once, and Pending is null again); null: nothing to roll.</summary>
+    static MapInfo? AutoRoll(string lead, Modes.Mode? mode = null)
     {
-        if (RandomNext(mode) is not { } map) return false;
+        if (RandomNext(mode) is not { } map) return null;
         StartChange(new Change(map, "the dice") { Auto = true }, $"{lead} - Rolling the dice: {Label(map)}{Detail(map, MapTags.WhyWords(TagsOf(map), picked: false))}{ModeTag(map)}");
-        return true;
+        return map;
     }
 
     static void LoadDeadline(DateTime now)

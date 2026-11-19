@@ -88,9 +88,9 @@ public class OverStrike2Plugin : BasePlugin
         new SpawnRoom(this, Logger, () => settings.Mode.Id).Load();
         // The live lab's probe for the spawn invisibility (InvisProbe.cs, os_probe): inert until the console tells it what to watch.
         new InvisProbe(this, Logger).Load();
-        // The fairness restart (EarlyJoinWatch.cs): every player who joins a match in its first minute while somebody else plays it starts it over, in every mode,
-        // through the bridge's Restart match - a join while one counts down folds into it.
-        new EarlyJoinWatch(this, Logger, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);
+        // The warm-up (EarlyJoinWatch.cs): every map starts in CS2's own, while everybody coming gets there; the bridge ends it, and the real match starts for all
+        // of them at once - nothing restarts it after that.
+        new EarlyJoinWatch(this, Logger).Load(hotReload);
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // Vampire heals only from enemies, by catch-up's rule of who is one; takes only what catch-up's lifesteal leaves of the half a hit may

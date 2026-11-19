@@ -130,6 +130,7 @@ static partial class Program
         if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line
         PutWhy(h, now); // Likes.cs: the Dislike popups that are open
         PutRestart(h, now); // Restarts.cs: a restart coming, with its countdown
+        PutWarmUp(h, now);  // WarmUp.cs: the warm-up on the countdown banner, whom it waits for (HudView.CountdownOf gives a change or a restart counting down the banner first)
         PutPicksDue(h, now); // Picks.cs: a risky map's confirmed pick counting down to the vote
         if (Pending is { } c)
         {

@@ -16,9 +16,12 @@ static partial class Program
         var phaseReply = ""; // the plugin's answer to os_phase: none, as from a plugin without it, unless a test says otherwise
         var joiningReply = ""; // ...and to os_joining: none, as from a plugin without it (nobody waited for), unless a test says otherwise
         string? statusTable = null; // ...and status's players table: none, as from a short status, unless a test gives one
-        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command == EarlyJoin.JoiningCommand ? joiningReply
+        Func<string>? joiningNow = null, statusNow = null; // ...or both made at the moment they are asked, from a replay's own state
+        Func<string>? warmUpNow = null, warmEndNow = null; // ...and os_warmup and os_warmup end, a warm-up test's: none, as from a plugin without it
+        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command == EarlyJoin.JoiningCommand ? joiningNow?.Invoke() ?? joiningReply
+            : command == EarlyJoin.WarmUpCommand ? warmUpNow?.Invoke() ?? "" : command == $"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}" ? warmEndNow?.Invoke() ?? ""
             : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
-            : command == "status" ? statusTable ?? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
+            : command == "status" ? statusNow?.Invoke() ?? statusTable ?? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
             : command == RematchCommand ? restartReply : command == RematchFallback ? bareReply : "";
         try
         {
@@ -27,11 +30,13 @@ static partial class Program
             void Twice((string Name, string Id) p, string command) { Click(p, command); Click(p, command); }
             bool InChat(string line) => SaysNow.Any(l => M.Plain(l.Text) == line);
             bool OnBoard(string line) => LatelyNow.Any(l => l.Text == line);
+            List<string> ComingNames() => [.. JoiningNow(h.Clock).Select(c => c.Name)]; // who the warm-up waits for now, by name
             HudState Live() => HudState.Decode(BuildHud(h.Clock).Encode(endTimes: true))!.AsOf(HudState.Ms(h.Clock)); // the live state as the plugin has it at this moment
             void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the HUD, on the lists below, Alice and Bob on
             {
                 h.Fresh();
                 HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = ""; joiningReply = ""; statusTable = null;
+                joiningNow = null; statusNow = null; warmUpNow = null; warmEndNow = null;
                 Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
@@ -222,9 +227,6 @@ static partial class Program
             Check("...nothing goes out, and its wait went with it: it may be pressed again at once", !h.Sent.Contains(RematchCommand) && RematchWaitUntil == default);
             ClearNotices(); Twice(bob, "!rematch");
             Check("...as Bob does", RematchDue is { By: "Bob" } && !h.Said("The match was just restarted"));
-            RematchDue = new Rematch("Cara", h.Clock.AddSeconds(5), Fair: true);
-            ClearNotices(); Click(alice, "!cancel rematch");
-            Check("...the fairness restart is no button's: a Cancel leaves it", RematchDue is { Fair: true } && h.Said("No restart of the match counts down"));
 
             // ---- the chat's !cancel: the newest countdown of the player's own ----
             Fresh();
@@ -332,245 +334,260 @@ static partial class Program
             rconDown = false;
             Check("RCON not answering: the line for everybody says it did not restart", h.Said("The server did not answer - The match did not restart") && RematchDue == null);
 
-            // ---- the fairness restart (EarlyJoin.cs): the plugin's ask on /act for every join, the countdown, os_restart; joins folding in; the refusals that hold ----
-            void Fair((string Name, string Id) p) => HudAct($"{p.Id}\t{p.Name}\t{EarlyJoin.Command}");
-            var cara = ("Cara", "[U:1:2003]");
-            var dan = ("Dan", "[U:1:2004]");
-            Fresh();
-            Fair(bob);
-            var fair = Live();
-            Check($"The fairness restart: the plugin's ask for Bob counts down {EarlyJoin.CountdownSeconds} s on the countdown banner - the logo, who came in, the seconds - and nothing goes out before",
-                fair is { RematchBy: "Bob", RematchFair: true, RematchCount: 1, RematchIn: EarlyJoin.CountdownSeconds } && fair.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(EarlyJoin.CountdownSeconds))
-                && !h.Sent.Contains(RematchCommand)
-                && HudView.CountdownOf(fair) is { Eyebrow: "Match", Title: "The match restarts for fairness - Bob is in", Line: "The whole match starts over", Logo: true, Seconds: EarlyJoin.CountdownSeconds });
-            var fairLine = $"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob is in";
-            Check($"...chat and the board say it for everybody: {fairLine}", InChat(fairLine) && OnBoard(fairLine));
-            h.Run(2);
-            ClearNotices();
-            Fair(cara);
-            Fair(cara); // the same join twice (a click repeated): named once
-            fair = Live();
-            Check("...Cara joining while it counts down folds into it: one restart, at the same moment, and the banner and a line name them both",
-                fair is { RematchBy: "Bob and Cara", RematchFair: true, RematchCount: 2 } && fair.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(EarlyJoin.CountdownSeconds - 2))
-                && HudView.CountdownOf(fair) is { Title: "The match restarts for fairness - Bob and Cara are in" }
-                && InChat($"The match restarts for fairness in {EarlyJoin.CountdownSeconds - 2} s - Bob and Cara are in"));
-            Click(alice, "!rematch");
-            Click(alice, "!rematch");
-            Check("...a player's Restart match meanwhile says the fairness restart comes already", h.Said("The match restarts for fairness already - It goes in") && RematchDue is { Fair: true });
-            h.Run(EarlyJoin.CountdownSeconds);
-            Check("...then the plugin's os_restart goes out once, as Restart match's does, and the banner is gone",
-                h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
-            h.Sent.Clear();
-            ClearNotices();
-            Fair(dan);
-            Check("...Dan joining as it goes out folds into it too: the game is starting everybody over, so nothing more counts down", RematchDue == null && !SaysNow.Any());
-            h.Run(5);
-            Fair(dan);
-            Check("...not once per map: the next join after that is a restart of its own",
-                RematchDue is { Fair: true, By: "Dan" } && Live() is { RematchBy: "Dan", RematchCount: 1 });
-            h.Run(EarlyJoin.CountdownSeconds + 1);
-            Check("...and goes out as the first did", h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null);
-            ClearNotices(); h.Sent.Clear();
-            Twice(alice, "!rematch");
-            Check("...and starts no wait: a player's Restart match right after a fairness restart goes - only a pressed one makes the next one wait",
-                RematchDue is { Fair: false, By: "Alice" } && !h.Said("The match was just restarted") && RematchWaitUntil > h.Clock);
-            Fresh();
-            StartVote(bob.Item1, bob.Item2);
-            ClearNotices();
-            Fair(alice);
-            Check("The fairness restart: none while a vote is on - nobody is told", Ballot is { Open: true } && RematchDue == null && !SaysNow.Any());
-            Fresh();
-            Twice(alice, "!rematch");
-            ClearNotices(); h.Sent.Clear();
-            Fair(bob);
-            Check("...a join while a player's Restart match counts down folds into that one: it starts Bob over too, and nothing else counts down",
-                RematchDue is { Fair: false } && !SaysNow.Any());
-            h.Run(PressedSeconds + 1);
-            ClearNotices(); h.Sent.Clear();
-            h.Run(5);
-            Fair(bob);
-            Check($"...but the minute after a Restart match, which a player's next Restart match waits, does not hold a join's: Bob restarts it", RematchDue is { Fair: true, By: "Bob" });
-            Fresh();
-            S.Mode = Modes.WingmanId; S.Map = new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId);
-            Fair(bob);
-            Check("...in Wingman too, like Arms Race and Deathmatch", RematchDue is { Fair: true, By: "Bob" });
-            Fresh();
-            h.MatchEnd(); EndBallot("the test's");
-            phaseReply = MatchPhase.Reply(1);
-            h.Run(15);
-            Fair(cara);
-            Check("...and in a next match on the same map 15 s after the match end - the screen cut short - a join restarts it: the plugin's os_phase says the match is on",
-                RematchDue is { Fair: true, By: "Cara" });
-            Fresh();
-            h.MatchEnd(); EndBallot("the test's");
-            phaseReply = MatchPhase.Reply(MatchPhase.Ended);
-            Fair(cara);
-            Check("...while a join the plugin asks about with the screen still up restarts nothing", RematchDue == null);
-            Fresh();
-            Fair(bob);
-            Fair(cara);
-            var older = string.Join('\n', BuildHud(h.Clock).Encode(endTimes: true).Split('\n').Select(l => l.StartsWith("rematch\t", StringComparison.Ordinal)
-                ? string.Join('\t', l.Split('\t').Take(3)) : l));
-            var olderPlugin = HudState.Decode(older)!;
-            Check("The fairness restart on the wire: the rematch line's third field, and its fourth, the count of names - a line without them (an older bridge) is a player's Restart match by one",
-                Live() is { RematchFair: true, RematchCount: 2 } && olderPlugin is { RematchFair: false, RematchBy: "Bob and Cara", RematchCount: 1 } && olderPlugin.RematchAtMs > 0);
-
-            // ---- the fairness restart waits for those still joining (os_joining), so the players in start over once for all of them ----
-            Check("os_joining's reply reads back: its count and one name a line - a name with commas in it stays one, a tab is a space; nobody is an empty list; no answer, or a plugin without it, is none",
-                EarlyJoin.ReadJoining(EarlyJoin.JoiningReply(["Cara", "Dan, the 2nd"])) is ["Cara", "Dan, the 2nd"] && EarlyJoin.ReadJoining(EarlyJoin.JoiningReply([])) is []
-                && EarlyJoin.ReadJoining(null) == null && EarlyJoin.ReadJoining("Unknown command 'os_joining'!") == null && EarlyJoin.ReadJoining("") == null
-                && EarlyJoin.JoiningReply(["a\tb"]) == "os_joining: 1\na b" && EarlyJoin.ReadJoining("os_joining: 2\nCara") is ["Cara", "?"]);
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply(["Cara", "Dan"]);
-            ClearNotices(); h.Sent.Clear();
-            Fair(bob);
-            Check("The fairness restart while anybody is still joining - connecting, at CS2's prompt to confirm a first Workshop download, downloading or loading the map: it waits for them, no countdown, one line says whom it waits for",
-                RematchDue == null && FairWaitSince != null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null && h.Sent.Contains(EarlyJoin.JoiningCommand)
-                && InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cara and Dan") && !h.Sent.Contains(RematchCommand));
-            h.Run(10);
-            joiningReply = EarlyJoin.JoiningReply(["Dan"]);
-            Fair(cara);
-            h.Run(10);
-            Check("...a joiner who comes in folds into it, and it goes on waiting while one is left joining",
-                RematchDue == null && FairWaitSince != null && FairNames.SequenceEqual(["Bob", "Cara"]) && !h.Sent.Contains(RematchCommand));
-            joiningReply = EarlyJoin.JoiningReply([]);
-            Fair(dan);
-            ClearNotices();
-            h.Run(1.1);
-            Check("...once nobody is left joining: one countdown for everybody, naming them all",
-                RematchDue is { Fair: true } && FairWaitSince == null && Live() is { RematchFair: true, RematchCount: 3, RematchBy: "Bob, Cara and Dan" }
-                && InChat($"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob, Cara and Dan are in"));
-            h.Run(EarlyJoin.CountdownSeconds);
-            Check("...then one restart", h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null);
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply(["Stuck"]);
-            Fair(bob);
-            h.Run(EarlyJoin.HoldMostSeconds - 2);
-            Check($"...a joiner stuck there does not hold it for good: still waiting {EarlyJoin.HoldMostSeconds - 2} s on", RematchDue == null && FairWaitSince != null && !h.Sent.Contains(RematchCommand));
-            h.Run(3);
-            Check($"...after {EarlyJoin.HoldMostSeconds} s it counts down without them", RematchDue is { Fair: true } && FairWaitSince == null);
-            h.Run(EarlyJoin.CountdownSeconds + 1);
-            Check("...and goes out at the countdown's end: it does not wait again", h.Sent.Count(c => c == RematchCommand) == 1);
-            Fresh();
-            Fair(bob);
-            joiningReply = EarlyJoin.JoiningReply(["Eve"]);
-            h.Run(EarlyJoin.CountdownSeconds + 0.1);
-            Check("...somebody joining by the countdown's end - the HUD addon's reconnect, say: it waits for them too", !h.Sent.Contains(RematchCommand) && FairWaitSince != null && RematchDue == null);
-            joiningReply = EarlyJoin.JoiningReply([]);
-            h.Run(1.1);
-            Check("...then counts down again", RematchDue is { Fair: true } && FairWaitSince == null);
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply(["Cara"]);
-            Fair(bob);
-            StartVote(alice.Item1, alice.Item2);
-            h.Run(1.1);
-            Check("...a vote opening while it waits ends it: the vote decides first", FairWaitSince == null && RematchDue == null && Ballot is { Open: true });
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply(["Cara"]);
-            Fair(bob);
-            Twice(alice, "!rematch");
-            h.Run(1.1);
-            Check("...a player's Restart match while it waits starts them all over: the wait ends", FairWaitSince == null && RematchDue is { Fair: false, By: "Alice" });
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply(["Cara"]);
-            Fair(bob);
-            h.Line("Loading map \"ar_other\"");
-            h.Run(2);
-            Check("...and a map start ends it: the new map has a match of its own", FairWaitSince == null && RematchDue == null && !h.Sent.Contains(RematchCommand));
-            // ---- the live lab's run AX (release 218's re-film): a join needing a map it lacked - CS2's prompt to confirm a first Workshop download, left unanswered.
-            // The server logged the connect (the bridge's "Connected") and nothing after it; os_joining said 0 all through (the game hears of a client only once it
-            // has every addon); CS2 dropped it at 120 s and wrote no "disconnected" line. The server's own list (status) has such a joiner connecting until the drop.
-            var cas = ("Cas", "[U:1:2009]");
+            // ---- the warm-up (EarlyJoin.cs, WarmUp.cs): every map starts in CS2's own, the plugin's; the bridge follows it and ends it once everybody coming has
+            // spawned (two humans at least), at the most since the first spawn, or at !start - its end the one restart. The plugin faked here: CS2's warm-up on or
+            // off, the plugin's plan, os_warmup's answer and os_joining's; the server's own list (status) from who is where ----
             void Connects((string Name, string Id) p) => h.Line($"\"{p.Name}<2><{p.Id}><>\" connected, address \"192.0.2.9:27005\""); // the line as CS2's log push sends it
+            void Enters((string Name, string Id) p) => h.Line($"\"{p.Name}<2><{p.Id}><>\" entered the game");
             string Table(params (string Name, string State)[] rows) => "---------players--------\n  id     time ping loss      state   rate adr name\n"
                 + "65535 [NoChan]    0    0 challenging      0unknown ''\n" + string.Concat(rows.Select((r, i) => $"{i,5}    00:13   20    0 {r.State,10} 786432 192.0.2.{i + 1}:27005 '{r.Name}'\n")) + "#end";
+            var warmOn = false;            // CS2's warm-up
+            var gameClock = true;          // ...whose own clock ends it at the most (a game that took no new mp_warmuptime: false)
+            DateTime? warmEndedAt = null;  // ...ended at
+            var warmEndedBy = "";          // ...by the bridge (os_warmup end) or the game (its own clock)
+            EarlyJoin fakePlan = new();    // the plugin's plan
+            // A map with its warm-up: the cast on the map before (reload: through the change) or none, the script of their connects, entries, spawns, drops off the
+            // server, real departures and !start, half a second at a time. CS2's own clock ends the warm-up at the most from the first spawn, as the plugin sets it.
+            // What came of it: the warm-up's end (s after the map's start; -1: still on) and who ended it, the restarts that went out (a match is never restarted),
+            // who spawned after the end (they joined the match that runs); look: the test's own look each step.
+            (double EndAt, string By, int Restarts, List<string> Behind) Warm((string Name, string Id)[] cast, bool reload, (double At, string What, int Who)[] script, double until, Action<double>? look = null)
+            {
+                Fresh();
+                h.Leave(alice); h.Leave(bob);
+                if (reload) { foreach (var p in cast) h.Join(p); foreach (var p in cast) h.Leave(p, "NETWORK_DISCONNECT_SHUTDOWN"); } // the map change: everybody on the way back
+                h.Line("Loading map \"ar_warm\""); h.Line("Started:  \"\"");
+                fakePlan = new EarlyJoin();
+                fakePlan.MapStarted();
+                (warmOn, warmEndedAt, warmEndedBy, gameClock) = (false, null, "", true);
+                var state = new string[cast.Length]; // "" not connected, "conn" connected, "in" in the game, "off" off the server mid-way, "gone" left for real
+                long Acct(int i) => AccountId(cast[i].Id);
+                joiningNow = () => EarlyJoin.JoiningReply(Enumerable.Range(0, cast.Length).Where(i => state[i] == "conn").Select(i => cast[i].Name)
+                    .Concat(fakePlan.StillToSpawn(Enumerable.Range(0, cast.Length).Where(i => state[i] == "in").Select(Acct), h.Clock).Select(a => cast.First(p => AccountId(p.Id) == a).Name)));
+                statusNow = () => Table([.. Enumerable.Range(0, cast.Length).Where(i => state[i] is "conn" or "in").Select(i => (cast[i].Name, state[i] == "in" ? "active" : "connecting"))]);
+                warmUpNow = () => EarlyJoin.WarmUpReply(warmOn, fakePlan.FirstSpawn is { } f ? (h.Clock - f).TotalSeconds : null, fakePlan.SpawnedCount,
+                    fakePlan.FirstSpawn is { } g && gameClock ? (g.AddSeconds(EarlyJoin.WarmUpMostSeconds) - h.Clock).TotalSeconds : null);
+                warmEndNow = () => { if (warmOn) (warmOn, warmEndedAt, warmEndedBy) = (false, h.Clock, "bridge"); return warmUpNow!(); };
+                var start = h.Clock;
+                var behind = new List<string>();
+                h.Sent.Clear();
+                for (var t = 0.0; t < until; t += 0.5)
+                {
+                    if (t == 1) warmOn = true; // the plugin begins it a second into the map
+                    if (warmOn && gameClock && fakePlan.FirstSpawn is { } first && h.Clock >= first.AddSeconds(EarlyJoin.WarmUpMostSeconds))
+                        (warmOn, warmEndedAt, warmEndedBy) = (false, h.Clock, "game"); // CS2's own clock: the most from the first spawn
+                    foreach (var (_, what, who) in script.Where(e => e.At >= t && e.At < t + 0.5))
+                    {
+                        var p = cast[who];
+                        if (what == "conn") { state[who] = "conn"; Connects(p); }
+                        else if (what == "enter") { state[who] = "in"; Enters(p); fakePlan.Entered(Acct(who), h.Clock); }
+                        else if (what == "off") state[who] = "off"; // the game leaves the server mid-way: its own download of the map, or a crash - no line
+                        else if (what == "leave") { state[who] = "gone"; h.Leave(p); fakePlan.Left(Acct(who)); }
+                        else if (what == "spawn" && fakePlan.Spawned(Acct(who), h.Clock) && warmEndedAt != null) behind.Add(p.Name);
+                        else if (what == "start") Click(p, Hud.StartWord);
+                    }
+                    h.Run(0.5);
+                    look?.Invoke(t + 0.5);
+                }
+                return (warmEndedAt is { } end ? (end - start).TotalSeconds : -1, warmEndedBy, h.Sent.Count(c => c == RematchCommand || c == RematchFallback), behind);
+            }
+            (string Name, string Id)[] five = [("Ike", "[U:1:2101]"), ("Gus", "[U:1:2102]"), ("Pia", "[U:1:2103]"), ("Hal", "[U:1:2104]"), ("Max", "[U:1:2105]")];
+            const int Most = EarlyJoin.WarmUpMostSeconds, Settle = EarlyJoin.SettleSeconds;
+            HudView.CountdownWords? Banner() => HudView.CountdownOf(Live());
+
+            // 2026-11-18's Shortdust (Wingman), with made-up names: all back at once, in the game at +3 to +5 s but Max at +13 s; the first team pick at +8.5 s, spawns at +9,
+            // +10, +15 and Max's at +29 s. Release 218 restarted the match twice, at +18 s and, for Max, at +34 s.
+            HudView.CountdownWords? bannerSeen = null;
+            var sd = Warm(five, true, [(0, "conn", 0), (0, "conn", 1), (0, "conn", 2), (0, "conn", 3), (0, "conn", 4),
+                (3, "enter", 0), (4, "enter", 1), (4, "enter", 2), (5, "enter", 3), (13, "enter", 4),
+                (8.5, "spawn", 2), (9, "spawn", 1), (10, "spawn", 0), (15, "spawn", 3), (29, "spawn", 4)], 60,
+                t => { if (t == 20) bannerSeen = Banner(); });
+            Check($"The warm-up, 2026-11-18's Shortdust replayed: it waits for everybody coming - Max at CS2's team menu too - and the bridge ends it {Settle} s after the "
+                + $"last spawn (+{sd.EndAt:0} s); no restart goes out, and nobody joins behind (release 218: two restarts)",
+                sd.EndAt >= 29 + Settle && sd.EndAt <= 29 + Settle + 2 && sd.By == "bridge" && sd.Restarts == 0 && sd.Behind.Count == 0 && WarmUpSince == null);
+            Check($"...meanwhile the countdown banner says WARM-UP, whom it waits for and what they do, and counts down to the latest start, CS2's own end: {bannerSeen}",
+                bannerSeen is { Eyebrow: "Warm-up", Title: "Waiting for Max - picking a team", Line: "The match starts when everyone is in - !start to begin now", Logo: true, Warm: true, Seconds: >= 108 and <= 110 }
+                && Banner() == null);
+            Check("...and the line for everybody as the match starts says why", h.Said("The match starts now - Everybody is in"));
+            // gg_moonglass (Arms Race): everybody in the game by +4 s; the first pick at +6.5 s, the next 0.5 s on, +9.5, +9.5 and Max's at +20.5 s. Release 218 did not wait at
+            // all (nobody connecting) and restarted twice.
+            var mg = Warm(five, true, [(1, "conn", 0), (1, "conn", 1), (1, "conn", 2), (1, "conn", 4), (2, "conn", 3),
+                (2, "enter", 2), (3, "enter", 0), (3, "enter", 1), (4, "enter", 4), (4, "enter", 3),
+                (6.5, "spawn", 0), (7, "spawn", 2), (9.5, "spawn", 3), (9.5, "spawn", 1), (20.5, "spawn", 4)], 60);
+            Check($"...2026-11-18's gg_moonglass: the three at the team menu are waited for, and it ends {Settle} s after Max's spawn (+{mg.EndAt:0} s) - no restart",
+                mg.EndAt >= 20.5 + Settle && mg.EndAt <= 20.5 + Settle + 2 && mg.Restarts == 0 && mg.Behind.Count == 0);
+            // Transit (Wingman, 1.7 GB): Gus in at +3 s and playing from +8 s; Ike connected at +14 s, off the server from +51 s (a download of his own, or a crash: no
+            // line), back at +98 s, in at +112 s, spawning at +117 s; Pia in at +24 s, spawning at +27 s; Max connected at +42 s, in at +52 s, spawning at +59 s; Hal not
+            // connected before +82 s - nothing but the log stream's departure names him till then - in at +88 s, spawning at +93 s. Release 218 restarted at +94 and +122 s.
+            HudView.CountdownWords? offSeen = null, backSeen = null;
+            var tr = Warm(five, true, [(0, "conn", 1), (3, "enter", 1), (8, "spawn", 1), (14, "conn", 0), (19, "conn", 2), (24, "enter", 2), (27, "spawn", 2),
+                (42, "conn", 4), (51, "off", 0), (52, "enter", 4), (59, "spawn", 4), (82, "conn", 3), (88, "enter", 3), (93, "spawn", 3),
+                (98, "conn", 0), (112, "enter", 0), (117, "spawn", 0)], 150,
+                t => { if (t == 95) offSeen = Banner(); else if (t == 105) backSeen = Banner(); });
+            Check($"...2026-11-18's Transit: everybody on the way back through the change is coming until in the game - the one off the server for 47 s, the one nothing "
+                + $"else named before his connect - so it ends {Settle} s after the last spawn (+{tr.EndAt:0} s), inside its {Most} s from the first spawn: no restart",
+                tr.EndAt >= 117 + Settle && tr.EndAt <= 117 + Settle + 2 && tr.EndAt < 8 + Most && tr.Restarts == 0 && tr.Behind.Count == 0);
+            Check($"...and the banner tells what the last one does: off the server mid-way after his connect, downloading ({offSeen?.Title}); back on it, loading ({backSeen?.Title})",
+                offSeen?.Title == "Waiting for Ike - downloading" && backSeen?.Title == "Waiting for Ike - loading");
+
+            // ---- its most, alone, !start, a newcomer, a leaver ----
+            (string Name, string Id)[] three = [("Ana", "[U:1:2111]"), ("Bo", "[U:1:2112]"), ("Cy", "[U:1:2113]")];
+            var cap = Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1),
+                (140, "conn", 2), (145, "enter", 2), (150, "spawn", 2)], 160);
+            Check($"Warm-up: a player from the map before who does not come back is waited for until the most, {Most} s after the first spawn (+{cap.EndAt:0} s) - CS2's own "
+                + "clock ends it, the bridge sends no end; the line names who joins it on arrival, and when they come they join the match that runs: no restart",
+                cap.EndAt >= 5 + Most && cap.EndAt <= 5 + Most + 1 && cap.By == "game" && !h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}")
+                && cap.Restarts == 0 && cap.Behind is ["Cy"] && h.Said($"The match starts now - {Most} s are up - Cy joins it on arrival"));
+            var alone = Warm(three, false, [(0, "conn", 0), (2, "enter", 0), (5, "spawn", 0), (60, "conn", 1), (64, "enter", 1), (70, "spawn", 1)], 100,
+                t => { if (t == 30) bannerSeen = Banner(); });
+            Check($"...one human alone is no \"all\": it runs on, so a friend who connects meanwhile gets the same start - Bo at +60 s, and it ends {Settle} s after his spawn (+{alone.EndAt:0} s)",
+                bannerSeen is { Title: "Nobody else on the way yet", Line: "Anyone who joins now starts with you - !start to begin now", Seconds: >= 94 and <= 96 }
+                && alone.EndAt >= 70 + Settle && alone.EndAt <= 70 + Settle + 2 && alone.Behind.Count == 0 && alone.Restarts == 0);
+            var solo = Warm(three, false, [(0, "conn", 0), (2, "enter", 0), (5, "spawn", 0)], 140);
+            Check($"...and with nobody coming all along, at the most (+{solo.EndAt:0} s), by CS2's own clock", solo.EndAt >= 5 + Most && solo.EndAt <= 5 + Most + 1 && solo.By == "game"
+                && h.Said($"The match starts now - {Most} s are up"));
+            HudView.CountdownWords? lateSeen = null;
+            var stuck = Warm(three, false, [(0, "conn", 0), (2, "enter", 0), (5, "spawn", 0)], 140,
+                t => { if (t == 1.5) gameClock = false; if (t == 60) lateSeen = Banner(); });
+            Check($"...a game whose own clock does not end it (it took no new mp_warmuptime): the bridge ends it {WarmUpLateSeconds} s past the most (+{stuck.EndAt:0} s), and "
+                + "the banner counted to the most from the first spawn all the same",
+                stuck.By == "bridge" && stuck.EndAt >= 5 + Most + WarmUpLateSeconds && stuck.EndAt <= 5 + Most + WarmUpLateSeconds + 1.5 && lateSeen is { Seconds: >= 64 and <= 66 });
+            var started = Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1), (30, "start", 1)], 40);
+            Check($"Warm-up: !start, by anybody, begins the match now for a friend who is not coming (+{started.EndAt:0} s); the line says who typed it and who joins on arrival",
+                started.EndAt >= 30 && started.EndAt <= 31 && started.By == "bridge" && started.Restarts == 0 && h.Said("The match starts now - Bo typed !start - Cy joins it on arrival"));
+            h.Quiet();
+            Click(three[0], Hud.StartWord);
+            Check("...and outside a warm-up it is refused: the match is on already", h.Said("No warm-up on - The match is on already") && !h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}"));
+            var newcomer = Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (3, "conn", 2), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1),
+                (20, "enter", 2), (24, "spawn", 2)], 40);
+            Check($"Warm-up: somebody new who connects during it is coming too - waited for, and it ends {Settle} s after their spawn (+{newcomer.EndAt:0} s)",
+                newcomer.EndAt >= 24 + Settle && newcomer.EndAt <= 24 + Settle + 2 && newcomer.Behind.Count == 0);
+            HudView.CountdownWords? settleSeen = null;
+            var leaver = Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1), (20, "leave", 2)], 40,
+                t => { if (t == 23) settleSeen = Banner(); });
+            Check($"...somebody who leaves during it is coming no more: it ends {Settle} s after their departure (+{leaver.EndAt:0} s), the banner counting the settle down",
+                leaver.EndAt >= 20 + Settle && leaver.EndAt <= 20 + Settle + 2 && settleSeen is { Title: "Everybody is in", Line: "The match starts in a moment", Seconds: >= 1 and <= Settle });
+            var late = Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1), (2, "leave", 2),
+                (30, "conn", 2), (33, "enter", 2), (38, "spawn", 2)], 60);
+            Check($"...and whoever comes after it ends just joins: no restart, the match runs on (+{late.EndAt:0} s, then a spawn at +38 s)",
+                late.EndAt < 30 && late.Restarts == 0 && late.Behind is ["Cy"]);
+
+            // ---- what holds it, what it refuses, and a plugin without it ----
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 8);
+            Twice(alice, "!rematch");
+            Check("Warm-up: Restart match is refused while it lasts - !start begins the match", h.Said($"It is the warm-up - Type {Hud.StartWord} to begin the match now") && RematchDue == null);
+            StartVote(three[0].Item1, three[0].Item2);
+            Click(three[0], Hud.StartWord);
+            Check("...and so is !start while a vote decides: the warm-up ends after it, as the banner says",
+                h.Said("Not during the vote for the next map - The warm-up ends after it") && warmOn && Banner()?.Line == "The match starts after the vote for the next map");
+            Fresh();
+            warmUpNow = () => "Unknown command 'os_warmup'!";
+            h.Line("Loading map \"ar_old\""); h.Line("Started:  \"\"");
+            h.Join(three[0]); h.Join(three[1]);
+            h.Sent.Clear();
+            h.Run(5);
+            Check("Warm-up: a plugin without os_warmup - the bridge asks once on the map, and follows none: no banner", h.Sent.Count(c => c == EarlyJoin.WarmUpCommand) == 1 && WarmUpSince == null && Banner() == null);
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 8);
+            warmOn = false; // the game left it by itself after a spawn (an operator's mp_warmup_end, say)
+            h.Run(1.1);
+            Check("...a warm-up the game left by itself after a spawn is over for the bridge too: the match is on, and the line says so",
+                WarmUpSince == null && Banner() == null && h.Said("The match starts now - The warm-up is over - Bo and Cy join it on arrival"));
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1)], 6);
+            warmOn = false; // off before anybody spawned: the plugin begins it again within seconds (EarlyJoinWatch)
+            h.Run(2.1);
+            var followedThrough = WarmUpSince != null && Banner() == null;
+            warmOn = true;
+            h.Run(1.1);
+            Check("...but off before anybody has spawned, the bridge waits for the plugin to begin it again, and follows it on: no line, the banner back",
+                followedThrough && WarmUpSince != null && Banner() is { Warm: true } && !h.Said("The match starts now - The warm-up is over"));
+
+            // ---- who is coming, by the server's own list and the log stream: the live lab's run AX - a join needing a map it lacked, CS2's prompt to confirm a first
+            // Workshop download left unanswered. The server logged the connect and nothing after it; os_joining said nobody (the game hears of a client only once it
+            // has every addon); CS2 dropped it at 120 s and wrote no "disconnected" line. The server's own list has such a joiner connecting until the drop ----
+            var cas = ("Cas", "[U:1:2009]");
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
             statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
             Connects(cas);
             h.Run(1.1);
-            Check("...the lab's joiner at the prompt: the bridge's log stream has them signing on from their \"connected\" alone, and tells the plugin's os_fair so (the names as hex)",
-                SigningOnNames(h.Clock) is ["Cas"] && h.Sent.Contains(EarlyJoin.BridgeViewCommand(["Cas"])));
+            Check("Warm-up's waiting set: the lab's joiner at the prompt - the bridge's log stream has them signing on from their \"connected\" alone, and tells the "
+                + "plugin's os_warmup so (the names as hex)", SigningOnNames(h.Clock) is ["Cas"] && h.Sent.Contains(EarlyJoin.BridgeViewCommand(["Cas"])));
             h.Run(3);
-            Check("...and, with no fairness restart waiting, reads the server's own list every 2 s while anyone signs on, and tells os_fair its joiners too (run AY's status line)",
+            Check("...and reads the server's own list every 2 s while anyone signs on, and tells os_warmup its joiners too (run AY's status line)",
                 h.Sent.Count(c => c == "status") >= 1 && h.Sent.Contains(EarlyJoin.BridgeViewCommand(["Cas"], ["Cas"])));
             ClearNotices(); h.Sent.Clear();
-            Fair(bob);
-            Check("...a fairness restart then waits for them, while os_joining says nobody: the server's own list has them connecting",
-                FairWaitSince != null && RematchDue == null && InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas") && h.Sent.Contains("status"));
+            Check("...JoiningNow names them while os_joining says nobody: the server's list has them connecting", ComingNames() is ["Cas"] && h.Sent.Contains("status"));
             h.Run(60);
+            Check($"...and what they do is downloading: connected {PromptGuessSeconds} s and more with no controller in the game - CS2's prompt to download the Workshop "
+                + "items, and the download", JoiningNow(h.Clock) is [("Cas", EarlyJoin.Downloading)]);
             statusTable = Table(("Alice", "active"), ("Bob", "active")); // CS2 drops the unanswered prompt: no line, and gone from its list
             h.Run(1.1);
-            var dropEnds = SigningOnNames(h.Clock) is [] && RematchDue is { Fair: true } && FairWaitSince == null;
-            h.Run(2);
-            Check("...CS2's drop writes no \"disconnected\" line; during the wait the server's list, read each second, has them no more within about a second, which ends "
-                + "their sign-on: the restart counts down, and os_fair hears nobody from either",
-                dropEnds && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], [])));
+            var notYet = ComingNames() is ["Cas"];
+            h.Run(EarlyJoin.DropConfirmSeconds + StatusWatchSeconds + 0.1);
+            Check($"...CS2's drop writes no \"disconnected\" line; the server's list lacks them read after read - a second alone is no drop, the HUD addon's reconnect "
+                + $"looks so - and after {EarlyJoin.DropConfirmSeconds} s that ends their sign-on, and os_warmup hears nobody from either",
+                notYet && SigningOnNames(h.Clock) is [] && ComingNames() is [] && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], [])));
+            Fresh();
+            joiningReply = EarlyJoin.JoiningReply([]);
+            Connects(cas);
+            h.Run(EarlyJoin.SignOnMostSeconds - 1);
+            var held = ComingNames() is ["Cas"];
+            h.Run(2.1);
+            Check($"...with no players table from status, the log stream alone counts them {EarlyJoin.SignOnMostSeconds} s from their \"connected\" - the prompt's "
+                + $"{EarlyJoin.PromptSeconds} s and a margin: a ghost holds nothing past the drop", held && ComingNames() is []);
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
             statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
             Connects(cas);
-            h.Run(60);
-            statusTable = Table(("Alice", "active"), ("Bob", "active")); // the drop, with no fairness restart waiting (run AY)
-            h.Run(StatusWatchSeconds + 1.1);
-            var endedSoon = SigningOnNames(h.Clock) is [] && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], []));
-            h.Sent.Clear();
-            h.Run(10);
-            Check($"...with no wait, too: the list read every {StatusWatchSeconds} s has them no more, which ends their sign-on and tells os_fair within about {StatusWatchSeconds + 1} s "
-                + "(run AY ended it at the 150 s bound) - and then the reading rests, nobody joining",
-                endedSoon && !h.Sent.Contains("status"));
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply([]);
-            Connects(cas);
-            h.Run(100);
-            Fair(bob);
-            var held = FairWaitSince != null && RematchDue == null;
-            h.Run(EarlyJoin.SignOnMostSeconds - 100 + 1.1);
-            Check($"...with no players table from status, the log stream alone counts them {EarlyJoin.SignOnMostSeconds} s from their \"connected\" - the prompt's {EarlyJoin.PromptSeconds} s "
-                + "and a margin - and then the restart goes, well inside its own 120 s: a ghost holds nothing past the drop",
-                held && SigningOnNames(h.Clock) is [] && RematchDue is { Fair: true } && FairWaitSince == null);
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply([]);
-            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
-            Connects(cas);
-            h.Run(100);
-            Fair(bob);
-            h.Run(60);
-            Check("...while the server's list still has them connecting past that bound (a long download), the restart still waits - its own 120 s hold it",
-                FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is []);
-            Fresh();
-            joiningReply = EarlyJoin.JoiningReply([]);
-            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
-            Connects(cas);
-            Fair(bob);
             h.Run(20);
             h.Leave(cas, "NETWORK_DISCONNECT_LOOPSHUTDOWN"); // MultiAddonManager has the joiner reconnect for the HUD addon
             statusTable = Table(("Alice", "active"), ("Bob", "active")); // a second between the two connections
             h.Run(1.1);
-            var throughReconnect = FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is ["Cas"];
+            var throughReconnect = ComingNames() is ["Cas"];
             statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
             Connects(cas);
             h.Run(3);
-            Check("...still waiting through the reconnect for the HUD addon (LOOPSHUTDOWN, then \"connected\" again a second later), though the server's list lacks them in between",
-                throughReconnect && FairWaitSince != null && RematchDue == null && SigningOnNames(h.Clock) is ["Cas"]);
-            h.Line("\"Cas<2><[U:1:2009]><>\" entered the game");
+            Check("...still coming through the reconnect for the HUD addon (LOOPSHUTDOWN, then \"connected\" again a second later), though the server's list lacks them in between",
+                throughReconnect && ComingNames() is ["Cas"]);
+            Enters(cas);
             statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "active"));
             h.Run(1.1);
-            Check("...and counts down once they are in the game", RematchDue is { Fair: true } && FairWaitSince == null && SigningOnNames(h.Clock) is []);
+            Check("...and in once they are in the game", ComingNames() is []);
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
             Connects(cas);
-            Fair(bob);
             h.Run(30);
             h.Leave(cas, "NETWORK_DISCONNECT_TIMEDOUT"); // a time-out once the game knows them writes the line
             h.Run(1.1);
-            Check("...a joiner whose departure the log does write (a time-out once the game has them) is no sign-on any more: the restart goes", RematchDue is { Fair: true } && FairWaitSince == null);
+            Check("...a joiner whose departure the log does write (a time-out once the game has them) is coming no more", ComingNames() is []);
             Fresh();
             joiningReply = EarlyJoin.JoiningReply(["Cas"]);
             statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
             Connects(cas);
-            Fair(bob);
-            Check("...a joiner all three name - the plugin, the server's list and the log stream - is named once", InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"));
+            Check("...a joiner all three name - the plugin, the server's list and the log stream - is named once", ComingNames() is ["Cas"]);
+            // the HUD addon's reconnect seen first by the server's list (seen live on 2026-11-18: a joiner's sign-on ended as "gone before they were in" in the same
+            // second as their LOOPSHUTDOWN line): a list that lacks a joiner once is no drop
+            var kit = ("Kit", "[U:1:2010]");
+            Fresh();
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Kit", "connecting"));
+            Connects(kit);
+            h.Run(7);
+            statusTable = Table(("Alice", "active"), ("Bob", "active")); // the reconnect: the list has lost them, the log stream has not said it yet
+            h.Run(1.1);
+            var raced = ComingNames() is ["Kit"];
+            h.Leave(kit, "NETWORK_DISCONNECT_LOOPSHUTDOWN");
+            h.Run(1);
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Kit", "connecting"));
+            Connects(kit);
+            h.Run(3);
+            Check($"...the server's list lacking a joiner a moment before the log stream says the HUD addon's reconnect (LOOPSHUTDOWN) is no drop: the list must lack them "
+                + $"{EarlyJoin.DropConfirmSeconds} s, read after read, and the reconnect's departure makes them one on the way back", raced && ComingNames() is ["Kit"]);
+            Fresh();
+            var lou = ("Lou", "[U:1:2011]");
+            Connects(lou);
+            h.Run(5);
+            h.Leave(lou, "NETWORK_DISCONNECT_LOOPDEACTIVATE");
+            Check("...a game that goes with NETWORK_DISCONNECT_LOOPDEACTIVATE has left - no reconnect, no sign-on, not on the server - as the plugin has it too (EarlyJoin.Reconnects)",
+                SigningOnNames(h.Clock) is [] && !PresentIds(h.Clock).Contains(lou.Item2));
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();

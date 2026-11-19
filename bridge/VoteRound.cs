@@ -537,7 +537,7 @@ static partial class Program
             {
                 b.KeptUntil = Now().AddSeconds(keptFor);
                 b.Countdown = (int)Math.Ceiling(keptFor - 0.001);
-                if (MatchEndUntil > b.KeptUntil) MatchEndUntil = b.KeptUntil.Value; // the match that starts then is no match that has just ended: a join restarts it for fairness, Restart match may go
+                if (MatchEndUntil > b.KeptUntil) MatchEndUntil = b.KeptUntil.Value; // the match that starts then is no match that has just ended: Restart match may go
                 After((int)Math.Ceiling(keptFor * 1000) + 50, () => BallotTick(Now())); // the window closes and everybody unfreezes as the match starts, not at the next second's tick
             }
             Save();

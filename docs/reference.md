@@ -143,6 +143,8 @@ the window's page. The **centre text** and the **alert** are CS2's own.
 | Play asks first: a risky map's padlock | A window line | That player | 30 s | That player | |
 | Why the dislike? ([below](#likes-and-dislikes)) | One dialog at the centre, only with a cursor | That player | 15 s | | |
 | The server restarts after this match | The status banner | Everybody | Until then | Everybody | Everybody |
+| The warm-up at a map's start: whom it waits for, counting down to the latest start | The countdown banner, with the project's logo | Everybody | Until the match starts | | |
+| The match starts after the warm-up: why, and who joins it on arrival | The top line (a news item) | Everybody | 8 s | Everybody | Everybody |
 | A restart counting down: the server's, a player's Restart the server, Restart the match | The countdown banner, with the project's logo | Everybody | 10 s | Everybody | Everybody |
 | A CS2 update | The top line | Everybody | Until the restart | Everybody | Everybody |
 | Updated to a new version | The top line | Everybody | 60 s | Everybody | Everybody |
@@ -203,6 +205,7 @@ in which only `!help` is Lime. Every section of a line starts with a capital, an
 | `!time [10\|60]` | Match length in minutes, this match too - Wingman's in rounds, 8 or 16 - Alone it switches | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` `!matchlength` `!matchtime` `!mins` `!rounds` |
 | `!restart` | Restart a stuck server - Twice to confirm | `!reboot` `!unstuck` `!stuck` `!restartserver` `!serverrestart` `!rebootserver` `!serverreboot` |
 | `!rematch` | Restart the match - Twice to confirm | `!restartmatch` `!matchrestart` `!restartgame` `!rr` `!newmatch` `!resetmatch` `!matchreset` `!newgame` |
+| `!start` | End the warm-up now: the match starts for everybody | `!begin` `!live` `!golive` `!startmatch` `!matchstart` `!endwarmup` `!warmupend` `!nowarmup` `!skipwarmup` `!letsgo` |
 | `!cancel` | Stop your own countdown, the newest: a pick, Previous, Restart match or the server's restart | `!stop` `!abort` `!nvm` `!nevermind` `!hold` `!wait` `!norestart` `!norematch` |
 | `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` `!mainmenu` `!overstrike` `!panel` `!home` `!window` |
 | `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` `!command` `!cmd` `!helpme` `!support` `!guide` |
@@ -403,10 +406,10 @@ is ready", no clock (`VoteState.Fetching`) - until the map starts. At a match en
 sooner or later than it would end), so the next match never starts on the old map while the new one comes, and everybody stays on the scoreboard; a
 download that outlasts it lets the screen end there and the next match start on the old map, and the new map still comes the moment it is in. Mid-match the
 window says it for 8 s (`bridge.changeDelaySeconds`), then everybody plays on until it loads. After Play this map again the game starts the next
-match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no fairness restart follows. As at
+match on the same map, as at any end of the screen (`mp_match_end_restart 1`): no map load, so nobody goes through a load and no warm-up comes first. As at
 any such end, CS2 moves every player to Unassigned and kicks the bots: everybody picks a side again at CS2's team select - a play of the same map again is often
-for other teams - and the bots come back with the first pick. A player who picks a side again is no join for the fairness restart: no map starts, so the map's
-record of who joined stays. 2 s after the new end the plugin logs whether the next match did start. A plugin without the command, or a screen that ends sooner by
+for other teams - and the bots come back with the first pick. A player who picks a side again goes through no warm-up: no map
+starts. 2 s after the new end the plugin logs whether the next match did start. A plugin without the command, or a screen that ends sooner by
 itself, leaves it as it was: the window closes at once, and the screen runs out by itself. The dice's own changes - the start roll, an empty server's way back
 to Arms Race, a map gone from the Workshop or one that crashes the players' games, a match end nothing draws a vote for - go out at once too, with the line
 that says why (`StartChange`): nothing counts down before any map change.
@@ -540,7 +543,8 @@ Race, when the map that is on has just gone from the Workshop, when it has just 
 
 ### The match length and the restarts
 
-Anybody may change the length and press the two restarts, on the Game page or in chat; each says for everybody who did it. The fairness restart is the server's own.
+Anybody may change the length and press the two restarts, on the Game page or in chat; each says for everybody who did it. Every map starts with its warm-up
+(below), whose end starts the match for everybody at once; nothing else restarts a match.
 
 - **The match length** (`!time 10`, `!time 60`, or a bare `!time` for the other one; Arms Race's and Deathmatch's, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: each of the two modes is one long
   round, so the plugin (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
@@ -556,42 +560,53 @@ Anybody may change the length and press the two restarts, on the Game page or in
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms - 0.5 s or more after the click before it, so a double
   click never does (`HudBrowser.DoubleClick`, as for a risky map's Play). The first click's note asking for the second goes the moment it is settled: at the
   confirm, or when another player's first click takes the window over (the same for Restart the server and a risky map's Play) - then 10 s count down on the countdown banner with the player's name and in the button
-  itself, where a click by anybody cancels it (`!cancel rematch`; the news line says who, and the next one may be pressed at once - the fairness restart has no button),
+  itself, where a click by anybody cancels it (`!cancel rematch`; the news line says who, and the next one may be pressed at once),
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
-  mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended -
+  mode and the fun settings stay. It is refused during a map's warm-up (`!start` begins the match), while the server's restart counts down, a map change counts down or loads, a vote is on
+  or the match has just ended -
   its match-end screen still up, when the game ignores a restart: the bridge asks the plugin (`os_phase`, `bridge/Shared/MatchPhase.cs`, never past 150 s after the
   match end; a plugin that cannot say, the 30 s after it) - and for 60 s after the last one was pressed; a match end, a map start or the server going down during its
   countdown ends it.
-- **The fairness restart** (`bridge/Shared/EarlyJoin.cs`): no mode has a
-  warmup - every cfg sets `mp_warmup_online_enabled 0`, so a match is on the moment the first player is in - and a player who loads the map more slowly, or joins later, would
-  come into a match that is already on, at level 0 in Arms Race, a round in in Wingman. So **every** human who joins a match during its first **60 s** while somebody else
-  plays it starts it over, in Arms Race, Deathmatch and Wingman alike, as often as players join: up to 9 restarts in a 10-player match, known and desired. A join is a human's
-  first spawn on a team since they connected or the map loaded - not a respawn, a restart's spawn or a team switch, and the reconnect of a map change or of the HUD addon's
-  download is no new connect; never a bot. The match runs from its start (a round start out of warmup with no round played yet: the map's first, a restart, the game
-  commencing) when a human is on a team then, else from the first human's spawn - that first human starts the match and restarts nothing. The plugin
-  (`EarlyJoinWatch.cs`) asks the bridge at once, naming who came in; the bridge counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in",
-  says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. **While anybody is
-  still joining** - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered), downloading the map or loading it,
-  as everybody does after a map change - it waits for them first, so the players in already start over once for all of them, not once each. It counts as joining
-  whoever any of three names: the plugin's `os_joining` (the humans whose controller is still connecting or reconnecting), the server's own client list (`status`:
-  every human not yet active) and the bridge's log stream (a human logged as connected and not yet as entered the game; the HUD addon's reconnect does not end
-  it). A joiner at that prompt shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no controller and no
-  callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list no longer having them ends it, and 150 s after their
-  "connected" in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone signs on, and each second of a wait. `os_fair`
-  opens with whom a wait would count, each with who names them - the plugin, status, the log stream (`os_fair bridge`: the bridge's two views as hex, whenever
-  they change). The bridge asks as the restart would count down and every second while it
-  waits, says once in chat and on the board whom it waits for ("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"), and counts
-  down once nobody is left joining - their own joins fold into it - or after **120 s** at the most (`EarlyJoin.HoldMostSeconds`), so a joiner stuck there does
-  not hold it for good. A vote, a restart of the match or of the server, the match's end or a map start meanwhile ends the wait; a plugin without `os_joining`
-  waits for nobody, as before. A join while it counts
-  down folds into it - one restart, at the same moment, and the banner and a line name them all: "Bob and Cas are in", "Bob, Cas, Dee and 2 more are in" - and so does a join
-  in the 3 s after it went out, or while a player's Restart match counts down: each starts the newcomer over too. None while a vote is on, a map change counts down or loads,
-  the server's restart counts down or the match-end screen is up (`os_phase`, as for Restart match: a next match on the same map takes its joins the moment it is on); the
-  minute a player's Restart match waits after a restart does not hold it. Players who pick a side again after a match-end screen on the same map are no joins. It starts no such minute
-  itself: a player's Restart match may go right after it - only a pressed one makes the next wait 60 s. In Wingman a player who comes in within 30 s of a round's
-  start, after the 60 s too, still plays it (its cfg's `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map
-  stands, and `os_fair live`, the client harness's, starts the match running then and counts the next join as joining somebody, so a lone test game's spawn asks.
+- **The warm-up** (`bridge/Shared/EarlyJoin.cs`, the bridge's `WarmUp.cs`, the plugin's `EarlyJoinWatch.cs`): every map starts in CS2's own warm-up - everybody
+  respawns, plays freely, friendly fire as the mode has it, and nothing counts - while everybody who is coming gets there; the real match then starts for all of
+  them at once, CS2's warm-up end, the one restart a map makes. **Its clock:** **120 s** at the most (`EarlyJoin.WarmUpMostSeconds`, one value for everybody),
+  from the first human's spawn on the map - CS2's own warm-up clock, which the plugin sets to end there, so the game's own timer counts down to the latest start
+  and the game's own end starts the match then; a map nobody has spawned on sits in its warm-up. **Who is coming:** whoever was on the map before and is on the
+  way back through the change, and whoever connects during it; a real departure takes a player out. **It ends sooner** - with CS2's own warm-up end
+  (`mp_warmup_end`), sent by the bridge - when everybody coming has spawned on a team and at least two humans have, **5 s** later (`EarlyJoin.SettleSeconds`;
+  one human alone is no "all", so a friend who connects meanwhile still gets the same start), or at **`!start`**, by anybody present, for a friend who is not
+  coming; neither while a vote is on, a map change counts down or loads, or the server's restart counts down - they come as soon as those are over, while the
+  clock's end comes whatever is on. **After it nothing restarts the match:** whoever comes later joins the match that runs (in Wingman a player who comes in
+  within 30 s of a round's start still plays it, its cfg's `mp_join_grace_time 30`). While it lasts the countdown banner says so (`Messages.WarmUp`, the
+  banner a map change and the restarts use, with the project's logo): WARM-UP over "Waiting for Bob, Cas and Dee" - with one still coming, what they do as far
+  as the server can tell: "Waiting for Cas - loading", "- downloading" (off the server mid-way after connecting, which a crash looks like too, or at CS2's prompt
+  to download the Workshop items) or "- picking a team" (in the game, at CS2's team menu) - and "The match starts when everyone is in - !start to begin now", the
+  seconds to the latest start beside it, the plugin counting them down from CS2's own end; "Nobody else on the way yet" and "Anyone who joins now starts with
+  you" for one alone; "Everybody is in" and the settle's seconds as it ends; "The match starts after the vote for the next map" while that holds it; no seconds
+  before anybody has spawned. A map change or a restart counting down has the banner first. At its end a line for everybody: "The match starts now - Everybody
+  is in", or "... - 120 s are up - Cas joins it on arrival". Restart match is refused during it, and `!start` outside one. **In the game:** every cfg keeps CS2's own
+  online warm-up off (`mp_warmup_online_enabled 0`); the plugin begins one a second into every map - `mp_warmup_start`, with
+  `mp_warmuptime_all_players_connected 0` and `mp_endwarmup_player_count 0` (Valve's Arms Race cfg would end it at 6 players), and `mp_warmuptime` an hour
+  (`EarlyJoin.IdleClockSeconds`, renewed while nobody spawns) - and at the first human's spawn sets `mp_warmuptime` to end 120 s after it: from now, should a
+  change restart CS2's count as CS:GO's did, or from the warm-up's start, as the next look sees; a clock more than a second off is set again, three times on a map
+  at the most. The block keeps `mp_warmup_pausetimer` at 0, so nothing pauses it. Should CS2's own end not come, the bridge ends it 3 s past it and the plugin
+  15 s past it (`EarlyJoin.SafetySeconds`); should CS2 leave it before anybody has spawned, the plugin begins it again, three times on a map at the most - after
+  a spawn an end is the end. Catch-up counts nothing in a warm-up, and a match length set during it is the match's after it (`From this match on`). **Who is
+  coming,** by any of three: the plugin's `os_joining` (the humans whose controller is still connecting or reconnecting, and the humans in the game who have not
+  spawned on a team since they entered it, CS2's team menu after every load, for **30 s** at the most - `EarlyJoin.SpawnMostSeconds`; the longest seen live from
+  entering to the first spawn was 17 s), the server's own client list (`status`: every human not yet active) and the bridge's log stream (a human logged as
+  connected and not yet as entered the game; and everybody on the way back through a reconnect - a map change's, the HUD addon's - from its "disconnected" until
+  they are in the game again, whatever the server's list says meanwhile: a game that downloads the map itself after CS2's prompt, or crashes, is off the server
+  and writes no line; `NETWORK_DISCONNECT_LOOPDEACTIVATE` is a leaving, for the log stream and the plugin alike, `EarlyJoin.Reconnects`). A joiner at CS2's
+  prompt to confirm a first Workshop download shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no
+  controller and no callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list lacking them **5 s**, read after read,
+  ends it (`EarlyJoin.DropConfirmSeconds`: a list can lose a joiner a moment before the log stream says the HUD addon's reconnect), never for one on the way
+  back, and 150 s after their "connected" or their departure in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone
+  signs on, and each second of a warm-up. `os_warmup` says where it stands - on or off, the first spawn, the seconds left on CS2's clock, who is coming, each
+  with who names them (`os_warmup bridge`: the bridge's two views as hex, whenever they change); `os_warmup end` is the bridge's and the console's, `os_warmup
+  start` the console's (a warm-up now, its clock from now once anybody has spawned). A plugin loaded during a map begins nothing on that map, and with a plugin
+  without `os_warmup` the bridge asks once a map and follows none.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms - 0.5 s or more after the click before it, as for Restart the match - then the
   same 10 s countdown with the player's name - in its button too, where a click by anybody cancels it (`!cancel restart`, the news line says who, and its cooldown goes
   with it; the watcher's restarts are not the players' to cancel) - and the bridge quits the game process
@@ -603,8 +618,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
 **Arms Race** is the server's game: a kill earns the next gun, and a kill with the golden knife on the last rung wins the match. It is the default,
 after every server restart and after 10 minutes with nobody on. **Deathmatch** and **Wingman** come in through the vote.
 
-No mode has a warmup (`mp_warmup_online_enabled 0`, Wingman's too): a match is on the moment the first player is in, and [the fairness
-restart](#the-match-length-and-the-restarts) starts it over every time somebody joins it during its first minute.
+Every map starts in [the warm-up](#the-match-length-and-the-restarts), CS2's own, 120 s at the most from the first human's spawn, while everybody coming gets there;
+CS2's online warm-up is off in every mode (`mp_warmup_online_enabled 0`, Wingman's too), so the plugin begins it, every map in every mode.
 Both deathmatch-style modes spawn players at random with `mp_randomspawn_los 1` - Valve's Deathmatch cfg sets it, and ours sets it for Arms Race too (Valve's Arms Race
 cfg does not). It is meant to test each spawn point for line of sight to the enemies and pick one that no enemy sees, but in Arms Race it made no measurable difference: with
 8 bots moving and firing on ar_shoots and ar_baggage, an enemy had 10 of 142 spawns spotted within 0.75 s with it on and 10 of 145 with it off (p = 1.00). It stays on.

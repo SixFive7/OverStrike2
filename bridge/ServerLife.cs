@@ -110,7 +110,7 @@ static partial class Program
             Pending = null; LoadPending = false;
             S.LogName = null; // attribution starts over below
         }
-        AllReloading(now); MatchEndUntil = default; EndScreenAt = null; RematchDue = null; FairNames.Clear(); FairSentAt = DateTime.MinValue; FairWaitSince = null; // fresh map: everyone reconnects into it, and it has a match of its own
+        AllReloading(now); MatchEndUntil = default; EndScreenAt = null; RematchDue = null; WarmUpAtMapStart(); // fresh map: everyone reconnects into it, and its match starts after its warm-up (WarmUp.cs)
         VoteWaitUntil = default; // VoteRound.cs: the wait after a vote is that map's - a map the vote brought that turns out broken can be voted away at once
         WhyOpen.Clear(); // Likes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
@@ -175,7 +175,7 @@ static partial class Program
             if (OpenBallot(now, humans, serverStart: true)) { StartRollOwed = false; Log($"start: {humans} player(s) on - a vote instead of the dice"); return; }
             Log("start: the vote could not open - the dice instead");
         }
-        if (!AutoRoll("Server started")) { StartRollOwed = false; Log("start: no map is eligible to roll"); }
+        if (AutoRoll("Server started") == null) { StartRollOwed = false; Log("start: no map is eligible to roll"); }
     }
 
     /// <summary>A match ended: the vote, where the plugin draws it (it polls /hud) and somebody is on; the dice where nothing draws a vote, the
@@ -206,7 +206,7 @@ static partial class Program
         var humans = Humans();
         if (humans <= 0) { Log("match end: nobody on - nothing to do"); return; }
         if (HudActive() && OpenBallot(now, humans, matchEnd: true)) { if (Ballot is { } opened) ScreenToVote(opened, now); return; } // VoteRound.cs
-        if (!AutoRoll("Match over")) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
+        if (AutoRoll("Match over") == null) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
     }
 
     [GeneratedRegex(@"^loaded spawngroup\(\s*1\)\s*:\s*SV:\s*\[1:\s*([^|\]\s]+)\s*\|", RegexOptions.Multiline)] private static partial Regex StatusMapRx();

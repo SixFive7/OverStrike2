@@ -6,7 +6,7 @@
 // screen of a match that ended in Arms Race ended 90 s after it came up, while m_flIntermissionEndTime had passed about 10 s into it and ended nothing. So the
 // plugin sets mp_match_restart_delay to the time the screen has been up plus the seconds asked (NewDelay), and puts the value it had back once the next match's round
 // has started, or CheckSeconds after the new end at the latest - never across a map change, whose cfg sets its own. There the game starts the next match on the
-// same map, as at any end of the screen (mp_match_end_restart 1): no map load, so nobody goes through a load and no fairness restart follows. Only while the
+// same map, as at any end of the screen (mp_match_end_restart 1): no map load, so nobody goes through a load and no warm-up comes first. Only while the
 // screen is up (GAMEPHASE_MATCH_ENDED), and only ever sooner - but for the hold: a vote won by another map holds the screen while its change loads, the bridge's
 // LoadHoldSeconds - HoldSeconds when it is still to download - from the decision, sooner or later than it would end, so the next match never starts on the
 // old map under the change. CheckSeconds after the

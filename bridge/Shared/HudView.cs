@@ -147,7 +147,7 @@ public static class HudView
         t.Add(("os_k_eyebrow", countdown?.Eyebrow ?? ""));
         t.Add(("os_k_map", countdown?.Title ?? ""));
         t.Add(("os_k_by", countdown?.Line ?? ""));
-        t.Add(("os_k_secs", countdown == null ? "" : Countdown(countdown.Value.Seconds)));
+        t.Add(("os_k_secs", countdown is not { Seconds: >= 0 } shown ? "" : Countdown(shown.Seconds))); // a warm-up nobody has spawned in yet: no seconds
         t.Add(("os_t_map", map));
         t.Add(("os_t_by", byline == "" ? Hud.Tally(s.Up, s.Down) : $"{byline}  ·  {Hud.Tally(s.Up, s.Down)}"));
         t.Add(("os_t_hint", LikeHint));
@@ -181,16 +181,19 @@ public static class HudView
     public const string TopPanel = "os_top", BannerPanel = "os_ban", LinePanel = "os_wl";
     public static readonly string[] Tones = ["problem", "warning", "done", "info"];
 
-    /// <summary>What the countdown banner shows: a map change, Restart match or a restart counting down. Logo: the project's logo in the picture's place.</summary>
-    public readonly record struct CountdownWords(string Eyebrow, string Title, string Line, bool Logo, int Seconds);
+    /// <summary>What the countdown banner shows: a map change, Restart match or a restart counting down, or the warm-up (Warm). Logo: the project's logo in the
+    /// picture's place. Seconds: -1 for none (a warm-up nobody has spawned in yet).</summary>
+    public readonly record struct CountdownWords(string Eyebrow, string Title, string Line, bool Logo, int Seconds, bool Warm = false);
 
     public static CountdownWords? CountdownOf(HudState s)
     {
         if (s.ChangeIn >= 0) return new("Map change", s.ChangeMap, Hud.ByWords(s.ChangeBy), false, s.ChangeIn);
-        if (s.RematchIn >= 0) return new("Match", s.RematchFair ? EarlyJoin.BannerTitle(Hud.Clean(s.RematchBy, 64), s.RematchCount) : $"{Hud.Clean(s.RematchBy, 32)} is restarting the match",
+        if (s.RematchIn >= 0) return new("Match", s.RematchFair ? // RematchFair: a fairness restart's, which only a bridge from before the warm-up sends
+            $"The match restarts for fairness - {Hud.Clean(s.RematchBy, 64)} {(s.RematchCount > 1 ? "are" : "is")} in" : $"{Hud.Clean(s.RematchBy, 32)} is restarting the match",
             "The whole match starts over", true, s.RematchIn);
         if (s.RestartKind != "" && s.RestartWhen == "now" && s.RestartIn >= 0)
             return new("Server", s.RestartBy != "" ? $"{Hud.Clean(s.RestartBy, 32)} is restarting the server" : $"The server restarts in {MapVote.Left(s.RestartIn)}", s.RestartAfter, true, s.RestartIn);
+        if (s.WarmUpOn) return new(EarlyJoin.Eyebrow, s.WarmUpTitle, s.WarmUpLine, true, s.WarmUpIn, Warm: true); // last: a change or a restart counting down has the banner
         return null;
     }
 

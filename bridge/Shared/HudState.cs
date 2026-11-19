@@ -50,10 +50,17 @@ public sealed class HudState
     public string RestartBy = "";                       // the player who pressed a restart counting down
     public string RestartAfter = "";                    // what players do afterwards, as the countdown's second line says it
     public long RematchAtMs;                            // Restart match counting down: the moment it goes...
-    public string RematchBy = "";                       // ...and who pressed it - or, a fairness restart's, who came in (EarlyJoin.Names: "Bob and Cas")
-    public bool RematchFair;                            // ...the fairness restart (EarlyJoin): the countdown banner says so
+    public string RematchBy = "";                       // ...and who pressed it - or, a fairness restart's from a bridge before the warm-up, who came in
+    public bool RematchFair;                            // ...a fairness restart, which only a bridge before the warm-up sends: the countdown banner says so
     public int RematchCount = 1;                        // ...and how many came in, for the banner's "is" or "are"
     public int RematchIn = -1;                          // ...its seconds left, -1 when none is (worked out by AsOf)
+    public long WarmUpAtMs;                             // the warm-up (EarlyJoin.cs, the bridge's WarmUp.cs): the latest start - CS2's own warm-up end - unix ms, 0 while nobody has spawned...
+    public long WarmUpGoMs;                             // ...everybody coming is in: the match starts then (the settle's end), 0 while not
+    public string WarmUpTitle = "", WarmUpLine = "";    // ...the countdown banner's title and line (EarlyJoin.Title, Line); "" while no warm-up is on
+    public int WarmUpIn = -1;                           // ...its seconds left, to the settle's end or else the latest start; -1 while it has neither (worked out by AsOf)
+
+    /// <summary>A warm-up is on: the countdown banner shows it (HudView.CountdownOf), unless a map change or a restart counts down.</summary>
+    public bool WarmUpOn => WarmUpTitle != "";
 
     /// <summary>The end times behind the seconds above, unix milliseconds (0: none). The bridge's change-driven text (EndTimes: true, HudTransport.cs)
     /// carries these instead of the seconds, which would change it every second; the plugin counts down from them itself (AsOf).</summary>
@@ -78,7 +85,7 @@ public sealed class HudState
     /// <summary>The seconds left of a player's Restart the server counting down (its button counts them and cancels it), -1 for none - the watcher's restarts are not the players' to cancel.</summary>
     public int PlayerRestartIn() => RestartKind == PlayerRestartKind && RestartWhen == "now" && RestartIn >= 0 && RestartBy != "" ? RestartIn : -1;
 
-    /// <summary>...and of a player's Restart match, -1 for none: the fairness restart is no button's.</summary>
+    /// <summary>...and of a player's Restart match, -1 for none: an older bridge's fairness restart is no button's.</summary>
     public int PlayerRematchIn() => RematchIn >= 0 && !RematchFair ? RematchIn : -1;
 
     /// <summary>The kind of a restart a player pressed, as the bridge's Restarts.cs names it on the wire.</summary>
@@ -103,6 +110,7 @@ public sealed class HudState
         if (TopUntilMs > 0 && nowMs >= TopUntilMs) (h.TopText, h.TopCat, h.TopAtMs, h.TopUntilMs) = ("", "", 0, 0);
         if (BanUntilMs > 0 && nowMs >= BanUntilMs) (h.BanTone, h.BanHead, h.BanLine, h.BanUntilMs) = ("", "", "", 0);
         h.RematchIn = RematchAtMs > 0 ? Math.Max(0, Secs(RematchAtMs)) : -1;
+        h.WarmUpIn = !WarmUpOn ? -1 : WarmUpGoMs > 0 ? Math.Max(0, Secs(WarmUpGoMs)) : WarmUpAtMs > 0 ? Math.Max(0, Secs(WarmUpAtMs)) : -1;
         h.RestartWords = h.FillLeft(h.RestartWords);
         return h;
     }
@@ -153,6 +161,7 @@ public sealed class HudState
         foreach (var p in PicksDue) Raw("pickdue", Hud.Clean(p.Key, 40), p.AtMs, Hud.Clean(p.By, 32), p.Previous ? 1 : 0); // an older plugin skips it
         if (RestartKind != "") Raw("rstby", Hud.Clean(RestartBy, 32), Hud.Clean(RestartAfter, 80));
         if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 64), RematchFair ? 1 : 0, Math.Max(1, RematchCount)); // an older plugin reads the first two or three
+        if (WarmUpOn) Raw("warm", Math.Max(0, WarmUpAtMs), Math.Max(0, WarmUpGoMs), Hud.Clean(WarmUpTitle, 80), Hud.Clean(WarmUpLine, 120)); // an older plugin skips it
         return s.ToString();
     }
 
@@ -203,6 +212,7 @@ public sealed class HudState
                 case "pickdue" when Str(f, 1) != "" && Long(f, 2) > 0 && s.PicksDue.Count < 64: s.PicksDue.Add((Str(f, 1), Str(f, 3), Long(f, 2), Int(f, 4) == 1)); break;
                 case "rstby": (s.RestartBy, s.RestartAfter) = (Str(f, 1), Str(f, 2)); break;
                 case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy, s.RematchFair, s.RematchCount) = (Long(f, 1), Str(f, 2), Int(f, 3) == 1, Math.Max(1, Int(f, 4))); break;
+                case "warm" when Str(f, 3) != "": (s.WarmUpAtMs, s.WarmUpGoMs, s.WarmUpTitle, s.WarmUpLine) = (Math.Max(0, Long(f, 1)), Math.Max(0, Long(f, 2)), Str(f, 3), Str(f, 4)); break;
             }
         }
         return s;

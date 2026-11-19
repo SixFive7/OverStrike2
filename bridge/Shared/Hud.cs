@@ -41,7 +41,10 @@ public static class Hud
 
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and
     /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
-    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", "!time", "!time 10", "!time 60", "!time 8", "!time 16", CancelMine];
+    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", StartWord, "!time", "!time 10", "!time 60", "!time 8", "!time 16", CancelMine];
+
+    /// <summary>!start: the warm-up ends now, for everybody (EarlyJoin.cs) - a friend who is not coming.</summary>
+    public const string StartWord = "!start";
 
     /// <summary>The chat's !cancel: the newest countdown of the player's own stops (the bridge's CancelMine) - a click on a countdown's button names it instead.</summary>
     public const string CancelMine = "!cancel mine";
@@ -52,7 +55,6 @@ public static class Hud
     {
         if (Actions.Contains(command)) return true;
         if (command.StartsWith("!hudok ", StringComparison.Ordinal)) return HudVersion.IsWord(command[7..]); // the HUD check's click (HudCheck)
-        if (command == EarlyJoin.Command) return true; // the fairness restart's ask: the plugin's own, never a chat command (ChatCommands has no such word)
         var space = command.IndexOf(' ');
         if (space < 0) return false;
         var (verb, arg) = (command[..space], command[(space + 1)..]);
