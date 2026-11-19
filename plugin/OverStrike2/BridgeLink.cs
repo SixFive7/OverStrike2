@@ -56,6 +56,7 @@ sealed class BridgeLink
     /// which the check would warn a player whose HUD works. A newer click of the same kind replaces a player's waiting one.</summary>
     public static string? Kind(string command) => IsVote(command) ? "vote" : command.StartsWith("!hudok ", StringComparison.Ordinal) ? "check" : null;
     Task<string?>? fetch, catalogFetch, searchFetch, dashFetch, historyFetch;
+    Task<HudHistory?>? historyDecode;
     DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry, nextHistoryTry;
     long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked, historyHave, historyAsked;
 
@@ -181,23 +182,30 @@ sealed class BridgeLink
         return text;
     }
 
-    /// <summary>On the game thread, every frame: the match history's block (HudHistory), as TakeDash takes the Sync page's - fetched when the live state names
-    /// a newer version: at a bridge's start and at the end of every match a human was in.</summary>
-    public string? TakeHistory(DateTime now, long wanted)
+    /// <summary>On the game thread, every frame: the match history (HudHistory), fetched when the live state names a newer version - at a bridge's start and
+    /// at the end of every match a human was in - and decoded on the thread pool, never here: a full block (HudHistory.BlockMax matches, about 1.4 MB) takes
+    /// some 30 ms to read (the bridge's self-test measures it). Returns the history once a fetch and its decode are done, else null.</summary>
+    public HudHistory? TakeHistory(DateTime now, long wanted)
     {
-        string? text = null;
+        HudHistory? past = null;
+        if (historyDecode is { IsCompleted: true } decoded)
+        {
+            historyDecode = null;
+            past = decoded.IsCompletedSuccessfully ? decoded.Result : null;
+            if (past != null) historyHave = historyAsked; else nextHistoryTry = now.AddSeconds(5);
+        }
         if (historyFetch is { IsCompleted: true } done)
         {
-            text = Result(done);
             historyFetch = null;
-            if (text != null) historyHave = historyAsked; else nextHistoryTry = now.AddSeconds(5);
+            if (Result(done) is { } text) historyDecode = Task.Run(() => HudHistory.Decode(text));
+            else nextHistoryTry = now.AddSeconds(5);
         }
-        if (wanted > 0 && wanted != historyHave && historyFetch == null && now >= nextHistoryTry)
+        if (wanted > 0 && wanted != historyHave && historyFetch == null && historyDecode == null && now >= nextHistoryTry)
         {
             historyAsked = wanted;
             historyFetch = GetText(historyUrl);
         }
-        return text;
+        return past;
     }
 
     /// <summary>A click: the action it asks the bridge for (written like the chat command it replaced). The bridge answers with the state

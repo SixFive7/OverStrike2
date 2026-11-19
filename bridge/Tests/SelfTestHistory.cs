@@ -176,6 +176,28 @@ static partial class Program
         }
         finally { h.Dispose(); }
 
+        // ---- the plugin's cost: a block at its most, decoded as the plugin takes it after every match end; the History view worked out over a full catalog ----
+        var big = new HudHistory { Version = 9 };
+        for (var i = 0; i < HudHistory.BlockMax; i++)
+            big.Entries.Add(first! with
+            {
+                Start = first.Start.AddMinutes(-15 * i), End = first.End.AddMinutes(-15 * i), MapId = 3000000000 + i % 500, MapName = $"Map {i % 500}",
+                Players = Enumerable.Range(0, 4).Select(k => new HudHistory.Player(2000 + k, $"Player number {k}", 600, first.Start)).ToList(),
+            });
+        var bigText = big.Encode();
+        HudHistory.Decode(bigText); // the first, which also compiles it
+        var decodes = Enumerable.Range(0, 5).Select(_ => { var sw = System.Diagnostics.Stopwatch.StartNew(); var d = HudHistory.Decode(bigText); sw.Stop(); return (Count: d?.Entries.Count ?? 0, Ms: sw.Elapsed.TotalMilliseconds); }).ToList();
+        var decodeMs = decodes.Select(x => x.Ms).OrderBy(x => x).ElementAt(2);
+        var bigCatalog = new HudCatalog();
+        for (var i = 0; i < 9000; i++) bigCatalog.Maps.Add(new($"{3000000000 + i}", $"{i + 1}", i + 1, 3000000000 + i, $"Map {i}", 100, false, -1, 0, 0, 0, RankAr: i + 1));
+        var viewTimes = Enumerable.Range(0, 5).Select(i => { var vb = new HudBrowser { History = true, Past = big, Page = i }; var sw = System.Diagnostics.Stopwatch.StartNew(); var n = vb.Matches(bigCatalog, 1001).Count; vb.PageOf(vb.Matches(bigCatalog, 1001)); vb.PastPage(); sw.Stop(); return (n, sw.Elapsed.TotalMilliseconds); }).ToList();
+        var viewMs = viewTimes.Select(x => x.Item2).OrderBy(x => x).ElementAt(2);
+        Console.WriteLine($"history cost: decode {HudHistory.BlockMax} matches ({bigText.Length / 1024} KB) {string.Join(", ", decodes.Select(x => x.Ms.ToString("0.0")))} ms; "
+            + $"the view over 9000 maps {string.Join(", ", viewTimes.Select(x => x.Item2.ToString("0.0")))} ms");
+        Check($"History: the plugin's block at its most ({HudHistory.BlockMax} matches, {bigText.Length / 1024} KB) decodes whole ({decodeMs:0.0} ms, median of 5, this build) - off the "
+            + $"game thread (BridgeLink.TakeHistory); a player's History view over 9,000 maps takes {viewMs:0.0} ms, once for each change of the history or the catalog",
+            decodes.All(x => x.Count == HudHistory.BlockMax) && viewTimes.All(x => x.n == HudHistory.BlockMax));
+
         // ---- the map browser's History view ----
         var catalog = new HudCatalog
         {

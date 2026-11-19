@@ -185,6 +185,7 @@ public sealed class HudFrame
         p.Browser.Past = w.History; // the History view's matches (HudBrowser.History): the plugin's copy of the bridge's history
         var history = HudBrowser.HasHistory(h.Version);
         if (!history) p.Browser.History = false; // a content without the view: the browser as it was
+        else screen.Class(HudView.Screen, "hist", page == HudSlots.Page.Maps && !OnBallot(p, vote) && p.Browser.History, slot); // the HISTORY tab current, the cards' match lines
         var ballot = page == HudSlots.Page.Maps && OnBallot(p, vote);
         var (texts, classes) = page switch
         {

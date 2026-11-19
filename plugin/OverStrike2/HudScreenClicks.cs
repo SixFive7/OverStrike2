@@ -44,6 +44,16 @@ sealed partial class HudScreen
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
+        if (buttonId == HudBrowser.HistoryTab && HudBrowser.HasHistory(VersionOf(who))) // the HISTORY tab: MAPS with the History view on, as its button turns it on
+        {
+            slots.Show(player.Slot, HudSlots.Page.Maps, now);
+            me.Browser.History = true;
+            me.Browser.Page = 0;
+            if (vote is { Round: > 0, Open: true }) me.VoteView = (vote.Round, VoteView(player.Slot).Page, true); // during a vote: its map browser, a card's Play adds to it
+            Server.NextFrame(Frame);
+            return;
+        }
+        if (buttonId == HudView.TabMaps) me.Browser.History = false; // MAPS is the map browser; HISTORY its History view
         if (HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who) is { } scoresDid) // SCORES, or Back to the vote, at the match-end screen (HudScores)
         {
             log.LogInformation("Over Strike 2 HUD: {Name} {Button} during the vote ({Phase}) - {Did}", player.PlayerName, buttonId == HudScores.Button ? "SCORES" : "Back to the vote",

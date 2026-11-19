@@ -62,6 +62,10 @@ public sealed class HudBrowser
     /// current likes and the player's own Like and Dislike, Play and the rest as in the browser - with when it ran and who was in it (HudMenu.HistoryWords).</summary>
     public const string HistoryButton = "os_fl_hist";
 
+    /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19: a tab of its own): MAPS with the History view on, as the History button does - the
+    /// tab current while it is on (the stylesheet: page-maps with hist on os_screen); the MAPS tab is the map browser and turns the view off.</summary>
+    public const string HistoryTab = "os_tab_history";
+
     /// <summary>The first content with the History view - the button, the cards' match lines (HudMenu.HistoryWords) and the stylesheet's rules for hist and
     /// hinc: the HUD half, the content after v4.14.0. Until this server's own content is that one, and for a game whose HUD check named an older one, the plugin
     /// sends none of it, so no game logs "Unable to find panel" for a panel its content lacks (as HudVote.NumbersLevel).</summary>

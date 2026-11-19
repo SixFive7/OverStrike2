@@ -44,7 +44,7 @@ static partial class Program
         WatchStop();
         SyncDoc?.Dispose(); SyncDoc = null; SyncStamp = null; SyncReadAt = default; SyncProblem = ""; dashBody = ""; webWritten = ""; webPage = ""; webWrittenAt = default; syncTicks = 0;
         hudPolledTicks = 0; hudHeldTicks = 0;
-        MatchHistory.Clear(); History.Clear(); LastStartWasServerStart = false; // History.cs: the match history, its plugin copy
+        MatchHistory.Clear(); History.Clear(); HistoryText = History.Encode(); LastStartWasServerStart = false; // History.cs: the match history, its plugin copy
         ClearNotices();
         // the two settings a test may switch
         HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check);

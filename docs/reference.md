@@ -744,13 +744,15 @@ reach, read only, into OUT: the bridge's day logs (`logs/bridge-*.log` in its da
 `[Server] L` lines). Where the day logs reach they are the record; the console's lines add the stretches before them, without the maps' Workshop ids (`missing:
 map id`). `--until` stops where the live record takes over. The plugins' own logs name some players but not who was in a match, so they are no source.
 
-**The History view** is a view of the map browser (its History button, `os_fl_hist`; the content after v4.14.0, `HudBrowser.HistoryLevel` - an older content
-gets none of it): the matches, newest first, a card a match on the browser's own cards and pages. A card is its map's - its current likes and dislikes, the
+**The History view** is a view of the map browser - its History button, `os_fl_hist`, or the HISTORY tab in the top row, `os_tab_history`, which opens MAPS
+with the view on (during a vote, MAPS' map browser); the MAPS tab is the map browser and turns it off. Both are the content's after v4.14.0
+(`HudBrowser.HistoryLevel`) - an older content gets none of it. It shows the matches, newest first, a card a match on the browser's own cards and pages. A card is its map's - its current likes and dislikes, the
 player's own Like and Dislike (that player's one vote on that map, as on Start and in the browser), Play and the tags - and on `os_screen`, per player, card k
 (1-12) has when it ran (`osh<k>w`), who was in it (`osh<k>p`) and the line under them (`osh<k>n`: its length, Wingman's score, `from the logs, partly` for a match
-known only in part); `hist` is on `os_screen` while the view is on, `hinc` on a card whose match is known only in part. The mode, Liked, Official, Ours and size
+known only in part); `hist` is on `os_screen` while MAPS shows the view (not the ballot) - the HISTORY tab current - and `hinc` on a card whose match is
+known only in part. The mode, Liked, Official, Ours and size
 filters apply by the map, a search by the map's name or a player's, and the sort's direction gives the oldest first. The plugin fetches the newest 2,400 matches
-(`/history/`, when `hist` in the live state moves).
+(`/history/`, when `hist` in the live state moves) and decodes them on the thread pool: a full block, about 1.4 MB, takes some 30 ms to read.
 
 ## Fun settings
 

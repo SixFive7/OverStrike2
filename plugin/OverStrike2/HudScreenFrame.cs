@@ -31,7 +31,7 @@ sealed partial class HudScreen
         vote = voteRaw.AsOf(bridgeNow);
         if (bridge?.TakeCatalog(now, state?.CatalogVersion ?? 0) is { } listText && HudCatalog.Decode(listText) is { } list) catalog = list;
         if (bridge?.TakeDash(now, state?.DashVersion ?? 0) is { } dashText && HudDash.Decode(dashText) is { } block) dash = block;
-        if (bridge?.TakeHistory(now, state?.HistoryVersion ?? 0) is { } historyText && HudHistory.Decode(historyText) is { } past) history = past; // the History view's matches
+        if (bridge?.TakeHistory(now, state?.HistoryVersion ?? 0) is { } past) history = past; // the History view's matches, decoded off the game thread
         if (bridge?.TakeSearch(now, state?.SearchVersion ?? 0) is { } searchText && HudSearch.Decode(searchText) is { } index)
         {
             search = index;

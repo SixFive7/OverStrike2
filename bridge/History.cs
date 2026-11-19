@@ -243,6 +243,7 @@ static partial class Program
         }
         History.Entries.Reverse(); // the file is oldest first, the HUD newest first
         History.Version++;
+        HistoryText = History.Encode();
         return $"history: {History.Entries.Count} match(es) from {HistoryPath}" + (bad > 0 ? $", {bad} line(s) that do not read skipped" : "")
             + (History.Entries.Count > 0 ? $", the oldest of {History.Entries[^1].Start:yyyy-MM-dd}" : "");
     }
@@ -254,11 +255,13 @@ static partial class Program
         catch (Exception x) { Log($"history: {HistoryPath} could not be written - {x.Message}"); }
         History.Entries.Insert(0, e);
         History.Version++;
+        HistoryText = History.Encode();
         Log($"history: {e.MapName} ({e.Mode}), {e.Start:HH:mm}-{e.End:HH:mm}, {e.EndedBy}, {e.Players.Count} human(s): {HudHistory.Who(e, 8)}");
     }
 
-    /// <summary>The block the plugin fetches (Hud.HistoryPath).</summary>
-    static string HistoryText => History.Encode();
+    /// <summary>The block the plugin fetches (Hud.HistoryPath): made on the event loop whenever the history moves (a full block takes tens of milliseconds to
+    /// write), and served as it stands from the HTTP thread, as the Sync page's block is.</summary>
+    static volatile string HistoryText = new HudHistory().Encode();
 
     /// <summary>Set by OnMapStart: the start it just took was the server's own (a start of the start map nobody asked for).</summary>
     static bool LastStartWasServerStart;
