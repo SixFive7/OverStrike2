@@ -409,7 +409,7 @@ static partial class DocShots
           when: "about 1.6 s after the command has run in the background: os_catchup show sends what a real spawn's boost sends", crop: CCard, win: Win.None);
         R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick: "The leader's bounty", today: "the card 3d, as picked, 5 s; that player's chat", steps: [Rb($"os_catchup show {Account} lead 4", "catchup: showed"), Pause(2.4), Shoot()],
           when: "as catchup-boost", crop: CCard, win: Win.None);
-        R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section: SWindow, steps: [Show("start"), Press("os_tab_server"), Pause(1), Shoot()],
+        R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section: SWindow, steps: [Show("start"), Press("os_sub_players"), Pause(1), Shoot()],
           when: "1 s after the click returns", masks: [MPlayer1], names: Players, @volatile: [VOnFor]);
         R("players-older", "SERVER > Players: an older HUD: older - restart CS2 (os_hud content 1)", section: SWindow, steps: [Content(1), Show("players"), Pause(1), Shoot()], cleanup: [Content(Level)],
           when: "1 s after the show returns", masks: [MPlayer1], names: Players, @volatile: [VOnFor]);
@@ -428,7 +428,7 @@ static partial class DocShots
                                            ("sync-maps-last", "os_osdm_last", "the map events' last page") })
             R(id, $"SERVER > Sync: {w}", section: SWindow, after: "page-sync", steps: [Press(b), Pause(1), Shoot()], when: "1 s after the click returns", @volatile: [VSyncBody]);
         R("page-help", "HELP > Help: where everything is", section: SWindow, after: "page-sync", steps: [Press("os_tab_help"), Pause(1), Shoot()], when: "1 s after the click returns");
-        R("page-how", "HELP > How it works: every rule and chance of a map pick", section: SWindow, after: "page-help", steps: [Press("os_tab_how"), Pause(1), Shoot()], cleanup: [Press("os_sub_help")], when: "1 s after the click returns");
+        R("page-how", "HELP > How it works: every rule and chance of a map pick", section: SWindow, after: "page-help", steps: [Press("os_tab_how"), Pause(1), Shoot()], cleanup: [Press("os_tab_help")], when: "1 s after the click returns");
 
         // ---- the map browser
         R("page-maps", "MAPS > Browse: eight cards by rank, sort, mode, size, search, Previous, pager", section: SMaps, steps: [Show("maps"), Press("os_tab_maps"), Pause(1), Shoot()], when: "1 s after the click returns");
@@ -449,15 +449,15 @@ static partial class DocShots
         Browser("maps-page-2", "os_pg_next", "the second page");
         Browser("maps-page-last", "os_pg_last", "the last page", cleanup: [Press("os_pg_first")]);
         R("maps-search", "MAPS > Browse: a search: its best matches first", section: SMaps, after: "page-maps", steps: [Con("say !find lake"), Pause(2), Shoot()], when: "2 s after the line");
-        R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section: SMaps, after: "page-maps", steps: [Con("say !find zzqqzz"), Pause(2), Shoot()], cleanup: [Press("os_q_clear")], when: "2 s after the line");
+        R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section: SMaps, after: "page-maps", steps: [Con("say !find zzqqzz"), Pause(2), Shoot()], cleanup: [Press("os_q_clr")], when: "2 s after the line");
         R("maps-search-help", "MAPS > Browse: a click on the search area helps the search - the box lit, the words row in the filters' place, the window lifted, the pointer beside the chat line", section: SMaps, after: "page-maps",
           steps: [Press("os_q_how"), Pause(1), Shoot()], cleanup: [Press("os_q_how")], when: "1 s after the click returns: the help lasts 20 s, and the cleanup's second click ends it");
         R("maps-search-chat", "MAPS > Browse: a chat line on Browse searches it - the words in the search area, its line in chat as typed", section: SMaps, after: "page-maps",
-          steps: [Con("say lake"), Pause(2), Shoot()], cleanup: [Press("os_q_clear")], when: "2 s after the line");
+          steps: [Con("say lake"), Pause(2), Shoot()], cleanup: [Press("os_q_clr")], when: "2 s after the line");
         R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section: SMaps, after: "page-maps",
-          steps: [Con("say 3369214545"), Pause(3), Shoot()], cleanup: [Press("os_q_clear")], when: "3 s after the line: the server's own no needs no Workshop question", wordsFrom: ("bridge/broken.json", "3369214545"));
+          steps: [Con("say 3369214545"), Pause(3), Shoot()], cleanup: [Press("os_q_clr")], when: "3 s after the line: the server's own no needs no Workshop question", wordsFrom: ("bridge/broken.json", "3369214545"));
         R("maps-workshop-ready", "MAPS > Browse: a pasted Workshop id not on the list: Asking the Workshop, then Download and play. NEVER clicked: it downloads to the server", section: SMaps, after: "page-maps",
-          steps: [Con($"say {UnlistedMap}"), Pause(0.3), Shoot(n: 3)], cleanup: [Press("os_q_clear")],
+          steps: [Con($"say {UnlistedMap}"), Pause(0.3), Shoot(n: 3)], cleanup: [Press("os_q_clr")],
           when: "from about 2 s after the line, serially: the Web API answers within a few seconds (Aim Botz, a public CS2 map on none of the lists)");
         R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", section: SMaps, after: "page-maps", bridge: WLike, steps: [Press("os_m2_up", bg: true), Pause(3.5), Shoot()], cleanup: [Press("os_m2_down")],
           when: "about 5 s after the click: the line lasts 8 s");
@@ -467,7 +467,7 @@ static partial class DocShots
         R("maps-risky-card", "MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?", section: SMaps, after: "page-maps", bridge: WGuard, steps: [Con("say !find jb_moti2"), Pause(2), Shoot()],
           when: "2 s after the line (a map on the committed broken.json, 3 of 3 test loads)", wordsFrom: ("bridge/broken.json", "\"jb_moti2\""));
         R("play-asks-first", "Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote", pick: "Play asks first (a broken or crashed map)",
-          today: "the card's button and a line on the window's page, 30 s, as picked", after: "maps-risky-card", bridge: WGuard, steps: [Press("os_m1_play", bg: true), Pause(3.5), Shoot()], cleanup: [Press("os_q_clear"), Release],
+          today: "the card's button and a line on the window's page, 30 s, as picked", after: "maps-risky-card", bridge: WGuard, steps: [Press("os_m1_play", bg: true), Pause(3.5), Shoot()], cleanup: [Press("os_q_clr"), Release],
           when: "about 5 s after the one click", crop: CLine, wordsFrom: ("bridge/Program.cs", "to vote anyway"));
 
         // ---- the board: +showscores from the client's console, which holds TAB down for the hidden client. Three lines first: Lately keeps real names otherwise
