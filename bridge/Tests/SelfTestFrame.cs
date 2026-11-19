@@ -227,12 +227,30 @@ static partial class Program
                  new(6, 1006, "Fay", "T", "v4.14.0", false, 0, null)],
                 pageSlots, n => pagePlayers.TryGetValue(n, out var pp) ? pp : pagePlayers[n] = new HudPlayer(), new FunClicks(), pageScreen);
         var reachedOld = new[] { HudFrame.Everybody, 3, 4, 5, 6 }.SelectMany(n => pageScreen.IdsOf(n).Intersect(newIn415).Select(id => $"{(n < 0 ? "everybody" : $"slot {n}")}: {id}")).ToList();
-        var layoutHas = !File.Exists(HudLayoutFile) || newIn415.All(id => File.ReadAllText(HudLayoutFile).Contains($"id=\"{id}\"", StringComparison.Ordinal));
+        var layoutHas = !File.Exists("../hud/reference/gungame_hud_v4.15.0.xml") || newIn415.All(id => File.ReadAllText("../hud/reference/gungame_hud_v4.15.0.xml").Contains($"id=\"{id}\"", StringComparison.Ordinal)); // content v4.15.0's, its own layout
         Check($"Frame: content v4.15.0's own panels ({newIn415.Length}: HISTORY's, STATS', their tabs, the seventh reason) go only to a game that named it - STATS' bars and pictures "
             + "to each viewer's slot, never into everybody's state; none to v4.14.0's games, nor to one not seen yet or not known, on any page (P6)"
             + (reachedOld.Count > 0 ? ": " + string.Join(", ", reachedOld) : ""),
             reachedOld.Count == 0 && layoutHas && pageScreen.C("os_st_bar1", "w10", 1) && pageScreen.Pictured.ContainsKey((1, "os_st_pic1")) && pageScreen.C(HudHistoryPage.Card(1), "used", 2)
             && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.Thumb(1))) && pageScreen.V(HudView.Global, "osst") == "15 matches" && pageScreen.C(HudView.Global, "stf1"));
+
+        // ---- content v4.16.0 (the owner's 309 a and 310): the server names no panel a content in use lacks - CS2 keeps one list of every panel id named on a map,
+        // and every game looks all of it up at its full update - so every panel these frames named, for everybody and for each player, is one v4.14.0 (PanelFloor)
+        // and every later content has; and the pages' pictures (Pictures416, panels the older contents have) go per viewer only, to a game at v4.16.0 or later ----
+        if (File.Exists(HudLayoutFile))
+        {
+            static HashSet<string> LayoutIds(string text) => System.Text.RegularExpressions.Regex.Matches(text, @"\bid=""([^""]+)""").Select(m => m.Groups[1].Value).ToHashSet();
+            var floorLayouts = HudVersion.Contents.Where(c => c.Level >= HudVersion.LevelOf(PanelFloor) && c.Version != HudVersion.Content).Select(c => $"../hud/reference/gungame_hud_{c.Version}.xml")
+                .Where(File.Exists).Select(f => LayoutIds(File.ReadAllText(f))).Append(LayoutIds(File.ReadAllText(HudLayoutFile))).ToList();
+            var floorIds = floorLayouts.Skip(1).Aggregate(new HashSet<string>(floorLayouts[0]), (all, one) => { all.IntersectWith(one); return all; });
+            var named = screen.Ids.Concat(pageScreen.Ids).Concat(olderScreen.Ids).Concat(levels.Ids).Where(id => !Retired416.Contains(id)).ToHashSet(); // Retired416: until srv-524 lands
+            var beyond = named.Where(id => !floorIds.Contains(id)).Order(StringComparer.Ordinal).ToList();
+            Check($"Frame (content v4.16.0): every panel these frames named ({named.Count}) is one {PanelFloor} and every later content has ({floorLayouts.Count} layouts), so no game on a content in use logs \"Unable to find panel\" for it, whoever was shown what on the map{(beyond.Count > 0 ? ": not " + string.Join(" ", beyond) : "")}",
+                floorLayouts.Count == HudVersion.Contents.Count(c => c.Level >= HudVersion.LevelOf(PanelFloor)) && beyond.Count == 0 && named.Count > 100);
+            var picturedOld = pageScreen.Pictured.Keys.Where(k => Pictures416.Contains(k.Panel) && (k.Slot == HudFrame.Everybody || k.Slot is 3 or 4 or 5 or 6)).Select(k => $"{k.Slot}: {k.Panel}").ToList();
+            Check($"Frame (content v4.16.0): HISTORY's and STATS' pictures, on panels the older contents have ({string.Join(" ", Pictures416)}), go to a viewer's own slot - never into everybody's state, never to a game before v4.16.0 or not known{(picturedOld.Count > 0 ? ": " + string.Join(", ", picturedOld) : "")}",
+                picturedOld.Count == 0);
+        }
 
         // ---- a slot's record: a new player starts from nothing of the last one's ----
         PlayerOf(1).Browser.Find("aim");

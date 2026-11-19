@@ -830,12 +830,8 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 58 up it is newer than this one (v4.15.0), and the banner stays while it is. */
-.os-global.latest-58 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 59 up it is newer than this one (v4.16.0), and the banner stays while it is.
+   Its words are this content's own, but for the server's version (osver), which the server may follow with why (on the viewer's os_screen). */
 .os-global.latest-59 .os-outdated
 {
 	visibility: visible;
@@ -1236,70 +1232,6 @@ Label
 .os-screen.win-in .os-dim
 {
 	opacity: 1;
-}
-
-/* Beyond our box. CS2 lays the custom HUD out inside its HUD edges (the convar safezonex, the setting HUD Edge Positions): a player who pulls them in gets our whole
-   HUD in a box centred on the screen - at 32:9 with the slider at its minimum a 21:9 one, about 660 in from each side - while at a match end CS2's own chat moves
-   into its end screen, at the screen's true left edge, where our column no longer covers it (a player's 32:9 frame, 2026-11-19). So at a match end (meos) with the
-   window open and the column up, a solid band runs from the column out past the box's left edge and covers that chat, and the dim runs on past the box's right
-   edge, so both sides look even. Each is 1,400 wide - the deepest inset the convar allows at 32:9 is 1,380 (the HUD no narrower than the screen is high), and
-   1,400 still fits the narrowest box, 4:3's 1,440, so nothing squishes it - and moved out of the box by its own width: with the HUD edges at full width both lie
-   off the screen and nothing changes, at any shape. They fade with the window, step aside for the SCORES look with the panels they flank, and need CS2 to
-   draw past its box: if it clips there, they show nothing. */
-.os-edge-l
-{
-	visibility: collapse;
-	horizontal-align: left;
-	width: 1400px;
-	height: 100%;
-	transform: translateX( -1400px );
-	background-color: #05070A00;
-	transition-property: background-color;
-	transition-duration: 0.25s;
-	transition-timing-function: ease-out;
-}
-
-.os-edge-r
-{
-	visibility: collapse;
-	horizontal-align: right;
-	width: 1400px;
-	height: 100%;
-	transform: translateX( 1400px );
-	background-color: #05070A00;
-	transition-property: background-color;
-	transition-duration: 0.25s;
-	transition-timing-function: ease-out;
-}
-
-.os-screen.win.meos.chaton .os-edge-l
-{
-	visibility: visible;
-}
-
-.os-screen.win.meos.chaton .os-edge-r
-{
-	visibility: visible;
-}
-
-.os-screen.win-in.meos.chaton .os-edge-l
-{
-	background-color: #05070A;
-}
-
-.os-screen.win-in.meos.chaton .os-edge-r
-{
-	background-color: #05070AF8;
-}
-
-.os-global .os-screen.win.vpeek.meos .os-edge-l
-{
-	visibility: collapse;
-}
-
-.os-global .os-screen.win.vpeek.meos .os-edge-r
-{
-	visibility: collapse;
 }
 
 .os-win
@@ -3669,16 +3601,6 @@ Label
 	visibility: collapse;
 }
 
-.os-screen.page-fun #os_sub_fun
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-fun #os_sub_fun .os-stab-text
-{
-	color: os-gold-hi;
-}
-
 .os-page-bots
 {
 	flow-children: down;
@@ -5832,36 +5754,6 @@ Label
 	padding: 0px 24px;
 }
 
-.os-screen.page-players #os_tab_server
-{
-	border-bottom: 2px solid os-gold;
-}
-
-.os-screen.page-players #os_tab_server .os-tab-text
-{
-	color: #FFFFFF;
-}
-
-.os-screen.page-game #os_tab_server
-{
-	border-bottom: 2px solid os-gold;
-}
-
-.os-screen.page-game #os_tab_server .os-tab-text
-{
-	color: #FFFFFF;
-}
-
-.os-screen.page-sync #os_tab_server
-{
-	border-bottom: 2px solid os-gold;
-}
-
-.os-screen.page-sync #os_tab_server .os-tab-text
-{
-	color: #FFFFFF;
-}
-
 /* -- the sub-tabs: a segmented row under the tabs, and what the page is for at its right -- */
 
 .os-subs
@@ -5913,16 +5805,6 @@ Label
 .os-screen.voting #os_v_browse
 {
 	border-bottom: 2px solid #00000000;
-}
-
-.os-screen.page-help #os_sub_help
-{
-	background-color: #E9B44C2E;
-}
-
-.os-screen.page-help #os_sub_help .os-stab-text
-{
-	color: os-gold-hi;
 }
 
 .os-subcap
@@ -9913,9 +9795,11 @@ Label
 }
 
 /* -- HISTORY and STATS (content v4.15.0): two pages of their own, each a tab in the top row, current while it shows (page-history, page-stats), the window's
-   whole width as MAPS has it. Every word on them is a variable, every state a class - on os_screen, or on a card, a bar or a picture that takes it - and the
-   buttons take clicks only, so CS2 keeps a name for none of them (the HUD budget's rule since 2026-11-19). MAPS' History button and its view on the browser's
-   cards are gone with the pages' server half. -- */
+   whole width as MAPS has it. Every word on them is a variable and every state a class, and the buttons take clicks only. Since content v4.16.0 the server
+   names no panel of theirs that an older content lacks: CS2 keeps one list of every panel id the server named on a map, and every game looks all of it up
+   at its full update, so a v4.14.0 game that joined after a v4.15.0 player had shown the pages logged "Unable to find panel" for their 18 panels. So a card's
+   state is a class on os_screen (h1-used ... h4-mine), a bar's step four bits on os_global, and the pictures lie in a layer over the pages whose four panels
+   have ids every content in use has (os-pics). -- */
 .os-screen.page-history #os_tab_history
 {
 	border-bottom: 2px solid os-gold;
@@ -10075,10 +9959,10 @@ Label
 	white-space: nowrap;
 }
 
-/* - HISTORY's cards: four a page, 142 high across the page - the mode's band, the picture (252 x 142, the map's own as on the browser's cards: HudThumbs'
-   classes on os_h<k>_thumb), the words, and at the right its likes with Like and Dislike, and Vote for it: the browser's buttons for that map. A card shows
-   while it holds a match (used); its other classes are the browser's (liked, disliked, official, mode-*, now, queued), the record's (hinc: known only in
-   part) and the player's (mine: in it). - */
+/* - HISTORY's cards: four a page, 142 high across the page - the mode's band, the picture's slot (252 x 142: the picture lies over it, in os-pics), the words,
+   and at the right its likes with Like and Dislike, and Vote for it: the browser's buttons for that map. Card k shows while it holds a match (h<k>-used on
+   os_screen); its other states are the browser's (liked, disliked, official, the mode - ar, dm, wm -, now, queued), the record's (inc: known only in part)
+   and the player's (mine: in it), each h<k>- and the state on os_screen. - */
 .os-hlist
 {
 	width: 100%;
@@ -10097,12 +9981,42 @@ Label
 	background-color: gradient( linear, 0% 0%, 100% 0%, from( #FFFFFF0D ), to( #FFFFFF04 ) );
 }
 
-.os-hcard.used
+.os-screen.h1-used .os-hcard-1
 {
 	visibility: visible;
 }
 
-.os-hcard.mine
+.os-screen.h2-used .os-hcard-2
+{
+	visibility: visible;
+}
+
+.os-screen.h3-used .os-hcard-3
+{
+	visibility: visible;
+}
+
+.os-screen.h4-used .os-hcard-4
+{
+	visibility: visible;
+}
+
+.os-screen.h1-mine .os-hcard-1
+{
+	border: 1px solid #E9B44C59;
+}
+
+.os-screen.h2-mine .os-hcard-2
+{
+	border: 1px solid #E9B44C59;
+}
+
+.os-screen.h3-mine .os-hcard-3
+{
+	border: 1px solid #E9B44C59;
+}
+
+.os-screen.h4-mine .os-hcard-4
 {
 	border: 1px solid #E9B44C59;
 }
@@ -10115,17 +10029,62 @@ Label
 	background-color: #FFFFFF14;
 }
 
-.os-hcard.mode-armsrace .os-hband
+.os-screen.h1-ar .os-hcard-1 .os-hband
 {
 	background-color: os-ar;
 }
 
-.os-hcard.mode-deathmatch .os-hband
+.os-screen.h2-ar .os-hcard-2 .os-hband
+{
+	background-color: os-ar;
+}
+
+.os-screen.h3-ar .os-hcard-3 .os-hband
+{
+	background-color: os-ar;
+}
+
+.os-screen.h4-ar .os-hcard-4 .os-hband
+{
+	background-color: os-ar;
+}
+
+.os-screen.h1-dm .os-hcard-1 .os-hband
 {
 	background-color: os-dm;
 }
 
-.os-hcard.mode-wingman .os-hband
+.os-screen.h2-dm .os-hcard-2 .os-hband
+{
+	background-color: os-dm;
+}
+
+.os-screen.h3-dm .os-hcard-3 .os-hband
+{
+	background-color: os-dm;
+}
+
+.os-screen.h4-dm .os-hcard-4 .os-hband
+{
+	background-color: os-dm;
+}
+
+.os-screen.h1-wm .os-hcard-1 .os-hband
+{
+	background-color: os-wm;
+}
+
+.os-screen.h2-wm .os-hcard-2 .os-hband
+{
+	background-color: os-wm;
+}
+
+.os-screen.h3-wm .os-hcard-3 .os-hband
+{
+	background-color: os-wm;
+}
+
+.os-screen.h4-wm .os-hcard-4 .os-hband
 {
 	background-color: os-wm;
 }
@@ -10134,17 +10093,6 @@ Label
 {
 	width: 252px;
 	height: 100%;
-	background-color: gradient( linear, 0% 0%, 100% 100%, from( #34404D ), color-stop( 0.55, #1C2530 ), to( #121820 ) );
-	background-size: cover;
-	background-position: 50% 50%;
-	background-repeat: no-repeat;
-}
-
-.os-hthumb-shade
-{
-	width: 100%;
-	height: 100%;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.4, #00000000 ), to( #00000099 ) );
 }
 
 .os-hmode
@@ -10162,20 +10110,77 @@ Label
 	color: #FFFFFF;
 }
 
-.os-hcard.mode-armsrace .os-hmode-armsrace
+.os-screen.page-history.h1-ar .os-pic-1 .os-hmode-armsrace
 {
 	visibility: visible;
 	background-color: os-ar;
 	color: #14100A;
 }
 
-.os-hcard.mode-deathmatch .os-hmode-deathmatch
+.os-screen.page-history.h2-ar .os-pic-2 .os-hmode-armsrace
+{
+	visibility: visible;
+	background-color: os-ar;
+	color: #14100A;
+}
+
+.os-screen.page-history.h3-ar .os-pic-3 .os-hmode-armsrace
+{
+	visibility: visible;
+	background-color: os-ar;
+	color: #14100A;
+}
+
+.os-screen.page-history.h4-ar .os-pic-4 .os-hmode-armsrace
+{
+	visibility: visible;
+	background-color: os-ar;
+	color: #14100A;
+}
+
+.os-screen.page-history.h1-dm .os-pic-1 .os-hmode-deathmatch
 {
 	visibility: visible;
 	background-color: os-dm;
 }
 
-.os-hcard.mode-wingman .os-hmode-wingman
+.os-screen.page-history.h2-dm .os-pic-2 .os-hmode-deathmatch
+{
+	visibility: visible;
+	background-color: os-dm;
+}
+
+.os-screen.page-history.h3-dm .os-pic-3 .os-hmode-deathmatch
+{
+	visibility: visible;
+	background-color: os-dm;
+}
+
+.os-screen.page-history.h4-dm .os-pic-4 .os-hmode-deathmatch
+{
+	visibility: visible;
+	background-color: os-dm;
+}
+
+.os-screen.page-history.h1-wm .os-pic-1 .os-hmode-wingman
+{
+	visibility: visible;
+	background-color: os-wm;
+}
+
+.os-screen.page-history.h2-wm .os-pic-2 .os-hmode-wingman
+{
+	visibility: visible;
+	background-color: os-wm;
+}
+
+.os-screen.page-history.h3-wm .os-pic-3 .os-hmode-wingman
+{
+	visibility: visible;
+	background-color: os-wm;
+}
+
+.os-screen.page-history.h4-wm .os-pic-4 .os-hmode-wingman
 {
 	visibility: visible;
 	background-color: os-wm;
@@ -10201,7 +10206,22 @@ Label
 	background-color: os-up;
 }
 
-.os-hcard.now .os-htag-now
+.os-screen.page-history.h1-now .os-pic-1 .os-htag-now
+{
+	visibility: visible;
+}
+
+.os-screen.page-history.h2-now .os-pic-2 .os-htag-now
+{
+	visibility: visible;
+}
+
+.os-screen.page-history.h3-now .os-pic-3 .os-htag-now
+{
+	visibility: visible;
+}
+
+.os-screen.page-history.h4-now .os-pic-4 .os-htag-now
 {
 	visibility: visible;
 }
@@ -10213,7 +10233,22 @@ Label
 	background-color: #D8DEE4;
 }
 
-.os-hcard.official .os-htag-official
+.os-screen.h1-official .os-hcard-1 .os-htag-official
+{
+	visibility: visible;
+}
+
+.os-screen.h2-official .os-hcard-2 .os-htag-official
+{
+	visibility: visible;
+}
+
+.os-screen.h3-official .os-hcard-3 .os-htag-official
+{
+	visibility: visible;
+}
+
+.os-screen.h4-official .os-hcard-4 .os-htag-official
 {
 	visibility: visible;
 }
@@ -10273,7 +10308,22 @@ Label
 	white-space: nowrap;
 }
 
-.os-hcard.hinc .os-hend
+.os-screen.h1-inc .os-hcard-1 .os-hend
+{
+	color: #E8B65C;
+}
+
+.os-screen.h2-inc .os-hcard-2 .os-hend
+{
+	color: #E8B65C;
+}
+
+.os-screen.h3-inc .os-hcard-3 .os-hend
+{
+	color: #E8B65C;
+}
+
+.os-screen.h4-inc .os-hcard-4 .os-hend
 {
 	color: #E8B65C;
 }
@@ -10341,12 +10391,42 @@ Label
 	color: os-dim;
 }
 
-.os-hcard.liked .os-hvotes
+.os-screen.h1-liked .os-hcard-1 .os-hvotes
 {
 	color: os-up;
 }
 
-.os-hcard.disliked .os-hvotes
+.os-screen.h2-liked .os-hcard-2 .os-hvotes
+{
+	color: os-up;
+}
+
+.os-screen.h3-liked .os-hcard-3 .os-hvotes
+{
+	color: os-up;
+}
+
+.os-screen.h4-liked .os-hcard-4 .os-hvotes
+{
+	color: os-up;
+}
+
+.os-screen.h1-disliked .os-hcard-1 .os-hvotes
+{
+	color: os-down;
+}
+
+.os-screen.h2-disliked .os-hcard-2 .os-hvotes
+{
+	color: os-down;
+}
+
+.os-screen.h3-disliked .os-hcard-3 .os-hvotes
+{
+	color: os-down;
+}
+
+.os-screen.h4-disliked .os-hcard-4 .os-hvotes
 {
 	color: os-down;
 }
@@ -10380,13 +10460,49 @@ Label
 	horizontal-align: center;
 }
 
-.os-hcard.liked .os-hvote-up
+.os-screen.h1-liked .os-hcard-1 .os-hvote-up
 {
 	border: 1px solid #7BD88FB3;
 	background-color: #7BD88F2E;
 }
 
-.os-hcard.disliked .os-hvote-down
+.os-screen.h2-liked .os-hcard-2 .os-hvote-up
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F2E;
+}
+
+.os-screen.h3-liked .os-hcard-3 .os-hvote-up
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F2E;
+}
+
+.os-screen.h4-liked .os-hcard-4 .os-hvote-up
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F2E;
+}
+
+.os-screen.h1-disliked .os-hcard-1 .os-hvote-down
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.os-screen.h2-disliked .os-hcard-2 .os-hvote-down
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.os-screen.h3-disliked .os-hcard-3 .os-hvote-down
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.os-screen.h4-disliked .os-hcard-4 .os-hvote-down
 {
 	border: 1px solid #F07C6BB3;
 	background-color: #F07C6B2E;
@@ -10430,13 +10546,46 @@ Label
 	white-space: nowrap;
 }
 
-.os-hcard.queued .os-hplay
+.os-screen.h1-queued .os-hcard-1 .os-hplay
 {
 	border: 1px solid os-up;
 	background-color: #7BD88F24;
 }
 
-.os-hcard.queued .os-hplay-text
+.os-screen.h2-queued .os-hcard-2 .os-hplay
+{
+	border: 1px solid os-up;
+	background-color: #7BD88F24;
+}
+
+.os-screen.h3-queued .os-hcard-3 .os-hplay
+{
+	border: 1px solid os-up;
+	background-color: #7BD88F24;
+}
+
+.os-screen.h4-queued .os-hcard-4 .os-hplay
+{
+	border: 1px solid os-up;
+	background-color: #7BD88F24;
+}
+
+.os-screen.h1-queued .os-hcard-1 .os-hplay-text
+{
+	color: os-up;
+}
+
+.os-screen.h2-queued .os-hcard-2 .os-hplay-text
+{
+	color: os-up;
+}
+
+.os-screen.h3-queued .os-hcard-3 .os-hplay-text
+{
+	color: os-up;
+}
+
+.os-screen.h4-queued .os-hcard-4 .os-hplay-text
 {
 	color: os-up;
 }
@@ -10453,7 +10602,22 @@ Label
 	color: os-gold;
 }
 
-.os-hcard.mine .os-hmine
+.os-screen.h1-mine .os-hcard-1 .os-hmine
+{
+	visibility: visible;
+}
+
+.os-screen.h2-mine .os-hcard-2 .os-hmine
+{
+	visibility: visible;
+}
+
+.os-screen.h3-mine .os-hcard-3 .os-hmine
+{
+	visibility: visible;
+}
+
+.os-screen.h4-mine .os-hcard-4 .os-hmine
 {
 	visibility: visible;
 }
@@ -10510,10 +10674,116 @@ Label
 	opacity: 0.3;
 }
 
+/* - The pictures of HISTORY and STATS (content v4.16.0): four panels over the pages (os-pics), each where the page that shows wants it, their ids the
+   older contents' own (the old sub-tab bar's three buttons, the search's first Clear) so the server names no panel any content in use lacks. On HISTORY
+   picture k lies over card k's slot - 34 + 1 + 4 in, 58 + 150 x (k - 1) down - with the card's mode and On now from os_screen's h1-* ...
+   h4-*; on STATS pictures 1 and 2 over the heroes' slots, the most played map's and the most liked one's with their names and counts. A map's picture
+   is its two classes (the thumbnails' stylesheet), per viewer; without one the backdrop shows. They take no mouse. - */
+.os-pics
+{
+	visibility: collapse;
+	width: 100%;
+	height: 100%;
+}
+
+.os-screen.page-history .os-pics
+{
+	visibility: visible;
+}
+
+.os-screen.page-stats .os-pics
+{
+	visibility: visible;
+}
+
+.os-pic
+{
+	visibility: collapse;
+	horizontal-align: left;
+	vertical-align: top;
+	width: 252px;
+	height: 142px;
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #34404D ), color-stop( 0.55, #1C2530 ), to( #121820 ) );
+	background-size: cover;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.os-pic-shade
+{
+	width: 100%;
+	height: 100%;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.4, #00000000 ), to( #00000099 ) );
+}
+
+.os-screen.page-history.h1-used .os-pic-1
+{
+	visibility: visible;
+	margin: 58px 0px 0px 39px;
+}
+
+.os-screen.page-history.h2-used .os-pic-2
+{
+	visibility: visible;
+	margin: 208px 0px 0px 39px;
+}
+
+.os-screen.page-history.h3-used .os-pic-3
+{
+	visibility: visible;
+	margin: 358px 0px 0px 39px;
+}
+
+.os-screen.page-history.h4-used .os-pic-4
+{
+	visibility: visible;
+	margin: 508px 0px 0px 39px;
+}
+
+.os-screen.page-stats .os-pic-1
+{
+	visibility: visible;
+	margin: 133px 0px 0px 47px;
+	width: 354px;
+	height: 92px;
+	border-radius: 4px;
+}
+
+.os-screen.page-stats .os-pic-2
+{
+	visibility: visible;
+	margin: 133px 0px 0px 443px;
+	width: 306px;
+	height: 92px;
+	border-radius: 4px;
+}
+
+.os-screen.page-stats .os-pic-shade
+{
+	border-radius: 4px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000000 ), to( #000000CC ) );
+}
+
+.os-screen.page-stats .os-pic .os-sthero-name
+{
+	visibility: visible;
+}
+
+.os-screen.page-stats .os-pic .os-sthero-value
+{
+	visibility: visible;
+}
+
+.os-pic-2 .os-sthero-name
+{
+	max-width: 200px;
+}
+
 /* - STATS: the head's line with the maps new this week at its right, the viewing player's own line, and three columns of tiles, 16 apart in the page's 1,172:
-   the maps' 380, the votes' and likes' 332 and the records' 428, whose rows hold a key, a name and a value side by side. A row is a rank, a name and a value; a record's row has its words instead of a rank. A map's bar is its count over the first's, a mode's its
-   share: the steps w0 ... w10 on the bar's panel (os_st_bar<k>, os_st_m*). The first map of the most played and of the most liked shows its picture (os_st_pic1,
-   os_st_pic2: HudThumbs' classes). A record that may have nothing yet - the players' rows 6 and 7, every fun record - shows by its class (str6, str7,
+   the maps' 380, the likes' and votes' 332 and the records' 428, whose rows hold a key, a name and a value side by side. A row is a rank, a name and a value; a
+   record's row has its words instead of a rank. A map's bar is its count over the first's, a mode's its share: since content v4.16.0 its step, 0 to 10, is its
+   bits on os_global (below), no class on the bar itself. The first map of the most played and of the most liked shows its picture, laid over its slot from the
+   layer over the pages (os-pics). A record that may have nothing yet - the players' rows 6 and 7, every fun record - shows by its class (str6, str7,
    stf1 ... stf6), and the page dims while the server has no history (stnone): on os_screen, or on os_global for every player at once. - */
 .os-sthead-text
 {
@@ -10682,33 +10952,11 @@ Label
 	width: 100%;
 	height: 92px;
 	margin-bottom: 6px;
-	border-radius: 4px;
-	background-color: gradient( linear, 0% 0%, 100% 100%, from( #34404D ), color-stop( 0.55, #1C2530 ), to( #121820 ) );
-	background-size: cover;
-	background-position: 50% 50%;
-	background-repeat: no-repeat;
-}
-
-.os-sthero-small
-{
-	height: 64px;
-}
-
-.os-stcol-mid .os-sthero-name
-{
-	max-width: 200px;
-}
-
-.os-sthero-shade
-{
-	width: 100%;
-	height: 100%;
-	border-radius: 4px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000000 ), to( #000000CC ) );
 }
 
 .os-sthero-name
 {
+	visibility: collapse;
 	max-width: 240px;
 	horizontal-align: left;
 	vertical-align: bottom;
@@ -10722,6 +10970,7 @@ Label
 
 .os-sthero-value
 {
+	visibility: collapse;
 	horizontal-align: right;
 	vertical-align: bottom;
 	margin: 0px 10px 7px 0px;
@@ -10915,57 +11164,364 @@ Label
 	background-color: os-wm;
 }
 
-.os-stbar.w0 .os-stbar-fill
+/* A bar's step, 0 to 10 tenths, is its bits on os_global (stp2-1 ... stp5-8 the most played's rows 2 to 5, stmar-, stmdm-, stmwm- the modes'): the rule naming
+   exactly its bits is the most specific of those that match, so it wins. The most played's first row is full - the others are against it - but with no history. */
+.os-stbar-p1 .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stnone .os-stbar-p1 .os-stbar-fill
 {
 	width: 0%;
 }
 
-.os-stbar.w1 .os-stbar-fill
+.os-global.stp2-1 .os-stbar-p2 .os-stbar-fill
 {
 	width: 10%;
 }
 
-.os-stbar.w2 .os-stbar-fill
+.os-global.stp2-2 .os-stbar-p2 .os-stbar-fill
 {
 	width: 20%;
 }
 
-.os-stbar.w3 .os-stbar-fill
+.os-global.stp2-1.stp2-2 .os-stbar-p2 .os-stbar-fill
 {
 	width: 30%;
 }
 
-.os-stbar.w4 .os-stbar-fill
+.os-global.stp2-4 .os-stbar-p2 .os-stbar-fill
 {
 	width: 40%;
 }
 
-.os-stbar.w5 .os-stbar-fill
+.os-global.stp2-1.stp2-4 .os-stbar-p2 .os-stbar-fill
 {
 	width: 50%;
 }
 
-.os-stbar.w6 .os-stbar-fill
+.os-global.stp2-2.stp2-4 .os-stbar-p2 .os-stbar-fill
 {
 	width: 60%;
 }
 
-.os-stbar.w7 .os-stbar-fill
+.os-global.stp2-1.stp2-2.stp2-4 .os-stbar-p2 .os-stbar-fill
 {
 	width: 70%;
 }
 
-.os-stbar.w8 .os-stbar-fill
+.os-global.stp2-8 .os-stbar-p2 .os-stbar-fill
 {
 	width: 80%;
 }
 
-.os-stbar.w9 .os-stbar-fill
+.os-global.stp2-1.stp2-8 .os-stbar-p2 .os-stbar-fill
 {
 	width: 90%;
 }
 
-.os-stbar.w10 .os-stbar-fill
+.os-global.stp2-2.stp2-8 .os-stbar-p2 .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stp3-1 .os-stbar-p3 .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-global.stp3-2 .os-stbar-p3 .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-global.stp3-1.stp3-2 .os-stbar-p3 .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-global.stp3-4 .os-stbar-p3 .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-global.stp3-1.stp3-4 .os-stbar-p3 .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-global.stp3-2.stp3-4 .os-stbar-p3 .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-global.stp3-1.stp3-2.stp3-4 .os-stbar-p3 .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-global.stp3-8 .os-stbar-p3 .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-global.stp3-1.stp3-8 .os-stbar-p3 .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-global.stp3-2.stp3-8 .os-stbar-p3 .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stp4-1 .os-stbar-p4 .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-global.stp4-2 .os-stbar-p4 .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-global.stp4-1.stp4-2 .os-stbar-p4 .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-global.stp4-4 .os-stbar-p4 .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-global.stp4-1.stp4-4 .os-stbar-p4 .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-global.stp4-2.stp4-4 .os-stbar-p4 .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-global.stp4-1.stp4-2.stp4-4 .os-stbar-p4 .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-global.stp4-8 .os-stbar-p4 .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-global.stp4-1.stp4-8 .os-stbar-p4 .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-global.stp4-2.stp4-8 .os-stbar-p4 .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stp5-1 .os-stbar-p5 .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-global.stp5-2 .os-stbar-p5 .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-global.stp5-1.stp5-2 .os-stbar-p5 .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-global.stp5-4 .os-stbar-p5 .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-global.stp5-1.stp5-4 .os-stbar-p5 .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-global.stp5-2.stp5-4 .os-stbar-p5 .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-global.stp5-1.stp5-2.stp5-4 .os-stbar-p5 .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-global.stp5-8 .os-stbar-p5 .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-global.stp5-1.stp5-8 .os-stbar-p5 .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-global.stp5-2.stp5-8 .os-stbar-p5 .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stmar-1 .os-stbar-ar .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-global.stmar-2 .os-stbar-ar .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-global.stmar-1.stmar-2 .os-stbar-ar .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-global.stmar-4 .os-stbar-ar .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-global.stmar-1.stmar-4 .os-stbar-ar .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-global.stmar-2.stmar-4 .os-stbar-ar .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-global.stmar-1.stmar-2.stmar-4 .os-stbar-ar .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-global.stmar-8 .os-stbar-ar .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-global.stmar-1.stmar-8 .os-stbar-ar .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-global.stmar-2.stmar-8 .os-stbar-ar .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stmdm-1 .os-stbar-dm .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-global.stmdm-2 .os-stbar-dm .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-global.stmdm-1.stmdm-2 .os-stbar-dm .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-global.stmdm-4 .os-stbar-dm .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-global.stmdm-1.stmdm-4 .os-stbar-dm .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-global.stmdm-2.stmdm-4 .os-stbar-dm .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-global.stmdm-1.stmdm-2.stmdm-4 .os-stbar-dm .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-global.stmdm-8 .os-stbar-dm .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-global.stmdm-1.stmdm-8 .os-stbar-dm .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-global.stmdm-2.stmdm-8 .os-stbar-dm .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-global.stmwm-1 .os-stbar-wm .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-global.stmwm-2 .os-stbar-wm .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-global.stmwm-1.stmwm-2 .os-stbar-wm .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-global.stmwm-4 .os-stbar-wm .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-global.stmwm-1.stmwm-4 .os-stbar-wm .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-global.stmwm-2.stmwm-4 .os-stbar-wm .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-global.stmwm-1.stmwm-2.stmwm-4 .os-stbar-wm .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-global.stmwm-8 .os-stbar-wm .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-global.stmwm-1.stmwm-8 .os-stbar-wm .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-global.stmwm-2.stmwm-8 .os-stbar-wm .os-stbar-fill
 {
 	width: 100%;
 }
