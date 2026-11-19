@@ -723,6 +723,35 @@ nothing and says so. A reason on a map that player liked takes the like back fir
 A plain `!down` on a map already disliked keeps the reason, says it is down already and leaves a popup that is open running; `!down meh` puts a reason back to the plain
 dislike. The health page counts the marks per reason. The answer to a plain Dislike names the words as well, for a game that shows no popup.
 
+## The match history
+
+Every match a human was in, kept for good in `history.jsonl` in the bridge's data folder: one JSON object a line, oldest first (`HudHistory.ToJsonLine`) - `start`
+and `end` in the server's local time with their offset; `map` (`id`, the Workshop id, 0 for an official map or one not known; `name`, the name the server showed;
+`log`, the name the game logged); `mode`; `endedBy` (`match end`, `map change`, `server start`, `server stop`, `restart`, `not known`); `score` (Wingman's final
+score, when it has one); `players` (each human's `account`, the `name` they had then, their `seconds` in it and when they were `first` in it); `missing` (what the
+record does not know: `start`, `end`, `map id`, `players`, `times`); `source` (`live` or `backfill`).
+
+**The record** (`History.cs`, `MatchTracker`) follows the game's own log stream. A match is on a map from its start - the map's start, or the end screen of the
+match before it on that map when the vote plays it again - to the first of: its end screen (CS2's `Game Over`, which also gives its mode and Wingman's score), a
+map change, a player's Restart match after its first minute (a fairness restart is the same match), the server going down, or a hole in the record (the bridge
+down: a short one leaves the match on, its players and times not known in full; a long one ends it where the record stopped). Its humans are everybody who
+entered the game during it and everybody still in from the match before it, each with their time in it. Bots never enter the log with a Steam account and the
+lab's fake players never enter the game, so neither is ever in it; a test copy keeps its own file. A match nobody human was in is no entry, nor one they were in
+for under a minute (`LeastSeconds`), nor an end screen alone before a change (`EndScreenSeconds`). Each new entry is appended and logged (`history:`).
+
+**The backfill**, `bridge --history-backfill OUT [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...`, makes the same entries from the logs, as far back as they
+reach, read only, into OUT: the bridge's day logs (`logs/bridge-*.log` in its data folder) and the game's console log (`addons/metamod/console.log`, its
+`[Server] L` lines). Where the day logs reach they are the record; the console's lines add the stretches before them, without the maps' Workshop ids (`missing:
+map id`). `--until` stops where the live record takes over. The plugins' own logs name some players but not who was in a match, so they are no source.
+
+**The History view** is a view of the map browser (its History button, `os_fl_hist`; the content after v4.14.0, `HudBrowser.HistoryLevel` - an older content
+gets none of it): the matches, newest first, a card a match on the browser's own cards and pages. A card is its map's - its current likes and dislikes, the
+player's own Like and Dislike (that player's one vote on that map, as on Start and in the browser), Play and the tags - and on `os_screen`, per player, card k
+(1-12) has when it ran (`osh<k>w`), who was in it (`osh<k>p`) and the line under them (`osh<k>n`: its length, Wingman's score, `from the logs, partly` for a match
+known only in part); `hist` is on `os_screen` while the view is on, `hinc` on a card whose match is known only in part. The mode, Liked, Official, Ours and size
+filters apply by the map, a search by the map's name or a player's, and the sort's direction gives the oldest first. The plugin fetches the newest 2,400 matches
+(`/history/`, when `hist` in the live state moves).
+
 ## Fun settings
 
 Anybody switches them, at any time, a vote open or not, for everybody, until the map changes; a map that sets its own value of a setting keeps it until a player changes

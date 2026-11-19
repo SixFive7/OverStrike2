@@ -27,6 +27,11 @@ public static class DownReasons
         new("slow", HudCatalog.SlowVote, "Runs badly", "runs badly"),
     ];
 
+    /// <summary>The reason for a map that took the server down (the history tab, 2026-11-19: a match's card on the History view disliked after a crash). Ready, and
+    /// not in All yet: every reason in All is a button of the popup (os_why_1 ... os_why_6 now, HudVote.WhyButton), so it joins All - the last, os_why_7 - with
+    /// the HUD content that has that button, in the same change.</summary>
+    public static readonly Reason Crash = new("crash", HudCatalog.CrashVote, "It crashed the server", "crashed the server");
+
     /// <summary>The reasons chat can name beyond the plain one, as a player reads them: "big, ads, small, broken or slow".</summary>
     public static string Words => string.Join(", ", All.Skip(1).SkipLast(1).Select(r => r.Word)) + " or " + All[^1].Word;
 

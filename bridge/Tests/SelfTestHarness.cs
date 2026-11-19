@@ -44,6 +44,7 @@ static partial class Program
         WatchStop();
         SyncDoc?.Dispose(); SyncDoc = null; SyncStamp = null; SyncReadAt = default; SyncProblem = ""; dashBody = ""; webWritten = ""; webPage = ""; webWrittenAt = default; syncTicks = 0;
         hudPolledTicks = 0; hudHeldTicks = 0;
+        MatchHistory.Clear(); History.Clear(); LastStartWasServerStart = false; // History.cs: the match history, its plugin copy
         ClearNotices();
         // the two settings a test may switch
         HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check);
@@ -55,7 +56,7 @@ static partial class Program
     [
         nameof(StateDir), nameof(MapsFile), nameof(BrokenFile), nameof(Officials), nameof(ModeMapsDir),
         nameof(Send), nameof(After), nameof(Now), nameof(HudActive), nameof(HudHeld), nameof(Rc), nameof(Loop), nameof(Signals), nameof(Clock), nameof(Dice),
-        nameof(SelfTesting), nameof(SyncOn), nameof(DashZone), nameof(ModeProbeEnabled), nameof(ToldAll), nameof(SelfTestMaps), nameof(FakeColours),
+        nameof(SelfTesting), nameof(SyncOn), nameof(DashZone), nameof(HistoryZone), nameof(ModeProbeEnabled), nameof(ToldAll), nameof(SelfTestMaps), nameof(FakeColours),
         nameof(CatalogText), nameof(catalogBuilt), nameof(DashText), nameof(DashVersion), nameof(SaySeq), nameof(HudTextNow), nameof(HudTextVersion), nameof(HudLock), nameof(HudWaiting),
         nameof(logPosts), nameof(lastLogTicks), nameof(Files),
     ];

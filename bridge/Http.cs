@@ -27,6 +27,7 @@ static partial class Program
         if (c.Request.HttpMethod == "GET" && path == Hud.CatalogPath + LogSecret) { Reply(c, CatalogText); return; }        // the menu's map list, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.SearchPath + LogSecret) { Reply(c, SearchText); return; }          // the search index, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.DashPath + LogSecret) { Reply(c, DashText); return; }            // the Sync page's block, when its version moved (SyncDash.cs)
+        if (c.Request.HttpMethod == "GET" && path == Hud.HistoryPath + LogSecret) { Reply(c, HistoryText); return; }      // the match history's block, when its version moved (History.cs)
         if (c.Request.HttpMethod == "POST" && path == Hud.ActPath + LogSecret) { HudClick(c); return; }               // a click on the HUD
         // The other programs' words to the bridge, each address from core's BridgeWire.cs, as they send them:
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Removed) + LogSecret) { RemovedReport(c); return; }      // the Workshop sync: what Steam says about the listed maps

@@ -102,6 +102,7 @@ static partial class Program
         var underChange = LoadPending || Pending != null;
         var ours = LoadPending && now < LoadUntil && S.Map != null && !(start && !IsStartMap(S.Map));
         var restarted = !ours && start && underChange;
+        LastStartWasServerStart = !ours && start; // History.cs: the match that was on ended with the server
         if (restarted)
         {
             var gone = Pending?.Map ?? S.Map;

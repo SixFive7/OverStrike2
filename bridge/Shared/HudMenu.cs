@@ -67,6 +67,27 @@ public static class HudMenu
     /// text input there is, and a chat line typed on MAPS > Browse searches it (233).</summary>
     public const string SearchHint = "Press Y and type a map name";
 
+    /// <summary>The History view with no match in it yet.</summary>
+    public const string HistoryEmpty = "No match played yet - Every match a human plays in shows here, the newest first.";
+
+    /// <summary>The History view's lines on card k (1-12), on os_screen for this player: when the match ran (osh{k}w), who was in it (osh{k}p) and the line
+    /// under them - its length, Wingman's score, a mark for a match the record knows only in part (osh{k}n); all empty off the History view and on a card
+    /// with no match. Variables, so no panel ids: the card's own labels show them under the stylesheet's .hist.</summary>
+    public static List<(string Name, string Text)> HistoryWords(HudBrowser b)
+    {
+        var past = b.History ? b.PastPage() : [];
+        var w = new List<(string, string)>();
+        for (var k = 1; k <= Cards; k++)
+        {
+            var e = k <= past.Count ? past[k - 1] : null;
+            var n = k.ToString(CultureInfo.InvariantCulture);
+            w.Add(($"osh{n}w", e == null ? "" : HudHistory.When(e)));
+            w.Add(($"osh{n}p", e == null ? "" : HudHistory.Who(e)));
+            w.Add(($"osh{n}n", e == null ? "" : HudHistory.Note(e)));
+        }
+        return w;
+    }
+
     /// <summary>The search's words row (content v4.11.0), this player's part: their last searches, newest first, a word on each button and used on the ones that have one
     /// (HudBrowser.RecentButtons), and qrecent on os_screen while there is one - its label and separator show only then.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) RecentWords(IReadOnlyList<string> recent)
@@ -104,21 +125,31 @@ public static class HudMenu
     /// cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
     /// empty message: the plugin shows that item's card there.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
-        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null, HudState? bars = null)
+        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null, HudState? bars = null,
+        bool history = false)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
         var matches = catalog == null ? new List<HudCatalog.Entry>() : b.Matches(catalog, account, search);
         var page = b.PageOf(matches);
-        var total = catalog?.Maps.Count ?? 0;
-        var workshop = b.WorkshopQuery(catalog) != null;
-        t.Add(("os_m_count", catalog == null ? "Loading the map list..." : matches.Count == total ? $"{total} maps" : $"{matches.Count} of {total} maps"));
+        var past = b.PastPage(); // the History view's matches, card by card
+        var total = b.History ? b.Past?.Entries.Count ?? 0 : catalog?.Maps.Count ?? 0;
+        var workshop = !b.History && b.WorkshopQuery(catalog) != null;
+        var unit = b.History ? "matches" : "maps";
+        t.Add(("os_m_count", catalog == null ? "Loading the map list..." : b.History && b.Past == null ? "Loading the history..."
+            : matches.Count == total ? $"{total} {unit}" : $"{matches.Count} of {total} {unit}"));
         t.Add(("os_pg_text", $"Page {b.Page + 1} of {b.PagesFor(matches.Count)}"));
         t.Add(("os_q_text", b.Query));
         t.Add(("os_q_hint", b.Query == "" ? SearchHint : ""));
-        t.Add(("os_m_empty", catalog == null || workshop ? "" : b.Query != "" ? $"No map matches \"{b.Query}\" - Other words, or a Workshop ID."
+        t.Add(("os_m_empty", catalog == null || workshop ? "" : b.History ? (total == 0 ? HistoryEmpty : b.Query != "" ? $"No match played on a map or by a player like \"{b.Query}\"."
+            : "No match played matches these filters.") : b.Query != "" ? $"No map matches \"{b.Query}\" - Other words, or a Workshop ID."
             : b.Liked ? "You have not liked a map yet: the up arrow on a card likes it." : b.Ours ? "No map of ours on the list yet." : "No map matches these filters."));
         c.Add(("os_m_empty", "used", catalog != null && matches.Count == 0 && !workshop));
+        if (history) // a content with the History view (HudBrowser.HasHistory)
+        {
+            c.Add((HudBrowser.HistoryButton, "on", b.History));
+            c.Add((HudView.Screen, "hist", b.History)); // the History view: the cards' match lines show (HistoryWords), the browse-only parts step back
+        }
         c.Add(("os_q_search", "used", b.Query != ""));
         c.Add((HudView.Screen, "vdone", false)); // the vote's, still on from the last one: they would dim these cards (HudVote.Cards)
         c.Add((HudView.Screen, "vlow", false));
@@ -170,6 +201,7 @@ public static class HudMenu
             c.Add((id, "big", m?.TooBig == true));                         // the TOO BIG tag
             c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag
             c.Add((id, "ours", m?.Ours == true));                           // the OUR MAP tag
+            if (history) c.Add((id, "hinc", k <= past.Count && past[k - 1].Incomplete)); // the History view: a match the record knows only in part (from the logs)
             c.AddRange(HudVote.CardModeClasses(id, m == null ? null : PlayMode(m, b.Mode, serverMode))); // the mode it plays in, on its picture and in its colour
             c.AddRange(HudVote.TagClassesOf(id, m?.Tags));                  // the rest of its tags
             c.AddRange(HudVote.ShareClasses(id, 0, 0));                     // no vote's share here

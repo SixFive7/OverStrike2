@@ -31,6 +31,7 @@ sealed partial class HudScreen
         vote = voteRaw.AsOf(bridgeNow);
         if (bridge?.TakeCatalog(now, state?.CatalogVersion ?? 0) is { } listText && HudCatalog.Decode(listText) is { } list) catalog = list;
         if (bridge?.TakeDash(now, state?.DashVersion ?? 0) is { } dashText && HudDash.Decode(dashText) is { } block) dash = block;
+        if (bridge?.TakeHistory(now, state?.HistoryVersion ?? 0) is { } historyText && HudHistory.Decode(historyText) is { } past) history = past; // the History view's matches
         if (bridge?.TakeSearch(now, state?.SearchVersion ?? 0) is { } searchText && HudSearch.Decode(searchText) is { } index)
         {
             search = index;
@@ -52,7 +53,7 @@ sealed partial class HudScreen
         matchEndLifted = ChatLift(matchScreen, now);
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
             FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs), // the bars a step ahead (HudVote.BarLeadMs)
-            chat, ChatLive(now), matchScreen, download is { } d && now < d.Until ? d.Download : null, chatRoute, matchEndLifted);
+            chat, ChatLive(now), matchScreen, download is { } d && now < d.Until ? d.Download : null, chatRoute, matchEndLifted, history);
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
         ScoresEnded(humans);
         MarkChanged();
@@ -91,6 +92,9 @@ sealed partial class HudScreen
     }
 
     readonly HashSet<int> scoresOn = new();
+
+    /// <summary>The match history as the bridge last sent it (BridgeLink.TakeHistory): the map browser's History view.</summary>
+    HudHistory? history;
 
     /// <summary>Whether CS2 has lifted its chat for the match-end screen (meos), as of the last frame - the SCORES button's clicks go by it (HudScores).</summary>
     bool matchEndLifted;

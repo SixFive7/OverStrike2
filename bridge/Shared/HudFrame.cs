@@ -37,7 +37,7 @@ public sealed class HudFrame
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
         bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs,
         VoteState? BarVote = null, HudState? BarState = null, HudChat? Chat = null, bool ChatLive = false, bool MatchScreen = false, HudVote.Download? Download = null,
-        HudChat.Route ChatRoute = HudChat.Default, bool ChatLift = false);
+        HudChat.Route ChatRoute = HudChat.Default, bool ChatLift = false, HudHistory? History = null);
     // Chat, ChatLive: the chat column's lines and whether its feed is live - the plugin's frames run and the bridge answers (content v4.14.0, HudChat); MatchScreen:
     // the match-end screen is up (the game's phase); ChatLift: CS2 has lifted its chat for it - the phase ended a while ago, as CS2 lifts it only once its screen
     // shows the scoreboard - so with CS2's chat open the column's foot follows its typing line up (meos); Download: a winner's download, as the watcher's line says it.
@@ -182,11 +182,14 @@ public sealed class HudFrame
     static void Menu(World w, Human h, HudPlayer p, HudSlots.Page page, int perPage, IScreen screen)
     {
         var (vote, now, slot) = (w.Vote, w.Now, h.Slot);
+        p.Browser.Past = w.History; // the History view's matches (HudBrowser.History): the plugin's copy of the bridge's history
+        var history = HudBrowser.HasHistory(h.Version);
+        if (!history) p.Browser.History = false; // a content without the view: the browser as it was
         var ballot = page == HudSlots.Page.Maps && OnBallot(p, vote);
         var (texts, classes) = page switch
         {
             HudSlots.Page.Maps when ballot => BallotPage(w, h, p, perPage, screen),
-            HudSlots.Page.Maps => HudMenu.Maps(w.Catalog, w.State, p.Browser, h.Account, now, w.Search, w.Mode.Id, vote, w.BarState),
+            HudSlots.Page.Maps => HudMenu.Maps(w.Catalog, w.State, p.Browser, h.Account, now, w.Search, w.Mode.Id, vote, w.BarState, history),
             HudSlots.Page.Game => HudMenu.Game(w.State, HudPlayer.ArmedSeconds(p.RestartArmed, now), HudPlayer.ArmedSeconds(p.RematchArmed, now), w.BarState),
             _ => (null, null),
         };
@@ -202,6 +205,7 @@ public sealed class HudFrame
         p.Card.Show(p.Browser.WorkshopQuery(w.Catalog), now); // a typed Workshop id that no listed map has: its card, asked about once it holds still
         foreach (var (id, text) in p.Card.Texts()) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in p.Card.Classes()) screen.Class(id, cls, on, slot);
+        if (history) foreach (var (name, words) in HudMenu.HistoryWords(p.Browser)) screen.Var(HudView.Screen, name, words, slot); // the History view's match lines
         screen.Pictures(slot, HudMenu.Thumbs(w.Catalog, p.Browser, h.Account, w.Search));
     }
 

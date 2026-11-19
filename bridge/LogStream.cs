@@ -16,6 +16,7 @@ static partial class Program
             case Kind.MatchEnd: OnMatchEnd(); break;
             case Kind.Shutdown: ServerGoingDown("the quit's echo"); break;
         }
+        HistoryIngest(e); // History.cs: the match history, after the map start above has told the bridge which map it is
     }
 
     // ---- log-line parser. HTTP push form: MM/DD/YYYY - HH:MM:SS.mmm - <event> (disk form "L ... : " tolerated). See docs/reference.md. ----

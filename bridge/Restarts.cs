@@ -368,6 +368,7 @@ static partial class Program
         if (due.Fair) FairSentAt = Now();
         var (sent, reply) = RematchSend(Send);
         Log($"rematch by {due.By}: {sent} -> {reply ?? "(rcon failed)"}");
+        if (reply != null) MatchHistory.Restarted(HistoryNow(), due.Fair); // History.cs: a player's restart ends the match; a fairness one is the same match
         if (RematchRefused(reply) is { } why) Post(Messages.News, M.Refused(why));
     }
 
