@@ -282,6 +282,7 @@ sealed partial class HudScreen
 
     void OnMapEnd()
     {
+        ScoresEndWithMap(); // a SCORES look the map's end ends: logged as its own end, as a frame would have
         worldReady = false; // the map takes the entity with it; the next round start (or spawn) makes a new one
         entity = null;
         ForgetAll();
