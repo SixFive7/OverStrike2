@@ -584,7 +584,9 @@ Anybody may change the length and press the two restarts, on the Game page or in
   to download the Workshop items) or "- picking a team" (in the game, at CS2's team menu) - and "The match starts when everyone is in - !start to begin now", the
   seconds to the latest start beside it, the plugin counting them down from CS2's own end; "Nobody else on the way yet" and "Anyone who joins now starts with
   you" for one alone; "Everybody is in" and the settle's seconds as it ends; "The match starts after the vote for the next map" while that holds it; no seconds
-  before anybody has spawned. A map change or a restart counting down has the banner first. At its end a line for everybody: "The match starts now - Everybody
+  before anybody has spawned. A map change or a restart counting down has the banner first. From content v4.15.0 the banner has the warm-up's own look
+  while it lasts (`warm` on `os_global`): green where a change has gold - its top edge, WARM-UP, the logo's tile with the logo breathing, and the seconds'
+  column - and 40 px wider, so the longest line fits whole. At its end a line for everybody: "The match starts now - Everybody
   is in", or "... - 120 s are up - Cas joins it on arrival". Restart match is refused during it, and `!start` outside one. **In the game:** every cfg keeps CS2's own
   online warm-up off (`mp_warmup_online_enabled 0`); the plugin begins one a second into every map - `mp_warmup_start`, with
   `mp_warmuptime_all_players_connected 0` and `mp_endwarmup_player_count 0` (Valve's Arms Race cfg would end it at 6 players), and `mp_warmuptime` an hour

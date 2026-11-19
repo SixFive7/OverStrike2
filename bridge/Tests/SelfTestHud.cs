@@ -871,6 +871,26 @@ static partial class Program
             var rowWords = Regex.Matches(tabRowXml, @"<Button id=""([^""]+)"" class=""os-tab"">(?:<Panel />)?<Label class=""os-tab-text"" text=""([^""]+)"" />").Select(m => (Id: m.Groups[1].Value, Word: m.Groups[2].Value.ToUpperInvariant())).ToList();
             var tabs43 = rowWords.Where(t => t.Id != HudView.TabMaps).Sum(t => TabCaps(t.Word, PxOf43(".os-tab-text", "font-size"), 2.5) + 2 * 17) + 2 * 18 + 30; // during a vote: Vote with its dot, and the vote's Maps
             Check($"The top row with HISTORY and STATS (content v4.15.0): during a vote, its fullest, at 4:3 about {tabs43:0} of the window's 1240", rowWords.Count == 13 && tabs43 <= 1240 && missingPx.Count == 0);
+            // The warm-up (content v4.15.0): the countdown banner's own look while it waits for everybody - warm on os_global with the warm-up's countdown alone (a
+            // map change or a restart counting down takes the banner first: HudView.CountdownOf) - green where a change has gold, its logo breathing, and its words
+            // whole in its 680 px: the longest line the server sends, and a title of 34 characters.
+            var warmState = new HudState { WarmUpTitle = EarlyJoin.Title([("Bob", EarlyJoin.PickingTeam)], false), WarmUpLine = EarlyJoin.Line(1, false), WarmUpAtMs = 1 };
+            var warmUnderChange = new HudState { WarmUpTitle = "Waiting for Bob", WarmUpLine = EarlyJoin.Line(1, false), ChangeIn = 5, ChangeMap = "de_dust2" };
+            bool GlobalOn(HudState st, string cls) => HudView.Classes(st).Any(c => c.Id == HudView.Global && c.Class == cls && c.On);
+            string[] warmLines = [EarlyJoin.Line(1, false), EarlyJoin.Line(0, false), EarlyJoin.Line(0, true), "The match starts after the vote for the next map",
+                "The match starts after the map change", "The match starts after the server's restart"];
+            var warmText = PxOf(".os-global.warm .os-banner", "width") - PxOf("#os_k_thumb", "width") - PxOf(".os-banner-count", "width") - 12 - 16; // the text's margins
+            var warmLine = warmLines.Max(l => Words(l, PxOf(".os-by", "font-size")));
+            var warmTitle = Words(new string('x', 34), PxOf("#os_k_map", "font-size"), 0.5);
+            var warmSecs = Words("120", PxOf(".os-global.warm #os_k_secs", "font-size"), 0.6);
+            Check($"The warm-up's banner (content v4.15.0): warm on os_global with the warm-up's countdown alone - a map change or a restart counting down takes the banner, and warm goes; green where a change has gold - the top edge, WARM-UP, the logo's tile with the logo breathing, the seconds' column - and 40 px wider: the longest line about {warmLine:0} and a title of 34 characters about {warmTitle:0} of its {warmText}, 120 about {warmSecs:0} of the seconds' {PxOf(".os-banner-count", "width")}",
+                GlobalOn(warmState, "warm") && GlobalOn(warmState, "changing") && GlobalOn(warmState, "cd-logo") && !GlobalOn(warmUnderChange, "warm") && GlobalOn(warmUnderChange, "changing")
+                && !GlobalOn(new HudState(), "warm") && warmLines.Max(l => l.Length) <= 58
+                && HasRule(".os-global.warm .os-banner", "border-top: 2px solid os-up;") && HasRule(".os-global.warm #os_k_eyebrow", "color: os-up;")
+                && HasRule(".os-global.warm .os-banner-count", "background-color: gradient(") && HasRule(".os-global.warm #os_k_thumb", "background-color: gradient(")
+                && HasRule(".os-global.warm #os_k_thumb .os-logo", "animation-name: os-warm-breathe;") && rules.Contains("@keyframes 'os-warm-breathe'", StringComparison.Ordinal)
+                && PxOf(".os-global.warm .os-banner", "width") == PxOf(".os-banner", "width") + 40 && missingPx.Count == 0
+                && warmLine <= warmText && warmTitle <= warmText && warmSecs <= PxOf(".os-banner-count", "width"));
             string[] pageClassIds = [.. Enumerable.Range(1, HCards).Select(k => $"os_h{k}"), .. stIds]; // the panels the server's half puts classes on, but the pictures' ending _thumb
             string[] rowTabs = ["os_tab_start", HudVote.BackButton, HudView.TabMaps, HudVote.BrowseButton, HudBrowser.HistoryTab, StatsTab, HudView.TabFun, HudBots.Tab, "os_sub_players", HudView.TabGame, HudDash.Tab, "os_tab_help", HudView.TabHow];
             var tabRow = Regex.Match(noComments, @"<Panel class=""os-tabs"">(.*?)</Panel>\s*<Panel class=""os-subs"">", RegexOptions.Singleline).Groups[1].Value;

@@ -163,6 +163,7 @@ public static class HudView
         var c = new List<(string, string, bool)>
         {
             (Global, "ready", true), (Global, "changing", CountdownOf(s) != null), (Global, "cd-logo", CountdownOf(s)?.Logo == true), (Global, "loading", s.Loading),
+            (Global, "warm", CountdownOf(s)?.Warm == true), // the warm-up's own look of the banner (content v4.15.0); a change or a restart counting down has it first
             (Global, "rst", s.RestartKind != ""), (Global, "top", s.TopText != ""), (Global, "ban", s.BanHead != ""), (Global, "crash", s.CrashNote != ""),
         };
         foreach (var cat in Messages.Categories) c.Add((TopPanel, cat.Class, cat.Id == s.TopCat));

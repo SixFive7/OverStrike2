@@ -11111,3 +11111,57 @@ Label
 	height: 20px;
 	font-size: 14px;
 }
+
+/* -- The warm-up (content v4.15.0): the countdown banner's own look while it waits for everybody - warm on os_global, the server's (HudView.Classes: the
+   banner's countdown is the warm-up's), never with a map change or a restart, which take the banner first. A fresh green for "get ready" where a change has
+   its gold: the top edge, the eyebrow (WARM-UP), the logo's tile and the seconds' column; the line - who it waits for and !start - brighter than a change's
+   picker; the logo breathing while it waits. 40 px wider than a change's banner, so the longest line (58 characters) and a title of 34 and more fit whole. The
+   seconds count down to CS2's own end of it (120 ... 1, then Now), or the settle's 5 ... 1, or say nothing before the first spawn. -- */
+@keyframes 'os-warm-breathe'
+{
+	0% { opacity: 1; }
+	50% { opacity: 0.55; }
+	100% { opacity: 1; }
+}
+
+.os-global.warm .os-banner
+{
+	width: 680px;
+	border-top: 2px solid os-up;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #10201AF2 ), to( #0A110DF4 ) );
+	box-shadow: #2F8A4A59 0px 10px 32px 0px;
+}
+
+.os-global.warm #os_k_thumb
+{
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #2E6B41 ), to( #10291A ) );
+}
+
+.os-global.warm #os_k_thumb .os-logo
+{
+	animation-name: os-warm-breathe;
+	animation-duration: 2.4s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.os-global.warm #os_k_eyebrow
+{
+	color: os-up;
+}
+
+.os-global.warm #os_k_by
+{
+	color: os-text;
+}
+
+.os-global.warm .os-banner-count
+{
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #A9F0B8 ), to( #3E9B58 ) );
+}
+
+.os-global.warm #os_k_secs
+{
+	font-size: 32px;
+	color: #0D2414;
+}
