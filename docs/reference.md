@@ -608,7 +608,9 @@ Both deathmatch-style modes spawn players at random with `mp_randomspawn_los 1` 
 cfg does not). It is meant to test each spawn point for line of sight to the enemies and pick one that no enemy sees, but in Arms Race it made no measurable difference: with
 8 bots moving and firing on ar_shoots and ar_baggage, an enemy had 10 of 142 spawns spotted within 0.75 s with it on and 10 of 145 with it off (p = 1.00). It stays on.
 
-Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
+Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`: the map groups the game's own `gamemodes.txt` gives the mode, read by hand from
+the server's install - CS2 1.41.9.9 of 2026-11-18: Deathmatch 13, with Cobblestone, `de_cbble`, back and `de_boulder`, `de_fachwerk` and `cs_shelter` gone,
+their files with them; Wingman 8, Cobblestone among them; Arms Race 4) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
 playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for the others. A map loads in its own mode: the bridge tells the plugin
 with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command, and an operator switches the same way, `os_mode`
 first. A `changelevel` from a Workshop map to an official one brings back the mode CS2 saved on the way to the Workshop maps (`host_workshop_map` and a

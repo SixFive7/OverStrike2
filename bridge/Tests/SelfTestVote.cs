@@ -80,8 +80,17 @@ static partial class Program
             && Modes.ParseState("Unknown command \"os_mode\"!") is null && Modes.ParseState("") is null && Modes.ParseState(null) is null
             && Modes.ParseState("os_mode: told casual, loaded in armsrace, on armsrace") is null && Modes.ParseState("os_mode: told wingman, loaded in armsrace") is null);
         Check($"Modes: Valve's official pools - Deathmatch {Modes.Deathmatch.Official.Length} maps, Wingman {Modes.Wingman.Official.Length}, Arms Race {Modes.ArmsRace.Official.Length} - each map once, Arms Race's the bridge's OFFICIAL_MAPS",
-            Modes.Deathmatch.Official.Length == 15 && Modes.Wingman.Official.Length == 7 && Modes.All.All(m => m.Official.Distinct().Count() == m.Official.Length)
+            Modes.Deathmatch.Official.Length == 13 && Modes.Wingman.Official.Length == 8 && Modes.All.All(m => m.Official.Distinct().Count() == m.Official.Length)
             && Modes.ArmsRace.Official.Order().SequenceEqual(Officials.Select(o => o.Name).Order()));
+        // CS2 1.41.9.9 (read 2026-11-19 out of the server's pak01_dir.vpk): Cobblestone is back in Deathmatch's and Wingman's templates, and Deathmatch's mg_casualcharlie is gone,
+        // its three maps' files with it. The pools as that build's gamemodes.txt has them, in any order.
+        string[] dm14199 = ["de_cbble", "de_inferno", "de_mirage", "de_dust2", "de_anubis", "de_nuke", "de_cache", "de_vertigo", "de_ancient_night", "de_train", "de_overpass", "cs_office", "cs_italy"];
+        string[] wm14199 = ["de_cbble", "de_inferno", "de_nuke", "de_overpass", "de_vertigo", "de_debris", "de_eldorado", "de_poseidon"];
+        Check("Modes: CS2 1.41.9.9's pools - Deathmatch the template sddhcasual (mg_de_cbble, mg_casualalpha, mg_casualdelta, mg_casualsigma, mg_hostage), Wingman the 2v2 template, Arms Race mg_armsrace; Cobblestone (de_cbble) in Deathmatch and Wingman, with 4 spawn points a side in Wingman (its 2v2 set); de_boulder, de_fachwerk and cs_shelter in no pool, their files gone from the server",
+            Modes.Deathmatch.Official.Order().SequenceEqual(dm14199.Order()) && Modes.Wingman.Official.Order().SequenceEqual(wm14199.Order())
+            && Modes.ArmsRace.Official.Order().SequenceEqual(new[] { "ar_shoots", "ar_shoots_night", "ar_baggage", "ar_pool_day" }.Order())
+            && Modes.WingmanOfficialSpawns.GetValueOrDefault("de_cbble") == 4 && !Modes.All.SelectMany(m => m.Official).Intersect(["de_boulder", "de_fachwerk", "cs_shelter"]).Any()
+            && HudThumbs.Has("de_cbble"));
 
         // ---- the harness (SelfTestHarness.cs), and a fake server that remembers game_type and game_mode ----
         var h = new Harness("vote", new DateTime(2026, 11, 1, 20, 0, 0, DateTimeKind.Utc));
@@ -1217,7 +1226,7 @@ static partial class Program
             Fresh();
             var dmFile = ModeMapsPath(Modes.Deathmatch);
             if (File.Exists(dmFile)) File.Delete(dmFile);
-            Check($"No maps-deathmatch.json: Deathmatch has Valve's {Modes.Deathmatch.Official.Length} official maps", ReloadModeMaps(Modes.Deathmatch).Contains("not found") && PoolOf(Modes.Deathmatch).Count == 15
+            Check($"No maps-deathmatch.json: Deathmatch has Valve's {Modes.Deathmatch.Official.Length} official maps", ReloadModeMaps(Modes.Deathmatch).Contains("not found") && PoolOf(Modes.Deathmatch).Count == Modes.Deathmatch.Official.Length
                 && PoolOf(Modes.Deathmatch).All(x => x.Official && x.Mode == "deathmatch"));
             File.WriteAllText(dmFile, """
                 [{"rank": 1, "id": 3070000001, "name": "dm_one", "sizeMb": 41}, {"rank": 2, "id": 3070000002, "name": " dm_two ", "sizeMb": 12},
@@ -1227,7 +1236,7 @@ static partial class Program
             var read = ReloadModeMaps(Modes.Deathmatch);
             Console.WriteLine("reload: " + read);
             Check("maps-deathmatch.json in maps.json's shape: 3 Workshop maps, an official extra; entries without an id or a name skipped, an official map once",
-                ModeWorkshop(Modes.Deathmatch).Count == 3 && PoolOf(Modes.Deathmatch).Count == 15 + 1 + 3 && PoolOf(Modes.Deathmatch).All(x => x.Mode == "deathmatch")
+                ModeWorkshop(Modes.Deathmatch).Count == 3 && PoolOf(Modes.Deathmatch).Count == Modes.Deathmatch.Official.Length + 1 + 3 && PoolOf(Modes.Deathmatch).All(x => x.Mode == "deathmatch")
                 && ModeWorkshop(Modes.Deathmatch).Any(x => x.Name == "dm_two") && read.Contains("3 Workshop maps"));
             var dmOne = ModeWorkshop(Modes.Deathmatch)[0];
             Check("Another mode's Workshop map: no list number in its label, its Workshop id as its argument, found by its id in the mode it belongs to",

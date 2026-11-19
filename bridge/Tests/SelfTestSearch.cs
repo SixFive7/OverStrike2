@@ -52,9 +52,9 @@ static partial class Program
 
             Check("Mode words: armsrace finds Arms Race's list and its official maps - a map whose text was written before it joined the list among them - and no other map by its text",
                 Found("armsrace").SequenceEqual(Keys([a, b, e], arOfficial)));
-            Check("...deathmatch finds Deathmatch's list and Valve's 15 Deathmatch maps, a listed map without any text among them; a map whose Workshop tags and description say deathmatch while it is on no Deathmatch list is not found by them",
+            Check($"...deathmatch finds Deathmatch's list and Valve's {Modes.Deathmatch.Official.Length} Deathmatch maps, a listed map without any text among them; a map whose Workshop tags and description say deathmatch while it is on no Deathmatch list is not found by them",
                 Found("deathmatch").SequenceEqual(Keys([a, c, g], Modes.Deathmatch.Official)) && !Found("deathmatch").Contains(b));
-            Check("...wingman finds Wingman's list and Valve's 7 Wingman maps, and a map named Wingman Arena by its name; a text that said wingman for a map on no Wingman list finds it no more",
+            Check($"...wingman finds Wingman's list and Valve's {Modes.Wingman.Official.Length} Wingman maps, and a map named Wingman Arena by its name; a text that said wingman for a map on no Wingman list finds it no more",
                 Found("wingman").SequenceEqual(Keys([d, e, w], Modes.Wingman.Official)) && !Found("wingman").Contains(c) && !Found("wingman").Contains(b));
             Check("...the text served: as the index keeps it, without the mode words it was written with, then the modes the menu has the map in, in the menu's order",
                 Served().TextOf(a) == "as retreat csco csco assault 3900000001 cs2 map classic custom armsrace deathmatch"
