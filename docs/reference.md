@@ -935,6 +935,12 @@ A game keeps the HUD content it last downloaded, and Steam takes up to about an 
 since release 193 nothing goes out under those names, so a game still holding one gets no live HUD at all - no window, no board, no banner - until Steam has updated it, and a click from
 one names a `gg_` button, which is none of ours. Such a game has the HUD check's chat lines and CS2's own alert, which tell its player to quit CS2 and let Steam update the HUD.
 `hud/reference/` keeps the one shipped layout `--selftest` reads, the one this content replaced, and the self-test holds the new one to it panel by panel.
+**The names CS2 keeps** for the layout's entity (Valve's `server.dll`, read 2026-11-19): three tables - panel ids, class names and dialog variables - each
+refusing a new name past 1,024 for the entity's whole life and every player together; CounterStrikeSharp 1.0.380 appends without that check, so past it nothing
+logs. Only names the server sends go in: an id it sends text, classes or a picture to (a button whose click is all it does is never named - the click comes back
+as its id, a string), each class it sets (never the layout's own `os-*` classes, nor CS2's `AspectRatio*` and `HUD_*`), each variable's name. `--selftest` counts
+the three (`Limit:`) and keeps each under 900, our margin under the 1,024. So new parts go without ids where they can: their words as variables, their state as
+classes on `os_screen`, and ids for buttons only.
 The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
 its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
 banner stays and names both versions; a newer game's shows for 15 s at the join.

@@ -1035,14 +1035,30 @@ static partial class Program
             }
             else Console.WriteLine($"skip thumbnail checks: {HudThumbFile} not found");
 
-            // ---- the game's own limit: one layout entity interns at most 1,024 panel ids and 1,024 class names that the server sets, for
-            // its whole life and for all players together. Past it the server logs "The maximum number of ... has been reached" and the
-            // client's behaviour is unknown. Every class the plugin sets has a rule (checked above), so the stylesheets bound it - but for the latest-N rules, which are for
-            // later servers: this server sets one, its own level (HudVersion.Classes), and a later one sets another. ----
-            var styleClasses = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value)).Where(c => !Regex.IsMatch(c, @"^latest-\d+$"))
+            // ---- the game's own limit (Valve's server.dll, read 2026-11-19): a layout entity keeps three tables of names - panel ids, class names and dialog variables -
+            // and each refuses a new name past 1,024 (0x400), for the entity's whole life and every player together. CounterStrikeSharp 1.0.380 appends without that
+            // check, so past it nothing logs. Only names the server sends go in: a panel id it sends text, classes or a picture to (a button whose click is all it
+            // does is never named by the server - the click comes back as its id, a string), each class name it sets (the layout's own os-* classes and CS2's
+            // AspectRatio* and HUD_* on the HUD's root are never sent), and each dialog variable's name. Our margin under each 1,024 is 900. Every class the plugin sets
+            // has a rule (checked above), so the stylesheets bound the classes - but for the latest-N rules, which are for later servers: this server sets one, its own
+            // level (HudVersion.Classes). Before 2026-11-19 this check counted every layout id and every stylesheet class, and no variables (the old counts below). ----
+            var classNames = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value)).ToHashSet();
+            var styleClasses = classNames.Where(c => !Regex.IsMatch(c, @"^latest-\d+$")).Concat(thumbClasses).Concat(HudVersion.Classes().Select(c => c.Class)).ToHashSet(); // the old count
+            var engineIds = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat(ids.Where(id => id.EndsWith("_thumb", StringComparison.Ordinal))) // the pictures: the cards', now playing's and the countdown's
+                .Concat([HudView.Global, HudView.Screen]).ToHashSet();
+            var sentNames = sentClasses.Select(c => c.Class).Concat(screenClasses).ToHashSet();
+            var engineClasses = classNames.Where(c => !c.StartsWith("os-", StringComparison.Ordinal) && !c.StartsWith("AspectRatio", StringComparison.Ordinal)
+                    && !c.StartsWith("HUD_", StringComparison.Ordinal) && !Regex.IsMatch(c, @"^latest-\d+$"))
                 .Concat(thumbClasses).Concat(HudVersion.Classes().Select(c => c.Class)).ToHashSet();
-            Check($"Limit: at most 1,024 class names and 1,024 panel ids per entity - the server can set {styleClasses.Count} classes, the layout {ids.Count} ids (both under 900)",
-                styleClasses.Count < 900 && ids.Count < 900);
+            // the variables: every name a content the plugin still draws for has in its layout - this one's and the shipped ones' (hud/reference)
+            static IEnumerable<string> VarsOf(string text) => Regex.Matches(text, @"\{[sdtg]:([^}]+)\}").Select(m => m.Groups[1].Value);
+            var engineVars = VarsOf(xml).Concat(Directory.Exists("../hud/reference") ? Directory.GetFiles("../hud/reference", "gungame_hud_v*.xml").SelectMany(f => VarsOf(File.ReadAllText(f))) : [])
+                .ToHashSet();
+            Check($"Limit: CS2 keeps at most 1,024 names in each of an entity's three tables, our margin 900 - the server names {engineIds.Count} panel ids (of the layout's {ids.Distinct().Count()}: "
+                + $"{ids.Distinct().Count() - engineIds.Count} take clicks only), {engineClasses.Count} class names ({thumbClasses.Count} of them the pictures'; no os-* class is ever sent) and {engineVars.Count} "
+                + $"dialog variables, each under 900; the old count, every layout id and every stylesheet class: {ids.Count} ids, {styleClasses.Count} classes",
+                engineIds.Count < 900 && engineClasses.Count < 900 && engineVars.Count < 900 && engineIds.All(ids.Contains) && !sentNames.Any(c => c.StartsWith("os-", StringComparison.Ordinal))
+                && sentNames.All(engineClasses.Contains));
             Check("Limit: of the latest-N names the server sets one, its own level", HudVersion.Classes().Count(c => c.Class.StartsWith("latest-", StringComparison.Ordinal)) == 1);
             Check("A value starting with # (a rank, a name) is kept from being read as a localization token, and nothing else is touched",
                 Hud.Plain("#5") == "\u2060#5" && Hud.Plain("Map #5") == "Map #5" && Hud.Plain("") == "");
