@@ -487,7 +487,14 @@ HUD stands outside it and the column lies behind a dim 80 % darker on screen (`o
 (1 - a)^(1/2.2) of the brightness: 50 % alpha left 73 %, 80 % left 48 % - the lab's frames of 7d9ab5c, white 255 to 119-124 - and 97 %, `#05070AF8`, leaves 20 %):
 the dim starts right of the chat's strip (x 579) - above and under the column the dock dims itself, never CS2's typing line, whose slot under the column
 (`os-chat-slot`) stays clear while its chat is open, and the column's shadow goes then so it does not shade that line; without the column CS2's own chat shows
-in its strip undimmed. On route c the column fades in and out with the window (`chatwin`); nothing of the
+in its strip undimmed. **Beyond our box**: CS2 lays the custom HUD out inside its HUD edges (the convar `safezonex`, the setting HUD Edge Positions), so a
+player who pulls them in gets our whole HUD in a box centred on the screen - at 32:9 with the slider at its minimum a 21:9 one, about 660 in from each side -
+while at a match end CS2's own chat moves into its end screen, at the screen's true left edge, where our column no longer covers it (a player's 32:9 frame,
+2026-11-19). At a match end (`meos`) with the window open and the column up, a solid band (`os-edge-l`) runs from the column out past the box's left edge and
+covers that chat, and the dim (`os-edge-r`) runs on past its right edge, so both sides look even; each is 1,400 wide (the deepest inset the convar allows at
+32:9 is 1,380, and 1,400 still fits the narrowest box, 4:3's 1,440) and moved out of the box by its own width, so with the edges at full width both lie off the
+screen and nothing changes. They fade with the window and step aside for the SCORES look. Whether CS2 draws past its box at all is the lab's to see; if it
+clips there, they show nothing, and a player who wants one chat sets the edges to full width. On route c the column fades in and out with the window (`chatwin`); nothing of the
 top stack (the top line, the banners) or the card stack (now playing, catch-up) shows over the open window - every kind of top-line news has its chat copy in
 the column. **A look at the scores during a vote**: once a player has voted, or the vote is decided (`vpeekok` on `os_screen`, the server's). Mid-match the
 ballot's how-to bar says Hold TAB to see the scores; while the server reads TAB held (`vpeek`) and CS2's own scoreboard is up (`HUD_SCOREBOARD_VISIBLE`) the

@@ -1238,6 +1238,70 @@ Label
 	opacity: 1;
 }
 
+/* Beyond our box. CS2 lays the custom HUD out inside its HUD edges (the convar safezonex, the setting HUD Edge Positions): a player who pulls them in gets our whole
+   HUD in a box centred on the screen - at 32:9 with the slider at its minimum a 21:9 one, about 660 in from each side - while at a match end CS2's own chat moves
+   into its end screen, at the screen's true left edge, where our column no longer covers it (a player's 32:9 frame, 2026-11-19). So at a match end (meos) with the
+   window open and the column up, a solid band runs from the column out past the box's left edge and covers that chat, and the dim runs on past the box's right
+   edge, so both sides look even. Each is 1,400 wide - the deepest inset the convar allows at 32:9 is 1,380 (the HUD no narrower than the screen is high), and
+   1,400 still fits the narrowest box, 4:3's 1,440, so nothing squishes it - and moved out of the box by its own width: with the HUD edges at full width both lie
+   off the screen and nothing changes, at any shape. They fade with the window, step aside for the SCORES look with the panels they flank, and need CS2 to
+   draw past its box: if it clips there, they show nothing. */
+.os-edge-l
+{
+	visibility: collapse;
+	horizontal-align: left;
+	width: 1400px;
+	height: 100%;
+	transform: translateX( -1400px );
+	background-color: #05070A00;
+	transition-property: background-color;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.os-edge-r
+{
+	visibility: collapse;
+	horizontal-align: right;
+	width: 1400px;
+	height: 100%;
+	transform: translateX( 1400px );
+	background-color: #05070A00;
+	transition-property: background-color;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.os-screen.win.meos.chaton .os-edge-l
+{
+	visibility: visible;
+}
+
+.os-screen.win.meos.chaton .os-edge-r
+{
+	visibility: visible;
+}
+
+.os-screen.win-in.meos.chaton .os-edge-l
+{
+	background-color: #05070A;
+}
+
+.os-screen.win-in.meos.chaton .os-edge-r
+{
+	background-color: #05070AF8;
+}
+
+.os-global .os-screen.win.vpeek.meos .os-edge-l
+{
+	visibility: collapse;
+}
+
+.os-global .os-screen.win.vpeek.meos .os-edge-r
+{
+	visibility: collapse;
+}
+
 .os-win
 {
 	visibility: collapse;

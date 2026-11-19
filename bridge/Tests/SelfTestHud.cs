@@ -683,6 +683,21 @@ static partial class Program
                 && noComments.Contains("<Label class=\"os-vpeek-hint os-vpeek-end\" text=\"Click SCORES to see the scores\" />", StringComparison.Ordinal)
                 && Specificity(".os-screen.vpeekok.meos .os-vpeek-hint.os-vpeek-end") > Specificity(".os-screen.vpeekok .os-vpeek-hint.os-vpeek-end")
                 && Specificity(".os-screen.vpeekok.meos .os-vpeek-hint") > Specificity(".os-screen.vpeekok .os-vpeek-hint"));
+            // C (content v4.14.0, the owner's 293): beyond our box. CS2 lays the custom HUD out inside its HUD edges (safezonex), so a player who pulls them in gets our
+            // whole HUD in a centred box - at 32:9 with the slider at its minimum a 21:9 one, about 660 in - while at a match end CS2's own chat moves into its end screen,
+            // at the screen's true left edge (a player's frame, 2026-11-19).
+            const int Edge = 1400;
+            var dimAt = noComments.IndexOf("<Panel class=\"os-dim\" hittest=\"false\" />", StringComparison.Ordinal);
+            Check($"Beyond our box (content v4.14.0, C): at a match end with the window open and the column up, a solid band {Edge} px wide left of our box covers CS2's end-screen chat on a HUD pulled in from the screen's edges, and the dim runs {Edge} px on past its right edge - each moved out by its own width, so with the edges at full width both lie off the screen and nothing changes at any shape; deeper than 32:9's deepest inset (1,380), no wider than the narrowest box (4:3's 1,440); fading with the window, stepping aside for the SCORES look; no panel of ours changes its overflow",
+                dimAt > 0 && Regex.IsMatch(noComments[dimAt..], @"^<Panel class=""os-dim"" hittest=""false"" />\s*<Panel class=""os-edge-l"" hittest=""false"" />\s*<Panel class=""os-edge-r"" hittest=""false"" />\s*<Panel class=""os-win""")
+                && Regex.IsMatch(noCommentsCss, $@"(?m)^\.os-edge-l\s*\{{\s*visibility:\s*collapse;\s*horizontal-align:\s*left;\s*width:\s*{Edge}px;\s*height:\s*100%;\s*transform:\s*translateX\(\s*-{Edge}px\s*\);\s*background-color:\s*#05070A00;")
+                && Regex.IsMatch(noCommentsCss, $@"(?m)^\.os-edge-r\s*\{{\s*visibility:\s*collapse;\s*horizontal-align:\s*right;\s*width:\s*{Edge}px;\s*height:\s*100%;\s*transform:\s*translateX\(\s*{Edge}px\s*\);\s*background-color:\s*#05070A00;")
+                && Edge >= (3840 - 1080) / 2 && Edge <= 1440
+                && new[] { "l", "r" }.All(side => Regex.Matches(noCommentsCss, $@"(?m)^([^{{\n]*\.os-edge-{side})\s*\{{[^}}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([$".os-screen.win.meos.chaton .os-edge-{side}"]))
+                && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win-in\.meos\.chaton \.os-edge-l\s*\{\s*background-color:\s*#05070A;\s*\}") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-screen\.win-in\.meos\.chaton \.os-edge-r\s*\{\s*background-color:\s*#05070AF8;\s*\}")
+                && new[] { "l", "r" }.All(side => Regex.IsMatch(noCommentsCss, $@"(?m)^\.os-global \.os-screen\.win\.vpeek\.meos \.os-edge-{side}\s*\{{\s*visibility:\s*collapse;\s*\}}"))
+                && Specificity(".os-global .os-screen.win.vpeek.meos .os-edge-l") == 6 && Specificity(".os-screen.win.meos.chaton .os-edge-l") < 6
+                && !Regex.IsMatch(noCommentsCss, @"(?m)^[^{\n]*\.os-(global|screen|chat-dock|dim)\s*\{[^}]*overflow") && Regex.IsMatch(noCommentsCss, @"(?m)^\.os-dim\s*\{[^}]*background-color:\s*#05070AF8;"));
             var chatTest = new HudChat();
             chatTest.Say("Alice", "CT", "gg all", teamOnly: false);
             chatTest.Say("Bob", "T", "rush b", teamOnly: true);
