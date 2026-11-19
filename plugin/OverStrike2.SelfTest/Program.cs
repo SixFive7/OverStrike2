@@ -364,9 +364,15 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(fair.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)
           && fair.Contains("if (Rules() is not { } rules || rules.WarmupPeriod || rules.TotalRoundsPlayed != 0) return HookResult.Continue;", StringComparison.Ordinal)
           && fair.Contains("var others = Utilities.GetPlayers().Count(o => o.Slot != slot && Human(o) && OnTeam(o));", StringComparison.Ordinal)
-          && fair.Contains("name.Contains(\"SHUTDOWN\", StringComparison.Ordinal) || name.StartsWith(\"NETWORK_DISCONNECT_LOOP\", StringComparison.Ordinal)", StringComparison.Ordinal)
+          && fair.Contains("EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason)", StringComparison.Ordinal)
+          && Source("bridge", "Players.cs").Contains("if (EarlyJoin.Reconnects(reason))", StringComparison.Ordinal)
           && fair.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
-        "fairness restart: humans only - no bot, no TV - a match's start only out of warmup with no round played, the others on a team counted at each spawn, and a map change's or the addon download's reconnect is no leaving");
+        "fairness restart: humans only - no bot, no TV - a match's start only out of warmup with no round played, the others on a team counted at each spawn, and a map change's or the addon download's reconnect is no leaving - by the bridge's own rule (EarlyJoin.Reconnects), so LOOPDEACTIVATE is a leaving in both");
+    Check(fair.Contains("plugin.RegisterEventHandler<EventPlayerConnectFull>(OnConnectFull);", StringComparison.Ordinal)
+          && fair.Contains("plan.Entered(account, DateTime.UtcNow)", StringComparison.Ordinal)
+          && fair.Contains("var toSpawn = plan.StillToSpawn(humans.Where(p => p.Connected == PlayerConnectedState.Connected).Select(Account), DateTime.UtcNow)", StringComparison.Ordinal)
+          && fair.Contains("command.ReplyToCommand(EarlyJoin.JoiningReply(Joining().Select(p => p.PlayerName)));", StringComparison.Ordinal),
+        "fairness restart: os_joining names the humans in the game still to spawn on a team too (EarlyJoin.StillToSpawn), fed by every entering - the bridge's wait holds through CS2's team menu");
     // the live lab's probe for the spawn invisibility (InvisProbe.cs): loaded, the console's only, and the spotted state cleared through the state-changed path
     var probe = Source("plugin", "OverStrike2", "InvisProbe.cs");
     Check(host.Contains("new InvisProbe(this, Logger).Load();", StringComparison.Ordinal) && probe.Contains("if (caller != null) return; // the server console and RCON only", StringComparison.Ordinal)

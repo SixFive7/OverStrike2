@@ -5,7 +5,7 @@
 //   - the match runs (Running): from its start - a round start out of warmup with no round played yet: the map's first, a Restart match, a fairness
 //     restart, the game commencing (MatchStarted) - when a human is on a team then; with none, from the first human's spawn;
 //   - a join: a human's first spawn on a team since they connected or the map loaded. A respawn, the spawn of a restart and a team switch are none; the
-//     reconnect of a map change or of the HUD addon's download is no new connect. Never a bot;
+//     reconnect of a map change or of the HUD addon's download is no new connect (Reconnects: the bridge's log stream and the plugin decide it alike). Never a bot;
 //   - the ask (Spawned answers true): a join while another human is on a team and the match has run less than WindowSeconds. The first human in starts
 //     the match and asks nothing;
 //   - what follows is the bridge's (Restarts.cs, FairRestart): CountdownSeconds on the countdown banner ("The match restarts for fairness - Bob is in"),
@@ -13,12 +13,16 @@
 //     restart's round start is a new start, so the window opens again. None while a vote is on, a map change counts down or loads, the server's restart
 //     counts down, or the match has just ended;
 //   - while anybody is still joining - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered),
-//     downloading the map or loading it, as everybody does after a map change - the restart waits for them, so the players in already start over once for
-//     all of them, not once each; HoldMostSeconds at the most, so a joiner stuck there does not hold it for good. Who is joining (the bridge's FairWait):
-//     the plugin's os_joining (its controllers connecting or reconnecting), the server's own client list (status: everybody not yet active) and the bridge's
-//     log stream ("connected", not yet "entered the game"). The prompt's joiner shows only in the last two: the game hears of a client only once it has
-//     every addon, so the plugin has no callback and no controller for it, and CS2's drop of it at PromptSeconds writes no "disconnected" line - status no
-//     longer listing it ends it, and SignOnMostSeconds after its "connected" in any case. Their own join, as they come in, folds into it.
+//     downloading the map or loading it, as everybody does after a map change, or in the game and not yet spawned on a team (CS2's team menu after every
+//     load) - the restart waits for them, so the players in already start over once for all of them, not once each; HoldMostSeconds at the most, so a
+//     joiner stuck there does not hold it for good. Who is joining (the bridge's FairWait): the plugin's os_joining (its controllers connecting or
+//     reconnecting, and the humans in the game who have not spawned on a team since they entered it, SpawnMostSeconds at the most: StillToSpawn), the
+//     server's own client list (status: everybody not yet active) and the bridge's log stream ("connected", not yet "entered the game"; and everybody on
+//     the way back through a reconnect - a map change's, the HUD addon's - from its departure to their "entered the game", whatever the server's list
+//     says meanwhile: a game that downloads the map itself after the prompt, or crashes, is off the server and writes no line). The prompt's joiner shows
+//     only in the last two: the game hears of a client only once it has every addon, so the plugin has no callback and no controller for it, and CS2's drop
+//     of it at PromptSeconds writes no "disconnected" line - status lacking it for DropConfirmSeconds ends it (never one on the way back), and
+//     SignOnMostSeconds after its "connected" or its departure in any case. Their own join, as they come in, folds into it.
 //
 // Shared like Hud.cs: the plugin feeds it the game (plugin/OverStrike2/EarlyJoinWatch.cs) and the bridge's --selftest drives it on a handed clock. Plain BCL only.
 public sealed class EarlyJoin
@@ -66,9 +70,26 @@ public sealed class EarlyJoin
     /// (NETWORK_DISCONNECT_TIMEDOUT): 120 s, measured twice by the live lab, with MultiAddonManager's own time-out off. The drop writes no "disconnected" line.</summary>
     public const int PromptSeconds = 120;
 
-    /// <summary>How long the bridge counts a joiner only its log stream knows of ("connected", and no "entered the game" or "disconnected" since) when the server's
-    /// own client list cannot say: the prompt's PromptSeconds and a margin. Whoever gets further connects again, or shows in status and os_joining.</summary>
+    /// <summary>How long the bridge counts a joiner only its log stream knows of ("connected", and no "entered the game" or "disconnected" since; or on the way
+    /// back through a reconnect, from its departure) when the server's own client list cannot say: the prompt's PromptSeconds and a margin. Whoever gets further
+    /// connects again, or shows in status and os_joining.</summary>
     public const int SignOnMostSeconds = PromptSeconds + 30;
+
+    /// <summary>How long the server's own list must lack a joiner, read after read, before the bridge ends their sign-on as gone before they were in: the log
+    /// stream can say a reconnect's departure a moment after the list has lost it - the HUD addon's, whose next "connected" is a second or two away
+    /// (seen live on 2026-11-18: a joiner ended so in the same second as their departure's line).</summary>
+    public const int DropConfirmSeconds = 5;
+
+    /// <summary>How long a human in the game who has not yet spawned on a team counts as still joining, from their entering it (StillToSpawn): CS2's team menu
+    /// after every load, or a game still finishing its load once the server has it in. The longest seen live from entering to the first spawn, 2026-11-12 to
+    /// 18: 17 s; a joiner past this - a spectator, an absent player at the menu - holds nothing more.</summary>
+    public const int SpawnMostSeconds = 30;
+
+    /// <summary>Whether a departure, by its reason as CS2 names it, is a reconnect and not a leaving: a reason with SHUTDOWN in it - NETWORK_DISCONNECT_SHUTDOWN at
+    /// a map change, NETWORK_DISCONNECT_LOOPSHUTDOWN when MultiAddonManager has a joining game reconnect for the HUD addon. Every other reason is a leaving,
+    /// NETWORK_DISCONNECT_LOOPDEACTIVATE too: the two seen live, 2026-11-12 and 16, were games that went - one came back 11 minutes later, one never. The
+    /// bridge's log stream (Players.cs) and the plugin (EarlyJoinWatch) both decide by this one rule.</summary>
+    public static bool Reconnects(string reason) => reason.Contains("SHUTDOWN", StringComparison.Ordinal);
 
     /// <summary>The plugin's server command for the fairness restart's state (EarlyJoinWatch): os_fair says where the map stands, os_fair live starts the match
     /// running now, and os_fair bridge is the bridge telling it whom its log stream has signing on (BridgeViewCommand), which os_fair then shows (ViewLine).</summary>
@@ -165,14 +186,16 @@ public sealed class EarlyJoin
     }
 
     readonly HashSet<long> joined = new();   // the humans who have spawned on a team since they connected or the map loaded
+    readonly Dictionary<long, DateTime> entered = new(); // the humans in the game who have not spawned on a team since they entered it, and since when
     DateTime? running;                       // the match runs since then: its start with a human on a team, or the first human's spawn; null: nobody yet
     bool forced;                             // os_fair live: the next join counts as joining somebody
     string? skipped;                         // why this map has no fairness restart at all (the plugin loaded mid-map)
 
-    /// <summary>A new map: nobody has joined it, and its match runs once somebody is in.</summary>
+    /// <summary>A new map: nobody has joined it or entered it, and its match runs once somebody is in.</summary>
     public void MapStarted()
     {
         joined.Clear();
+        entered.Clear();
         (running, forced, skipped) = (null, false, null);
     }
 
@@ -180,7 +203,35 @@ public sealed class EarlyJoin
     public void Skip(string why) => skipped = why;
 
     /// <summary>A human leaves for real (not the reconnect of a map change, nor the addon download's): when they come back, their first spawn is a join again.</summary>
-    public void Left(long account) => joined.Remove(account);
+    public void Left(long account)
+    {
+        joined.Remove(account);
+        entered.Remove(account);
+    }
+
+    /// <summary>A human enters the game - connected in full: a new connect, or the reconnect of a map change. Still joining until their first spawn on a team,
+    /// SpawnMostSeconds at the most (StillToSpawn); one who has spawned on a team on this map already is in.</summary>
+    public void Entered(long account, DateTime now)
+    {
+        if (!joined.Contains(account)) entered[account] = now;
+    }
+
+    /// <summary>Of the humans in the game now (their accounts, as the plugin finds them connected), those who have not spawned on a team since they entered it,
+    /// for less than SpawnMostSeconds: CS2's team menu after every load, or a game still finishing its load once the server has it in. The bridge's wait holds
+    /// for them as for a game still loading (seen live on 2026-11-18: the wait ended as a joiner entered the game, and their spawn 16 s later restarted the
+    /// match a second time). One whose entering the plan never heard of counts from its first sight here. None on a map the plugin loaded during.</summary>
+    public List<long> StillToSpawn(IEnumerable<long> inGame, DateTime now)
+    {
+        var still = new List<long>();
+        if (skipped != null) return still;
+        foreach (var account in inGame)
+        {
+            if (account <= 0 || joined.Contains(account)) continue;
+            if (!entered.TryGetValue(account, out var at)) entered[account] = at = now;
+            if ((now - at).TotalSeconds < SpawnMostSeconds) still.Add(account);
+        }
+        return still;
+    }
 
     /// <summary>A round start out of warmup with no round played yet - the match starts, or starts over (a restart, the fairness one's too) - with this many
     /// humans on a team. With any, the match runs from now; with none, from the first human's spawn - unless os_fair live's join is still to come: the game
@@ -195,6 +246,7 @@ public sealed class EarlyJoin
     public bool Spawned(long account, DateTime now, int others)
     {
         if (skipped != null || !joined.Add(account)) return false;
+        entered.Remove(account); // in: no more still to spawn
         if (forced) (forced, others) = (false, Math.Max(others, 1));
         if (others == 0 || running == null)
         {

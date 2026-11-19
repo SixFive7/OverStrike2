@@ -419,11 +419,14 @@ static partial class Program
     }
 
     /// <summary>Whether the fairness restart waits now for the humans still joining - connecting, at CS2's prompt to confirm a first Workshop download, downloading or
-    /// loading the map - so the players in already start over once for all of them, not once each. Who is joining, by any of three: the plugin's os_joining (its
-    /// controllers connecting or reconnecting), the server's own client list (status: everybody not yet active - the prompt's joiner is "connecting" there until CS2
-    /// drops them, and then gone, which ends their sign-on: EndDroppedSignOns) and the log stream's sign-ons (SigningOnNames: "connected", not yet "entered the
-    /// game", EarlyJoin.SignOnMostSeconds at the most). It waits until nobody is left joining, EarlyJoin.HoldMostSeconds at the most from its first wait. While it
-    /// waits the live state carries no countdown - one line says whom it waits for - and each second it asks again (FairWaitTick).</summary>
+    /// loading the map, or in the game and not yet spawned on a team - so the players in already start over once for all of them, not once each. Who is joining,
+    /// by any of three: the plugin's os_joining (its controllers connecting or reconnecting, and the humans in the game not yet spawned on a team since they
+    /// entered it, EarlyJoin.SpawnMostSeconds at the most), the server's own client list (status: everybody not yet active - the prompt's joiner is
+    /// "connecting" there until CS2 drops them, and then gone, which ends their sign-on once the list has lacked them EarlyJoin.DropConfirmSeconds:
+    /// EndDroppedSignOns) and the log stream's sign-ons (SigningOnNames: "connected", not yet "entered the game"; and everybody on the way back through a
+    /// reconnect, a map change's above all, until "entered the game" even off the server's list; EarlyJoin.SignOnMostSeconds at the most). It waits until nobody
+    /// is left joining, EarlyJoin.HoldMostSeconds at the most from its first wait. While it waits the live state carries no countdown - one line says whom it
+    /// waits for - and each second it asks again (FairWaitTick).</summary>
     static bool FairWait(DateTime now)
     {
         if (now >= FairWaitUntil) { if (FairWaitSince != null) Log($"fair: still somebody joining after {EarlyJoin.HoldMostSeconds} s - the restart goes without them"); FairWaitSince = null; return false; }

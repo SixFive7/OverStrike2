@@ -572,12 +572,18 @@ Anybody may change the length and press the two restarts, on the Game page or in
   (`EarlyJoinWatch.cs`) asks the bridge at once, naming who came in; the bridge counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in",
   says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. **While anybody is
   still joining** - connecting, at CS2's prompt to confirm a first Workshop download (which drops them after 120 s unanswered), downloading the map or loading it,
-  as everybody does after a map change - it waits for them first, so the players in already start over once for all of them, not once each. It counts as joining
-  whoever any of three names: the plugin's `os_joining` (the humans whose controller is still connecting or reconnecting), the server's own client list (`status`:
-  every human not yet active) and the bridge's log stream (a human logged as connected and not yet as entered the game; the HUD addon's reconnect does not end
-  it). A joiner at that prompt shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no controller and no
-  callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list no longer having them ends it, and 150 s after their
-  "connected" in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone signs on, and each second of a wait. `os_fair`
+  as everybody does after a map change, or in the game and not yet spawned on a team (CS2's team menu after every load) - it waits for them first, so the players
+  in already start over once for all of them, not once each. It counts as joining whoever any of three names: the plugin's `os_joining` (the humans whose
+  controller is still connecting or reconnecting, and the humans in the game who have not spawned on a team since they entered it, for **30 s** at the most -
+  `EarlyJoin.SpawnMostSeconds`; the longest seen live from entering to the first spawn was 17 s), the server's own client list (`status`: every human not yet
+  active) and the bridge's log stream (a human logged as connected and not yet as entered the game; and everybody on the way back through a reconnect - a map
+  change's, the HUD addon's - from its "disconnected" until they are in the game again, whatever the server's list says meanwhile: a game that downloads the map
+  itself after CS2's prompt, or crashes, is off the server and writes no line; `NETWORK_DISCONNECT_LOOPDEACTIVATE` is a leaving, for the log stream and the plugin
+  alike, `EarlyJoin.Reconnects`). A joiner at that prompt shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no
+  controller and no callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list lacking them **5 s**, read after read,
+  ends it (`EarlyJoin.DropConfirmSeconds`: a list can lose a joiner a moment before the log stream says the HUD addon's reconnect), never for one on the way back,
+  and 150 s after their "connected" or their departure in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone signs on,
+  and each second of a wait. `os_fair`
   opens with whom a wait would count, each with who names them - the plugin, status, the log stream (`os_fair bridge`: the bridge's two views as hex, whenever
   they change). The bridge asks as the restart would count down and every second while it
   waits, says once in chat and on the board whom it waits for ("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"), and counts

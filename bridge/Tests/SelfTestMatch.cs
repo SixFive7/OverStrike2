@@ -16,9 +16,10 @@ static partial class Program
         var phaseReply = ""; // the plugin's answer to os_phase: none, as from a plugin without it, unless a test says otherwise
         var joiningReply = ""; // ...and to os_joining: none, as from a plugin without it (nobody waited for), unless a test says otherwise
         string? statusTable = null; // ...and status's players table: none, as from a short status, unless a test gives one
-        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command == EarlyJoin.JoiningCommand ? joiningReply
+        Func<string>? joiningNow = null, statusNow = null; // ...or both made at the moment they are asked, from a replay's own state
+        h.Server = command => rconDown ? null : command == MatchPhase.Command ? phaseReply : command == EarlyJoin.JoiningCommand ? joiningNow?.Invoke() ?? joiningReply
             : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
-            : command == "status" ? statusTable ?? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
+            : command == "status" ? statusNow?.Invoke() ?? statusTable ?? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
             : command == RematchCommand ? restartReply : command == RematchFallback ? bareReply : "";
         try
         {
@@ -32,6 +33,7 @@ static partial class Program
             {
                 h.Fresh();
                 HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", ""); phaseReply = ""; joiningReply = ""; statusTable = null;
+                joiningNow = null; statusNow = null;
                 Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
@@ -501,23 +503,25 @@ static partial class Program
             h.Run(60);
             statusTable = Table(("Alice", "active"), ("Bob", "active")); // CS2 drops the unanswered prompt: no line, and gone from its list
             h.Run(1.1);
+            var notYet = SigningOnNames(h.Clock) is ["Cas"] && FairWaitSince != null && RematchDue == null;
+            h.Run(EarlyJoin.DropConfirmSeconds);
             var dropEnds = SigningOnNames(h.Clock) is [] && RematchDue is { Fair: true } && FairWaitSince == null;
             h.Run(2);
-            Check("...CS2's drop writes no \"disconnected\" line; during the wait the server's list, read each second, has them no more within about a second, which ends "
-                + "their sign-on: the restart counts down, and os_fair hears nobody from either",
-                dropEnds && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], [])));
+            Check($"...CS2's drop writes no \"disconnected\" line; during the wait the server's list, read each second, lacks them read after read - a second alone is no "
+                + $"drop, the HUD addon's reconnect looks so - and after {EarlyJoin.DropConfirmSeconds} s that ends their sign-on: the restart counts down, and os_fair hears nobody from either",
+                notYet && dropEnds && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], [])));
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
             statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Cas", "connecting"));
             Connects(cas);
             h.Run(60);
             statusTable = Table(("Alice", "active"), ("Bob", "active")); // the drop, with no fairness restart waiting (run AY)
-            h.Run(StatusWatchSeconds + 1.1);
+            h.Run(EarlyJoin.DropConfirmSeconds + 2 * StatusWatchSeconds + 1.1);
             var endedSoon = SigningOnNames(h.Clock) is [] && h.Sent.Contains(EarlyJoin.BridgeViewCommand([], []));
             h.Sent.Clear();
             h.Run(10);
-            Check($"...with no wait, too: the list read every {StatusWatchSeconds} s has them no more, which ends their sign-on and tells os_fair within about {StatusWatchSeconds + 1} s "
-                + "(run AY ended it at the 150 s bound) - and then the reading rests, nobody joining",
+            Check($"...with no wait, too: the list read every {StatusWatchSeconds} s lacks them {EarlyJoin.DropConfirmSeconds} s, which ends their sign-on and tells os_fair "
+                + $"within about {EarlyJoin.DropConfirmSeconds + 2 * StatusWatchSeconds} s (run AY ended it at the 150 s bound) - and then the reading rests, nobody joining",
                 endedSoon && !h.Sent.Contains("status"));
             Fresh();
             joiningReply = EarlyJoin.JoiningReply([]);
@@ -571,6 +575,110 @@ static partial class Program
             Connects(cas);
             Fair(bob);
             Check("...a joiner all three name - the plugin, the server's list and the log stream - is named once", InChat("The match restarts for fairness once everybody is in - Bob is in, waiting for Cas"));
+
+            // ---- the HUD addon's reconnect seen first by the server's list (seen live on 2026-11-18: a joiner's sign-on ended as "gone before they were in"
+            // in the same second as their LOOPSHUTDOWN line): a list that lacks a joiner once is no drop ----
+            var kit = ("Kit", "[U:1:2010]");
+            Fresh();
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Kit", "connecting"));
+            Connects(kit);
+            Fair(bob);
+            h.Run(7);
+            statusTable = Table(("Alice", "active"), ("Bob", "active")); // the reconnect: the list has lost them, the log stream has not said it yet
+            h.Run(1.1);
+            var raced = SigningOnNames(h.Clock) is ["Kit"] && FairWaitSince != null && RematchDue == null;
+            h.Leave(kit, "NETWORK_DISCONNECT_LOOPSHUTDOWN");
+            h.Run(1);
+            statusTable = Table(("Alice", "active"), ("Bob", "active"), ("Kit", "connecting"));
+            Connects(kit);
+            h.Run(3);
+            Check($"...the server's list lacking a joiner a moment before the log stream says the HUD addon's reconnect (LOOPSHUTDOWN) is no drop: the list must lack them "
+                + $"{EarlyJoin.DropConfirmSeconds} s, read after read, and the reconnect's departure makes them one on the way back - the wait holds all through",
+                raced && SigningOnNames(h.Clock) is ["Kit"] && FairWaitSince != null && RematchDue == null);
+            Fresh();
+            var lou = ("Lou", "[U:1:2011]");
+            Connects(lou);
+            h.Run(5);
+            h.Leave(lou, "NETWORK_DISCONNECT_LOOPDEACTIVATE");
+            Check("...a game that goes with NETWORK_DISCONNECT_LOOPDEACTIVATE has left - no reconnect, no sign-on, not on the server - as the plugin has it too (EarlyJoin.Reconnects)",
+                SigningOnNames(h.Clock) is [] && !PresentIds(h.Clock).Contains(lou.Item2));
+
+            // ---- the evening of 2026-11-18 (release 218), replayed with made-up names: the plugin's plan (EarlyJoin, as EarlyJoinWatch feeds it - each entering,
+            // each spawn, os_joining's answer) and the bridge's wait together, half a second at a time. Five back from a map change; os_joining's answer is those connecting
+            // and, with the plugin's half of this fix, those in the game still to spawn; the server's list has everybody connected but who is off it. Returns the
+            // restarts that went out and the first one's seconds after the map's start. ----
+            (int Restarts, double FirstAt) Replay(bool stillToSpawn, (double At, string What, int Who)[] script, double until)
+            {
+                (string Name, string Id)[] five = [("Ike", "[U:1:2101]"), ("Gus", "[U:1:2102]"), ("Pia", "[U:1:2103]"), ("Hal", "[U:1:2104]"), ("Max", "[U:1:2105]")];
+                Fresh();
+                h.Leave(alice); h.Leave(bob);
+                foreach (var p in five) h.Join(p);
+                foreach (var p in five) h.Leave(p, "NETWORK_DISCONNECT_SHUTDOWN"); // the map change: everybody on the way back
+                h.Line("Loading map \"ar_replay\""); h.Line("Started:  \"\"");
+                var plan = new EarlyJoin();
+                plan.MapStarted(); plan.MatchStarted(h.Clock, 0);
+                var state = new string[five.Length]; // "" not connected yet, "conn" connected, "in" in the game, "off" connected and off the server (its own download, a crash)
+                long Acct(int i) => AccountId(five[i].Id);
+                joiningNow = () => EarlyJoin.JoiningReply(Enumerable.Range(0, five.Length).Where(i => state[i] == "conn").Select(i => five[i].Name)
+                    .Concat(stillToSpawn ? plan.StillToSpawn(Enumerable.Range(0, five.Length).Where(i => state[i] == "in").Select(Acct), h.Clock).Select(a => five.First(p => AccountId(p.Id) == a).Name) : []));
+                statusNow = () => Table([.. Enumerable.Range(0, five.Length).Where(i => state[i] is "conn" or "in").Select(i => (five[i].Name, state[i] == "in" ? "active" : "connecting"))]);
+                var start = h.Clock;
+                var (sent, firstAt) = (0, -1.0);
+                var spawned = new HashSet<int>();
+                for (var t = 0.0; t < until; t += 0.5)
+                {
+                    foreach (var (_, what, who) in script.Where(e => e.At >= t && e.At < t + 0.5))
+                    {
+                        var p = five[who];
+                        if (what == "conn") { state[who] = "conn"; Connects(p); }
+                        else if (what == "enter") { state[who] = "in"; h.Line($"\"{p.Name}<2><{p.Id}><>\" entered the game"); plan.Entered(Acct(who), h.Clock); }
+                        else if (what == "off") state[who] = "off"; // the game leaves the server mid-way: no line
+                        else if (what == "spawn" && spawned.Add(who) && plan.Spawned(Acct(who), h.Clock, spawned.Count - 1)) Fair(p);
+                    }
+                    h.Run(0.5);
+                    var now = h.Sent.Count(c => c == RematchCommand);
+                    if (now > sent)
+                    {
+                        if (sent == 0) firstAt = (h.Clock - start).TotalSeconds;
+                        sent = now;
+                        plan.MatchStarted(h.Clock.AddSeconds(1), spawned.Count); // the restart's round start, a second on
+                    }
+                }
+                joiningNow = null; statusNow = null;
+                return (sent, firstAt);
+            }
+            // Shortdust (Wingman): all connected at once, in the game at +3 to +5 s but Max at +13 s; the first team pick at +8.5 s; spawns at +9, +10, +15 and
+            // Max's at +29 s - live, the wait ended at Max's entering, the restart went at +18 s and Max's spawn set off a second at +34 s.
+            (double, string, int)[] shortdust = [(0, "conn", 0), (0, "conn", 1), (0, "conn", 2), (0, "conn", 3), (0, "conn", 4),
+                (3, "enter", 0), (4, "enter", 1), (4, "enter", 2), (5, "enter", 3), (13, "enter", 4),
+                (8.5, "spawn", 2), (9, "spawn", 1), (10, "spawn", 0), (15, "spawn", 3), (29, "spawn", 4)];
+            var sdOld = Replay(false, shortdust, 60);
+            var sdNew = Replay(true, shortdust, 60);
+            Check($"2026-11-18's Shortdust replayed: with os_joining naming only those connecting (release 218) the wait ends as the slowest enters the game and their spawn "
+                + $"16 s later restarts the match a second time ({sdOld.Restarts}, the first at +{sdOld.FirstAt:0} s); naming those still to spawn as well, one restart, "
+                + $"after the last spawn (+{sdNew.FirstAt:0} s)",
+                sdOld.Restarts == 2 && sdOld.FirstAt < 29 && sdNew.Restarts == 1 && sdNew.FirstAt > 29);
+            // gg_moonglass (Arms Race): everybody in the game by +4 s; the first pick at +6.5 s and the next spawn 0.5 s on, then +9.5, +9.5 and Max's at
+            // +20.5 s - live, no wait at all (nobody connecting), the restart at +11 s and Max's spawn a second at +25 s.
+            (double, string, int)[] moonglass = [(1, "conn", 0), (1, "conn", 1), (1, "conn", 2), (1, "conn", 4), (2, "conn", 3),
+                (2, "enter", 2), (3, "enter", 0), (3, "enter", 1), (4, "enter", 4), (4, "enter", 3),
+                (6.5, "spawn", 0), (7, "spawn", 2), (9.5, "spawn", 3), (9.5, "spawn", 1), (20.5, "spawn", 4)];
+            var mgOld = Replay(false, moonglass, 60);
+            var mgNew = Replay(true, moonglass, 60);
+            Check($"...2026-11-18's gg_moonglass: nobody connecting at the first ask, so release 218 did not wait at all ({mgOld.Restarts} restarts); with those still to spawn "
+                + $"named, it waits for the three at CS2's team menu - one restart, after the last spawn (+{mgNew.FirstAt:0} s)",
+                mgOld.Restarts == 2 && mgNew.Restarts == 1 && mgNew.FirstAt > 20.5);
+            // Transit (Wingman, 1.7 GB): Gus in at +3 s and playing from +8 s; Ike connected at +14 s, off the server from +51 s (a download of his own, or a
+            // crash: no line), back at +98 s, in at +112 s, spawning at +117 s; Pia in at +24 s and asking at +27 s; Max connected at +42 s, in at +52 s, spawning at +59 s;
+            // Hal not connected before +82 s - nothing named him at +62 s - in at +88 s. Live, the wait ended at +62 s, waited again at the countdown's end,
+            // the restart went at +94 s, and Ike's spawn set off a second at +122 s.
+            (double, string, int)[] transit = [(0, "conn", 1), (3, "enter", 1), (8, "spawn", 1), (14, "conn", 0), (19, "conn", 2), (24, "enter", 2), (27, "spawn", 2),
+                (42, "conn", 4), (51, "off", 0), (52, "enter", 4), (59, "spawn", 4), (82, "conn", 3), (88, "enter", 3), (93, "spawn", 3),
+                (98, "conn", 0), (112, "enter", 0), (117, "spawn", 0)];
+            var tr = Replay(true, transit, 150);
+            Check($"...2026-11-18's Transit: everybody on the way back through the map change is still joining until in the game - the one off the server for 47 s, the "
+                + $"one whom nothing else named before his connect - so the wait holds to the last spawn: one restart (+{tr.FirstAt:0} s), inside the wait's {EarlyJoin.HoldMostSeconds} s",
+                tr.Restarts == 1 && tr.FirstAt > 117 && tr.FirstAt < 27 + EarlyJoin.HoldMostSeconds + EarlyJoin.CountdownSeconds);
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();

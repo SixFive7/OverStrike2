@@ -1,6 +1,7 @@
 // --selftest, the fairness restart's plan (Shared/EarlyJoin.cs) on a handed clock: which spawn is a join, when the match runs, the minute's window that every
-// restart opens again, a reload, the words. The bridge's half - the ask on /act, the countdown, joins folding in, os_restart and its refusals - is
-// MatchSelfTest's (SelfTestMatch.cs); that the game fires its round start and spawns as the plugin expects is the live lab's.
+// restart opens again, a reload, who is still to spawn, which departure is a reconnect, the words. The bridge's half - the ask on /act, the countdown, joins
+// folding in, the wait, os_restart and its refusals - is MatchSelfTest's (SelfTestMatch.cs); that the game fires its round start, its connects in full and
+// its spawns as the plugin expects is the live lab's.
 static partial class Program
 {
     static void EarlyJoinSelfTest(Action<string, bool> Check)
@@ -77,6 +78,50 @@ static partial class Program
         plan.MapStarted();
         plan.MatchStarted(At(100), 0);
         Check("...and is itself again from the next map on", !plan.Spawned(Ann, At(105), 0) && plan.Spawned(Ben, At(110), 1));
+
+        // ---- who is still to spawn (StillToSpawn: the plugin's half of os_joining), 2026-11-18's Shortdust replayed with made-up names: after a
+        // map change, four in the game within 5 s and Max at +13 s; the first team pick at +8.4 s starts the match, three ask at +9, +10 and +15 s, and Max spawns
+        // at +29 s. The bridge's wait ended as Max entered the game, the restart went at +18 s, and his spawn restarted the match again at +34 s.
+        const long Ana = 11, Bix = 12, Cyd = 13, Dov = 14, Max = 15;
+        var sd = new EarlyJoin();
+        sd.MapStarted();
+        sd.MatchStarted(At(0), 0);
+        foreach (var (who, s) in new[] { (Bix, 3.0), (Ana, 4.0), (Cyd, 4.0), (Dov, 5.0) }) sd.Entered(who, At(s));
+        var inGame = new List<long> { Bix, Ana, Cyd, Dov };
+        var firstPick = !sd.Spawned(Ana, At(8.4), 0);
+        var cydAsks = sd.Spawned(Cyd, At(9), 1);
+        var atAsk = sd.StillToSpawn(inGame, At(9));
+        sd.Spawned(Bix, At(10), 2);
+        sd.Entered(Max, At(13)); inGame.Add(Max);
+        var atMaxIn = sd.StillToSpawn(inGame, At(13));
+        sd.Spawned(Dov, At(15), 3);
+        var at28 = sd.StillToSpawn(inGame, At(28));
+        var maxAsks = sd.Spawned(Max, At(29), 4);
+        Check("Still to spawn (2026-11-18's Shortdust, replayed): at the first ask the two in the game but not yet on a team are still joining - os_joining names them",
+            firstPick && cydAsks && atAsk is [Bix, Dov]);
+        Check("...and Max, in the game at +13 s, is still joining until his spawn at +29 s: the wait that ended as he entered (seen live) now holds for him",
+            atMaxIn is [Dov, Max] && at28 is [Max] && maxAsks && sd.StillToSpawn(inGame, At(29)) is []);
+        var afk = new EarlyJoin();
+        afk.MapStarted();
+        afk.Entered(21, At(0));
+        Check($"...one who never spawns - a spectator, somebody away at CS2's team menu - holds it {EarlyJoin.SpawnMostSeconds} s from entering at the most",
+            afk.StillToSpawn([21], At(EarlyJoin.SpawnMostSeconds - 1)) is [21] && afk.StillToSpawn([21], At(EarlyJoin.SpawnMostSeconds)) is []);
+        Check("...one whose entering the plan never heard of counts from its first sight; one who spawned on this map already (a team switch, a side picked again) is in",
+            afk.StillToSpawn([22], At(100)) is [22] && afk.StillToSpawn([22], At(100 + EarlyJoin.SpawnMostSeconds)) is []
+            && !afk.Spawned(23, At(1), 0) && afk.StillToSpawn([23], At(2)) is []);
+        afk.Entered(23, At(3));
+        var redone = afk.StillToSpawn([23], At(4)) is [];
+        afk.MapStarted();
+        afk.Entered(23, At(5));
+        var newMap = afk.StillToSpawn([23], At(6)) is [23];
+        afk.Skip("the plugin loaded during this map");
+        Check("...entering again on the same map changes nothing for one who is in; a new map starts everybody over; a map the plugin loaded during names nobody",
+            redone && newMap && afk.StillToSpawn([23], At(7)) is []);
+        Check("Fairness: a reconnect is no leaving by one rule for the bridge's log stream and the plugin - a reason with SHUTDOWN in it, a map change's or the HUD "
+            + "addon's; NETWORK_DISCONNECT_LOOPDEACTIVATE is a leaving (the two seen live, 2026-11-12 and 16: one came back 11 minutes later), and so is every other",
+            EarlyJoin.Reconnects("NETWORK_DISCONNECT_SHUTDOWN") && EarlyJoin.Reconnects("NETWORK_DISCONNECT_LOOPSHUTDOWN")
+            && !EarlyJoin.Reconnects("NETWORK_DISCONNECT_LOOPDEACTIVATE") && !EarlyJoin.Reconnects("NETWORK_DISCONNECT_DISCONNECT_BY_USER")
+            && !EarlyJoin.Reconnects("NETWORK_DISCONNECT_EXITING") && !EarlyJoin.Reconnects("NETWORK_DISCONNECT_TIMEDOUT") && !EarlyJoin.Reconnects(""));
 
         Check("Fairness: its words - one name, two, three, more; the line for everybody and the banner's title",
             EarlyJoin.Names(["Bob"]) == "Bob" && EarlyJoin.Names(["Bob", "Cas"]) == "Bob and Cas" && EarlyJoin.Names(["Bob", "Cas", "Dee"]) == "Bob, Cas and Dee"

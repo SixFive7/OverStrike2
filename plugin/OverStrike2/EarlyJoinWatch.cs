@@ -10,7 +10,8 @@ namespace OverStrike2;
 /// <summary>The fairness restart in the game: the rule is EarlyJoin's (../../bridge/Shared/EarlyJoin.cs) - in every mode, every human who joins a match while
 /// somebody else plays it and it has run less than a minute starts it over, as often as players join. This feeds the plan the game - a match's start (a round
 /// start out of warmup with no round played yet, the restart's own included) with the humans on a team then, every human's spawn with the others on a team,
-/// a real departure (not the reconnect of a map change or of the HUD addon's download) - and at once, for each join that asks, tells the bridge
+/// every human's entering the game, a real departure (not the reconnect of a map change or of the HUD addon's download: EarlyJoin.Reconnects, the bridge's
+/// own rule) - and at once, for each join that asks, tells the bridge
 /// (EarlyJoin.Command on /act, naming who came in), whose Restart match counts it down, folds every join that comes meanwhile into the same restart, and sends
 /// the plugin's own os_restart, which the restart guard lets through. Bots never count. A plugin loaded mid-map does nothing on that map: it cannot tell who has
 /// joined it. os_fair says where the map stands; os_fair live, the client harness's, starts the match running now and counts the next join as joining
@@ -30,9 +31,10 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
         plugin.RegisterListener<Listeners.OnClientConnect>((_, name, address) => { if (address != "127.0.0.1") { lastConnect = (name, DateTime.UtcNow); connects++; } }); // not CounterStrikeSharp's call for a bot
         plugin.RegisterEventHandler<EventRoundStart>(OnRoundStart);
         plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawn);
+        plugin.RegisterEventHandler<EventPlayerConnectFull>(OnConnectFull);
         plugin.RegisterEventHandler<EventPlayerDisconnect>(OnDisconnect);
         plugin.AddCommand(Command, "Over Strike 2 fairness restart: status | live (the match runs from now and the next join counts, for the client harness)", OnCommand);
-        plugin.AddCommand(EarlyJoin.JoiningCommand, "Over Strike 2: the humans still joining - connecting, downloading or loading the map (the bridge's, before a fairness restart)", OnJoining);
+        plugin.AddCommand(EarlyJoin.JoiningCommand, "Over Strike 2: the humans still joining - connecting, downloading or loading the map, or in the game and not yet spawned on a team (the bridge's, before a fairness restart)", OnJoining);
         if (hotReload) plan.Skip("the plugin loaded during this map");
         log.LogInformation("Over Strike 2 fairness: in every mode, every player who joins a match in its first {Window} s while somebody else plays it restarts it ({Command})",
             EarlyJoin.WindowSeconds, Command);
@@ -78,17 +80,27 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
         return HookResult.Continue;
     }
 
-    /// <summary>A map change disconnects everybody (NETWORK_DISCONNECT_SHUTDOWN and the loop's own reasons), and the HUD addon's download makes a joining game
-    /// reconnect (LOOPSHUTDOWN): neither is leaving. Any other reason is.</summary>
-    static bool Reconnect(int reason)
-    {
-        var name = Enum.IsDefined(typeof(NetworkDisconnectionReason), reason) ? ((NetworkDisconnectionReason)reason).ToString() : "";
-        return name.Contains("SHUTDOWN", StringComparison.Ordinal) || name.StartsWith("NETWORK_DISCONNECT_LOOP", StringComparison.Ordinal);
-    }
+    /// <summary>A map change disconnects everybody (NETWORK_DISCONNECT_SHUTDOWN), and the HUD addon's download makes a joining game reconnect
+    /// (NETWORK_DISCONNECT_LOOPSHUTDOWN): neither is leaving. Any other reason is, NETWORK_DISCONNECT_LOOPDEACTIVATE too - the bridge's log stream decides by the
+    /// same rule (EarlyJoin.Reconnects), so a player who left that way and comes back is a join again here as there.</summary>
+    static bool Reconnect(int reason) =>
+        EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason) ? ((NetworkDisconnectionReason)reason).ToString() : "");
 
     HookResult OnDisconnect(EventPlayerDisconnect ev, GameEventInfo info)
     {
         if (ev.Userid is { } p && Human(p) && !Reconnect(ev.Reason)) plan.Left(Account(p));
+        return HookResult.Continue;
+    }
+
+    /// <summary>A human enters the game - connected in full, a new connect or a map change's reconnect: still joining until their first spawn on a team
+    /// (EarlyJoin.StillToSpawn), which os_joining says to the bridge.</summary>
+    HookResult OnConnectFull(EventPlayerConnectFull ev, GameEventInfo info)
+    {
+        try
+        {
+            if (ev.Userid is { } p && Human(p) && Account(p) is > 0 and var account) plan.Entered(account, DateTime.UtcNow);
+        }
+        catch (Exception e) { log.LogError("Over Strike 2 fairness: the connect failed: {Error}", e.Message); }
         return HookResult.Continue;
     }
 
@@ -114,9 +126,9 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
     }
 
     /// <summary>os_joining (EarlyJoin.JoiningCommand): the humans still joining, for the bridge, which holds a fairness restart while there are any - the controllers
-    /// connecting or reconnecting. A joiner at CS2's first-download prompt is not among them: the game hears of a client only once it has every addon, so it has
-    /// no controller and no callback yet (the live lab's runs AW and AX); the bridge sees that one in the server's own list and its log stream. The server console
-    /// and RCON only.</summary>
+    /// connecting or reconnecting, and the humans in the game who have not spawned on a team since they entered it (EarlyJoin.StillToSpawn). A joiner at CS2's
+    /// first-download prompt is not among them: the game hears of a client only once it has every addon, so it has no controller and no callback yet (the live
+    /// lab's runs AW and AX); the bridge sees that one in the server's own list and its log stream. The server console and RCON only.</summary>
     void OnJoining(CCSPlayerController? caller, CommandInfo command)
     {
         if (caller != null) return;
@@ -124,8 +136,13 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<long, string, b
     }
 
     /// <summary>The humans whose game is still on its way in: their controller connecting - the connect itself, CS2's prompt to confirm a first Workshop download, the
-    /// download, the map's load - or reconnecting, as every game does through a map change and through MultiAddonManager's download of the HUD addon. In the game
-    /// once it says connected.</summary>
-    static List<CCSPlayerController> Joining() => [.. Enumerable.Range(0, Server.MaxPlayers).Select(Utilities.GetPlayerFromSlot)
-        .Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false } && p.Connected is PlayerConnectedState.Connecting or PlayerConnectedState.Reconnecting).Select(p => p!)];
+    /// download, the map's load - or reconnecting, as every game does through a map change and through MultiAddonManager's download of the HUD addon; and, once
+    /// it says connected, a human not yet spawned on a team since entering the game, EarlyJoin.SpawnMostSeconds at the most: CS2's team menu after every load,
+    /// or a game still finishing its load (seen live on 2026-11-18: a spawn 16 s after entering restarted the match a second time).</summary>
+    List<CCSPlayerController> Joining()
+    {
+        var humans = Enumerable.Range(0, Server.MaxPlayers).Select(Utilities.GetPlayerFromSlot).Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).Select(p => p!).ToList();
+        var toSpawn = plan.StillToSpawn(humans.Where(p => p.Connected == PlayerConnectedState.Connected).Select(Account), DateTime.UtcNow).ToHashSet();
+        return [.. humans.Where(p => p.Connected is PlayerConnectedState.Connecting or PlayerConnectedState.Reconnecting || p.Connected == PlayerConnectedState.Connected && toSpawn.Contains(Account(p)))];
+    }
 }
