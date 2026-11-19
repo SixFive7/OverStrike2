@@ -137,6 +137,7 @@ sealed class Scenario
     public static string Root = "";
     public static ServerConfig Template = null!;
     public static Func<FakeBridge?> NewBridge = () => null;      // what each new scenario talks to (null: no bridge configured)
+    public static Func<string, GamePools.Found>? NewGame;         // what each new scenario reads as the game's own map pools (null: the real read, of a game folder without them)
 
     public required Watch W;
     public required FakeClock Clock;
@@ -192,6 +193,7 @@ sealed class Scenario
         {
             SettingsPath = Path.Combine(Root, "settings.jsonc"),
             Env = _ => null,
+            ReadGame = NewGame ?? GamePools.Read,
         };
         return new Scenario { W = w, Clock = clock, Eng = eng, Bridge = bridge, Valve = valve, Log = log, Lines = lines };
     }

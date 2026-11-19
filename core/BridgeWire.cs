@@ -17,6 +17,7 @@ public static class BridgeWire
     public const string Updated = "updated";               // the watcher: the restart is done, and what it changed
     public const string Removed = "removed";               // the sync: the Workshop's verdicts on the listed maps
     public const string Reload = "reload";                 // the sync, or anyone: read the data files again now
+    public const string Pools = "pools";                   // the watcher: the installed game's own map pools, at every engine start (GamePools.cs)
 
     /// <summary>An address as the bridge's routes have it: "/ready/", the secret after it.</summary>
     public static string Route(string address) => $"/{address}/";
@@ -25,7 +26,8 @@ public static class BridgeWire
     public static string Url(string root, string address, string secret) => $"{root.TrimEnd('/')}/{address}/{secret}";
 
     // ---- the bodies ----
-    public const string HealthWord = "os2-health", ReadyWord = "os2-ready", QuitWord = "os2-quit", RestartWord = "os2-restart", UpdatedWord = "os2-updated", RemovedWord = "os2-removed";
+    public const string HealthWord = "os2-health", ReadyWord = "os2-ready", QuitWord = "os2-quit", RestartWord = "os2-restart", UpdatedWord = "os2-updated", RemovedWord = "os2-removed",
+        PoolsWord = "os2-pools";
     public const string Version = "1";
     public const string Cancel = "cancel";      // a quit or a restart announced that does not happen after all
     public const string Current = "current";    // the ready report's line of the background download
@@ -70,6 +72,49 @@ public static class BridgeWire
     /// <summary>The sync's verdicts on the listed maps (POST /removed): a Workshop id and its verdict a line (ok, removed, hidden, banned).</summary>
     public static string RemovedBody(IEnumerable<(string Id, string Verdict)> verdicts) =>
         Head(RemovedWord) + "\n" + string.Concat(verdicts.Select(v => $"{v.Id}\t{v.Verdict}\n"));
+
+    /// <summary>The installed game's map pools (POST /pools), read out of its own files (GamePools.Read): its version after the head; then a line per
+    /// game mode - "pool", its type and mode, the numbers game_type and game_mode select it by, its maps and those of them not installed, each list
+    /// comma-separated and either one possibly empty; "installed" and every installed map; and a line "name", a map, Valve's name of it.</summary>
+    public static string PoolsBody(GamePools.Found found)
+    {
+        static string One(string s) => s.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ').Trim();
+        static string List(IEnumerable<string> maps) => string.Join(',', maps.Select(m => One(m).Replace(',', ' ')));
+        var b = new System.Text.StringBuilder(Head(PoolsWord)).Append('\t').Append(One(found.Build)).Append('\n');
+        foreach (var p in found.Pools)
+            b.Append(CultureInfo.InvariantCulture, $"pool\t{One(p.Type)}\t{One(p.Mode)}\t{p.TypeValue}\t{p.ModeValue}\t{List(p.Maps)}\t{List(p.Missing)}\n");
+        b.Append("installed\t").Append(List(found.Installed)).Append('\n');
+        foreach (var (map, name) in found.Names.OrderBy(n => n.Key, StringComparer.Ordinal))
+            b.Append("name\t").Append(One(map)).Append('\t').Append(One(name)).Append('\n');
+        return b.ToString();
+    }
+
+    /// <summary>A pools body read back - the bridge's side of PoolsBody: null when its first line is not os2-pools in version 1 or it holds no pool.
+    /// A line it does not know is passed over.</summary>
+    public static GamePools.Found? ReadPools(string body)
+    {
+        if (Fields(body, PoolsWord) is not { } head)
+            return null;
+        static List<string> List(string s) => [.. s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+        static int Int(string s) => int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : -1;
+        var pools = new List<GamePools.Pool>();
+        var installed = new List<string>();
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in body.Replace("\r", "").Split('\n').Skip(1))
+            switch (line.Split('\t'))
+            {
+                case ["pool", var type, var mode, var tv, var mv, var maps, var missing]:
+                    pools.Add(new(type, mode, Int(tv), Int(mv), List(maps), List(missing)));
+                    break;
+                case ["installed", var all]:
+                    installed = List(all);
+                    break;
+                case ["name", var map, var name] when map.Length > 0 && name.Trim().Length > 0:
+                    names[map] = name.Trim();
+                    break;
+            }
+        return pools.Count == 0 ? null : new(head.FirstOrDefault() is { Length: > 0 } build ? build : "?", pools, installed, names, null);
+    }
 
     /// <summary>The fields after the message and its version on a body's first line, each trimmed; null when the first line is not this message in
     /// version 1.</summary>

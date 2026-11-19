@@ -115,6 +115,13 @@ static partial class Program
         Check("The catalog: a map in two lists is one entry with both places, a map of another mode has its own, an official map of other modes too",
             catalog.Find(Key(ar)) is { RankDm: 1, RankAr: > 0, RankWm: -1 } && catalog.Find("3070000099") is { RankAr: -1, RankDm: 2, Arg: "3070000099" } && catalog.Find("de_dust2") is { RankAr: -1, RankDm: 0, Official: true, Arg: "de_dust2" }
             && catalog.Maps.Select(m => m.Key).Distinct().Count() == catalog.Maps.Count);
+        // Cobblestone (CS2 1.41.9.9): the official de_cbble beside Workshop maps of its name - one is literally "de_cbble (Cobblestone)" - each its own entry.
+        ModeMaps[inDm.Id] = [.. ModeMaps[inDm.Id], new(3, 3070293560, "de_cbble (Cobblestone)", 120, false, inDm.Id)];
+        var withCbble = BuildCatalog();
+        Check("Cobblestone (CS2 1.41.9.9): the official de_cbble is one entry - official, Deathmatch's and Wingman's, not Arms Race's, played by its name (changelevel), 4 a side in Wingman, with its picture; a Workshop map named de_cbble (Cobblestone) keeps its own entry by its id, and the whole name de_cbble finds the official map alone",
+            withCbble.Find("de_cbble") is { Official: true, Arg: "de_cbble", RankAr: -1, RankDm: 0, RankWm: 0, Side: 4 } e && HudThumbs.Classes(e).Length == 2
+            && withCbble.Find("3070293560") is { Official: false, Arg: "3070293560", RankDm: 3 } && Find("de_cbble") is [{ Official: true, Name: "de_cbble" }]
+            && NameOfKey("de_cbble") == "de_cbble (official)" && withCbble.Maps.Select(m => m.Key).Distinct().Count() == withCbble.Maps.Count);
         ModeMaps.Remove(inDm.Id);
     }
 }

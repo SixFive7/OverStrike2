@@ -32,7 +32,7 @@ How they talk (`<secret>` is `bridge.secret`):
 | RCON | bridge to engine | Map changes, mode settings, plugin commands, `status` |
 | RCON | watcher to its own engine | Quit, players, a liveness echo, background downloads |
 | HTTP | plugin to bridge | `GET /hud/<secret>`, the live state, a long poll with versions; `/catalog/`, `/search/`, `/dash/`, `/history/` and `/stats/` when their versions move; `POST /act/<secret>`, a click |
-| HTTP | watcher to bridge | `POST /ready/`, `/quitting/`, `/restart-notice/`, `/updated/` ([server.md](server.md#the-bridges-side)) |
+| HTTP | watcher to bridge | `POST /ready/`, `/quitting/`, `/restart-notice/`, `/updated/`, `/pools/` ([server.md](server.md#the-bridges-side)) |
 | HTTP | sync to bridge | `POST /reload/`: read the lists now; `POST /removed/`: the Workshop's verdicts |
 | HTTP | deploy tools to bridge | `GET /health/<secret>` |
 | The bridge's data folder | bridge, sync, watcher | [The data files](#the-data-files) |
@@ -638,8 +638,20 @@ Both deathmatch-style modes spawn players at random with `mp_randomspawn_los 1` 
 cfg does not). It is meant to test each spawn point for line of sight to the enemies and pick one that no enemy sees, but in Arms Race it made no measurable difference: with
 8 bots moving and firing on ar_shoots and ar_baggage, an enemy had 10 of 142 spawns spotted within 0.75 s with it on and 10 of 145 with it off (p = 1.00). It stays on.
 
-Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
-playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for the others. A map loads in its own mode: the bridge tells the plugin
+Each mode has its official maps and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are playable but never rolled),
+`maps-deathmatch.json` and `maps-wingman.json` for the others. The official maps are the installed game's own. At every engine start the restart watcher
+reads each game mode's online map groups out of the game's `gamemodes.txt` (inside `pak01_dir.vpk`), sets apart the maps whose files are not installed,
+and posts the pools to the bridge (`POST /pools/`, [server.md](server.md#the-bridges-side)), which keeps the newest report in `game-pools.txt` in its data
+folder and plays Deathmatch's and Wingman's official maps from it (`bridge/OfficialPools.cs`). A map Valve brings back is in the pools, the menu and the
+dice by itself - its picture comes with the next HUD release - and one it takes away is out of them. `bridge/Shared/Modes.cs` is the fallback while there
+is no report: the same map groups read by hand from the server's install (CS2 1.41.9.9 of 2026-11-18: Deathmatch 13, with Cobblestone, `de_cbble`, back and
+`de_boulder`, `de_fachwerk` and `cs_shelter` gone, their files with them; Wingman 8, Cobblestone among them; Arms Race 4). Each report is compared with it,
+and every difference is logged and shown on `GET /health`, its `pools:` line. Arms Race's official maps stay the settings' (`bridge.officialMaps`); its
+pool is only compared. Deathmatch also plays one of ours, `de_ancient` - Ancient by day, installed but in Valve's competitive pool only - while its files
+are installed (`Modes.Mode.Extras`), its picture the game's own screenshot as every official map's. Valve's names of the official maps are search words in the map browser: "cobblestone" finds `de_cbble` as well as the
+Workshop's ports, "office" finds `cs_office`. A `changelevel` the server answers with `invalid map name` fails at once - nothing is awaited, the mode goes
+back - and the map leaves every pool until the server process is a new one; before, it held every vote for the ten minutes a load may take, and the dice
+could roll it again. A map loads in its own mode: the bridge tells the plugin
 with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command, and an operator switches the same way, `os_mode`
 first. A `changelevel` from a Workshop map to an official one brings back the mode CS2 saved on the way to the Workshop maps (`host_workshop_map` and a
 change from an official map bring back nothing), so such a map can come up in the old mode: it is then loaded once more in its own, by the bridge a few

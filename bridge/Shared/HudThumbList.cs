@@ -9262,5 +9262,7 @@ static class HudThumbList
         "3833084556",
         "3833119621",
         "3833882625",
+        "de_cbble",
+        "de_ancient",
     ];
 }

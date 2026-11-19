@@ -61,8 +61,9 @@ namespace OverStrike2.Server;
 /// means "no action", never "act".
 ///
 /// THE FILES: this one holds the state, the engine in words and the loop; Watch.AfterRestart.cs judges the previous run's restart,
-/// Watch.Console.cs reads console.log, Watch.Planned.cs decides and makes the planned restarts, Watch.Freeze.cs the freeze kills, and
-/// WorkshopJobs (Downloads.cs) the download restart's mark, the download line and the background downloads.</summary>
+/// Watch.Console.cs reads console.log, Watch.Planned.cs decides and makes the planned restarts, Watch.Freeze.cs the freeze kills, Watch.Pools.cs
+/// tells the bridge the installed game's own map pools at every engine start, and WorkshopJobs (Downloads.cs) the download restart's mark, the
+/// download line and the background downloads.</summary>
 public sealed partial class Watch
 {
     public const double Tick = 1.0;
@@ -279,6 +280,14 @@ public sealed partial class Watch
         now = Now;                                     // a poll of a dead engine takes up to 2.5 s; judge on the clock after it
         VerifyPending(now);
         SendUpdated(now);
+        try
+        {
+            SendPools(now);
+        }
+        catch (Exception e)   // a bug here must never cost the restarts and the freeze recovery below
+        {
+            Log.Once("pools", $"WARNING: the map pools' report crashed ({e.GetType().Name}: {e.Message}) - no action");
+        }
         ProbeConsole(now);
         try
         {

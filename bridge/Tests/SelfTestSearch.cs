@@ -52,20 +52,20 @@ static partial class Program
 
             Check("Mode words: armsrace finds Arms Race's list and its official maps - a map whose text was written before it joined the list among them - and no other map by its text",
                 Found("armsrace").SequenceEqual(Keys([a, b, e], arOfficial)));
-            Check("...deathmatch finds Deathmatch's list and Valve's 15 Deathmatch maps, a listed map without any text among them; a map whose Workshop tags and description say deathmatch while it is on no Deathmatch list is not found by them",
-                Found("deathmatch").SequenceEqual(Keys([a, c, g], Modes.Deathmatch.Official)) && !Found("deathmatch").Contains(b));
-            Check("...wingman finds Wingman's list and Valve's 7 Wingman maps, and a map named Wingman Arena by its name; a text that said wingman for a map on no Wingman list finds it no more",
+            Check($"...deathmatch finds Deathmatch's list and Valve's {Modes.Deathmatch.Official.Length} Deathmatch maps, a listed map without any text among them; a map whose Workshop tags and description say deathmatch while it is on no Deathmatch list is not found by them",
+                Found("deathmatch").SequenceEqual(Keys([a, c, g], OfficialsOf(Modes.Deathmatch).Select(o => o.Name))) && !Found("deathmatch").Contains(b));
+            Check($"...wingman finds Wingman's list and Valve's {Modes.Wingman.Official.Length} Wingman maps, and a map named Wingman Arena by its name; a text that said wingman for a map on no Wingman list finds it no more",
                 Found("wingman").SequenceEqual(Keys([d, e, w], Modes.Wingman.Official)) && !Found("wingman").Contains(c) && !Found("wingman").Contains(b));
             Check("...the text served: as the index keeps it, without the mode words it was written with, then the modes the menu has the map in, in the menu's order",
                 Served().TextOf(a) == "as retreat csco csco assault 3900000001 cs2 map classic custom armsrace deathmatch"
-                && Served().TextOf(c) == "vault 3900000003 cs2 map classic deathmatch" && Served().TextOf(g) == "deathmatch" && Served().TextOf("de_inferno") == "deathmatch wingman"
-                && Served().TextOf("ar_baggage") == "armsrace");
+                && Served().TextOf(c) == "vault 3900000003 cs2 map classic deathmatch" && Served().TextOf(g) == "deathmatch" && Served().TextOf("de_inferno") == "inferno deathmatch wingman"
+                && Served().TextOf("ar_baggage") == "baggage armsrace");
             Check("...a blocked map is out of the menu, so its text names no mode and no mode word finds it",
                 Served().TextOf(f) == "blocked map 3900000006" && !Found("armsrace").Contains(f) && !Found("deathmatch").Contains(f));
             Check("Every other word finds what it found: a tag (classic), a word of the name (csco), of the description (team, box, ready), an id, the start of a mode word (death, wing)",
                 Found("classic").SequenceEqual([a, b, c, d, e]) && Found("csco").SequenceEqual([a]) && Found("team box").SequenceEqual([b]) && Found("ready").SequenceEqual([b])
                 && Found("3900000004").SequenceEqual([d]) && Found("death").SequenceEqual(Found("deathmatch")) && Found("wing").SequenceEqual(Found("wingman")));
-            var menuMaps = 7 + arOfficial.Count + Modes.Deathmatch.Official.Union(Modes.Wingman.Official).Count();
+            var menuMaps = 7 + arOfficial.Count + OfficialsOf(Modes.Deathmatch).Select(o => o.Name).Union(Modes.Wingman.Official).Count();
             Check($"The log and GET /health say it: the mode words of the menu's {menuMaps} maps from their lists, and how many texts of search.json said otherwise ({SearchModesLine()})",
                 SearchStale == (menuMaps, 3, 3) && HealthText().Contains(SearchModesLine()));
 

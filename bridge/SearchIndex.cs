@@ -12,6 +12,8 @@
 // map's modes in the menu change (a list read again, a map blocked or no longer blocked). A mode's word finds that mode's maps, its official ones
 // among them, and no other map by its text, whatever the Workshop's tags said; a name still finds its map by every word of it. Every other word
 // of a text - the name's, the id, the other tags, the description's - is served as written, and search.json itself is never written here.
+// An official map, which has no text, is served Valve's own name of it besides its mode words (OfficialPools.cs, Modes.ValveNames): "cobblestone"
+// finds de_cbble as well as the Workshop's ports, "office" cs_office.
 using System.Text.Json;
 
 static partial class Program
@@ -68,22 +70,23 @@ static partial class Program
     static string ModeWordsOf(int modes) => string.Join(' ', ModeWords.Where((_, i) => (modes & 1 << i) != 0));
 
     /// <summary>The index served: every text of search.json without the mode words, then the words of the modes the menu has its map in; a map of the
-    /// menu without a text (an official map) its mode words alone. A new version, so the plugin fetches it again.</summary>
+    /// menu without a text (an official map) Valve's name of it (OfficialPools.cs: "cobblestone" finds de_cbble) and its mode words. A new version, so
+    /// the plugin fetches it again.</summary>
     static void ComposeSearch()
     {
         var index = new HudSearch { Version = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond };
         var (lacked, named) = (0, 0);
+        static string Joined(params string[] parts) => string.Join(' ', parts.Where(p => p != ""));
         foreach (var (key, (text, said)) in SearchStored)
         {
             var modes = SearchModes.GetValueOrDefault(key);
-            var words = ModeWordsOf(modes);
-            index.Set(key, words == "" ? text : text == "" ? words : $"{text} {words}");
+            index.Set(key, Joined(text, ModeWordsOf(modes), HudSearch.Normal(ValveName(key)))); // the mode words fit (Stored); Valve's name is an official map's alone
             if (modes == 0) continue; // a map the menu does not show: never searched, and its text names no mode
             if ((modes & ~said) != 0) lacked++;
             if ((said & ~modes) != 0) named++;
         }
         foreach (var (key, modes) in SearchModes)
-            if (!SearchStored.ContainsKey(key)) index.Set(key, ModeWordsOf(modes));
+            if (!SearchStored.ContainsKey(key)) index.Set(key, Joined(HudSearch.Normal(ValveName(key)), ModeWordsOf(modes)));
         if (index.Version <= Search.Version) index.Version = Search.Version + 1;
         SearchStale = (SearchModes.Count, lacked, named);
         Search = index;

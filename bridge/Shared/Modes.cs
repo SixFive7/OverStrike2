@@ -11,16 +11,25 @@
 //
 // Shared like Hud.cs: the bridge compiles it (the vote, the map loads, the per-mode lists, --selftest) and the OverStrike2 plugin links it
 // in (os_mode, the per-mode features and the block file). Plain BCL only. The official pools are Valve's online map groups (mapgroupsMP)
-// for each mode in the server's gamemodes.txt (CS2 1.41.9.4, read 2026-11-01); every one of those maps is installed on the server.
+// for each mode in the server's gamemodes.txt (CS2 1.41.9.9, read 2026-11-19 out of the server's pak01_dir.vpk); every one of those maps is installed
+// on the server. 1.41.9.9 brought Cobblestone back (de_cbble: mg_de_cbble, first in Deathmatch's and Wingman's templates) and took Deathmatch's
+// mg_casualcharlie away (de_boulder, de_fachwerk and cs_shelter: their folders under csgo_community_addons are empty since 2026-11-18).
+// These tables are the bridge's fallback: at every engine start the restart watcher reads the pools out of the installed game itself and the
+// bridge plays those (bridge/OfficialPools.cs), so a build like 1.41.9.9 needs no change here to be played right - only to be the fallback.
 public static class Modes
 {
     /// <summary>A game mode: its id (on the wire, in state.json, in file names), its name for players, the two convars that select it,
     /// the most players it takes - Valve's maxplayers for Arms Race and Deathmatch (gamemodes.txt; the vote offers a mode only while the humans on are at most
     /// this many), Wingman the same 16 (Valve's is 4: any number plays on any Wingman map here) - the server cfg
-    /// the engine runs after Valve's own on every load of the mode (server/), and Valve's official maps for it.</summary>
-    public sealed record Mode(string Id, string Name, int GameType, int GameMode, int MaxPlayers, string ValveCfg, string ServerCfg, string[] Official)
+    /// the engine runs after Valve's own on every load of the mode (server/), Valve's official maps for it - the bridge's fallback: it plays the installed
+    /// game's own pool when the restart watcher has reported one (bridge/OfficialPools.cs) - and our own extras.</summary>
+    public sealed record Mode(string Id, string Name, int GameType, int GameMode, int MaxPlayers, string ValveCfg, string ServerCfg, string[] Official, string[]? Extra = null)
     {
         public bool ArmsRace => Id == ArmsRaceId;
+
+        /// <summary>Our own additions to Valve's pool: official maps the game has installed that its template for the mode leaves out. They join the
+        /// mode's pool whenever the game's report says their files are installed, and without a report.</summary>
+        public string[] Extras => Extra ?? [];
 
         /// <summary>The mode's Workshop list, beside maps.json (Arms Race's is maps.json itself): the sync's output.</summary>
         public string MapsFile => ArmsRace ? "maps.json" : $"maps-{Id}.json";
@@ -41,25 +50,39 @@ public static class Modes
         ["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]);
 
     public static readonly Mode Deathmatch = new(DeathmatchId, "Deathmatch", 1, 2, 16, "gamemode_deathmatch.cfg", "gamemode_deathmatch_server.cfg",
-        ["de_dust2", "de_mirage", "de_inferno", "de_vertigo", "de_cache",           // mg_casualalpha
-         "de_train", "de_anubis", "de_ancient_night", "de_overpass", "de_nuke",     // mg_casualdelta
-         "cs_office", "cs_italy"]);                                                 // mg_hostage
-    // mg_casualcharlie (de_boulder, de_fachwerk, cs_shelter) is gone since CS2 1.41.9.9: their folders under csgo_community_addons are empty since
-    // 2026-11-18, so a changelevel to one loads nothing - out of the pool, so no route picks them (hotfix 218a)
+        ["de_dust2", "de_mirage", "de_inferno",                                     // mg_casualalpha
+         "de_vertigo", "de_cache", "de_anubis", "de_nuke",                          // mg_casualdelta
+         "de_train", "de_ancient_night", "de_overpass",                             // mg_casualsigma
+         "cs_office", "cs_italy",                                                   // mg_hostage
+         "de_cbble"],                                                               // mg_de_cbble - Valve's template sddhcasual
+        ["de_ancient"]);                                                            // ours: Ancient by day - installed, in Valve's competitive pool only
 
     public static readonly Mode Wingman = new(WingmanId, "Wingman", 0, 2, 16, "gamemode_competitive2v2.cfg", "gamemode_competitive2v2_server.cfg",
-        ["de_debris", "de_eldorado", "de_poseidon", "de_overpass", "de_vertigo", "de_nuke", "de_inferno"]); // the "2v2" template
+        ["de_debris", "de_eldorado", "de_poseidon", "de_overpass", "de_vertigo", "de_nuke", "de_inferno", "de_cbble"]); // the "2v2" template
 
     /// <summary>Every mode, in menu order; the first is the default.</summary>
     public static readonly Mode[] All = [ArmsRace, Deathmatch, Wingman];
 
+    /// <summary>Valve's own names of its maps (the SFUI_Map_ tokens of the game's csgo_english.txt, CS2 1.41.9.9): search words in the map browser, so
+    /// "cobblestone" finds the official de_cbble as well as the Workshop's ports. The game's own report names them first (bridge/OfficialPools.cs); this
+    /// table is the fallback, and the one for a map the report does not name.</summary>
+    public static readonly IReadOnlyDictionary<string, string> ValveNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ar_baggage"] = "Baggage", ["ar_pool_day"] = "Pool Day", ["ar_shoots"] = "Shoots (Day)", ["ar_shoots_night"] = "Shoots (Night)",
+        ["de_dust2"] = "Dust II", ["de_mirage"] = "Mirage", ["de_inferno"] = "Inferno", ["de_vertigo"] = "Vertigo", ["de_cache"] = "Cache", ["de_anubis"] = "Anubis",
+        ["de_nuke"] = "Nuke", ["de_train"] = "Train", ["de_ancient"] = "Ancient", ["de_ancient_night"] = "Ancient", ["de_overpass"] = "Overpass",
+        ["cs_office"] = "Office", ["cs_italy"] = "Italy", ["de_cbble"] = "Cobblestone",
+        ["de_debris"] = "Debris", ["de_eldorado"] = "El Dorado", ["de_poseidon"] = "Poseidon",
+    };
+
     // ---- a Wingman map's spawn points per side: the map browser's recommended count ("3v3"), never a limit - any number plays on any Wingman map ----
 
     /// <summary>The spawn points per side of Valve's own Wingman maps, read from their entity lumps (2026-11-09): the 2v2 set ("spawnpoints.2v2") that Wingman
-    /// switches on where a map has one - inferno, nuke and overpass - else every team spawn. 3v3 on de_inferno was tried on a test copy that day: every player spawned.</summary>
+    /// switches on where a map has one - inferno, nuke, overpass and cbble - else every team spawn. 3v3 on de_inferno was tried on a test copy that day: every player
+    /// spawned. de_cbble's counted on 2026-11-19 by the sync's own Spawns.Of over its lumps, which gave inferno's, nuke's, overpass's and vertigo's numbers here again.</summary>
     public static readonly IReadOnlyDictionary<string, int> WingmanOfficialSpawns = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
-        ["de_debris"] = 9, ["de_eldorado"] = 10, ["de_poseidon"] = 5, ["de_overpass"] = 4, ["de_vertigo"] = 15, ["de_nuke"] = 4, ["de_inferno"] = 4,
+        ["de_debris"] = 9, ["de_eldorado"] = 10, ["de_poseidon"] = 5, ["de_overpass"] = 4, ["de_vertigo"] = 15, ["de_nuke"] = 4, ["de_inferno"] = 4, ["de_cbble"] = 4,
     };
 
     public static Mode Default => ArmsRace;
