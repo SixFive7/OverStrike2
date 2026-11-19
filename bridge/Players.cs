@@ -111,7 +111,7 @@ static partial class Program
                 p.OffList = true;
                 continue;
             }
-            p.SigningOn = null; p.MissingSince = null; ended = true;
+            p.SigningOn = null; p.MissingSince = null; p.GoneSince = now; p.Joining = false; ended = true; // gone: no longer on the server for anything (PresentIds) - the live lab on 997c7bb kept such a connect present, and its warm-up asked for an end
             Log($"joining: {p.Name} was connecting, and the server lists them no more - gone before they were in, which CS2 writes no \"disconnected\" line for");
         }
         if (ended) SignOnsChanged();

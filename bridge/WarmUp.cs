@@ -3,8 +3,9 @@
 // from the first human's spawn at the most. The bridge, which knows who is still coming, asks the plugin to end it sooner (os_warmup end): once everybody
 // coming has spawned and at least two humans have, SettleSeconds later, or at a player's !start - and says so once a look finds it ended (WarmUpEnding): the
 // plugin's end comes within seconds of the request. That end is the one restart a map makes; nothing restarts the match after it. A match end during the
-// waiting time (an Arms Race win) is no end of the real match (WarmUpWonAtMatchEnd). While it lasts the countdown banner says whom it waits for and counts
-// down to the latest start (PutWarmUp, HudView.CountdownOf).
+// waiting time (an Arms Race win) is no end of the real match (WarmUpWonAtMatchEnd). The bridge asks for no end before a human has spawned on the map, and
+// says the match is on only once the plugin's end has come - never on one it gave up (EarlyJoin.FailedMark). While it lasts the countdown banner says whom it
+// waits for and counts down to the latest start (PutWarmUp, HudView.CountdownOf).
 static partial class Program
 {
     /// <summary>The warm-up on this map as the bridge follows it: on since (null: none seen, or over), the first human's spawn by the plugin's word, CS2's own
@@ -21,13 +22,17 @@ static partial class Program
     static DateTime? WarmUpOffSince;
     static bool WarmUpTickDue;
     static int WarmUpUnread;              // replies to os_warmup in a row it could not read (WarmUpUnreadMost)
+    static bool WarmUpAsksSpent;          // it asked WarmUpAsksMost times for an end that did not come: no more asking until a human spawns again
     static DateTime? WarmUpNewestSpawn;   // the look that saw the spawned count rise last: a human's first spawn, which CS2 may leave its warm-up soon after
 
     /// <summary>The bridge asked the plugin to end the warm-up (EndWarmUp): when it last asked, why in the log's words and in the line's, who was still coming, and
     /// how often it has asked. The line for everybody goes out once a look finds CS2's warm-up off.</summary>
     static (DateTime At, string Why, string Says, List<string> Coming, int Asks)? WarmUpEnding;
 
-    /// <summary>An end the bridge asked for and not come this long after its last ask is asked for again, three times at the most: the plugin's end comes within
+    /// <summary>The most times the bridge asks for one end: then it asks no more until a human spawns again, and follows on, saying nothing of an end.</summary>
+    const int WarmUpAsksMost = 3;
+
+    /// <summary>An end the bridge asked for and not come this long after its last ask is asked for again, WarmUpAsksMost times at the most: the plugin's end comes within
     /// seconds - the restart's round start a second after it, CS2's warm-up end within a few - and the plugin presses harder on its own after 5
     /// (EarlyJoin.EndStepSeconds).</summary>
     const int WarmUpEndWaitSeconds = 10;
@@ -36,8 +41,9 @@ static partial class Program
     /// went off before anybody spawned may take to begin again (the plugin begins it again within seconds: EarlyJoinWatch).</summary>
     const int WarmUpFindSeconds = 30;
 
-    /// <summary>A warm-up on with humans on the server and no first spawn by the plugin's word this long - a plugin loaded during it cannot say who spawned -
-    /// ends anyway, the most and a minute after it began.</summary>
+    /// <summary>A warm-up on with humans on the server and no first spawn by the plugin's word this long, the plugin saying it cannot tell (EarlyJoin.BlindMark:
+    /// loaded during the map), ends anyway, the most and a minute after it began. Never one the plugin can tell of: no human has spawned, and a connect that never
+    /// spawned - the evening's first, killed before it got in (the live lab on 997c7bb) - starts no clock.</summary>
     const int WarmUpBlindSeconds = EarlyJoin.WarmUpMostSeconds + 60;
 
     /// <summary>The latest start passed this long ago, and the warm-up still on: the bridge asks for its end. The plugin ends it there itself (EarlyJoinWatch), and CS2's
@@ -67,8 +73,8 @@ static partial class Program
     }
 
     /// <summary>The warm-up over, or the server going down: nothing to follow.</summary>
-    static void WarmUpOver() => (WarmUpSince, WarmUpFirstSpawn, WarmUpEnd, WarmUpAllInSince, WarmUpComing, WarmUpSpawned, WarmUpOnNow, WarmUpLooks, WarmUpOffSince, WarmUpEnding, WarmUpUnread, WarmUpNewestSpawn)
-        = (null, null, null, null, [], 0, false, 0, null, null, 0, null);
+    static void WarmUpOver() => (WarmUpSince, WarmUpFirstSpawn, WarmUpEnd, WarmUpAllInSince, WarmUpComing, WarmUpSpawned, WarmUpOnNow, WarmUpLooks, WarmUpOffSince, WarmUpEnding, WarmUpUnread, WarmUpNewestSpawn, WarmUpAsksSpent)
+        = (null, null, null, null, [], 0, false, 0, null, null, 0, null, false);
 
     static void WarmUpTickSoon()
     {
@@ -131,9 +137,17 @@ static partial class Program
             WarmUpTickSoon();
             return;
         }
-        if (WarmUpSince != null && state.Spawned > WarmUpSpawned) WarmUpNewestSpawn = now; // a human's first spawn on the map since the last look
+        if (state.On && !state.Blind && WarmUpFirstSpawn != null && state.SinceFirstSpawn == null)
+        {
+            // on, and the plugin knows no spawn on its map while the bridge followed one: its waiting time starts over - nobody on a side to restart for, its
+            // clock from the next spawn (EarlyJoinWatch.StartOver). Both clocks from that spawn again; nothing said
+            Log("warm-up: the plugin's waiting time starts over - nobody on a side for its end; its clock from the next spawn, the bridge's too");
+            (WarmUpFirstSpawn, WarmUpEnd, WarmUpEnding, WarmUpAllInSince, WarmUpNewestSpawn, WarmUpOffSince, WarmUpAsksSpent, WarmUpSpawned) = (null, null, null, null, null, null, false, 0);
+        }
+        if (WarmUpSince != null && state.Spawned > WarmUpSpawned) (WarmUpNewestSpawn, WarmUpAsksSpent) = (now, false); // a human's first spawn on the map since the last look
         if (WarmUpEnding is { } ending) // the bridge asked for its end: said once a look finds it off, asked again while it is not
         {
+            if (!state.On && state.Failed) { WarmUpUnconfirmed(now, $"{(now - ending.At).TotalSeconds:0} s after the bridge last asked"); return; }
             if (!state.On)
             {
                 Log($"warm-up: ended, {(now - ending.At).TotalSeconds:0} s after the bridge last asked - the match is on");
@@ -144,11 +158,12 @@ static partial class Program
             }
             if ((now - ending.At).TotalSeconds >= WarmUpEndWaitSeconds)
             {
-                if (ending.Asks >= 3)
+                if (ending.Asks >= WarmUpAsksMost)
                 {
-                    Log($"warm-up: asked {ending.Asks} times to end it, and CS2 is still in its warm-up - no more asking, left to the plugin");
-                    WarmUpOver();
-                    MatchHistory.WarmUpEnded(HistoryNow()); // History.cs: the match counted from here - the plugin ends the warm-up within seconds
+                    // no end came: the warm-up is on as far as anybody can tell - followed on, its banner up, nothing said of an end; asked again once a human spawns
+                    Log($"warm-up: asked {ending.Asks} times to end it, and it is still on - no more asking until a human spawns again; followed on, no end said");
+                    (WarmUpEnding, WarmUpAsksSpent) = (null, true);
+                    WarmUpTickSoon();
                     return;
                 }
                 EndWarmUp(now, ending.Why, ending.Says);
@@ -157,6 +172,7 @@ static partial class Program
             WarmUpTickSoon();
             return;
         }
+        if (!state.On && state.Failed && WarmUpSince != null) { WarmUpUnconfirmed(now, "with no word of the bridge's"); return; }
         if (!state.On)
         {
             WarmUpOnNow = false;
@@ -185,17 +201,17 @@ static partial class Program
         if (state.SinceFirstSpawn is { } since) WarmUpFirstSpawn = Steady(WarmUpFirstSpawn, now.AddSeconds(-since));
         WarmUpEnd = state.Left is { } left ? Steady(WarmUpEnd, now.AddSeconds(left)) : null;
         WarmUpComing = JoiningNow(now);
-        if (WarmUpLatest() is { } latest && now >= latest.AddSeconds(WarmUpLateSeconds))
+        if (state.Spawned > 0 && !WarmUpAsksSpent && WarmUpLatest() is { } latest && now >= latest.AddSeconds(WarmUpLateSeconds)) // only with a human spawned and still in
         {
             EndWarmUp(now, $"CS2's own end has not come, {(now - latest).TotalSeconds:0} s past it", $"{EarlyJoin.WarmUpMostSeconds} s are up");
             return;
         }
-        if (WarmUpFirstSpawn == null && now >= WarmUpSince.Value.AddSeconds(WarmUpBlindSeconds) && PresentIds(now).Count > 0)
+        if (state.Blind && WarmUpFirstSpawn == null && !WarmUpAsksSpent && now >= WarmUpSince.Value.AddSeconds(WarmUpBlindSeconds) && PresentIds(now).Count > 0)
         {
             EndWarmUp(now, "nobody can say who has spawned", "The warm-up is over");
             return;
         }
-        if (WarmUpComing.Count == 0 && WarmUpSpawned >= 2 && WarmUpHeld(now) == null)
+        if (WarmUpComing.Count == 0 && WarmUpSpawned >= 2 && !WarmUpAsksSpent && WarmUpHeld(now) == null)
         {
             WarmUpAllInSince ??= now;
             if ((now - WarmUpAllInSince.Value).TotalSeconds >= EarlyJoin.SettleSeconds) { EndWarmUp(now, "everybody is in", "Everybody is in"); return; }
@@ -245,6 +261,15 @@ static partial class Program
         Log($"warm-up: {why}, {(WarmUpSince is { } since ? (now - since).TotalSeconds : 0):0} s on{(coming.Count > 0 ? $", still coming: {string.Join(", ", coming)}" : "")} - {EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}{(asks > 0 ? $" (ask {asks + 1})" : "")} -> {reply?.Replace('\n', ' ') ?? "(rcon failed)"}");
         WarmUpEnding = (reply == null ? now.AddSeconds(-WarmUpEndWaitSeconds) : now, why, says, coming, asks + (reply == null ? 0 : 1)); // no answer: asked again at the next look
         WarmUpTickSoon();
+    }
+
+    /// <summary>The plugin gave up an end it could not confirm (EarlyJoin.FailedMark: no round start came, or CS2 kept its warm-up, with somebody on a side): no
+    /// end came, so the bridge says none - no "ended", no line - and the match counts from the map's start, as on a map with no warm-up (History.cs).</summary>
+    static void WarmUpUnconfirmed(DateTime now, string when)
+    {
+        Log($"warm-up: the plugin could not confirm its end ({when}) - no end is said, no line; the match counts from the map's start");
+        WarmUpOver();
+        MatchHistory.NoWarmUp();
     }
 
     /// <summary>The warm-up went off after somebody had spawned, the bridge not having asked: at the most - the plugin's own end there, or CS2's clock - the latest
@@ -301,6 +326,7 @@ static partial class Program
         var now = Now();
         if (WarmUpSince == null || !WarmUpOnNow) { Tell(steamId, M.Refused("No warm-up on - The match is on already")); return; }
         if (WarmUpEnding != null) { Tell(steamId, M.Refused("The match is starting already")); return; }
+        if (WarmUpFirstSpawn == null || WarmUpSpawned == 0) { Tell(steamId, M.Refused("Nobody is on a side yet - Pick a team, and the warm-up counts from your spawn")); return; }
         if (WarmUpHeld(now) is { } held) { Tell(steamId, M.Refused($"Not during {held} - The warm-up ends after it")); return; }
         EndWarmUp(now, $"{name} {steamId} typed {Hud.StartWord}", $"{M.N(Clip(name, 24))} typed {M.C(Hud.StartWord)}");
     }

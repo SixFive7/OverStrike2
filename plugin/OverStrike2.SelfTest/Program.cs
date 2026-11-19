@@ -371,7 +371,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && warm.Contains("if (method == EarlyJoin.Restart)\n        {\n            Send(\"os_restart 1\");", StringComparison.Ordinal),
         "warm-up: the native kind CS2's own - begun a second into the map with mp_warmup_start, all players connected off and a player count no server reaches (64: 0 ended it at the first spawn, the live lab), an idle clock until somebody spawns; "
         + "a restart of the match only as the restart kind's end (os_restart 1, which the guard lets through), never a bare mp_restartgame, never the blocked pause");
-    Check(warm.Contains("method = methodOf(modeId());", StringComparison.Ordinal) && warm.Contains("if (method == EarlyJoin.Off)", StringComparison.Ordinal)
+    Check(warm.Contains("(method, endFailed) = (methodOf(modeId()), false);", StringComparison.Ordinal) && warm.Contains("if (method == EarlyJoin.Off)", StringComparison.Ordinal)
           && warm.Contains("(ours, waiting, matchOver, begunAt) = (true, true, false, DateTime.UtcNow);", StringComparison.Ordinal)
           && warm.Contains("bool On(CCSGameRules rules) => method == EarlyJoin.Restart ? waiting : rules.WarmupPeriod;", StringComparison.Ordinal)
           && host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, setup.WarmUpMethod);", StringComparison.Ordinal)
@@ -401,6 +401,16 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         + $"clock {EarlyJoin.EndBeforeSeconds} s from its end, or a player on Arms Race's last weapon: a match end leaves no way to keep the real match on its sides (the live lab's E7 on 5794269); "
         + "one that comes all the same is on for the bridge through the match-end screen and ended by its word, or here once the next match began - the waiting time still if nobody "
         + "had spawned (an empty map's match run out); CS2's clock is the native kind's alone");
+    Check(warm.Contains("if (method == EarlyJoin.Restart && !AnyoneOnASide())\n        {\n            StartOver(why);\n            return \"waiting again", StringComparison.Ordinal)
+          && warm.Contains("if (method == EarlyJoin.Restart && !AnyoneOnASide()) // everybody went meanwhile", StringComparison.Ordinal)
+          && warm.Contains("(firstSpawnTime, newestSpawn, againAfterSpawn, ending, waiting, endFailed) = (null, null, 0, null, true, false);\n        plan.StartOver();", StringComparison.Ordinal)
+          && warm.Contains("static bool AnyoneOnASide() => Utilities.GetPlayers().Any(p => Human(p) && OnTeam(p));", StringComparison.Ordinal)
+          && warm.Contains("(ours, ended, ending, waiting, endFailed) = (false, $\"would not end ({asked.Why})\", null, false, true);", StringComparison.Ordinal)
+          && warm.Contains("var mark = plan.Skipped != null ? EarlyJoin.BlindMark : endFailed ? EarlyJoin.FailedMark : \"\";", StringComparison.Ordinal)
+          && warm.Contains("plan.SpawnedCount, rules == null ? null : Left(rules), mark)", StringComparison.Ordinal),
+        "warm-up: the restart kind's end with nobody on a side to restart for - a restart there starts no round (the live lab on 997c7bb) - is none: its waiting time goes on, "
+        + "its clock from the next spawn, which os_warmup says (no first spawn); an end that would not come with somebody on a side is marked failed, so the bridge says none; "
+        + "a plugin loaded mid-map is marked blind");
     Check(warm.Contains("Watch(rules);", StringComparison.Ordinal) && warm.Contains("CS2's warm-up began - not at this plugin's word", StringComparison.Ordinal)
           && warm.Contains("CS2's warm-up ended - not at this plugin's word", StringComparison.Ordinal)
           && warm.Contains("plugin.AddCommandListener(name, (caller, info) =>", StringComparison.Ordinal)
@@ -414,7 +424,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && warm.Contains("SetClock(rules, Server.CurrentTime + EarlyJoin.IdleClockSeconds, ", StringComparison.Ordinal)
           && warm.Contains("if (Server.CurrentTime >= target)\n            {\n                End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\");", StringComparison.Ordinal)
           && warm.Contains("Math.Max(0, rules.WarmupPeriodStart + time - Server.CurrentTime)", StringComparison.Ordinal)
-          && warm.Contains("plan.SpawnedCount, rules == null ? null : Left(rules))", StringComparison.Ordinal),
+          && warm.Contains("plan.SpawnedCount, rules == null ? null : Left(rules), mark)", StringComparison.Ordinal),
         "warm-up: CS2's clock counts down to the most from the first spawn - set a frame after it, from now or from the warm-up's start as a change is seen to count, set again when off - os_warmup tells the bridge the seconds left on it, the plugin ends it there itself (CS2's clock does not in Arms Race), and while nobody has spawned the idle clock never runs out");
     Check(warm.Contains("if (plan.FirstSpawn is { } spawned)", StringComparison.Ordinal) && warm.Contains("if (again >= AgainMost)", StringComparison.Ordinal)
           && warm.Contains("Begin($\"CS2 left it before anybody spawned - again, {again} of {AgainMost}\");", StringComparison.Ordinal),

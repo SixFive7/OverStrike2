@@ -136,14 +136,19 @@ public sealed class EarlyJoin
     public static bool Reconnects(string reason) => reason.Contains("SHUTDOWN", StringComparison.Ordinal);
 
     /// <summary>Where a map's warm-up stands, as os_warmup's first line says it: on or off, the seconds since the first human's spawn on the map (null: nobody
-    /// has spawned), how many humans have spawned on a team on it (one who left again not counted), and the seconds left on CS2's own warm-up clock (null: no
-    /// latest start yet - nobody has spawned, or the warm-up is off).</summary>
-    public sealed record WarmUpState(bool On, double? SinceFirstSpawn, int Spawned, double? Left = null);
+    /// has spawned), how many humans have spawned on a team on it (one who left again not counted), the seconds left on CS2's own warm-up clock (null: no
+    /// latest start yet - nobody has spawned, or the warm-up is off), whether the plugin's last end could not be confirmed (FailedMark: it gave up - no end
+    /// came, and the bridge says nothing of one), and whether the plugin cannot tell who has spawned (BlindMark: loaded during the map).</summary>
+    public sealed record WarmUpState(bool On, double? SinceFirstSpawn, int Spawned, double? Left = null, bool Failed = false, bool Blind = false);
 
-    /// <summary>os_warmup's first line: "os_warmup: on 12 3 107.6" - on or off, the whole seconds since the first spawn (-1: none yet), the humans spawned, and
-    /// the seconds left on CS2's own clock to a tenth (-1: none).</summary>
-    public static string WarmUpReply(bool on, double? sinceFirstSpawn, int spawned, double? left = null) => string.Create(System.Globalization.CultureInfo.InvariantCulture,
-        $"{WarmUpCommand}: {(on ? "on" : "off")} {(sinceFirstSpawn is { } s ? Math.Max(0, (int)s) : -1)} {Math.Max(0, spawned)} {(on && left is { } l ? Math.Max(0, l).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "-1")}");
+    /// <summary>os_warmup's first line's marks, its fifth field when there is one: the plugin's end it could not confirm, and a plugin that cannot tell who has
+    /// spawned. A bridge before them reads the first four fields only.</summary>
+    public const string FailedMark = "failed", BlindMark = "blind";
+
+    /// <summary>os_warmup's first line: "os_warmup: on 12 3 107.6" - on or off, the whole seconds since the first spawn (-1: none yet), the humans spawned,
+    /// the seconds left on CS2's own clock to a tenth (-1: none), and a mark (FailedMark, BlindMark) or none.</summary>
+    public static string WarmUpReply(bool on, double? sinceFirstSpawn, int spawned, double? left = null, string mark = "") => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+        $"{WarmUpCommand}: {(on ? "on" : "off")} {(sinceFirstSpawn is { } s ? Math.Max(0, (int)s) : -1)} {Math.Max(0, spawned)} {(on && left is { } l ? Math.Max(0, l).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "-1")}{(mark != "" ? " " + mark : "")}");
 
     /// <summary>os_warmup's first line read back, or null when the reply has none: no answer, an empty one, or one of other console output only - the game's
     /// own lines can come with it (OnPreResetRound => CTMDBG ..., the live lab on 5794269), before it or even on its line, so the line is looked for wherever
@@ -164,7 +169,8 @@ public sealed class EarlyJoin
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         if (!int.TryParse(f[1], System.Globalization.NumberStyles.AllowLeadingSign, ci, out var since) || !int.TryParse(f[2], System.Globalization.NumberStyles.None, ci, out var spawned)) return null;
         double? left = f.Length >= 4 && double.TryParse(f[3], System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowDecimalPoint, ci, out var l) && l >= 0 ? l : null;
-        return new(f[0] == "on", since >= 0 ? since : null, spawned, left);
+        var mark = f.Length >= 5 ? f[4] : "";
+        return new(f[0] == "on", since >= 0 ? since : null, spawned, left, mark == FailedMark, mark == BlindMark);
     }
 
     /// <summary>A reply that says the server has no such command - the game's "Unknown command 'os_warmup'!": the one answer that means a plugin without it.</summary>
@@ -333,6 +339,14 @@ public sealed class EarlyJoin
 
     /// <summary>Nothing on this map: it began before the plugin saw it (a reload), so nobody can tell who has spawned.</summary>
     public void Skip(string why) => skipped = why;
+
+    /// <summary>The map's spawns forgotten - nobody on a side to start the real match for (the plugin's restart kind, EarlyJoinWatch.StartOver): its clock
+    /// runs from the next human's spawn, as on a map nobody has spawned on yet.</summary>
+    public void StartOver()
+    {
+        joined.Clear();
+        firstSpawn = null;
+    }
 
     /// <summary>Why this map is none of the plan's, or null.</summary>
     public string? Skipped => skipped;
