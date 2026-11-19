@@ -172,6 +172,49 @@ static partial class Program
             && HudBots.Clicked("gg_b1_2") == null && HudVote.WhyClick("gg_why_1") == null && HudView.Tabs.All(t => t.Id.StartsWith("os_", StringComparison.Ordinal))
             && HudMenu.Command("gg_set_restart", null, new HudState(), new HudBrowser(), 1, t0) == null && HudMenu.Command(HudMenu.Restart, null, new HudState(), new HudBrowser(), 1, t0) == "!restart");
 
+        // ---- the vote's own tabs from any page (release 221's evening: "if you leave the vote tab you cannot return to it") ----
+        // While a vote is on, os_screen keeps voting - vbrowse in its map browser - on every page, and the stylesheet shows the vote's Vote and Maps tabs in MAPS'
+        // place. Each must take the player to MAPS from wherever they are; the plugin's Maps block then puts their view on the ballot or on the browser.
+        var tabFrame = new HudFrame();
+        var tabSlots = new HudSlots();
+        var tabPlayers = new Dictionary<int, HudPlayer>();
+        HudPlayer TabPlayer(int n) => tabPlayers.TryGetValue(n, out var pp) ? pp : tabPlayers[n] = new HudPlayer();
+        HudFrame.Human ida = new(9, 1009, "Ida", "CT", HudVersion.Content, false, 0, null);
+        var tabScreen = new RecordedScreen();
+        tabSlots.Joined(9, first: false, alive: true, t0);
+        tabSlots.Show(9, HudSlots.Page.Maps, t0.AddSeconds(1));
+        tabFrame.Draw(World(live, twelve, t0.AddSeconds(2)), [ida], tabSlots, TabPlayer, funClicks, tabScreen);
+        var onBallot = tabScreen.C(HudView.Screen, "voting", 9) && tabScreen.C(HudView.Screen, "page-maps", 9);
+        tabSlots.Click(9, HudBrowser.HistoryTab, t0.AddSeconds(3));
+        tabFrame.Draw(World(live, twelve, t0.AddSeconds(4)), [ida], tabSlots, TabPlayer, funClicks, tabScreen);
+        var leftIt = tabSlots.PageOf(9) == HudSlots.Page.History && tabScreen.C(HudView.Screen, "page-history", 9) && tabScreen.C(HudView.Screen, "voting", 9);
+        var stuck = new List<string>();
+        foreach (var page in Enum.GetValues<HudSlots.Page>().Where(p => p != HudSlots.Page.Maps))
+            foreach (var tab in new[] { HudVote.BackButton, HudVote.BrowseButton })
+            {
+                tabSlots.Show(9, page, t0.AddSeconds(5));
+                tabSlots.Click(9, tab, t0.AddSeconds(6));
+                if (!tabSlots.WindowOpen(9) || tabSlots.PageOf(9) != HudSlots.Page.Maps) stuck.Add($"{page} + {tab}: {(tabSlots.WindowOpen(9) ? tabSlots.PageOf(9) : "closed")}");
+            }
+        Check($"The vote's Vote and Maps tabs take the player to MAPS from every other page: on HISTORY the window keeps voting on os_screen, so the stylesheet shows them in "
+              + $"MAPS' place, and a click on either is the way back to the vote{(stuck.Count > 0 ? $" - stuck: {string.Join(", ", stuck)}" : "")}",
+            onBallot && leftIt && stuck.Count == 0 && HudView.Tabs.Count(t => t.Id is HudVote.BackButton or HudVote.BrowseButton && t.Page == HudSlots.Page.Maps) == 2
+            && HudView.Tabs.First(t => t.Page == HudSlots.Page.Maps).Id == HudView.TabMaps);
+        tabSlots.Show(9, HudSlots.Page.Stats, t0.AddSeconds(7));
+        tabFrame.Draw(World(live, twelve, t0.AddSeconds(8)), [ida], tabSlots, TabPlayer, funClicks, tabScreen);
+        tabSlots.Click(9, HudVote.BackButton, t0.AddSeconds(9));
+        TabPlayer(9).VoteView = (r, 0, false); // the plugin's Maps block: Vote is the ballot
+        tabFrame.Draw(World(live, twelve, t0.AddSeconds(10)), [ida], tabSlots, TabPlayer, funClicks, tabScreen);
+        var backOn = tabScreen.C(HudView.Screen, "page-maps", 9) && !tabScreen.C(HudView.Screen, "page-stats", 9) && tabScreen.C(HudView.Screen, "voting", 9)
+            && !tabScreen.C(HudView.Screen, "vbrowse", 9) && tabScreen.T("os_m1_name", 9) == "map 1";
+        tabSlots.Show(9, HudSlots.Page.Fun, t0.AddSeconds(11));
+        tabSlots.Click(9, HudVote.BrowseButton, t0.AddSeconds(12));
+        TabPlayer(9).VoteView = (r, 0, true); // ...and Maps the browser that adds to the vote
+        tabFrame.Draw(World(live, twelve, t0.AddSeconds(13)), [ida], tabSlots, TabPlayer, funClicks, tabScreen);
+        Check("...and the frame draws what the tab names: from STATS, Vote is the ballot on MAPS (voting, its cards); from FUN, Maps the browser that adds to the vote (vbrowse)",
+            backOn && tabScreen.C(HudView.Screen, "page-maps", 9) && !tabScreen.C(HudView.Screen, "page-fun", 9) && tabScreen.C(HudView.Screen, "vbrowse", 9)
+            && !tabScreen.C(HudView.Screen, "voting", 9));
+
         // ---- the version classes: one latest-N, the old one off when the level moves (os_hud level) ----
         var levels = new RecordedScreen();
         frame.Forget();

@@ -19,13 +19,16 @@ public static class HudView
 
     /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
     /// BrowseButton), HISTORY and STATS (content v4.15.0), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens
-    /// its first page; a sub-tab its own.</summary>
+    /// its first page; a sub-tab its own. The vote's two open MAPS from any page: since content v4.14.0 they stand in the one row of tabs in MAPS' place while
+    /// a vote is on, on every page, and the plugin's Maps block then puts the view on the ballot (Vote) or on the browser that adds to it (Maps). Before
+    /// release 221a they moved nothing, so a player who left the ballot for another page could not get back to it.</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
         [("os_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (HudBrowser.HistoryTab, HudSlots.Page.History), (HudStats.Tab, HudSlots.Page.Stats),
          (TabGame, HudSlots.Page.Game), ("os_tab_help", HudSlots.Page.Help),
          (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("os_tab_server", HudSlots.Page.Players),
          ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help),
-         (HudBots.SubFun, HudSlots.Page.Fun), (HudBots.Tab, HudSlots.Page.Bots)];
+         (HudBots.SubFun, HudSlots.Page.Fun), (HudBots.Tab, HudSlots.Page.Bots),
+         (HudVote.BackButton, HudSlots.Page.Maps), (HudVote.BrowseButton, HudSlots.Page.Maps)];
 
     /// <summary>The caption beside the sub-tabs, per page (a variable on os_screen, SubCaptionVar): what the page is for; the Maps page's says
     /// whether a click on a card adds to the vote that is on.</summary>

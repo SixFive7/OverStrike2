@@ -443,8 +443,9 @@ to vote by a click or in chat, and **one clock**: the limit's while the vote is 
 once decided - and for a downloading winner no digits, its words instead: it changes the moment it is ready. The strip of where the votes go is hidden (its panels stay for their ids): the cards' counts and bars say it.
 
 **One row of tabs, every page beside the chat, and the chat column** (v4.14.0): the window's head is the title and its tagline; the tabs are one row - Start,
-Vote (only while a vote is on, with a live dot; Maps is then the browser that adds to it), Maps, Fun, Bots, Players, Game, Sync, Help, How it works - and a tab
-with nothing to use right now is greyed (`off`: Game while the match-end screen is up, Sync while the server has no sync's block). Every page stands where MAPS
+Vote (only while a vote is on, with a live dot; Maps is then the browser that adds to it), Maps, Fun, Bots, Players, Game, Sync, Help, How it works. A vote's
+Vote and Maps take the player to MAPS from any page, Vote to the ballot and Maps to the browser. Before release 221a they worked only on MAPS itself, so a
+player who left the ballot for another page during a vote could not get back to it. A tab with nothing to use right now is greyed (`off`: Game while the match-end screen is up, Sync while the server has no sync's block). Every page stands where MAPS
 stood in v4.13.0, right of CS2's chat, in a window 920 px high on every page, its foot at y 1000 at every aspect as the chat column's (y 80-1000 at 1080 high;
 at 16:10 82 %, y 246-1000; at 4:3 67 %, y 384-1000); it never moves from page to page. **Every screen shape**: CS2 gives the HUD the class of the nearest of its
 ratios (client.dll's table: 4:3 1.333, 16:10 1.6, 16:9 1.778 and 1.889, 21:9 2.333; its 17x9 to 20x9 classes are never set), so `AspectRatio4x3` covers 5:4 too,

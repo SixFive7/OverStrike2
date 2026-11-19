@@ -72,7 +72,7 @@ sealed partial class HudScreen
         var account = Account(player);
         var browser = me.Browser;
         if (buttonId == HudView.ButtonAct && HudView.Command(buttonId, state, vote) == HudView.OpenVote) { slots.Show(player.Slot, HudSlots.Page.Maps, now); Server.NextFrame(Frame); return; } // the vote is on: the Maps page shows it
-        if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)
+        if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps) // the vote's Vote and Maps tabs reach here from any page: slots.Click opened MAPS (HudView.Tabs)
         {
             var view = VoteView(player.Slot);
             if (buttonId == HudVote.BrowseButton && vote.Open) { me.VoteView = (vote.Round, view.Page, true); Busy(player, account); Server.NextFrame(Frame); return; } // the map browser adds to the vote
