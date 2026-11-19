@@ -24,6 +24,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
     public const string Command = EarlyJoin.WarmUpCommand;
     const float BeginDelay = 1f;   // after a map's start: its cfgs - which set mp_warmuptime and switch CS2's own online warm-up off - have run
     const int AgainMost = 3;       // CS2 left our warm-up before anybody spawned: begun again this often on a map at the most
+    const int AgainAfterSpawnMost = 1; // ...and within EarlyJoin.EarlyLeaveSeconds after the first spawn: begun again this often (each begin restarts the round)
     const double SettleBegin = 3;  // after a begin: CS2 may take a frame or two to be in its warm-up - no look calls it ended before this
     const float ClockSlack = 1f;   // CS2's own end this far off the latest start at the most (mp_warmuptime is set in whole seconds): else set again...
     const int ClockFixesMost = 3;  // ...this often on a map at the most
@@ -36,12 +37,16 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
     EarlyJoin.BridgeView? bridgeView;                // the bridge's last word (os_warmup bridge): its log stream's sign-ons and status's joiners
     bool ours;                                       // our warm-up is on on this map: begun here, not ended yet
     DateTime begunAt = DateTime.MinValue;            // ...begun (again) at
-    int again;                                       // ...begun again on this map after CS2 ended it
+    int again;                                       // ...begun again on this map after CS2 ended it before anybody spawned
+    int againAfterSpawn;                             // ...and soon after the first spawn (EarlyJoin.EarlyLeaveSeconds)
     string ended = "";                               // how this map's warm-up ended, for the console
     float? firstSpawnTime;                           // the first human's spawn on this map, game time: CS2's clock ends WarmUpMostSeconds later
     bool? resets;                                    // whether a change of mp_warmuptime restarts CS2's count from that moment (null: not seen yet; CS:GO's did)
     (float At, float StartBefore)? lastSet;          // the last change of mp_warmuptime, game time, and the warm-up's start before it: the next look learns resets
     int clockFixes;                                  // CS2's clock set again on this map
+    (string Why, DateTime At, int Step)? ending;     // an end asked for (End): CS2's own player-count check ends it - looked at each second, pressed harder if it does not come
+    bool? wasOn;                                     // CS2's warm-up as the last look found it: a change nothing here asked for is logged (Watch)
+    readonly Dictionary<string, DateTime> sentAt = new(); // this plugin's own warm-up commands, when sent: the command listener and Watch tell them from the console's
     List<(string ConVar, string Was, string Ours)> raised = []; // the team damage the warm-up raised (EarlyJoin.TeamDamage): put back at its end
 
     public void Load(bool hotReload)
@@ -49,7 +54,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
         plugin.RegisterListener<Listeners.OnMapStart>(_ =>
         {
             plan.MapStarted();
-            (connects, ours, again, ended, firstSpawnTime, lastSet, clockFixes) = (0, false, 0, "", null, null, 0);
+            (connects, ours, again, againAfterSpawn, ended, firstSpawnTime, lastSet, clockFixes, ending, wasOn) = (0, false, 0, 0, "", null, null, 0, null, null);
             if (raised.Count > 0) { log.LogWarning("Over Strike 2 warm-up: the team damage raised on the map before was not put back at its end - this map's cfgs have set their own"); raised = []; }
             plugin.AddTimer(BeginDelay, () => Begin("the map's start"), TimerFlags.STOP_ON_MAPCHANGE);
         });
@@ -57,6 +62,12 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
         plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawn);
         plugin.RegisterListener<Listeners.OnMapEnd>(() => PutBackTeamDamage("the map ends during it")); // a map change that cuts it short: before the next map's cfgs
         plugin.RegisterEventHandler<EventPlayerConnectFull>(OnConnectFull);
+        foreach (var name in WarmUpCommands) // the console's and RCON's warm-up commands logged too, as this plugin's own are (the live lab's showed nothing)
+            plugin.AddCommandListener(name, (caller, info) =>
+            {
+                if (!Recent(name)) log.LogInformation("Over Strike 2 warm-up: {Command} from {Who}", info.GetCommandString, caller == null ? "the console or RCON" : caller.PlayerName);
+                return HookResult.Continue;
+            });
         plugin.RegisterEventHandler<EventPlayerDisconnect>(OnDisconnect);
         plugin.AddTimer(1f, Keep, TimerFlags.REPEAT);
         plugin.AddCommand(Command, "Over Strike 2 warm-up: where it stands | start | end (the bridge ends it once everybody coming is in)", OnCommand);
@@ -75,15 +86,15 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
     static CCSGameRules? Rules() => Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault()?.GameRules;
 
     /// <summary>CS2's own warm-up begins, its clock IdleClockSeconds until somebody spawns: mp_warmuptime - none of the block's (blocked.txt holds
-    /// mp_warmup_pausetimer at 0, so no pause) - and "all players connected" and a player count switched off, both of which would end it early (Valve's Arms Race
-    /// cfg: 6 players).</summary>
+    /// mp_warmup_pausetimer at 0, so no pause) - with "all players connected" switched off (0) and a player count no server reaches (EarlyJoin.EndWarmUpNever):
+    /// Valve's Arms Race cfg ends it at 6 players, and 0 there ended it at the first spawn.</summary>
     void Begin(string why)
     {
         try
         {
             if (plan.Skipped != null || Rules() is not { } rules) return;
-            Server.ExecuteCommand($"mp_warmuptime_all_players_connected 0; mp_endwarmup_player_count 0; mp_warmuptime {EarlyJoin.IdleClockSeconds}");
-            if (!rules.WarmupPeriod) Server.ExecuteCommand("mp_warmup_start");
+            Send($"mp_warmuptime_all_players_connected 0; mp_endwarmup_player_count {EarlyJoin.EndWarmUpNever}; mp_warmuptime {EarlyJoin.IdleClockSeconds}");
+            if (!rules.WarmupPeriod) Send("mp_warmup_start");
             (ours, begunAt, lastSet) = (true, DateTime.UtcNow, null);
             RaiseTeamDamage();
             log.LogInformation("Over Strike 2 warm-up: begun ({Why}) - CS2's clock {Clock} s until somebody spawns", why, EarlyJoin.IdleClockSeconds);
@@ -106,7 +117,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
         var (now, start) = (Server.CurrentTime, rules.WarmupPeriodStart);
         var seconds = (int)Math.Ceiling(Math.Max(ClockLeast, resets == false ? target - start : target - now));
         lastSet = (now, start);
-        Server.ExecuteCommand($"mp_warmuptime {seconds}");
+        Send($"mp_warmuptime {seconds}");
         log.LogInformation("Over Strike 2 warm-up: CS2's clock set to {Seconds} s ({Why}; a change of it {Resets})", seconds, why,
             resets switch { true => "restarts its count", false => "keeps its count", _ => "taken to restart its count, as CS:GO's did" });
     }
@@ -164,33 +175,117 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
     /// <summary>The plugin unloads (a reload, a new build): the team damage this instance raised goes back with it.</summary>
     public void Unload() => PutBackTeamDamage("the plugin unloads");
 
-    /// <summary>The warm-up ends - CS2's warm-up end starts the real match over for everybody at once. What it says: ended, or off already.</summary>
-    string End(string why)
+    /// <summary>The console commands of CS2's warm-up, which the command listener logs when this plugin did not just send them itself.</summary>
+    static readonly string[] WarmUpCommands = ["mp_warmup_start", "mp_warmup_end", "mp_endwarmup_player_count", "mp_warmuptime"];
+
+    /// <summary>A command of this plugin's own, sent now and noted by its first word for the listener (Recent).</summary>
+    void Send(string command)
     {
-        ours = false;
-        ended = why;
-        PutBackTeamDamage(why);
-        if (Rules() is not { WarmupPeriod: true }) { log.LogInformation("Over Strike 2 warm-up: {Why} - off already", why); return "off already"; }
-        Server.ExecuteCommand("mp_warmup_end");
-        log.LogInformation("Over Strike 2 warm-up: ended ({Why}) - the match starts", why);
-        return "ended";
+        foreach (var part in command.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)) sentAt[part.Split(' ')[0]] = DateTime.UtcNow;
+        Server.ExecuteCommand(command);
     }
 
-    /// <summary>Each second, while our warm-up is on: off after somebody spawned, it is over - CS2's own clock at the most, the bridge's end, an operator's; off
-    /// before anybody spawned, it begins again (AgainMost times on a map); on, its clock kept to the latest start (KeepClock), and SafetySeconds past it with
-    /// CS2's clock not run out, ended here.</summary>
+    bool Recent(string command) => sentAt.TryGetValue(command, out var at) && (DateTime.UtcNow - at).TotalSeconds < 5;
+
+    /// <summary>The warm-up ends - CS2's own warm-up end, which starts the real match over for everybody at once. Its player-count check brings it about: the count
+    /// drops to EarlyJoin.EndWarmUpNow and CS2 ends its warm-up within seconds - in Arms Race the only way it ends (EarlyJoin.EndWarmUpNow). Each look then sees
+    /// whether it did, and presses harder if not (KeepEnding). What it says: ending, ending already, or off already.</summary>
+    string End(string why)
+    {
+        if (Rules() is not { WarmupPeriod: true })
+        {
+            log.LogInformation("Over Strike 2 warm-up: {Why} - off already", why);
+            (ours, ended, ending) = (false, why, null);
+            PutBackTeamDamage(why);
+            return "off already";
+        }
+        if (ending is { } asked) return $"ending already ({asked.Why}, {(DateTime.UtcNow - asked.At).TotalSeconds:0} s ago)";
+        ending = (why, DateTime.UtcNow, 0);
+        Send($"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}");
+        log.LogInformation("Over Strike 2 warm-up: ending ({Why}) - mp_endwarmup_player_count {Count}, for CS2's own player-count check to end it", why, EarlyJoin.EndWarmUpNow);
+        return "ending";
+    }
+
+    /// <summary>Each look while an end is asked for: CS2's warm-up off - ended, the match starts, the team damage back; still on EarlyJoin.EndStepSeconds after the
+    /// request - mp_warmup_end too (it ends CS2's warm-up in Wingman); after twice as long - the count and mp_warmup_end again; after four times - given up and
+    /// logged, the match left in CS2's warm-up.</summary>
+    void KeepEnding(CCSGameRules rules, (string Why, DateTime At, int Step) asked)
+    {
+        var waited = (DateTime.UtcNow - asked.At).TotalSeconds;
+        if (!rules.WarmupPeriod)
+        {
+            log.LogInformation("Over Strike 2 warm-up: ended ({Why}), {Waited:0.0} s after it was asked for - the match starts", asked.Why, waited);
+            (ours, ended, ending) = (false, asked.Why, null);
+            PutBackTeamDamage(asked.Why);
+            return;
+        }
+        if (asked.Step == 0 && waited >= EarlyJoin.EndStepSeconds)
+        {
+            ending = (asked.Why, asked.At, 1);
+            Send("mp_warmup_end");
+            log.LogWarning("Over Strike 2 warm-up: still on {Waited:0} s after the count went to {Count} ({Why}) - mp_warmup_end too", waited, EarlyJoin.EndWarmUpNow, asked.Why);
+        }
+        else if (asked.Step == 1 && waited >= 2 * EarlyJoin.EndStepSeconds)
+        {
+            ending = (asked.Why, asked.At, 2);
+            Send($"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}; mp_warmup_end");
+            log.LogWarning("Over Strike 2 warm-up: still on {Waited:0} s after the request ({Why}) - the count and mp_warmup_end again", waited, asked.Why);
+        }
+        else if (asked.Step == 2 && waited >= 4 * EarlyJoin.EndStepSeconds)
+        {
+            log.LogError("Over Strike 2 warm-up: it would not end ({Why}) - {Waited:0} s after the request CS2 is still in its warm-up; left so, the plugin asks no more", asked.Why, waited);
+            (ours, ended, ending) = (false, $"would not end ({asked.Why})", null);
+            PutBackTeamDamage(ended);
+        }
+    }
+
+    /// <summary>Each look: CS2's warm-up as it is now against the last look, and a change nothing here asked for logged - the console's mp_warmup_start or
+    /// mp_warmup_end, a map's own, CS2's own clock on a map that is not ours - so every start and end of a warm-up shows in the log. Our own begin and end, and
+    /// CS2 leaving ours, log themselves.</summary>
+    void Watch(CCSGameRules rules)
+    {
+        var on = rules.WarmupPeriod;
+        if (wasOn is { } was && was != on)
+        {
+            if (on && !Recent("mp_warmup_start")) log.LogInformation("Over Strike 2 warm-up: CS2's warm-up began - not at this plugin's word (the console's mp_warmup_start, a map's)");
+            else if (!on && !ours && ending == null) log.LogInformation("Over Strike 2 warm-up: CS2's warm-up ended - not at this plugin's word (the console's mp_warmup_end, a map's, CS2's own clock)");
+        }
+        wasOn = on;
+    }
+
+    /// <summary>Each second: a change of CS2's warm-up nothing here asked for logged (Watch); an end asked for looked after (KeepEnding); and while our warm-up is on -
+    /// off within EarlyJoin.EarlyLeaveSeconds of the first spawn (CS2 leaving it by itself, not at its clock's end) it begins again, once a map, its clock still from
+    /// that spawn; off after that it is over - CS2's own clock at the most, an operator's end; off before anybody spawned it begins again (AgainMost times on a
+    /// map); on, its clock kept to the latest start (KeepClock), and at the latest start ended here (End): CS2's own clock does not end it in Arms Race while the
+    /// count holds it.</summary>
     void Keep()
     {
         try
         {
-            if (!ours || Rules() is not { } rules) return;
+            if (Rules() is not { } rules) return;
+            Watch(rules);
+            if (ending is { } asked) { KeepEnding(rules, asked); return; }
+            if (!ours) return;
             if (!rules.WarmupPeriod)
             {
                 if ((DateTime.UtcNow - begunAt).TotalSeconds < SettleBegin) return;
-                if (plan.FirstSpawn != null)
+                if (plan.FirstSpawn is { } spawned)
                 {
                     var atMost = firstSpawnTime is { } f && Server.CurrentTime >= f + EarlyJoin.WarmUpMostSeconds - 1;
-                    (ours, ended) = (false, atMost ? "CS2's own clock, the most since the first spawn" : "CS2 left it by itself (an operator's mp_warmup_end?)");
+                    var soon = (DateTime.UtcNow - spawned).TotalSeconds;
+                    if (!atMost && soon < EarlyJoin.EarlyLeaveSeconds && againAfterSpawn < AgainAfterSpawnMost)
+                    {
+                        againAfterSpawn++;
+                        log.LogWarning("Over Strike 2 warm-up: CS2 left it by itself {Soon:0.0} s after the first spawn - begun again ({Again} of {Most}), its clock still to {Clock} s from that spawn",
+                            soon, againAfterSpawn, AgainAfterSpawnMost, EarlyJoin.WarmUpMostSeconds);
+                        Begin($"CS2 left it {soon:0.0} s after the first spawn");
+                        if (firstSpawnTime is { } from)
+                            Server.NextFrame(() => { if (ours && Rules() is { WarmupPeriod: true } rulesNow) SetClock(rulesNow, from + EarlyJoin.WarmUpMostSeconds, "begun again after the first spawn"); });
+                        return;
+                    }
+                    (ours, ended) = (false, atMost ? "CS2's own clock, the most since the first spawn"
+                        : soon < EarlyJoin.EarlyLeaveSeconds ? $"CS2 left it by itself again, {soon:0.0} s after the first spawn - the match runs as CS2 has it"
+                        : "CS2 left it by itself (an operator's mp_warmup_end?)");
                     log.LogInformation("Over Strike 2 warm-up: over - {Ended}; the match is on", ended);
                     PutBackTeamDamage(ended);
                     return;
@@ -214,9 +309,9 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId)
                 return;
             }
             var target = first + EarlyJoin.WarmUpMostSeconds;
-            if (Server.CurrentTime >= target + EarlyJoin.SafetySeconds)
+            if (Server.CurrentTime >= target)
             {
-                End($"{EarlyJoin.SafetySeconds} s past the most, and CS2's own clock had not ended it");
+                End($"{EarlyJoin.WarmUpMostSeconds} s since the first spawn"); // the latest start: CS2's own clock does not end it in Arms Race while the count holds
                 return;
             }
             KeepClock(rules, target);

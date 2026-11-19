@@ -448,12 +448,29 @@ static partial class Program
             HudView.CountdownWords? lateSeen = null;
             var stuck = Warm(three, false, [(0, "conn", 0), (2, "enter", 0), (5, "spawn", 0)], 140,
                 t => { if (t == 1.5) gameClock = false; if (t == 60) lateSeen = Banner(); });
-            Check($"...a game whose own clock does not end it (it took no new mp_warmuptime): the bridge ends it {WarmUpLateSeconds} s past the most (+{stuck.EndAt:0} s), and "
+            Check($"...a warm-up neither CS2's clock nor the plugin ended at the most: the bridge asks for its end {WarmUpLateSeconds} s past it (+{stuck.EndAt:0} s), and "
                 + "the banner counted to the most from the first spawn all the same",
                 stuck.By == "bridge" && stuck.EndAt >= 5 + Most + WarmUpLateSeconds && stuck.EndAt <= 5 + Most + WarmUpLateSeconds + 1.5 && lateSeen is { Seconds: >= 64 and <= 66 });
             var started = Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1), (30, "start", 1)], 40);
-            Check($"Warm-up: !start, by anybody, begins the match now for a friend who is not coming (+{started.EndAt:0} s); the line says who typed it and who joins on arrival",
+            Check($"Warm-up: !start, by anybody, begins the match now for a friend who is not coming (+{started.EndAt:0} s); the line says who typed it and who joins on arrival, "
+                + "once a look finds CS2's warm-up off",
                 started.EndAt >= 30 && started.EndAt <= 31 && started.By == "bridge" && started.Restarts == 0 && h.Said("The match starts now - Bo typed !start - Cy joins it on arrival"));
+            // CS2 ends its warm-up seconds after the plugin's request, and in Arms Race only through its player-count check (the live lab, 2026-11-19): the bridge
+            // says the match is on once a look finds it off, and asks again while it is not
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 8);
+            warmEndNow = () => warmUpNow!(); // the plugin answers, and CS2 stays in its warm-up for now
+            Click(three[1], Hud.StartWord);
+            h.Run(3);
+            var waitingForEnd = WarmUpEnding != null && !h.Said("The match starts now") && Banner() == null;
+            Click(three[0], Hud.StartWord);
+            var startingRefused = h.Said("The match is starting already");
+            h.Run(WarmUpEndWaitSeconds);
+            var askedAgain = h.Sent.Count(c => c == $"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") == 2;
+            warmOn = false; // CS2's player-count check ended it
+            h.Run(1.1);
+            Check($"Warm-up: an end asked for is said once a look finds CS2's warm-up off - none before, no banner meanwhile, a second !start refused as starting already, asked "
+                + $"again {WarmUpEndWaitSeconds} s on - and then the line",
+                waitingForEnd && startingRefused && askedAgain && WarmUpSince == null && WarmUpEnding == null && h.Said("The match starts now - Bo typed !start - Cy joins it on arrival"));
             h.Quiet();
             Click(three[0], Hud.StartWord);
             Check("...and outside a warm-up it is refused: the match is on already", h.Said("No warm-up on - The match is on already") && !h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}"));
@@ -486,11 +503,32 @@ static partial class Program
             h.Sent.Clear();
             h.Run(5);
             Check("Warm-up: a plugin without os_warmup - the bridge asks once on the map, and follows none: no banner", h.Sent.Count(c => c == EarlyJoin.WarmUpCommand) == 1 && WarmUpSince == null && Banner() == null);
-            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 8);
-            warmOn = false; // the game left it by itself after a spawn (an operator's mp_warmup_end, say)
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 25);
+            warmOn = false; // the game left it by itself well after the first spawn (an operator's mp_warmup_end, say)
             h.Run(1.1);
-            Check("...a warm-up the game left by itself after a spawn is over for the bridge too: the match is on, and the line says so",
+            Check($"...a warm-up the game left by itself more than {EarlyJoin.EarlyLeaveSeconds} s after the first spawn is over for the bridge at once: the match is on, and the line says so",
                 WarmUpSince == null && Banner() == null && h.Said("The match starts now - The warm-up is over - Bo and Cy join it on arrival"));
+            // the live lab, 2026-11-19: CS2 left its warm-up by itself about 2 s after the first spawn (Arms Race and Deathmatch, mp_endwarmup_player_count 0).
+            // The plugin begins it again once (EarlyJoinWatch), so the bridge waits WarmUpOffMost s before it calls the match on
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 7);
+            warmOn = false; // 2 s after the first spawn
+            h.Run(2.1);
+            var waitedOut = WarmUpSince != null && Banner() == null && !h.Said("The match starts now");
+            warmOn = true; // the plugin's look began it again
+            h.Run(1.1);
+            Check($"Warm-up: CS2 leaving it by itself within {EarlyJoin.EarlyLeaveSeconds} s of the first spawn is no end for the bridge while the plugin begins it again - "
+                + "no line, the banner gone meanwhile and back, the warm-up followed on",
+                waitedOut && WarmUpSince != null && Banner() is { Warm: true } && !h.Said("The match starts now"));
+            Click(three[1], Hud.StartWord);
+            h.Run(1.1);
+            Check("...and it ends as ever afterwards: !start", WarmUpSince == null && h.Said("The match starts now - Bo typed !start"));
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 7);
+            warmOn = false; // 2 s after the first spawn, and the plugin does not begin it again (its once is spent)
+            h.Run(WarmUpOffMost - 1);
+            var stillWaited = WarmUpSince != null && !h.Said("The match starts now");
+            h.Run(2.1);
+            Check($"...nor begun again within {WarmUpOffMost} s: then the match is on for the bridge too, and the line says so",
+                stillWaited && WarmUpSince == null && Banner() == null && h.Said("The match starts now - The warm-up is over - Bo and Cy join it on arrival"));
             Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1)], 6);
             warmOn = false; // off before anybody spawned: the plugin begins it again within seconds (EarlyJoinWatch)
             h.Run(2.1);

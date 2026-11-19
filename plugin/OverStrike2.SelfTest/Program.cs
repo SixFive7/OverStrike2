@@ -362,30 +362,50 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !File.Exists(Path.Combine(root, "plugin", "OverStrike2", "HudScreenFair.cs")) && host != "" && !host.Contains("AskFairRestart", StringComparison.Ordinal),
         "warm-up: wired with the reload's flag (a plugin loaded mid-map begins nothing on that map), in every mode; the fairness restart's ask and its screen are gone");
     Check(warm.Contains("plugin.AddTimer(BeginDelay, () => Begin(\"the map's start\"), TimerFlags.STOP_ON_MAPCHANGE);", StringComparison.Ordinal)
-          && warm.Contains("Server.ExecuteCommand($\"mp_warmuptime_all_players_connected 0; mp_endwarmup_player_count 0; mp_warmuptime {EarlyJoin.IdleClockSeconds}\");", StringComparison.Ordinal)
-          && warm.Contains("if (!rules.WarmupPeriod) Server.ExecuteCommand(\"mp_warmup_start\");", StringComparison.Ordinal)
-          && warm.Contains("Server.ExecuteCommand(\"mp_warmup_end\");", StringComparison.Ordinal) && !warm.Contains("mp_warmup_pausetimer 1", StringComparison.Ordinal)
+          && warm.Contains("Send($\"mp_warmuptime_all_players_connected 0; mp_endwarmup_player_count {EarlyJoin.EndWarmUpNever}; mp_warmuptime {EarlyJoin.IdleClockSeconds}\");", StringComparison.Ordinal)
+          && !warm.Contains("mp_endwarmup_player_count 0", StringComparison.Ordinal) && EarlyJoin.EndWarmUpNever >= 64 && EarlyJoin.EndWarmUpNow == 0
+          && warm.Contains("if (!rules.WarmupPeriod) Send(\"mp_warmup_start\");", StringComparison.Ordinal)
+          && !warm.Contains("mp_warmup_pausetimer 1", StringComparison.Ordinal)
           && !warm.Contains("mp_restartgame", StringComparison.Ordinal) && !warm.Contains("os_restart", StringComparison.Ordinal),
-        "warm-up: CS2's own - begun a second into every map with mp_warmup_start, neither all players connected nor a player count to end it, an idle clock until somebody spawns, ended with mp_warmup_end; never a restart of the match, never the blocked pause");
+        "warm-up: CS2's own - begun a second into every map with mp_warmup_start, all players connected off and a player count no server reaches (64: 0 ended it at the first spawn, the live lab), an idle clock until somebody spawns; never a restart of the match, never the blocked pause");
+    Check(warm.Contains("ending = (why, DateTime.UtcNow, 0);\n        Send($\"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}\");", StringComparison.Ordinal)
+          && warm.Contains("if (ending is { } asked) { KeepEnding(rules, asked); return; }\n            if (!ours) return;", StringComparison.Ordinal)
+          && warm.Contains("if (asked.Step == 0 && waited >= EarlyJoin.EndStepSeconds)", StringComparison.Ordinal) && warm.Contains("Send(\"mp_warmup_end\");", StringComparison.Ordinal)
+          && warm.Contains("Send($\"mp_endwarmup_player_count {EarlyJoin.EndWarmUpNow}; mp_warmup_end\");", StringComparison.Ordinal)
+          && warm.Contains("else if (asked.Step == 2 && waited >= 4 * EarlyJoin.EndStepSeconds)", StringComparison.Ordinal)
+          && warm.Contains("log.LogInformation(\"Over Strike 2 warm-up: ended ({Why}), {Waited:0.0} s after it was asked for - the match starts\", asked.Why, waited);", StringComparison.Ordinal),
+        "warm-up: every end goes through CS2's own player-count check - the count to 0 (in Arms Race the one way it ends, the live lab) - and is seen to come: still on 5 s later mp_warmup_end too (Wingman's), 10 s both again, 20 s given up and logged; ended only once CS2 says so");
+    Check(warm.Contains("Watch(rules);", StringComparison.Ordinal) && warm.Contains("CS2's warm-up began - not at this plugin's word", StringComparison.Ordinal)
+          && warm.Contains("CS2's warm-up ended - not at this plugin's word", StringComparison.Ordinal)
+          && warm.Contains("plugin.AddCommandListener(name, (caller, info) =>", StringComparison.Ordinal)
+          && warm.Contains("static readonly string[] WarmUpCommands = [\"mp_warmup_start\", \"mp_warmup_end\", \"mp_endwarmup_player_count\", \"mp_warmuptime\"];", StringComparison.Ordinal)
+          && warm.Contains("if (!Recent(name)) log.LogInformation(", StringComparison.Ordinal),
+        "warm-up: every start and end of CS2's warm-up shows in the log - a change nothing here asked for (the console's, a map's, CS2's own clock), and the console's and RCON's warm-up commands, told from this plugin's own");
     Check(warm.Contains("firstSpawnTime = Server.CurrentTime;", StringComparison.Ordinal)
           && warm.Contains("var (name, target) = (p.PlayerName, firstSpawnTime.Value + EarlyJoin.WarmUpMostSeconds);", StringComparison.Ordinal)
           && warm.Contains("var seconds = (int)Math.Ceiling(Math.Max(ClockLeast, resets == false ? target - start : target - now));", StringComparison.Ordinal)
           && warm.Contains("if (Math.Abs(rules.WarmupPeriodStart - set.StartBefore) > 0.25f) resets = true;", StringComparison.Ordinal)
           && warm.Contains("SetClock(rules, Server.CurrentTime + EarlyJoin.IdleClockSeconds, ", StringComparison.Ordinal)
-          && warm.Contains("if (Server.CurrentTime >= target + EarlyJoin.SafetySeconds)", StringComparison.Ordinal)
+          && warm.Contains("if (Server.CurrentTime >= target)\n            {\n                End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\");", StringComparison.Ordinal)
           && warm.Contains("Math.Max(0, rules.WarmupPeriodStart + time - Server.CurrentTime)", StringComparison.Ordinal)
           && warm.Contains("plan.SpawnedCount, rules == null ? null : Left(rules))", StringComparison.Ordinal),
-        "warm-up: CS2's clock ends at the most from the first spawn - set a frame after it, from now or from the warm-up's start as a change is seen to count, set again when off - os_warmup tells the bridge the seconds left on it, and SafetySeconds past it the plugin ends it itself; while nobody has spawned the idle clock never runs out");
-    Check(warm.Contains("if (plan.FirstSpawn != null)", StringComparison.Ordinal) && warm.Contains("if (again >= AgainMost)", StringComparison.Ordinal)
+        "warm-up: CS2's clock counts down to the most from the first spawn - set a frame after it, from now or from the warm-up's start as a change is seen to count, set again when off - os_warmup tells the bridge the seconds left on it, the plugin ends it there itself (CS2's clock does not in Arms Race), and while nobody has spawned the idle clock never runs out");
+    Check(warm.Contains("if (plan.FirstSpawn is { } spawned)", StringComparison.Ordinal) && warm.Contains("if (again >= AgainMost)", StringComparison.Ordinal)
           && warm.Contains("Begin($\"CS2 left it before anybody spawned - again, {again} of {AgainMost}\");", StringComparison.Ordinal),
         "warm-up: CS2 leaving it before anybody spawned begins it again, three times on a map at the most; after a spawn an end is the end - nothing restarts the match");
+    Check(warm.Contains("if (!atMost && soon < EarlyJoin.EarlyLeaveSeconds && againAfterSpawn < AgainAfterSpawnMost)", StringComparison.Ordinal)
+          && warm.Contains("const int AgainAfterSpawnMost = 1;", StringComparison.Ordinal)
+          && warm.Contains("SetClock(rulesNow, from + EarlyJoin.WarmUpMostSeconds, \"begun again after the first spawn\")", StringComparison.Ordinal)
+          && warm.Contains("CS2 left it by itself again, {soon:0.0} s after the first spawn - the match runs as CS2 has it", StringComparison.Ordinal),
+        "warm-up: CS2 leaving it by itself within EarlyLeaveSeconds of the first spawn (the live lab's first spawn, mp_endwarmup_player_count 0) begins it again once, its clock still from that spawn; a second time it is the end, logged");
     Check(host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id);", StringComparison.Ordinal)
           && host.IndexOf("settings?.Unload();", StringComparison.Ordinal) is var settingsGo and >= 0 && host.IndexOf("earlyJoin?.Unload();", StringComparison.Ordinal) > settingsGo
           && warm.Contains("(ours, begunAt, lastSet) = (true, DateTime.UtcNow, null);\n            RaiseTeamDamage();", StringComparison.Ordinal)
           && warm.Contains("if (raised.Count > 0 || !EarlyJoin.TeamDamageMode(modeId(), Read(\"mp_teammates_are_enemies\"))) return;", StringComparison.Ordinal)
           && warm.Contains("plugin.RegisterListener<Listeners.OnMapEnd>(() => PutBackTeamDamage(\"the map ends during it\"));", StringComparison.Ordinal)
-          && warm.Contains("ended = why;\n        PutBackTeamDamage(why);", StringComparison.Ordinal)
-          && System.Text.RegularExpressions.Regex.Matches(warm, @"PutBackTeamDamage\(ended\);").Count == 2
+          && warm.Contains("(ours, ended, ending) = (false, why, null);\n            PutBackTeamDamage(why);", StringComparison.Ordinal)
+          && warm.Contains("(ours, ended, ending) = (false, asked.Why, null);\n            PutBackTeamDamage(asked.Why);", StringComparison.Ordinal)
+          && System.Text.RegularExpressions.Regex.Matches(warm, @"PutBackTeamDamage\(ended\);").Count == 3
           && warm.Contains("public void Unload() => PutBackTeamDamage(\"the plugin unloads\");", StringComparison.Ordinal),
         "warm-up's team damage: raised at its begin in Arms Race and Wingman (the settings' mode, and not while everybody is an enemy), once a map; put back at every end - the bridge's or the console's, CS2's own clock, CS2 leaving it for good, a map change that cuts it short, the plugin's unload, after the fun changes' own undo");
     Check(warm.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)

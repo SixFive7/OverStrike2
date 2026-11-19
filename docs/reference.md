@@ -570,10 +570,10 @@ Anybody may change the length and press the two restarts, on the Game page or in
 - **The warm-up** (`bridge/Shared/EarlyJoin.cs`, the bridge's `WarmUp.cs`, the plugin's `EarlyJoinWatch.cs`): every map starts in CS2's own warm-up - everybody
   respawns, plays freely, friendly fire as the mode has it, and nothing counts - while everybody who is coming gets there; the real match then starts for all of
   them at once, CS2's warm-up end, the one restart a map makes. **Its clock:** **120 s** at the most (`EarlyJoin.WarmUpMostSeconds`, one value for everybody),
-  from the first human's spawn on the map - CS2's own warm-up clock, which the plugin sets to end there, so the game's own timer counts down to the latest start
-  and the game's own end starts the match then; a map nobody has spawned on sits in its warm-up. **Who is coming:** whoever was on the map before and is on the
-  way back through the change, and whoever connects during it; a real departure takes a player out. **It ends sooner** - with CS2's own warm-up end
-  (`mp_warmup_end`), sent by the bridge - when everybody coming has spawned on a team and at least two humans have, **5 s** later (`EarlyJoin.SettleSeconds`;
+  from the first human's spawn on the map - CS2's own warm-up clock, which the plugin sets to end there, so the game's own timer counts down to the latest start,
+  and the plugin ends it then; a map nobody has spawned on sits in its warm-up. **Who is coming:** whoever was on the map before and is on the
+  way back through the change, and whoever connects during it; a real departure takes a player out. **It ends sooner** - CS2's own warm-up end, which the
+  bridge asks the plugin for (below) - when everybody coming has spawned on a team and at least two humans have, **5 s** later (`EarlyJoin.SettleSeconds`;
   one human alone is no "all", so a friend who connects meanwhile still gets the same start), or at **`!start`**, by anybody present, for a friend who is not
   coming; neither while a vote is on, a map change counts down or loads, or the server's restart counts down - they come as soon as those are over, while the
   clock's end comes whatever is on. **After it nothing restarts the match:** whoever comes later joins the match that runs (in Wingman a player who comes in
@@ -586,12 +586,20 @@ Anybody may change the length and press the two restarts, on the Game page or in
   before anybody has spawned. A map change or a restart counting down has the banner first. At its end a line for everybody: "The match starts now - Everybody
   is in", or "... - 120 s are up - Cas joins it on arrival". Restart match is refused during it, and `!start` outside one. **In the game:** every cfg keeps CS2's own
   online warm-up off (`mp_warmup_online_enabled 0`); the plugin begins one a second into every map - `mp_warmup_start`, with
-  `mp_warmuptime_all_players_connected 0` and `mp_endwarmup_player_count 0` (Valve's Arms Race cfg would end it at 6 players), and `mp_warmuptime` an hour
-  (`EarlyJoin.IdleClockSeconds`, renewed while nobody spawns) - and at the first human's spawn sets `mp_warmuptime` to end 120 s after it: from now, should a
-  change restart CS2's count as CS:GO's did, or from the warm-up's start, as the next look sees; a clock more than a second off is set again, three times on a map
-  at the most. The block keeps `mp_warmup_pausetimer` at 0, so nothing pauses it. Should CS2's own end not come, the bridge ends it 3 s past it and the plugin
-  15 s past it (`EarlyJoin.SafetySeconds`); should CS2 leave it before anybody has spawned, the plugin begins it again, three times on a map at the most - after
-  a spawn an end is the end. Catch-up counts nothing in a warm-up, and a match length set during it is the match's after it (`From this match on`). **Team
+  `mp_warmuptime_all_players_connected 0`, `mp_endwarmup_player_count 64` (below) and `mp_warmuptime` an hour (`EarlyJoin.IdleClockSeconds`, renewed while
+  nobody spawns) - and at the first human's spawn sets `mp_warmuptime` to end 120 s after it, so CS2's own timer counts down to the latest start: from now,
+  should a change restart CS2's count as CS:GO's did, or from the warm-up's start, as the next look sees; a clock more than a second off is set again, three
+  times on a map at the most. **Every end goes through CS2's own player-count check:** CS2 runs it once somebody is in the game and ends its warm-up when
+  `mp_endwarmup_player_count` is at most the players in. 0, Valve's default, ended it about 2 s after the first spawn in every mode, and in Arms Race the check
+  is the one thing that ends it - neither `mp_warmup_end` nor CS2's own clock did while the count held (the live lab, 2026-11-19). So the plugin holds it
+  with 64 (`EarlyJoin.EndWarmUpNever`, more players than a server holds) and ends it by dropping the count to 0 (`EarlyJoin.EndWarmUpNow`) - at the bridge's
+  word (`os_warmup end`), and itself at the latest start - and looks each second until CS2 has ended it: still on 5 s later (`EarlyJoin.EndStepSeconds`),
+  `mp_warmup_end` too (which ends it in Wingman), 10 s both again, 20 s given up and logged. The bridge says the match is on once a look finds it ended, and
+  asks again 10 s on; should neither have ended it 10 s past the latest start, it asks itself. The block keeps `mp_warmup_pausetimer` at 0. Should CS2 leave
+  it by itself before anybody has spawned, the plugin begins it again, three times on a map at the most, and within 10 s of the first spawn
+  (`EarlyJoin.EarlyLeaveSeconds`) once, its clock still from that spawn - the bridge waits 5 s for that before it calls the match on; later, or a second
+  time, an end is the end. Every start and end of CS2's warm-up shows in the plugin's log, the console's `mp_warmup_start` and `mp_warmup_end` among them.
+  Catch-up counts nothing in a warm-up, and a match length set during it is the match's after it (`From this match on`). **Team
   damage:** in Arms Race and Wingman a teammate's hit hurts at least as an enemy's does while it runs (`EarlyJoin.TeamDamage`) - at its begin the plugin turns
   friendly fire on and raises every `ff_damage_reduction_*` share below 1 to 1 (Wingman's are Valve's - 0.33 for bullets; Arms Race's cfg has friendly fire
   on and deadly already, Instakill's 100, which stays), and at its end - any end, a map change that cuts it short, the plugin's unload - puts back
