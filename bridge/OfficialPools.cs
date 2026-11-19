@@ -21,6 +21,27 @@ static partial class Program
     static HashSet<string> GameInstalled = new(StringComparer.OrdinalIgnoreCase); // the report's installed maps (empty: nothing known)
     static readonly HashSet<string> Unloadable = new(StringComparer.OrdinalIgnoreCase); // official maps the server refused this process ("invalid map name")
 
+    /// <summary>Official maps kept out because the HUD does not show on them (Modes.HudLess): out of every pool, the catalog, the dice and the ballot
+    /// (OfficialsOf), and a pick of one - typed, a card, Previous, a vote's winner - is refused with HudLessRefusal's words (Unplayable).</summary>
+    static HashSet<string> HudLess = new(Modes.HudLess, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether this is an official map the HUD does not show on (HudLess).</summary>
+    static bool IsHudLess(MapInfo m) => m.Official && HudLess.Contains(m.Name);
+
+    /// <summary>The refusal of a map the HUD does not show on: which, and why.</summary>
+    static string HudLessRefusal(MapInfo m) => M.Refused($"{M.A(Clip(m.Name, 40))} is off for now - The HUD does not show on it. Pick another.");
+
+    /// <summary>A mode's official maps that HudLess keeps out of its pool (OfficialsOf), as they would be in it: still in the catalog (LiveState.cs), so a card's
+    /// Play, a HISTORY card's Vote for it and a typed name reach the bridge, whose refusal says why.</summary>
+    static IEnumerable<MapInfo> HudLessOf(Modes.Mode mode) => mode.ArmsRace || HudLess.Count == 0 ? []
+        : (GamePool(mode) ?? mode.Official.Where(InstalledNow)).Concat(mode.Extras.Where(InstalledNow)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(n => HudLess.Contains(n) && !Unloadable.Contains(n)).Select(n => new MapInfo(0, 0, n, 0, true, mode.Id));
+
+    /// <summary>An official map the HUD does not show on, by its whole name, in the first mode that has it (HudLessOf), or null: what Find hands a pick of one,
+    /// so that its refusal says why rather than that no map has that name.</summary>
+    static MapInfo? HudLessByName(string name) =>
+        HudLess.Contains(name) ? Modes.All.SelectMany(HudLessOf).FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) : null;
+
     static string GamePoolsFile => Path.Combine(StateDir, "game-pools.txt");
 
     /// <summary>At the bridge's start: the last report the restart watcher sent, as kept in game-pools.txt.</summary>
@@ -100,6 +121,8 @@ static partial class Program
             if (extras.Count > 0) line += $", ours too: {string.Join(" ", extras)}";
             var dropped = mode.ArmsRace ? [] : mode.Extras.Where(e => !InstalledNow(e)).ToList();
             if (dropped.Count > 0) line += $", ours not installed: {string.Join(" ", dropped)}";
+            var off = HudLessOf(mode).Select(m => m.Name).ToList();
+            if (off.Count > 0) line += $", off - the HUD does not show on them: {string.Join(" ", off)}";
             lines.Add(line);
         }
         return lines;

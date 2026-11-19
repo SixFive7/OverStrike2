@@ -26,6 +26,7 @@ static partial class Program
         WorkshopCheck = new(); Removed = new(); Sizes = new(); SizeBounds = default; Ours = new(); Search = new(); SearchText = Search.Encode();
         SearchStored = new(); SearchModes = new(); SearchStale = default;
         GameReport = null; GameReportAt = default; GameInstalled = new(StringComparer.OrdinalIgnoreCase); Unloadable.Clear(); // OfficialPools.cs: no report, nothing refused
+        HudLess = new(StringComparer.OrdinalIgnoreCase); // ...and, like the run's own lists, no map kept out for the HUD: every section plays Valve's whole pools (PoolsSelfTest puts Modes.HudLess)
         RatingScores = new(); RatingTrend = new(); RatingsFetched = 0; WorkshopInfo = new(); NumbersStamp++;
         knownFor = null; knownByKey = new(); updatedByKey = new(); popularityFor = null; popularity.Clear(); keptFor = null; kept = new(); wingmanIndex = (null, new());
         CatalogVersion++; // the menu's map list is made again

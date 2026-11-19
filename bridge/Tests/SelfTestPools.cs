@@ -113,6 +113,42 @@ static partial class Program
             SpawnStarts.Clear(); SpawnSeen = 7;
             JudgeSpawn(1);
             Check("...and so does a new process the crash watch finds (its spawn counter back to 1)", Unloadable.Count == 0);
+
+            // ---- the official maps the HUD does not show on (Modes.HudLess): out of every pool, the dice and the ballot, still listed, every pick refused with why ----
+            h.Fresh();
+            HudLess = new(Modes.HudLess, StringComparer.OrdinalIgnoreCase);
+            CatalogVersion++;
+            var off = wm.Where(Modes.HudLess.Contains).ToList();
+            static string OffLine(string map) => $"{map} is off for now - The HUD does not show on it. Pick another.";
+            var wmRolls = Enumerable.Range(0, 3000).Select(_ => RandomPick(Modes.Wingman)?.Name).ToList();
+            Check($"The maps the HUD does not show on are all Wingman's ({string.Join(" ", off)}): out of its pool and its dice, the rest of Valve's pool in; still in the catalog as "
+                  + $"Wingman's official maps, so a pick reaches the bridge; GET /health says so ({PoolDifferences()[2]})",
+                off.Count == Modes.HudLess.Length && off.Count == 3 && Same(Names(Modes.Wingman), wm.Except(off)) && wmRolls.All(n => n != null && !off.Contains(n))
+                && wm.Except(off).All(wmRolls.Contains) && off.All(n => Catalog().Maps.SingleOrDefault(m => m.Key == n) is { Official: true, RankWm: 0 })
+                && PoolDifferences()[2] == $"wingman {wm.Length} from Modes.cs, off - the HUD does not show on them: {string.Join(" ", off)}" && HealthText().Contains(PoolDifferences()[2]));
+            h.Join(alice);
+            h.Quiet();
+            var asked = new List<string>();
+            foreach (var (map, text, click) in new[] { ("de_eldorado", "!map de_eldorado", true), ("de_eldorado", "!map de_eldorado wingman", true), ("de_poseidon", "!map de_poseidon deathmatch", true),
+                         ("de_debris", "!map de_debris", false) }) // a click's Play: in the server's mode, a card's in Wingman, a card under Deathmatch's filter; and typed in chat
+            {
+                ClearNotices();
+                if (click) HudAct($"{alice.Item2}\t{alice.Item1}\t{text}"); else h.Talk(alice, text);
+                if (!(h.Said(OffLine(map)) && Ballot == null && !LoadPending && Pending == null)) asked.Add($"{text}: {string.Join(" | ", Told)}");
+            }
+            Check($"A pick of one - a card's Play in any mode, under any mode's filter, or typed - is refused, saying which and why; no vote, no change{(asked.Count > 0 ? $" ({string.Join("; ", asked)})" : "")}",
+                asked.Count == 0);
+            ClearNotices();
+            S.History.Add(new MapInfo(0, 0, "de_eldorado", 0, true, Modes.WingmanId));
+            h.Talk(alice, "!previous");
+            var offMap = new MapInfo(0, 0, "de_poseidon", 0, true, Modes.WingmanId);
+            Check("...and so is Previous to one; a ballot's card of one is unplayable (its win rolls the dice instead) and never rolled, nor kept for the disk",
+                h.Said(OffLine("de_eldorado")) && Ballot == null && !LoadPending && Unplayable(offMap) == HudLessRefusal(offMap) && !CanRoll(offMap) && Bad(offMap)
+                && Unplayable(new MapInfo(0, 0, "de_nuke", 0, true, Modes.WingmanId)) == null);
+            TakePools(Report("1.41.9.9", ar, dm, [], wm, all));
+            Check($"...and the game's own report changes none of it: its Wingman pool played without them, the comparison says so ({PoolDifferences()[2]})",
+                Same(Names(Modes.Wingman), wm.Except(off)) && PoolDifferences()[2] == $"wingman {wm.Length} = Modes.cs, off - the HUD does not show on them: {string.Join(" ", off)}"
+                && Find("de_eldorado") is [{ Official: true, Mode: Modes.WingmanId }] && Find("de_eldorado_not") is []);
         }
         finally
         {

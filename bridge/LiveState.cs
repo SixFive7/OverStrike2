@@ -62,7 +62,7 @@ static partial class Program
         }
         foreach (var m in Maps.Where(m => !IsNonMap(m) && !IsBlocked(m)).Concat(Officials)) Place(m, Modes.ArmsRace);
         foreach (var mode in Modes.All.Where(x => !x.ArmsRace))
-            foreach (var m in PoolOf(mode).Where(m => !IsNonMap(m) && !IsBlocked(m)))
+            foreach (var m in PoolOf(mode).Where(m => !IsNonMap(m) && !IsBlocked(m)).Concat(HudLessOf(mode))) // HudLessOf: out of the pool, still listed - a pick of one is refused with why
             {
                 Place(m, mode);
                 if (mode.Id == Modes.WingmanId) sides[Key(m)] = SpawnsPerSide(m);

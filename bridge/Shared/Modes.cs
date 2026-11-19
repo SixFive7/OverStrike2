@@ -60,6 +60,13 @@ public static class Modes
     public static readonly Mode Wingman = new(WingmanId, "Wingman", 0, 2, 16, "gamemode_competitive2v2.cfg", "gamemode_competitive2v2_server.cfg",
         ["de_debris", "de_eldorado", "de_poseidon", "de_overpass", "de_vertigo", "de_nuke", "de_inferno", "de_cbble"]); // the "2v2" template
 
+    /// <summary>Official maps the HUD does not show on (2026-11-19, release 221): CS2 ships them in csgo_community_addons and mounts each as a community
+    /// addon - the changelevel loads addons(&lt;map&gt;,&lt;the HUD's item&gt;) - and on de_eldorado the HUD vanished for every player, while the server had mounted
+    /// the item and spawned the HUD as on any other map. The bridge keeps them out of every pool, the catalog, the dice and the ballot, and refuses a pick of
+    /// one with why (bridge/OfficialPools.cs), until the HUD is proven on such a map. All three are in Wingman's pool (CS2 1.41.9.9); the game's report adds
+    /// any other map it finds there.</summary>
+    public static readonly string[] HudLess = ["de_debris", "de_eldorado", "de_poseidon"];
+
     /// <summary>Every mode, in menu order; the first is the default.</summary>
     public static readonly Mode[] All = [ArmsRace, Deathmatch, Wingman];
 

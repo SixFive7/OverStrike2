@@ -131,8 +131,8 @@ static partial class Program
     [GeneratedRegex(@"^(?<id>\d+)$|[?&]id=(?<id>\d+)")] private static partial Regex IdRx(); // a bare number, or the id= of a pasted workshop URL
 
     /// <summary>The map a click names (Hud.IsMapArg): a rank of Arms Race's list, a Workshop id or URL - a map any mode lists, else an unlisted one
-    /// in the mode the server is in - or an official map's whole name, Arms Race's own first, else the first mode that has it. One map or none:
-    /// the plugin resolves names itself (HudScreen.Play), so no name search is left here.</summary>
+    /// in the mode the server is in - or an official map's whole name, Arms Race's own first, else the first mode that has it, else one the HUD does not
+    /// show on (HudLessByName: refused then, with why). One map or none: the plugin resolves names itself (HudScreen.Play), so no name search is left here.</summary>
     static List<MapInfo> Find(string query)
     {
         var q = query.Trim();
@@ -143,6 +143,7 @@ static partial class Program
             return [ModeMapById(n) ?? new MapInfo(0, n, $"workshop {n}", 0, false, CurrentMode.ArmsRace ? "" : CurrentMode.Id)]; // another mode's listed map; else unlisted, in the mode the server is in
         }
         if (Officials.FirstOrDefault(o => o.Name.Equals(q, StringComparison.OrdinalIgnoreCase)) is { } official) return [official];
-        return OfficialElsewhere(q) is { } other ? [other] : []; // ModeSwitch.cs: another mode's official map by its whole name (a card's Play names it so)
+        if (OfficialElsewhere(q) is { } other) return [other]; // ModeSwitch.cs: another mode's official map by its whole name (a card's Play names it so)
+        return HudLessByName(q) is { } off ? [off] : []; // OfficialPools.cs: an official map the HUD does not show on - PickMap refuses it, saying why
     }
 }
