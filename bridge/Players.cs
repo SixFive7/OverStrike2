@@ -171,12 +171,28 @@ static partial class Program
     {
         SignOnsTell = false;
         var now = Now();
+        EndSignOnsPastBound(now);
         var names = SigningOnNames(now);
         if ((!names.SequenceEqual(SignOnsTold) || !SameNames(StatusJoining, StatusTold)) && Send(EarlyJoin.BridgeViewCommand(names, StatusJoining)) != null)
             (SignOnsTold, StatusTold) = (names, StatusJoining); // no answer: the next change tells it
         if (names.Count > 0) WatchStatus();
         var open = Players.Values.Where(p => p.GoneSince == null).Select(p => SignOnSince(p, now)).OfType<DateTime>().ToList();
         if (open.Count > 0) After((int)Math.Max(1000, (open.Min().AddSeconds(EarlyJoin.SignOnMostSeconds + 1) - now).TotalMilliseconds), SignOnsChanged); // the bound ends one with no line
+    }
+
+    /// <summary>A new joiner whose sign-on ran past its bound (EarlyJoin.SignOnMostSeconds after their "connected") without "entered the game", and whom the
+    /// server's list did not end first (EndDroppedSignOns: not read meanwhile - a short status, RCON down): gone before they were in, as a dropped one is - no
+    /// longer present for anything (PresentIds: a vote's present, the empty server's reset). Never one on the way back through a reconnect (Returning): a map
+    /// change's load of a big map may take longer, and its departure was none. The second ghost the lab round on 997c7bb left: a dead connect counted as present
+    /// for good when nothing read the list.</summary>
+    static void EndSignOnsPastBound(DateTime now)
+    {
+        foreach (var p in Players.Values)
+        {
+            if (p is not { GoneSince: null, SigningOn: { } at, Returning: null } || (now - at).TotalSeconds <= EarlyJoin.SignOnMostSeconds) continue;
+            p.SigningOn = null; p.MissingSince = null; p.GoneSince = now; p.Joining = false;
+            Log($"joining: {p.Name} connected {(now - at).TotalSeconds:0} s ago and never got in - gone before they were in, past the sign-on's {EarlyJoin.SignOnMostSeconds} s");
+        }
     }
 
     /// <summary>The players present: in game by the log stream, or reloading inside the load grace. One who left is not.</summary>

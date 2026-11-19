@@ -657,7 +657,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   prompt to confirm a first Workshop download shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no
   controller and no callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list lacking them **5 s**, read after read,
   ends it - gone, no longer present - (`EarlyJoin.DropConfirmSeconds`: a list can lose a joiner a moment before the log stream says the HUD addon's reconnect), never for one on the way
-  back, and 150 s after their "connected" or their departure in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone
+  back, and 150 s after their "connected" or their departure in any case (`EarlyJoin.SignOnMostSeconds`) - a new joiner never in by then is gone too, no
+  longer present, should nothing have read the list meanwhile (one on the way back stays); the bridge reads that list every 2 s while anyone
   signs on, and each second of a warm-up. `os_warmup` says where it stands - on or off, the first spawn, the seconds left on CS2's clock, who is coming, each
   with who names them (`os_warmup bridge`: the bridge's two views as hex, whenever they change); `os_warmup end` is the bridge's and the console's, `os_warmup
   start` the console's (a warm-up now, its clock from now once anybody has spawned). A plugin loaded during a map begins nothing on that map, and with a plugin

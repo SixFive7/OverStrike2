@@ -767,6 +767,23 @@ static partial class Program
             h.Leave(lou, "NETWORK_DISCONNECT_LOOPDEACTIVATE");
             Check("...a game that goes with NETWORK_DISCONNECT_LOOPDEACTIVATE has left - no reconnect, no sign-on, not on the server - as the plugin has it too (EarlyJoin.Reconnects)",
                 SigningOnNames(h.Clock) is [] && !PresentIds(h.Clock).Contains(lou.Item2));
+            // a joiner past the sign-on's bound who never got in, the server's list not read meanwhile (a status with no players table): gone before they were in,
+            // as a dropped one is - present no more for a vote or the empty server; one on the way back through a reconnect stays (the second ghost of 997c7bb)
+            Fresh();
+            var mo = ("Mo", "[U:1:2012]");
+            Connects(mo);
+            h.Run(EarlyJoin.SignOnMostSeconds - 5);
+            var stillComing = PresentIds(h.Clock).Contains(mo.Item2);
+            h.Run(10);
+            var ghostGone = !PresentIds(h.Clock).Contains(mo.Item2) && SigningOnNames(h.Clock) is [] && PlayerOf(mo.Item2) is { GoneSince: not null, Joining: false, SigningOn: null };
+            var ned = ("Ned", "[U:1:2013]");
+            h.Join(ned);
+            h.Leave(ned, "NETWORK_DISCONNECT_SHUTDOWN"); // a map change's reconnect: on the way back
+            Connects(ned);
+            h.Run(EarlyJoin.SignOnMostSeconds + 10);
+            Check("...a joiner past the sign-on's bound who never got in, the server's list not read meanwhile, is gone before they were in - present no more for a vote or "
+                + "the empty server; one on the way back through a reconnect stays, its load may take longer",
+                stillComing && ghostGone && PresentIds(h.Clock).Contains(ned.Item2));
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();
