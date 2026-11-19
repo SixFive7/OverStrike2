@@ -101,6 +101,11 @@ static partial class Program
         wu.MatchEnded(T(18, 40), "scrimcomp2v2 mg_x de_none score 9:1 after 10 min");
         Check("...a map with no warm-up after all (a plugin without it) runs as CS2 has it, from the map's start as before",
             warm.Count == 2 && warm[1].Start == T(18, 30) && warm[1].Players.Single() is { Account: 1001, Seconds: 595 } && warm[1].Players[0].Frags is { Any: false });
+        wu.MapStarted(T(18, 41), "de_unseen", 3000000015, "Unseen", "wingman");
+        wu.Entered(T(18, 41, 5), 1002, "Bob");
+        wu.MatchEnded(T(18, 51), "scrimcomp2v2 mg_x de_unseen score 9:6 after 10 min");
+        Check("...a match end while the record still thinks the warm-up is on (its end went by unseen): the match is kept, from the map's start, its start marked not known",
+            warm.Count == 3 && warm[2] is { MapName: "Unseen", Score: "9:6" } && warm[2].Start == T(18, 41) && warm[2].Missing.SequenceEqual(["start"]) && warm[2].Players.Single() is { Account: 1002, Seconds: 595 });
 
         // ---- the frags: the game's kill lines ----
         const string KillDay = "11/20/2026"; // a log line's prefix is built from its parts (no date beside a time in this file)

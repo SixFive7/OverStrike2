@@ -167,6 +167,11 @@ sealed partial class MatchTracker
     public void MatchEnded(DateTimeOffset at, string gameOver)
     {
         var (mode, logName, score) = ReadGameOver(gameOver);
+        if (cur is { Warming: true } unseen) // CS2 ends no match during its warm-up: its end went by unseen - the match counts from the map's start, its start not known
+        {
+            NoWarmUp();
+            unseen.Missing.Add("start");
+        }
         if (cur != null && mode != "") cur.Mode = mode;
         if (cur is { Warming: false } m && mode == Modes.ArmsRaceId && lastKnife.Account > 0 && (at - lastKnife.At).TotalSeconds is >= 0 and <= WinningKillSeconds)
             m.Winner = lastKnife.Account;
