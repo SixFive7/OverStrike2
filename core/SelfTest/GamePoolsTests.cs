@@ -128,6 +128,9 @@ static class GamePoolsTests
         var gone = GamePools.Read(game).Pools.First(p => p.Mode == "deathmatch");
         Check($"game pools: a map whose package is gone (its folder emptied, as the game did with three maps on 2026-11-18) is missing, out of the playable maps ({Show(gone.Missing)})",
             gone.Missing.SequenceEqual(["cs_gamma"]) && gone.Playable.SequenceEqual(["de_newest", "de_alpha", "de_beta"]));
+        Check($"game pools: the maps the game ships as community addons - a community folder with a package in it, no csgo/maps package; one emptied is none any more "
+              + $"({Show(read.Addons)}, then {Show(GamePools.AddonsIn(game))})",
+            read.Addons.SequenceEqual(["cs_gamma", "de_newest"]) && GamePools.AddonsIn(game).SequenceEqual(["de_newest"]) && GamePools.Read(game).Addons.SequenceEqual(["de_newest"]));
 
         var body = BridgeWire.PoolsBody(read with { Pools = [.. read.Pools.Select(p => p.Mode == "deathmatch" ? p with { Missing = ["cs_gamma"] } : p)] });
         var back = BridgeWire.ReadPools(body);
@@ -136,7 +139,11 @@ static class GamePoolsTests
             && body.Contains("\npool\tgungame\tdeathmatch\t1\t2\tde_newest,de_alpha,de_beta,cs_gamma\tcs_gamma\n", StringComparison.Ordinal)
             && body.Contains("\ninstalled\tar_one,ar_two,cs_gamma,de_alpha,de_beta,de_newest\n", StringComparison.Ordinal) && body.EndsWith("\nname\tde_beta\tBeta Two\n", StringComparison.Ordinal)
             && back is { Build: "1.41.9.4", Problem: null } && back.Pools.Count == 5 && back.Pools[3] is { Mode: "deathmatch", TypeValue: 1, ModeValue: 2 } bd
-            && bd.Playable.SequenceEqual(["de_newest", "de_alpha", "de_beta"]) && back.Installed.Count == 6 && back.Names["DE_ALPHA"] == "Alpha" && back.Names.Count == 3);
+            && bd.Playable.SequenceEqual(["de_newest", "de_alpha", "de_beta"]) && back.Installed.Count == 6 && back.Names["DE_ALPHA"] == "Alpha" && back.Names.Count == 3
+            && body.Contains("\ninstalled\tar_one,ar_two,cs_gamma,de_alpha,de_beta,de_newest\naddons\tcs_gamma,de_newest\n", StringComparison.Ordinal)
+            && back.Addons.SequenceEqual(["cs_gamma", "de_newest"]));
+        Check("bridge wire: a pools message from an os2-server before release 221a has no addons line - none, then",
+            BridgeWire.ReadPools("os2-pools\t1\t9\npool\ta\tb\t0\t0\tx\t\ninstalled\tx\n") is { Addons.Count: 0, Installed: ["x"] });
         Check("bridge wire: a pools message is no other message, nor one without a pool; a line it does not know is passed over",
             BridgeWire.ReadPools("os2-ready\t1\npool\ta\tb\t0\t0\tx\t\n") is null && BridgeWire.ReadPools("os2-pools\t1\t9\ninstalled\tx\n") is null
             && BridgeWire.ReadPools("os2-pools\t2\t9\npool\ta\tb\t0\t0\tx\t\n") is null

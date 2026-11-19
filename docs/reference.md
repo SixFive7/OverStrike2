@@ -695,7 +695,8 @@ Workshop's ports, "office" finds `cs_office`. A `changelevel` the server answers
 back - and the map leaves every pool until the server process is a new one; before, it held every vote for the ten minutes a load may take, and the dice
 could roll it again. The official maps the HUD does not show on are off for now (`Modes.HudLess`: `de_debris`, `de_eldorado` and `de_poseidon`, all
 Wingman's). CS2 ships them in `csgo_community_addons` and mounts each as a community addon, and on `de_eldorado` the HUD vanished for every player on
-2026-11-19 while the server had mounted the item and spawned the HUD as on any map. They are out of every pool, the dice and the ballot, and `GET /health`'s
+2026-11-19 while the server had mounted the item and spawned the HUD as on any map. Every other map the game's report names as shipped there (its
+`addons` line, from os2-server of release 221a) is off the same way. They are out of every pool, the dice and the ballot, and `GET /health`'s
 `pools:` line names them. They stay in the menu, so a pick of one - a card's Play, a HISTORY card's Vote for it, a typed name, Previous - reaches the bridge,
 which refuses it: "de_eldorado is off for now - The HUD does not show on it. Pick another." A map loads in its own mode: the bridge tells the plugin
 with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command, and an operator switches the same way, `os_mode`

@@ -149,6 +149,22 @@ static partial class Program
             Check($"...and the game's own report changes none of it: its Wingman pool played without them, the comparison says so ({PoolDifferences()[2]})",
                 Same(Names(Modes.Wingman), wm.Except(off)) && PoolDifferences()[2] == $"wingman {wm.Length} = Modes.cs, off - the HUD does not show on them: {string.Join(" ", off)}"
                 && Find("de_eldorado") is [{ Official: true, Mode: Modes.WingmanId }] && Find("de_eldorado_not") is []);
+
+            // ---- the game's report names the maps it ships as community addons (its addons line, os2-server from release 221a): each of them is off too ----
+            h.Fresh(); // none kept out by the table now, as in every section: the report alone
+            var shipped = TakePools(Report("1.41.9.9", ar, dm.Append("de_shipped"), [], wm, all.Append("de_shipped")) + "addons\tde_eldorado,de_shipped\n");
+            h.Join(alice);
+            h.Quiet();
+            HudAct($"{alice.Item2}\t{alice.Item1}\t!map de_shipped deathmatch");
+            Check($"A report's community addons are off like the table's: de_shipped out of Deathmatch's pool and de_eldorado out of Wingman's, both still in the catalog, "
+                  + $"a pick refused; de_debris, which the report does not name, plays ({shipped})",
+                !Names(Modes.Deathmatch).Contains("de_shipped") && !Names(Modes.Wingman).Contains("de_eldorado") && Names(Modes.Wingman).Contains("de_debris")
+                && Catalog().Maps.Any(m => m.Key == "de_shipped" && m.Official) && h.Said(OffLine("de_shipped")) && Ballot == null
+                && PoolDifferences()[1].EndsWith(", off - the HUD does not show on them: de_shipped", StringComparison.Ordinal)
+                && PoolDifferences()[2].EndsWith(", off - the HUD does not show on them: de_eldorado", StringComparison.Ordinal));
+            TakePools(Report("1.41.9.9", ar, dm.Append("de_shipped"), [], wm, all.Append("de_shipped")));
+            Check("...and a report without the line - an os2-server before release 221a - keeps none out",
+                Names(Modes.Deathmatch).Contains("de_shipped") && Same(Names(Modes.Wingman), wm) && OffForHud("de_shipped") == false);
         }
         finally
         {

@@ -25,7 +25,12 @@ public static partial class GamePools
 
     /// <summary>One read of the game: its version (steam.inf's PatchVersion, "?" without one), every game mode's pool, every installed map,
     /// Valve's names of the maps it names; Problem says what could not be read, and then the pools are empty.</summary>
-    public sealed record Found(string Build, List<Pool> Pools, List<string> Installed, Dictionary<string, string> Names, string? Problem);
+    public sealed record Found(string Build, List<Pool> Pools, List<string> Installed, Dictionary<string, string> Names, string? Problem)
+    {
+        /// <summary>The installed maps the game ships in csgo_community_addons (AddonsIn) and mounts as community addons: the HUD did not show on
+        /// de_eldorado, one of them (2026-11-19), so the bridge keeps every one of them out (bridge/OfficialPools.cs). Empty from a report without the line.</summary>
+        public List<string> Addons { get; init; } = [];
+    }
 
     // ---- the text ----
 
@@ -164,6 +169,16 @@ public static partial class GamePools
                 if (!name.EndsWith("_vanity", StringComparison.Ordinal) && !name.StartsWith("workshop_preview_", StringComparison.Ordinal) && new FileInfo(f).Length > 0)
                     names.Add(name);
             }
+        names.UnionWith(AddonsIn(gameDir));
+        return [.. names];
+    }
+
+    /// <summary>The maps the game ships as community addons, lowered and sorted: each a folder csgo_community_addons/&lt;map&gt; holding a .vpk (an empty
+    /// one is a map the game took away). CS2 mounts such a map as a community addon when it loads - addons(&lt;map&gt;,...) - and the HUD did not show on
+    /// one (de_eldorado, 2026-11-19).</summary>
+    public static List<string> AddonsIn(string gameDir)
+    {
+        var names = new SortedSet<string>(StringComparer.Ordinal);
         var addons = Path.Combine(gameDir, "csgo_community_addons");
         if (Directory.Exists(addons))
             foreach (var d in Directory.EnumerateDirectories(addons))
@@ -175,14 +190,15 @@ public static partial class GamePools
     // ---- all of it ----
 
     /// <summary>The whole read, from the game folder (STEAMAPPDIR/game): steam.inf's PatchVersion, gamemodes.txt and csgo_english.txt out of
-    /// csgo/pak01_dir.vpk, the installed maps. Never throws: what it could not read is its Problem. Valve's names only of the maps it names.</summary>
+    /// csgo/pak01_dir.vpk, the installed maps and which of them are community addons. Never throws: what it could not read is its Problem. Valve's names only of the maps it names.</summary>
     public static Found Read(string gameDir)
     {
         var build = SteamInf.ReadPatchVersion(Path.Combine(gameDir, "csgo", "steam.inf")) ?? "?";
-        List<string> installed;
+        List<string> installed, addons;
         try
         {
             installed = InstalledIn(gameDir);
+            addons = AddonsIn(gameDir);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -196,12 +212,12 @@ public static partial class GamePools
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return new(build, [], installed, new(), $"{vpkPath} cannot be read ({e.Message})");
+            return new(build, [], installed, new(), $"{vpkPath} cannot be read ({e.Message})") { Addons = addons };
         }
         string? Text(string entry) => vpk.Entries.FirstOrDefault(e => e.Path.Equals(entry, StringComparison.OrdinalIgnoreCase)) is { } e && vpk.Read(e) is { } bytes
             ? Encoding.UTF8.GetString(bytes) : null;
         if (Text(ModesEntry) is not { } modesText)
-            return new(build, [], installed, new(), $"no {ModesEntry} in {vpkPath}");
+            return new(build, [], installed, new(), $"no {ModesEntry} in {vpkPath}") { Addons = addons };
         List<Pool> pools;
         try
         {
@@ -209,7 +225,7 @@ public static partial class GamePools
         }
         catch (FormatException e)
         {
-            return new(build, [], installed, new(), $"{ModesEntry} does not parse ({e.Message})");
+            return new(build, [], installed, new(), $"{ModesEntry} does not parse ({e.Message})") { Addons = addons };
         }
         var have = new HashSet<string>(installed, StringComparer.OrdinalIgnoreCase);
         pools = [.. pools.Select(p => p with { Missing = [.. p.Maps.Where(m => !have.Contains(m))] })];
@@ -221,6 +237,6 @@ public static partial class GamePools
                 if (all.TryGetValue(m, out var name))
                     names.TryAdd(m, name);
         }
-        return new(build, pools, installed, names, pools.Count == 0 ? $"{ModesEntry} names no game mode" : null);
+        return new(build, pools, installed, names, pools.Count == 0 ? $"{ModesEntry} names no game mode" : null) { Addons = addons };
     }
 }

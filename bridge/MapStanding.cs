@@ -8,11 +8,11 @@ static partial class Program
 {
     /// <summary>Why a map cannot be played at all, or null - the one check for a map asked for, a card on the ballot, a change
     /// counting down and a list that changed: blocked, gone from the Workshop, no playable map (a pack), or an official map the HUD does not show on
-    /// (OfficialPools.cs, HudLess). Each refusal says why.</summary>
+    /// (OfficialPools.cs, OffForHud). Each refusal says why.</summary>
     static string? Unplayable(MapInfo m) => IsHudLess(m) ? HudLessRefusal(m) : IsBlocked(m) ? BlockedRefusal(m) : IsRemoved(m) ? RemovedRefusal(m) : IsNonMap(m) ? NonMapRefusal(m) : null;
 
     /// <summary>Unplayable, as a yes or no, by the map's key: a Workshop map's key is its id, which the three lists go by; an official map's its name.</summary>
-    static bool IsUnplayable(MapInfo m, string key) => m.Official ? HudLess.Contains(m.Name) : Blocked.ContainsKey(key) || Removed.ContainsKey(key) || NonMaps.ContainsKey(key);
+    static bool IsUnplayable(MapInfo m, string key) => m.Official ? OffForHud(m.Name) : Blocked.ContainsKey(key) || Removed.ContainsKey(key) || NonMaps.ContainsKey(key);
 
     /// <summary>Something on record against the map with this key: a player-crash mark, the broken list, a crash of the server.</summary>
     static bool Risky(string key) => S.PlayerCrashes.ContainsKey(key) || Broken.ContainsKey(key) || S.Crashes.GetValueOrDefault(key) > 0;

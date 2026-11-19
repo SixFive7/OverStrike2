@@ -31,12 +31,12 @@ static partial class Program
     /// <summary>A mode's official maps: Arms Race's from OFFICIAL_MAPS (never rolled, as always), the others' Valve's pool - the installed game's
     /// own as the restart watcher reported it, else Modes.cs's (OfficialPools.cs) - plus our extras (Modes.Mode.Extras) and any official extra the
     /// mode's file names, those two only when installed; never a map the server turned away this process, nor one the HUD does not show on
-    /// (OfficialPools.cs, HudLess). All rollable, because they are what the mode starts from.</summary>
+    /// (OfficialPools.cs, OffForHud). All rollable, because they are what the mode starts from.</summary>
     static List<MapInfo> OfficialsOf(Modes.Mode mode)
     {
         if (mode.ArmsRace) return Officials;
         var extra = mode.Extras.Concat(ModeMaps.GetValueOrDefault(mode.Id)?.Where(m => m.Official).Select(m => m.Name) ?? []).Where(InstalledNow);
-        return (GamePool(mode) ?? mode.Official.Where(InstalledNow)).Concat(extra).Distinct(StringComparer.OrdinalIgnoreCase).Where(n => !Unloadable.Contains(n) && !HudLess.Contains(n))
+        return (GamePool(mode) ?? mode.Official.Where(InstalledNow)).Concat(extra).Distinct(StringComparer.OrdinalIgnoreCase).Where(n => !Unloadable.Contains(n) && !OffForHud(n))
             .Select(n => new MapInfo(0, 0, n, 0, true, mode.Id)).ToList();
     }
 

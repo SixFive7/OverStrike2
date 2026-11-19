@@ -75,7 +75,9 @@ public static class BridgeWire
 
     /// <summary>The installed game's map pools (POST /pools), read out of its own files (GamePools.Read): its version after the head; then a line per
     /// game mode - "pool", its type and mode, the numbers game_type and game_mode select it by, its maps and those of them not installed, each list
-    /// comma-separated and either one possibly empty; "installed" and every installed map; and a line "name", a map, Valve's name of it.</summary>
+    /// comma-separated and either one possibly empty; "installed" and every installed map; "addons" and the installed maps the game ships as community
+    /// addons (GamePools.AddonsIn: the bridge keeps them out, the HUD does not show on them - a bridge before release 221a passes the line over); and a line
+    /// "name", a map, Valve's name of it.</summary>
     public static string PoolsBody(GamePools.Found found)
     {
         static string One(string s) => s.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ').Trim();
@@ -84,6 +86,7 @@ public static class BridgeWire
         foreach (var p in found.Pools)
             b.Append(CultureInfo.InvariantCulture, $"pool\t{One(p.Type)}\t{One(p.Mode)}\t{p.TypeValue}\t{p.ModeValue}\t{List(p.Maps)}\t{List(p.Missing)}\n");
         b.Append("installed\t").Append(List(found.Installed)).Append('\n');
+        b.Append("addons\t").Append(List(found.Addons)).Append('\n');
         foreach (var (map, name) in found.Names.OrderBy(n => n.Key, StringComparer.Ordinal))
             b.Append("name\t").Append(One(map)).Append('\t').Append(One(name)).Append('\n');
         return b.ToString();
@@ -99,6 +102,7 @@ public static class BridgeWire
         static int Int(string s) => int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : -1;
         var pools = new List<GamePools.Pool>();
         var installed = new List<string>();
+        var addons = new List<string>();
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in body.Replace("\r", "").Split('\n').Skip(1))
             switch (line.Split('\t'))
@@ -109,11 +113,14 @@ public static class BridgeWire
                 case ["installed", var all]:
                     installed = List(all);
                     break;
+                case ["addons", var shipped]:
+                    addons = List(shipped);
+                    break;
                 case ["name", var map, var name] when map.Length > 0 && name.Trim().Length > 0:
                     names[map] = name.Trim();
                     break;
             }
-        return pools.Count == 0 ? null : new(head.FirstOrDefault() is { Length: > 0 } build ? build : "?", pools, installed, names, null);
+        return pools.Count == 0 ? null : new(head.FirstOrDefault() is { Length: > 0 } build ? build : "?", pools, installed, names, null) { Addons = addons };
     }
 
     /// <summary>The fields after the message and its version on a body's first line, each trimmed; null when the first line is not this message in
