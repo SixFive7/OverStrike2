@@ -476,7 +476,11 @@ lines start anew then, and it shows empty until the next line (before hud-415 it
 feed is live (`chaton` on `os_screen`: no failed poll in a row and an answer within 60 s - the bridge's long poll answers every 25 s at the least) and beats (`hb`, on and off by turns every 10 s, each turn restarting a 35 s
 animation that hides it): a plugin that stops leaves its last beat, which runs out, and CS2's own chat shows again. Only a game whose HUD check named v4.14.0 or
 later gets its words (`HudChat.Feeds`) - none before the check, which a v4.13.0 game would log as "Unable to find panel" - and a slot's entries go when its
-player leaves and again when a new one takes it (`ClearSlot`): the entity hands a joining game the slot's entries as they were left. **The pointer** to CS2's
+player leaves, when a new connection begins in it (before its game's first full update) and when it is put in (`ClearSlot`): the entity hands a joining game
+the slot's entries as they were left. A new connection starts with no content known and nothing of the slot's last occupant - its record, window, page, view
+and selections go at its start (`HudConnections`, the plugin's `OnConnect`), and at its put-in its account's last content, the plugin's and the bridge's word,
+no longer counts until this game's own click; only a game coming back through a map change, within 180 s of the map's start, keeps what was known of it (the
+re-check of rel-220 at 997c7bb: a v4.14.0 game that took the slot of a v4.15.0 one was handed HISTORY's cards at its first update). **The pointer** to CS2's
 typing line has a slot of its own in the dock (`os-chat-ptrslot`, 48 px: two rows, three at 4:3) between the column's foot and the typing line, pointing down at
 it: the column ends above the slot, so the pointer covers no row of ours; the slot is opaque as the column is, so none of CS2's lines shows in it (dimmed only, it
 let CS2's newest line show through under the pointer - the lab's final round of release 218); and it stays clear of the typing line - in a match (the slot at

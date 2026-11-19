@@ -793,6 +793,18 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         && clear.Contains("thumbs.Remove(key)", StringComparison.Ordinal) && clear.Contains("catch (Exception e)", StringComparison.Ordinal)
         && layout.Contains("Marshal.ReadIntPtr(first + i * size) == kind", StringComparison.Ordinal) && layout.Contains("if (statesChecked == (first, count, size)) return statesOk;", StringComparison.Ordinal),
         "HUD entity: made at any load while a map is on (a hot reload, or css_plugins load, which passes hotReload false), with no capture pulse; a new player's slot cleared in the entity (ClearSlot) before anything is sent to it, once the layout states are checked to lie as it reads them (every one beginning with the same class pointer), and marked for the network at once");
+    // a new connection in a slot (HudConnections.cs; the re-check of rel-220 at 997c7bb, R1): cleared at its very start, before its game's first full update, and
+    // with no content known - none while it is not in, and at its put-in its account's last content forgotten unless the game comes back through a map change
+    var connect = Body(screen, "void OnConnect(int slot, string name, string ip)");
+    var host = File.ReadAllText(Path.Combine(plugin, "OverStrike2.cs")).Replace("\r\n", "\n");
+    Check(screen.Contains("plugin.RegisterListener<Listeners.OnClientConnect>(OnConnect);", StringComparison.Ordinal)
+        && At(connect, "connections.Connect(slot);") >= 0 && At(connect, "connections.Connect(slot);") < At(connect, "Leave(slot);") && At(connect, "Leave(slot);") < At(connect, "ClearSlot(slot)")
+        && put.Contains("if (!connections.PutIn(slot, human != null ? Account(human) : -1, DateTime.UtcNow) && human != null)", StringComparison.Ordinal)
+        && put.Contains("hudSeen.Remove(Account(human));", StringComparison.Ordinal) && put.Contains("freshJoins.Add(Account(human));", StringComparison.Ordinal)
+        && File.ReadAllText(Path.Combine(plugin, "HudScreenFrame.cs")).Contains("connections.VersionAt(p.Slot, VersionOf(account))", StringComparison.Ordinal)
+        && host.Contains("hud?.Gone(player.Slot, mapEnding);", StringComparison.Ordinal) && screen.Contains("if (mapChange) connections.LeftAtMapChange(Account(leaving));", StringComparison.Ordinal)
+        && screen.Contains("connections.MapEnded();", StringComparison.Ordinal) && screen.Contains("connections.MapStarted(DateTime.UtcNow);", StringComparison.Ordinal),
+        "HUD: a new connection in a slot starts with nothing of the last occupant's - its record, page, view, selections, check and TAB, what it was sent and the entity's entries go at the connection's start (OnClientConnect), before its first full update - and with no content known: none while it is not in, and at its put-in its account's last content, this plugin's and the bridge's word, forgotten unless the game comes back through a map change (HudConnections)");
 }
 
 // ---- the block file (bridge/Shared/Modes.cs): every game mode's value in one file ----
