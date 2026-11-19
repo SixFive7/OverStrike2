@@ -858,6 +858,14 @@ after MAPS (`os_tab_history`, `os_tab_stats`), current while they show (`page-hi
 and every state a class; the buttons take clicks only, so CS2 keeps a name for none of them. MAPS' History button (`os_fl_hist`, the first History view's) is
 gone from the layout. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px.
 
+**Known issue, an older content's console** (the re-checks of rel-220 at 997c7bb and cd4b877): CS2's game looks up every panel id the HUD's entity has been
+given on the map at its full update - the entity's list of ids (`m_vecPanelIds`) only ever grows, and every player's entries name ids from it - so a game on an
+older content that joins after a v4.15.0 player has shown HISTORY or STATS on that map logs "Unable to find panel with id" in its console for those pages'
+panels (up to 18: `os_h1` to `os_h4` and their thumbs, STATS' eight bars and two pictures), whichever slot it takes and whatever was cleared: its own slot's
+entries are cleared when a player leaves and when the next is put in (`ClearSlot`), and the server sends it none of the pages' own (`HasHistory`). The entity is
+new with every map, so the lines go with the next map change. Console lines only: nothing shows in the game, and a game on the current content has every one
+of those panels.
+
 - **HISTORY** (`HudHistoryPage`, the plugin's own, from its copy of the history): four wide cards a page, newest first (`os_h1` to `os_h4`, 142 px high). A card
   has the map's picture (`os_h<k>_thumb`, the map's own as on the browser's cards) with its mode and On now, its name, Official and size, when it ran and how long,
   how it ended, who joined, how often the map has been played and a fun line; at its right the map's likes with the player's own Like and Dislike

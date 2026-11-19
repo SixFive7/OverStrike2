@@ -53,6 +53,7 @@ sealed partial class HudScreen
     HudState? stateRaw, state;                        // the bridge's newest state as it came (end times), and as of this frame (its countdowns worked out); null until the first answer
     VoteState voteRaw = new(), vote = new();          // the vote and the modes, off the same text (MapVote.cs): as it came, and as of this frame
     readonly Dictionary<int, HudPlayer> players = new(); // slot -> everything the HUD keeps for that slot's player (HudPlayer.cs): new with every player, gone when they leave
+    readonly Dictionary<int, string> shownNames = new(); // slot -> the name the last frame drew that player by: their leave's line in the chat column says it
     readonly HudFrame frame = new();                  // what a frame shows (../../bridge/Shared/HudFrame.cs): this class takes the state, runs the check and sends
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
     readonly JoinTimes joins = new();                 // each account's last real join: the version banner of v4.0.0 to v4.5.0 for a while, and the Players page's time on
@@ -234,6 +235,10 @@ sealed partial class HudScreen
     /// <summary>The settings module's mode went on (os_mode, a map start): the HUD's classes follow it.</summary>
     public void SetMode(Modes.Mode m) { mode = m; Server.NextFrame(Frame); }
 
+    /// <summary>The name the HUD last showed this slot's player by, else the one given: a leave's line in the chat column says the name everybody saw - at the
+    /// disconnect the engine's name can be another (on a test copy the Steam name, where the lab's OsDocName gave a test name).</summary>
+    public string NameShown(int slot, string given) => shownNames.TryGetValue(slot, out var name) && name.Trim() != "" ? name : given;
+
     /// <summary>A player left (a map change's reconnect too): their slot forgets them (Leave), and the HUD their game showed is forgotten here too, not only at
     /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read. The slot's
     /// entries in the entity go at once (ClearSlot), marked through the slot's own state (its capture, off): a game that takes the slot next is handed them in its
@@ -254,6 +259,7 @@ sealed partial class HudScreen
     void Leave(int slot)
     {
         players.Remove(slot);
+        shownNames.Remove(slot);
         slots.Gone(slot);
         gate.Gone(slot);
         tab.Gone(slot);

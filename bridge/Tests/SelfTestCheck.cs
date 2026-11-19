@@ -312,6 +312,13 @@ static partial class Program
             && HudCheck.VersionOf(seenHere, true, bridgeSays, 1002) == "v4.12.2" && HudCheck.VersionOf(seenHere, false, bridgeSays, 1003) == HudVersion.Unknown
             && HudCheck.VersionOf(seenHere, true, bridgeSays, 1003) == "" && HudCheck.VersionOf(seenHere, true, bridgeSays, 1004) == HudVersion.Unknown
             && HudCheck.VersionOf(seenHere, false, null, 1005) == "" && !HudChat.Feeds(HudCheck.VersionOf(seenHere, true, bridgeSays, 1001)));
+        var throughChange = new HudState();
+        throughChange.Verified[1006] = HudVersion.Content;
+        var afterChange = HudCheck.VersionOf(new Dictionary<long, string>(), false, throughChange, 1006); // the change's disconnect forgot its click here (Gone); no real join came
+        Check("HUD check: a game coming back through a map change keeps its content with no new click - the plugin forgot its click at the change's disconnect, and with no "
+            + "real join the bridge's word stands - so HISTORY, STATS and the chat column stay (the re-check of rel-220 at cd4b877 lost all three: a connection rule took "
+            + "every reconnect for a new game)",
+            afterChange == HudVersion.Content && HudBrowser.HasHistory(afterChange) && HudChat.Feeds(afterChange));
         Check("TAB: the bits are CounterStrikeSharp's (IN_SCORE 1<<33, IN_USE 1<<5)", HudTab.Scoreboard == 0x200000000UL && HudTab.Use == 0x20UL);
         Check("TAB: the mode flag reads down and off; the names of the modes TAB had before read as down, anything else as off - and every name reads back",
             HudTab.Parse("down") == HudTab.Mode.Down && HudTab.Parse(" Down ") == HudTab.Mode.Down && HudTab.Parse("off") == HudTab.Mode.Off

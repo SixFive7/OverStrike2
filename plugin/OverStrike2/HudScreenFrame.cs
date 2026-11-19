@@ -49,7 +49,7 @@ sealed partial class HudScreen
         WorkshopCards(humans, now);
 
         drawing.Clear();
-        foreach (var p in humans) drawing[p.Slot] = p;
+        foreach (var p in humans) { drawing[p.Slot] = p; shownNames[p.Slot] = p.PlayerName; } // the name each slot's player is shown by: their leave's line says it (NameShown)
         var matchScreen = MatchScreen();
         matchEndLifted = ChatLift(matchScreen, now);
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,

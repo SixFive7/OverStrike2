@@ -803,6 +803,18 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         && clear.Contains("thumbs.Remove(key)", StringComparison.Ordinal) && clear.Contains("catch (Exception e)", StringComparison.Ordinal)
         && layout.Contains("Marshal.ReadIntPtr(first + i * size) == kind", StringComparison.Ordinal) && layout.Contains("if (statesChecked == (first, count, size)) return statesOk;", StringComparison.Ordinal),
         "HUD entity: made at any load while a map is on (a hot reload, or css_plugins load, which passes hotReload false), with no capture pulse; a new player's slot cleared in the entity (ClearSlot) before anything is sent to it, once the layout states are checked to lie as it reads them (every one beginning with the same class pointer), and marked for the network at once");
+    // a game coming back through a map change keeps its content: only the bridge's real join (css_guide, Joined) marks a game fresh - never a put-in or a
+    // disconnect, which every map change brings (the re-check of rel-220 at cd4b877: a rule that took every reconnect for a new game lost HISTORY, STATS and the
+    // chat column at each change)
+    var joinedBody = Body(screen, "public void Joined(CCSPlayerController player, bool first)");
+    Check(screen.Split("freshJoins.Add(").Length == 2 && joinedBody.Contains("freshJoins.Add(Account(player));", StringComparison.Ordinal)
+        && !Body(screen, "void OnPutInServer(int slot)").Contains("hudSeen.Remove", StringComparison.Ordinal),
+        "HUD: only a real join (the bridge's css_guide) makes the server forget which content a game holds until its own click - a map change's reconnect keeps it: HISTORY, STATS and the chat column stay");
+    var hostSrc = File.ReadAllText(Path.Combine(plugin, "OverStrike2.cs"));
+    Check(hostSrc.Contains("hud.ChatEvent(HudChat.Left(hud.NameShown(player.Slot, player.PlayerName)))", StringComparison.Ordinal)
+        && File.ReadAllText(Path.Combine(plugin, "HudScreenFrame.cs")).Contains("shownNames[p.Slot] = p.PlayerName;", StringComparison.Ordinal)
+        && Body(screen, "void Leave(int slot)").Contains("shownNames.Remove(slot);", StringComparison.Ordinal),
+        "HUD: the chat column's leave line names the player as the HUD last showed them - on a test copy the lab's test name, not the Steam name the disconnect carries - and a slot's next player starts with no name of the last one's");
 }
 
 // ---- the block file (bridge/Shared/Modes.cs): every game mode's value in one file ----
