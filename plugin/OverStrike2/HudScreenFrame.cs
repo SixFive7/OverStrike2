@@ -126,7 +126,7 @@ sealed partial class HudScreen
     {
         var account = Account(p);
         var checking = checkMode != HudCheck.Mode.Off && gate.Checking(p.Slot);
-        return new(p.Slot, account, p.PlayerName, p.Team switch { CsTeam.CounterTerrorist => "CT", CsTeam.Terrorist => "T", _ => "SPEC" }, connections.VersionAt(p.Slot, VersionOf(account)),
+        return new(p.Slot, account, p.PlayerName, p.Team switch { CsTeam.CounterTerrorist => "CT", CsTeam.Terrorist => "T", _ => "SPEC" }, VersionOf(account),
             checking, checking ? gate.SecondsLeft(p.Slot, now) : 0, joins.Since(account, now), tab.Cursor(p.Slot), keptMenu.Contains(account), recentSearches.GetValueOrDefault(account),
             tab.Holding(p.Slot));
     }

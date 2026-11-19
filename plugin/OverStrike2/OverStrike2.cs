@@ -193,7 +193,7 @@ public class OverStrike2Plugin : BasePlugin
         if (ev.Userid is not { IsValid: true } player) return HookResult.Continue;
         boosts.Remove(player.Slot); // a map change disconnects everyone too: nothing on screen survives it
         if (!player.IsBot && !mapEnding) hud?.ChatEvent(HudChat.Left(player.PlayerName)); // the chat column's leave (HUD content v4.14.0)
-        hud?.Gone(player.Slot, mapEnding); // a map change's leave: the same game comes back (HudConnections)
+        hud?.Gone(player.Slot);
         return HookResult.Continue;
     }
 

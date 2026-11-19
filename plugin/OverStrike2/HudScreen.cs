@@ -39,7 +39,6 @@ sealed partial class HudScreen
     readonly string addon;                            // the Workshop item the server hands out (hud.addon): its link is in the check's messages
     readonly HudGate gate = new();                    // the HUD check on this map (HudCheck.cs)
     readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudVersion.IsWord); the bridge keeps the same
-    readonly HudConnections connections = new();      // which slots' connections are not in yet, and which games come back through a map change (HudConnections.cs)
     readonly HashSet<long> freshJoins = new();        // accounts that joined for real since this plugin loaded, until their own click: the bridge's word is not theirs yet for the players on the server
     readonly ItemWatch item;                          // whether Steam shows the item to everybody yet: nobody is disconnected until it does
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
@@ -83,11 +82,10 @@ sealed partial class HudScreen
         log.LogInformation("Over Strike 2 HUD: {Layout}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
             bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); scoresOn.Clear(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); connections.MapStarted(DateTime.UtcNow); });
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); scoresOn.Clear(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
         plugin.RegisterListener<Listeners.OnPlayerButtonsChanged>(OnButtons);
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
-        plugin.RegisterListener<Listeners.OnClientConnect>(OnConnect);
         plugin.RegisterListener<Listeners.OnClientPutInServer>(OnPutInServer);
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { worldReady = true; EnsureEntity(); return HookResult.Continue; });
         plugin.RegisterEventHandler<EventPlayerHurt>(OnHurt);
@@ -240,12 +238,10 @@ sealed partial class HudScreen
     /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read. The slot's
     /// entries in the entity go at once (ClearSlot), marked through the slot's own state (its capture, off): a game that takes the slot next is handed them in its
     /// first full update, which comes before its put-in (the live lab's check of release 218: the clear at the put-in ran in the second the v4.13.0 game logged them).</summary>
-    public void Gone(int slot, bool mapChange = false)
+    public void Gone(int slot)
     {
-        connections.Gone(slot);
         if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving)
         {
-            if (mapChange) connections.LeftAtMapChange(Account(leaving)); // the same game comes back on the next map: what is known of its content stays known
             hudSeen.Remove(Account(leaving));
             if (Live && ClearSlot(slot)) entity!.SetInputCaptureEnabled(leaving, false);
         }
@@ -281,7 +277,6 @@ sealed partial class HudScreen
     void OnMapEnd()
     {
         worldReady = false; // the map takes the entity with it; the next round start (or spawn) makes a new one
-        connections.MapEnded(); // the games that leave now leave for the map change
         entity = null;
         ForgetAll();
         captured.Clear();
@@ -290,33 +285,13 @@ sealed partial class HudScreen
         checkHigh = HudCheck.Mode.Off;
     }
 
-    /// <summary>A connection begins in a slot (OnClientConnect), before its game's first full update, which hands it the slot's entries as they are: nothing of the
-    /// slot's last occupant stays - its record, its window, page, view and selections, the check and TAB, what it was sent (Leave), and the entity's entries for
-    /// the slot (ClearSlot) - and no content is known for the new game until its put-in says whose game it is (HudConnections). The lab round on rel-220's
-    /// 997c7bb: a v4.14.0 game that took the slot of a v4.15.0 one was handed HISTORY's cards at that update, 18 s before its check.</summary>
-    void OnConnect(int slot, string name, string ip)
-    {
-        connections.Connect(slot);
-        Leave(slot);
-        if (Live && ClearSlot(slot)) { playerDirty = true; MarkChanged(); }
-        captured[slot] = false;
-    }
-
     /// <summary>A new player in a slot: whatever the last occupant had open is closed for them, before anything else is sent - the slot's entries in the entity go
     /// (ClearSlot), or where they could not, its window's classes are put off. Marked for the network at once: the joining game's first snapshot may go out before
-    /// the next frame. Its account known now: a game that is not coming back through a map change is a new game, whose account's last content - this plugin's
-    /// and the bridge's word for it - no longer counts until its own click (HudConnections.PutIn).</summary>
+    /// the next frame.</summary>
     void OnPutInServer(int slot)
     {
         Leave(slot);
-        var joining = Utilities.GetPlayerFromSlot(slot);
-        var human = joining is { IsValid: true, IsBot: false } ? joining : null;
-        if (!connections.PutIn(slot, human != null ? Account(human) : -1, DateTime.UtcNow) && human != null)
-        {
-            hudSeen.Remove(Account(human));
-            freshJoins.Add(Account(human));
-        }
-        if (Live && human is { } p)
+        if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
             if (!ClearSlot(slot))
                 foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback", "vpeek", "vpeekok" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))

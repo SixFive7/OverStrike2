@@ -234,55 +234,6 @@ static partial class Program
             reachedOld.Count == 0 && layoutHas && pageScreen.C("os_st_bar1", "w10", 1) && pageScreen.Pictured.ContainsKey((1, "os_st_pic1")) && pageScreen.C(HudHistoryPage.Card(1), "used", 2)
             && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.Thumb(1))) && pageScreen.V(HudView.Global, "osst") == "15 matches" && pageScreen.C(HudView.Global, "stf1"));
 
-        // ---- R1 (the re-check of rel-220 at 997c7bb): one client in one slot, its game on v4.15.0 with HISTORY open, then a new game on v4.14.0 in that slot. A
-        // new connection starts with no known content and no page: nothing of content v4.15.0's own goes to the slot from the connection's start (the plugin's
-        // OnConnect: HudConnections.Connect, Leave) through its put-in (its account's last content forgotten) until its own check names v4.15.0 or a newer one.
-        // A game coming back through a map change keeps what was known of it ----
-        var conns = new HudConnections();
-        var r1Slots = new HudSlots();
-        var r1Players = new Dictionary<int, HudPlayer>();
-        HudPlayer R1Player(int n) => r1Players.TryGetValue(n, out var rp) ? rp : r1Players[n] = new HudPlayer();
-        HashSet<string> R1Sent(int sec, string version) // a frame for slot 1 alone: the content levels of what went to it
-        {
-            var s = new RecordedScreen();
-            frame.Draw(new HudFrame.World(live, new VoteState(), null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, HudVersion.Level, false, true, _ => null, null,
-                    t0.AddSeconds(sec), HudState.Ms(t0.AddSeconds(sec)), History: pageHistory, Stats: pageStats),
-                [new(1, 1001, "Alice", "CT", conns.VersionAt(1, version), false, 0, null)], r1Slots, R1Player, new FunClicks(), s);
-            return [.. s.IdsOf(1).Concat(s.IdsOf(HudFrame.Everybody)).Intersect(newIn415)];
-        }
-        r1Slots.Joined(1, first: false, alive: true, t0);
-        r1Slots.Show(1, HudSlots.Page.History, t0.AddSeconds(2));
-        var oldGame = R1Sent(3, HudVersion.Content); // the v4.15.0 game: its cards
-        conns.Connect(1); // the new game's connection begins in the slot - what OnConnect does next: the slot's record and view go (Leave)
-        r1Players.Remove(1);
-        r1Slots.Gone(1);
-        var connecting = R1Sent(4, HudVersion.Content); // the account's last game's content, as the bridge's word still says it
-        r1Slots.Show(1, HudSlots.Page.History, t0.AddSeconds(5)); // ...and were the slot's page HISTORY all the same, still nothing: no content known
-        var connectingOnHistory = R1Sent(6, HudVersion.Content);
-        var r1Back = conns.PutIn(1, 1001, t0.AddSeconds(7)); // in: not through a map change, so its account's last content no longer counts (the plugin forgets it)
-        var putIn = R1Sent(8, r1Back ? HudVersion.Content : "");
-        r1Slots.Show(1, HudSlots.Page.History, t0.AddSeconds(25)); // its window on HISTORY again, the worst case
-        var olderCheck = R1Sent(26, "v4.14.0"); // its own check names v4.14.0, 18 s on
-        var newerCheck = R1Sent(27, HudVersion.Content); // a game whose check names v4.15.0 gets the page again
-        conns.MapEnded();
-        conns.LeftAtMapChange(1001);
-        conns.MapStarted(t0.AddMinutes(10));
-        conns.Connect(1);
-        var changeBack = conns.PutIn(1, 1001, t0.AddMinutes(10).AddSeconds(40)); // the same game coming back through a map change
-        conns.Connect(1);
-        var midMap = conns.PutIn(1, 1001, t0.AddMinutes(12)); // a reconnect in the middle of the map: a new game
-        conns.MapEnded();
-        conns.LeftAtMapChange(1001);
-        conns.MapStarted(t0.AddMinutes(20));
-        conns.Connect(1);
-        var tooLate = conns.PutIn(1, 1001, t0.AddMinutes(20).AddSeconds(HudConnections.MapChangeSeconds + 1)); // too long after the change to be it
-        Check("Frame, R1: a new connection in a slot starts with no known content and no page - nothing of content v4.15.0's own goes to it from its start through its "
-            + "put-in (its account's last content forgotten), nor after its own check names v4.14.0, even with the slot's page on HISTORY; a check naming v4.15.0 "
-            + "brings the page back; only a game coming back through a map change, within its load, keeps what was known of it"
-            + (connecting.Count + connectingOnHistory.Count + putIn.Count + olderCheck.Count > 0 ? ": " + string.Join(" ", connecting.Concat(connectingOnHistory).Concat(putIn).Concat(olderCheck).Distinct()) : ""),
-            oldGame.Contains(HudHistoryPage.Card(1)) && connecting.Count == 0 && connectingOnHistory.Count == 0 && !r1Back && putIn.Count == 0 && olderCheck.Count == 0
-            && newerCheck.Contains(HudHistoryPage.Thumb(1)) && changeBack && !midMap && !tooLate && !conns.Starting(1) && conns.VersionAt(1, "v4.15.0") == "v4.15.0");
-
         // ---- a slot's record: a new player starts from nothing of the last one's ----
         PlayerOf(1).Browser.Find("aim");
         PlayerOf(1).Note = ("Refused", t0.AddMinutes(5), "you");
