@@ -334,7 +334,7 @@ static partial class Program
             rconDown = false;
             Check("RCON not answering: the line for everybody says it did not restart", h.Said("The server did not answer - The match did not restart") && RematchDue == null);
 
-            // ---- the warm-up (EarlyJoin.cs, WarmUp.cs): every map starts in CS2's own, the plugin's; the bridge follows it and ends it once everybody coming has
+            // ---- the warm-up (EarlyJoin.cs, WarmUp.cs): every map starts with the plugin's - CS2's own, or the match itself; the bridge follows it and ends it once everybody coming has
             // spawned (two humans at least), at the most since the first spawn, or at !start - its end the one restart. The plugin faked here: CS2's warm-up on or
             // off, the plugin's plan, os_warmup's answer and os_joining's; the server's own list (status) from who is where ----
             void Connects((string Name, string Id) p) => h.Line($"\"{p.Name}<2><{p.Id}><>\" connected, address \"192.0.2.9:27005\""); // the line as CS2's log push sends it
@@ -455,8 +455,8 @@ static partial class Program
             Check($"Warm-up: !start, by anybody, begins the match now for a friend who is not coming (+{started.EndAt:0} s); the line says who typed it and who joins on arrival, "
                 + "once a look finds CS2's warm-up off",
                 started.EndAt >= 30 && started.EndAt <= 31 && started.By == "bridge" && started.Restarts == 0 && h.Said("The match starts now - Bo typed !start - Cy joins it on arrival"));
-            // CS2 ends its warm-up seconds after the plugin's request, and in Arms Race only through its player-count check (the live lab, 2026-11-19): the bridge
-            // says the match is on once a look finds it off, and asks again while it is not
+            // the plugin's end comes seconds after the request (the restart's round start, CS2's warm-up off), and in the live lab of 2026-11-19 Arms Race's did not
+            // come at all: the bridge says the match is on once a look finds it off, and asks again while it is not
             Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 8);
             warmEndNow = () => warmUpNow!(); // the plugin answers, and CS2 stays in its warm-up for now
             Click(three[1], Hud.StartWord);
@@ -466,7 +466,7 @@ static partial class Program
             var startingRefused = h.Said("The match is starting already");
             h.Run(WarmUpEndWaitSeconds);
             var askedAgain = h.Sent.Count(c => c == $"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") == 2;
-            warmOn = false; // CS2's player-count check ended it
+            warmOn = false; // the end came
             h.Run(1.1);
             Check($"Warm-up: an end asked for is said once a look finds CS2's warm-up off - none before, no banner meanwhile, a second !start refused as starting already, asked "
                 + $"again {WarmUpEndWaitSeconds} s on - and then the line",
@@ -529,6 +529,25 @@ static partial class Program
             h.Run(2.1);
             Check($"...nor begun again within {WarmUpOffMost} s: then the match is on for the bridge too, and the line says so",
                 stillWaited && WarmUpSince == null && Banner() == null && h.Said("The match starts now - The warm-up is over - Bo and Cy join it on arrival"));
+            // the restart kind (Arms Race, Deathmatch: their mode rules refuse mp_warmup_end): the match itself is the waiting time, so it can end during it - an
+            // Arms Race win, its length run out. No vote: the plugin's warm-up ends, and the match-end screen ends at once - the next match on the map is the real one
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 10);
+            h.Sent.Clear();
+            HudActive = () => true;
+            h.MatchEnd();
+            HudActive = () => false;
+            Check("Warm-up: a match end during its waiting time (the restart kind's: an Arms Race win) is no end of the real match - no vote, the plugin's warm-up ended, "
+                + "the match-end screen cut to the next match at once, and the line says the win does not count",
+                Ballot == null && h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") && h.Sent.Contains(NextMatch.Line(AgainSeconds)) && WarmUpSince == null
+                && h.Said($"The match starts now - {EarlyJoin.WonInWarmUp} - Cy joins it on arrival"));
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 10);
+            StartVote(three[0].Item1, three[0].Item2);
+            h.Sent.Clear();
+            h.MatchEnd();
+            Check("...but with a vote open the vote decides, as at any match end (Play this map again: its next match, the real one) - the warm-up ended all the same, "
+                + "with no line and no cut of the screen to the next match",
+                Ballot is { Open: true, MatchEnded: true } && h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") && !h.Sent.Contains(NextMatch.Line(AgainSeconds))
+                && WarmUpSince == null && !h.Said(EarlyJoin.WonInWarmUp));
             Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1)], 6);
             warmOn = false; // off before anybody spawned: the plugin begins it again within seconds (EarlyJoinWatch)
             h.Run(2.1);

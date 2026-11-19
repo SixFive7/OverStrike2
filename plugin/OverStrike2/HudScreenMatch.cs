@@ -41,7 +41,7 @@ sealed partial class HudScreen
 
     /// <summary>The round that is on gets the new length, counted from its start; a length it is past, or nearly, ends it MatchLength.LeastSeconds from now. Only in Arms Race and
     /// Deathmatch, whose one round is the match (release 197), and only while a match is on: the match-end screen has no round to set, and the next match's round start reads
-    /// mp_roundtime, which the bridge has set by now. The warm-up every map starts in (EarlyJoinWatch) answers NoMatch the same way: the match after it reads mp_roundtime as
+    /// mp_roundtime, which the bridge has set by now. CS2's own warm-up (EarlyJoinWatch's native kind) answers NoMatch the same way: the match after it reads mp_roundtime as
     /// its round starts.</summary>
     string SetRoundTime(int minutes)
     {
@@ -60,7 +60,7 @@ sealed partial class HudScreen
 
     /// <summary>Wingman's count of rounds for the match that is on (release 199). Its sides switch at half the count, so the match takes the new one only while neither
     /// count's halftime has come (MatchLength.ThisMatch); otherwise nothing is set here, and the bridge sets it when the next match starts. With no match on - the
-    /// warm-up every map starts in, the match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
+    /// warm-up of CS2's own (EarlyJoinWatch's native kind, Wingman's), the match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
     string SetMaxRounds(int rounds)
     {
         if (ConVarKeeper.Find(MaxRounds) is not { } cv) return MatchLength.Reply(MatchLength.Result.NotHere, $"this build has no {MaxRounds}, nothing set");

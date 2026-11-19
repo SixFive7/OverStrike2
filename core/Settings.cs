@@ -75,6 +75,7 @@ public sealed class Settings
     public BridgeSection Bridge { get; } = new();
     public HudSection Hud { get; } = new();
     public PluginSection Plugin { get; } = new();
+    public WarmUpSection WarmUp { get; } = new();
     public RestartsSection Restarts { get; } = new();
     public MapsSection Maps { get; } = new();
     public SyncSection Sync { get; } = new();
@@ -517,6 +518,14 @@ public sealed class Settings
         Bool("plugin.testBots", P, false, "A test copy's: bots may play - the plugin's block leaves bot_quota and bot_quota_mode to RCON, so the live lab has bots to look with (one bot_add_ct gives two, one a side, and bot_quota 2: CS2's own). Off on production, where the only bots are the players' own, from FUN, Bots.",
             s => s.Plugin.TestBots, (s, v) => s.Plugin.TestBots = v),
 
+        // warmup: how each mode's warm-up runs (the plugin's EarlyJoinWatch.cs)
+        Choice("warmup.armsrace", P, "restart", ["native", "restart", "off"], "Arms Race's warm-up: restart - the match itself is the waiting time, and one restart (os_restart) begins the real match; native - CS2's own warm-up, which CS2 ends on no request in Arms Race (its mode rules refuse mp_warmup_end); off - none, the match is on at once.",
+            s => s.WarmUp.ArmsRace, (s, v) => s.WarmUp.ArmsRace = v),
+        Choice("warmup.deathmatch", P, "restart", ["native", "restart", "off"], "Deathmatch's warm-up, the same choices: its mode rules refuse mp_warmup_end as Arms Race's do, so restart by default.",
+            s => s.WarmUp.Deathmatch, (s, v) => s.WarmUp.Deathmatch = v),
+        Choice("warmup.wingman", P, "native", ["native", "restart", "off"], "Wingman's warm-up, the same choices: CS2's own warm-up, which mp_warmup_end ends there, by default.",
+            s => s.WarmUp.Wingman, (s, v) => s.WarmUp.Wingman = v),
+
         // restarts: the restart watcher
         Time("restarts.daily", S | Y, "07:00", "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it.",
             s => s.Restarts.Daily, (s, v) => s.Restarts.Daily = v),
@@ -661,6 +670,13 @@ public sealed class PluginSection
 {
     public bool Enabled { get; set; } = true;
     public bool TestBots { get; set; }
+}
+
+public sealed class WarmUpSection
+{
+    public string ArmsRace { get; set; } = "restart";
+    public string Deathmatch { get; set; } = "restart";
+    public string Wingman { get; set; } = "native";
 }
 
 public sealed class RestartsSection

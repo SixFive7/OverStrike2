@@ -53,7 +53,7 @@ public sealed class HudState
     public bool RematchFair;                            // ...a fairness restart, which only a bridge before the warm-up sends: the countdown banner says so
     public int RematchCount = 1;                        // ...and how many came in, for the banner's "is" or "are"
     public int RematchIn = -1;                          // ...its seconds left, -1 when none is (worked out by AsOf)
-    public long WarmUpAtMs;                             // the warm-up (EarlyJoin.cs, the bridge's WarmUp.cs): the latest start - CS2's own warm-up end - unix ms, 0 while nobody has spawned...
+    public long WarmUpAtMs;                             // the warm-up (EarlyJoin.cs, the bridge's WarmUp.cs): the latest start - the warm-up's end at the most - unix ms, 0 while nobody has spawned...
     public long WarmUpGoMs;                             // ...everybody coming is in: the match starts then (the settle's end), 0 while not
     public string WarmUpTitle = "", WarmUpLine = "";    // ...the countdown banner's title and line (EarlyJoin.Title, Line); "" while no warm-up is on
     public int WarmUpIn = -1;                           // ...its seconds left, to the settle's end or else the latest start; -1 while it has neither (worked out by AsOf)

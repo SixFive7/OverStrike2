@@ -138,6 +138,14 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `plugin.enabled` | boolean | `true` | server | Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla. |
 | `plugin.testBots` | boolean | `false` | plugin | A test copy's: bots may play - the plugin's block leaves bot_quota and bot_quota_mode to RCON, so the live lab has bots to look with (one bot_add_ct gives two, one a side, and bot_quota 2: CS2's own). Off on production, where the only bots are the players' own, from FUN, Bots. |
 
+### `warmup`
+
+| Key | Type | Default | Read by | What |
+|---|---|---|---|---|
+| `warmup.armsrace` | native \| restart \| off | `restart` | plugin | Arms Race's warm-up: restart - the match itself is the waiting time, and one restart (os_restart) begins the real match; native - CS2's own warm-up, which CS2 ends on no request in Arms Race (its mode rules refuse mp_warmup_end); off - none, the match is on at once. |
+| `warmup.deathmatch` | native \| restart \| off | `restart` | plugin | Deathmatch's warm-up, the same choices: its mode rules refuse mp_warmup_end as Arms Race's do, so restart by default. |
+| `warmup.wingman` | native \| restart \| off | `native` | plugin | Wingman's warm-up, the same choices: CS2's own warm-up, which mp_warmup_end ends there, by default. |
+
 ### `restarts`
 
 | Key | Type | Default | Read by | What |

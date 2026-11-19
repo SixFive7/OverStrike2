@@ -103,6 +103,13 @@ static class SettingsTests
         Check("settings: the example's values, its references resolved", ex.Server.RconPassword == "rcon-secret-value" && ex.Bridge.Secret == "abc123"
               && ex.Hud.Addon == "3823993566" && ex.Hud.Check == "warn" && ex.Bridge.DiscoveryStock == 10 && ex.Restarts.Daily == new TimeOfDay(7, 0) && ex.Server.Name == "My CS2 server");
 
+        // ---- the warm-up's method a mode (the plugin's EarlyJoinWatch)
+        var wu = Read("""{ "schema": 1, "hud": { "addon": "3823993566" }, "warmup": { "armsrace": "native", "wingman": "sideways" } }""", Part.Plugin);
+        var wuDefault = Read("""{ "schema": 1, "hud": { "addon": "3823993566" } }""", Part.Plugin);
+        Check("settings: the warm-up's method a mode - restart in Arms Race and Deathmatch, CS2's own in Wingman by default; a value read, one not of native, restart and off keeps its default and is a problem",
+              wuDefault.WarmUp is { ArmsRace: "restart", Deathmatch: "restart", Wingman: "native" } && wu.WarmUp is { ArmsRace: "native", Deathmatch: "restart", Wingman: "native" }
+              && wu.Problems.Count == 1 && wu.Problems[0].Contains("warmup.wingman", StringComparison.Ordinal));
+
         // ---- comments, trailing commas, defaults for what is left out
         var s1 = Read("{ // a comment\n \"schema\": 1, /* and another */ \"server\": { \"port\": 27016, }, \"hud\": { \"addon\": \"3823993566\", }, }");
         Check("settings: JSON with comments and trailing commas; a key left out has its default",
