@@ -618,7 +618,7 @@ is no report: the same map groups read by hand from the server's install (CS2 1.
 `de_boulder`, `de_fachwerk` and `cs_shelter` gone, their files with them; Wingman 8, Cobblestone among them; Arms Race 4). Each report is compared with it,
 and every difference is logged and shown on `GET /health`, its `pools:` line. Arms Race's official maps stay the settings' (`bridge.officialMaps`); its
 pool is only compared. Deathmatch also plays one of ours, `de_ancient` - Ancient by day, installed but in Valve's competitive pool only - while its files
-are installed (`Modes.Mode.Extras`). Valve's names of the official maps are search words in the map browser: "cobblestone" finds `de_cbble` as well as the
+are installed (`Modes.Mode.Extras`), its picture the game's own screenshot as every official map's. Valve's names of the official maps are search words in the map browser: "cobblestone" finds `de_cbble` as well as the
 Workshop's ports, "office" finds `cs_office`. A `changelevel` the server answers with `invalid map name` fails at once - nothing is awaited, the mode goes
 back - and the map leaves every pool until the server process is a new one; before, it held every vote for the ten minutes a load may take, and the dice
 could roll it again. A map loads in its own mode: the bridge tells the plugin

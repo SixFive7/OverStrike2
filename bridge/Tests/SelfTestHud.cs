@@ -1001,6 +1001,13 @@ static partial class Program
                 Check("Thumbnails: each map's rule is its own picture - a listed map's JPEG in the addon, an official map's the game's own screenshot",
                     pictured.All(x => thumbRules.GetValueOrDefault(Rule(x)) is { } url && (x.Official
                         ? url == $"s2r://panorama/images/map_icons/screenshots/360p/{x.Name}_png.vtex" : url == $"file://{{images}}/custom_game/gungame_hud/thumbs/{x.Id}.jpg")));
+                // The official maps of every mode, our extras too (de_ancient in Deathmatch, srv-523): the menu above sees Arms Race's alone, so a Deathmatch or
+                // Wingman official map without a number showed no picture and failed nothing. Each is numbered, its rule the game's own 360p screenshot.
+                var officialKeys = Modes.All.SelectMany(m => m.Official.Concat(m.Extras)).Distinct().ToList();
+                var noPicture = officialKeys.Where(k => Array.IndexOf(HudThumbList.Keys, k) is var n && (n < 0
+                    || thumbRules.GetValueOrDefault(string.Join(".", HudThumbs.Classes(n))) != $"s2r://panorama/images/map_icons/screenshots/360p/{k}_png.vtex")).ToList();
+                Check($"Thumbnails: every official map of every mode, our extras too ({officialKeys.Count}), has the game's own screenshot as its picture{(noPicture.Count > 0 ? ": none for " + string.Join(", ", noPicture) : "")}",
+                    noPicture.Count == 0 && officialKeys.Contains("de_ancient") && officialKeys.Contains("de_cbble"));
                 var thumbNumbers = Enumerable.Range(0, HudThumbList.Keys.Length).Select(n => string.Join(".", HudThumbs.Classes(n))).ToHashSet();
                 Check($"Thumbnails: every picture numbered once ({HudThumbList.Keys.Length}), in {HudThumbs.Base} x {HudThumbs.MaxHigh} numbers, and no rule without a number (a map not listed yet has its rule too: hud/thumbs.py --ahead)",
                     HudThumbList.Keys.Distinct().Count() == HudThumbList.Keys.Length && HudThumbs.Count == HudThumbList.Keys.Length
