@@ -629,7 +629,15 @@ Anybody may change the length and press the two restarts, on the Game page or in
   (a plugin without it), after 5 unread replies in a row (`WarmUpUnreadMost`) or 30 s with no answer, and never while the last reply it read said on - the
   live lab on 5794269 lost Deathmatch's warm-up to one such reply, and Wingman's 11 s before its end. The line is looked for wherever it starts in the reply.
   A map change the bridge has not heard of yet - the plugin's map has nobody spawned on it while the bridge followed a spawn - ends the warm-up it followed with
-  no line, and the new map's is followed.
+  no line, and the new map's is followed. **No end before a spawn, and none said that did not come** (the live lab on 997c7bb: the evening's first connect,
+  killed before it got in, left Arms Race's map empty; the bridge asked for the end "nobody can say who has spawned", the restart started no round, the plugin
+  gave up - and the bridge said the match was on): the bridge asks for no end while no human has spawned on the map and is still in - `!start` is refused then,
+  "Nobody is on a side yet" - and its 180 s end for a warm-up nobody can say a spawn of only when the plugin says it cannot tell (`blind` on `os_warmup`'s
+  first line: loaded during the map). The restart kind's end with nobody on a side - everybody who spawned gone - is no end: the plugin's waiting time goes on,
+  its clock from the next spawn, and `os_warmup` says so (no first spawn), which the bridge follows with no line. An end the plugin could not confirm with
+  somebody on a side (no round start, CS2 kept its warm-up: 20 s, given up) is marked `failed`, and the bridge says none - no "ended", no line, the match counted
+  from the map's start; after three asks with no end it asks no more until a human spawns again, its banner up, nothing said. A joiner the server's list lost
+  before they were in is no longer present for anything (votes included).
   Catch-up counts nothing in CS2's warm-up, and a match length set during it is the match's after it (`From this match on`); in the restart kind's waiting
   time both act as in any match, catch-up starting over at the restart as the ladder does, and the length set staying for the real match. **Team
   damage:** in Arms Race and Wingman a teammate's hit hurts at least as an enemy's does while it runs (`EarlyJoin.TeamDamage`) - at its begin the plugin turns
@@ -644,7 +652,7 @@ Anybody may change the length and press the two restarts, on the Game page or in
   and writes no line; `NETWORK_DISCONNECT_LOOPDEACTIVATE` is a leaving, for the log stream and the plugin alike, `EarlyJoin.Reconnects`). A joiner at CS2's
   prompt to confirm a first Workshop download shows only in the last two: the game hears of a client only once it has every addon, so the plugin has no
   controller and no callback for it, and CS2's drop of it after 120 s writes no "disconnected" line - the server's list lacking them **5 s**, read after read,
-  ends it (`EarlyJoin.DropConfirmSeconds`: a list can lose a joiner a moment before the log stream says the HUD addon's reconnect), never for one on the way
+  ends it - gone, no longer present - (`EarlyJoin.DropConfirmSeconds`: a list can lose a joiner a moment before the log stream says the HUD addon's reconnect), never for one on the way
   back, and 150 s after their "connected" or their departure in any case (`EarlyJoin.SignOnMostSeconds`); the bridge reads that list every 2 s while anyone
   signs on, and each second of a warm-up. `os_warmup` says where it stands - on or off, the first spawn, the seconds left on CS2's clock, who is coming, each
   with who names them (`os_warmup bridge`: the bridge's two views as hex, whenever they change); `os_warmup end` is the bridge's and the console's, `os_warmup

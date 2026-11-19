@@ -53,6 +53,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
     string method = EarlyJoin.Native;                // this map's warm-up method (settings warmup.<mode>, methodOf), taken at its begin
     bool waiting;                                    // the restart method's waiting time runs: our warm-up is on, and CS2 has none
     bool matchOver;                                  // ...and its match ended (an Arms Race win, its length run out): on for the bridge until its word, its next match the real one
+    bool endFailed;                                  // the last end asked for would not come with somebody on a side: os_warmup marks it (EarlyJoin.FailedMark), so the bridge says nothing of one
     int roundStarts;                                 // round starts seen: the restart method's end is seen to come by the next one
     bool? wasOn;                                     // CS2's warm-up as the last look found it: a change nothing here asked for is logged (Watch)
     readonly Dictionary<string, DateTime> sentAt = new(); // this plugin's own warm-up commands, when sent: the command listener and Watch tell them from the console's
@@ -63,7 +64,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         plugin.RegisterListener<Listeners.OnMapStart>(_ =>
         {
             plan.MapStarted();
-            (connects, ours, again, againAfterSpawn, ended, firstSpawnTime, lastSet, clockFixes, ending, wasOn, waiting, matchOver, newestSpawn) = (0, false, 0, 0, "", null, null, 0, null, null, false, false, null);
+            (connects, ours, again, againAfterSpawn, ended, firstSpawnTime, lastSet, clockFixes, ending, wasOn, waiting, matchOver, newestSpawn, endFailed) = (0, false, 0, 0, "", null, null, 0, null, null, false, false, null, false);
             if (raised.Count > 0) { log.LogWarning("Over Strike 2 warm-up: the team damage raised on the map before was not put back at its end - this map's cfgs have set their own"); raised = []; }
             plugin.AddTimer(BeginDelay, () => Begin("the map's start"), TimerFlags.STOP_ON_MAPCHANGE);
         });
@@ -105,7 +106,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         try
         {
             if (plan.Skipped != null || Rules() is not { } rules) return;
-            method = methodOf(modeId());
+            (method, endFailed) = (methodOf(modeId()), false);
             if (method == EarlyJoin.Off)
             {
                 log.LogInformation("Over Strike 2 warm-up: none in {Mode} (warmup.{Mode} off) - the match is on at once", modeId(), modeId());
@@ -254,7 +255,12 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
             PutBackTeamDamage(why);
             return "ended (the match ended during the waiting time: its next match is the real one)";
         }
-        ending = (why, DateTime.UtcNow, 0, roundStarts);
+        if (method == EarlyJoin.Restart && !AnyoneOnASide())
+        {
+            StartOver(why);
+            return "waiting again (nobody on a side to restart for: its clock from the next spawn)";
+        }
+        (ending, endFailed) = ((why, DateTime.UtcNow, 0, roundStarts), false);
         if (method == EarlyJoin.Restart)
         {
             Send("os_restart 1");
@@ -290,10 +296,30 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         }
         else if (asked.Step == 2 && waited >= 4 * EarlyJoin.EndStepSeconds)
         {
-            log.LogError("Over Strike 2 warm-up: it would not end ({Why}) - {Waited:0} s after the request; left so, the plugin asks no more", asked.Why, waited);
-            (ours, ended, ending, waiting) = (false, $"would not end ({asked.Why})", null, false);
+            if (method == EarlyJoin.Restart && !AnyoneOnASide()) // everybody went meanwhile: a restart with nobody on a side starts no round
+            {
+                StartOver($"{asked.Why}: no round start {waited:0} s after the request");
+                return;
+            }
+            log.LogError("Over Strike 2 warm-up: it would not end ({Why}) - {Waited:0} s after the request; left so, the plugin asks no more, and os_warmup marks it {Mark}: the bridge says nothing of an end",
+                asked.Why, waited, EarlyJoin.FailedMark);
+            (ours, ended, ending, waiting, endFailed) = (false, $"would not end ({asked.Why})", null, false, true);
             PutBackTeamDamage(ended);
         }
+    }
+
+    /// <summary>A human on a side - T or CT - now.</summary>
+    static bool AnyoneOnASide() => Utilities.GetPlayers().Any(p => Human(p) && OnTeam(p));
+
+    /// <summary>The restart kind's end with nobody on a side to restart for - everybody who spawned has gone, or (before the bridge stopped asking so) nobody
+    /// ever spawned, as when the evening's first connect never gets in: a restart there starts no round, and is no end (the live lab on 997c7bb: "not ended",
+    /// then "it would not end", while the bridge said the match was on). The waiting time goes on, its clock from the next human's spawn as on a map nobody has
+    /// spawned on yet, and os_warmup says so (no first spawn), which the bridge follows.</summary>
+    void StartOver(string why)
+    {
+        (firstSpawnTime, newestSpawn, againAfterSpawn, ending, waiting, endFailed) = (null, null, 0, null, true, false);
+        plan.StartOver();
+        log.LogWarning("Over Strike 2 warm-up: nobody on a side to restart for ({Why}) - the waiting time goes on, its clock from the next spawn", why);
     }
 
     /// <summary>Each look: CS2's warm-up as it is now against the last look, and a change nothing here asked for logged - the console's mp_warmup_start or
@@ -484,7 +510,8 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         var on = rules != null && On(rules);
         var joining = Joining().Select(p => p.PlayerName).ToList();
         var where = ours ? $"ours, {method}, begun again {again + againAfterSpawn} time(s)" : ended != "" ? $"ended: {ended}" : rules is { WarmupPeriod: true } ? "CS2's, not ours" : $"none ({method})";
-        command.ReplyToCommand(EarlyJoin.WarmUpReply(on, plan.FirstSpawn is { } first ? (now - first).TotalSeconds : null, plan.SpawnedCount, rules == null ? null : Left(rules))
+        var mark = plan.Skipped != null ? EarlyJoin.BlindMark : endFailed ? EarlyJoin.FailedMark : "";
+        command.ReplyToCommand(EarlyJoin.WarmUpReply(on, plan.FirstSpawn is { } first ? (now - first).TotalSeconds : null, plan.SpawnedCount, rules == null ? null : Left(rules), mark)
             + $"\n{Command}: {(on ? "on" : "off")} ({where}){said}; {plan.Describe(now)}; {EarlyJoin.JoiningLine(joining, bridgeView, now)}; {EarlyJoin.ConnectsLine(lastConnect, connects, now)}");
     }
 

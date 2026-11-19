@@ -615,6 +615,70 @@ static partial class Program
                 + "is no end for the bridge either while the plugin begins it again: no line, followed on",
                 laterLeave && WarmUpSince != null && Banner() is { Warm: true } && !h.Said("The match starts now"));
 
+            // ---- the live lab on 997c7bb: the evening's first connect, killed before it got in, left the restart kind's map empty; the bridge asked for the end
+            // anyway ("nobody can say who has spawned"), the plugin's restart started no round and it gave up - and the bridge said the match was on ----
+            const string EndAsk = EarlyJoin.WarmUpCommand + " " + EarlyJoin.EndWord;
+            Check("Warm-up: os_warmup's marks read back - an end the plugin could not confirm, a plugin that cannot tell who has spawned; a reply with none, neither",
+                EarlyJoin.ReadWarmUp(EarlyJoin.WarmUpReply(false, 30, 1, null, EarlyJoin.FailedMark)) is { On: false, Failed: true, Blind: false, SinceFirstSpawn: 30 }
+                && EarlyJoin.ReadWarmUp(EarlyJoin.WarmUpReply(true, null, 0, null, EarlyJoin.BlindMark)) is { On: true, Blind: true, Failed: false }
+                && EarlyJoin.ReadWarmUp(EarlyJoin.WarmUpReply(true, 5, 1, 115.2)) is { Failed: false, Blind: false, Left: 115.2 }
+                && EarlyJoin.WarmUpReply(true, 5, 1, 115.2) == "os_warmup: on 5 1 115.2");
+            var over = new EarlyJoin();
+            over.MapStarted();
+            over.Entered(7, h.Clock);
+            over.Spawned(7, h.Clock);
+            over.StartOver();
+            var forgotten = over.FirstSpawn == null && over.SpawnedCount == 0;
+            over.Spawned(8, h.Clock.AddSeconds(30));
+            Check("...and the plan's spawns forgotten (the restart kind's waiting time starting over, nobody on a side): its clock from the next spawn",
+                forgotten && over.FirstSpawn == h.Clock.AddSeconds(30) && over.SpawnedCount == 1);
+            (string Name, string Id)[] pair = [("Una", "[U:1:2201]"), ("Vic", "[U:1:2202]")];
+            HudView.CountdownWords? lateBanner = null;
+            var unaGone = false;
+            Warm(pair, false, [(0, "conn", 0), (6, "off", 0), (170, "conn", 1), (174, "enter", 1), (205, "spawn", 1)], 212,
+                t => { if (t == 60) unaGone = !PresentIds(h.Clock).Contains(pair[0].Item2) && SigningOnNames(h.Clock).Count == 0; if (t == 211) lateBanner = Banner(); });
+            Check("Warm-up: the evening's first connect, gone before it got in, leaves the map empty - no longer present for anything, the bridge asks for no end while no human "
+                + "has spawned (not at 180 s with the next one at the team menu either), says nothing, and the cap starts with the first spawn: the next joiner's, 205 s on",
+                unaGone && !h.Sent.Contains(EndAsk) && !h.Said("The match starts now") && WarmUpSince != null && WarmUpFirstSpawn is { } vicSpawn
+                && Math.Abs((h.Clock - vicSpawn).TotalSeconds - 7) < 2 && lateBanner is { Warm: true, Seconds: >= 110 and <= 115 });
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1)], 6);
+            Click(three[1], Hud.StartWord);
+            Check("...and !start before a human has spawned is refused, no end asked of the plugin - whose restart would start no round",
+                h.Said("Nobody is on a side yet") && !h.Sent.Contains(EndAsk) && WarmUpSince != null);
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 8);
+            warmEndNow = () => warmUpNow!(); // the plugin answers "ending"; its end will not come
+            Click(three[1], Hud.StartWord);
+            h.Run(3);
+            warmUpNow = () => EarlyJoin.WarmUpReply(false, 11, 2, null, EarlyJoin.FailedMark); // it gave up: no round start, with somebody on a side
+            h.Run(1.1);
+            Check("Warm-up: an end the plugin could not confirm (os_warmup's failed mark: it gave up) is none for the bridge either - no \"ended\", no line, the match counted "
+                + "from the map's start",
+                WarmUpSince == null && !h.Said("The match starts now") && MatchHistory.Running && !MatchHistory.Warming);
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 8);
+            warmEndNow = () => { fakePlan.StartOver(); return warmUpNow!(); }; // the plugin: nobody on a side to restart for - its waiting time starts over
+            Click(three[1], Hud.StartWord);
+            h.Run(1.1);
+            var startedOver = WarmUpSince != null && WarmUpFirstSpawn == null && WarmUpEnding == null && Banner() is { Warm: true, Seconds: < 0 } && !h.Said("The match starts now");
+            h.Run(30);
+            var quietMeanwhile = h.Sent.Count(c => c == EndAsk) == 1;
+            fakePlan.Spawned(AccountId(three[0].Item2), h.Clock); // the next spawn
+            h.Run(1.1);
+            Check("...and when the plugin's waiting time starts over instead - nobody on a side for its end - the bridge's does too: no line, no asking meanwhile, both clocks "
+                + "from the next spawn",
+                startedOver && quietMeanwhile && WarmUpFirstSpawn is { } nextSpawn && (h.Clock - nextSpawn).TotalSeconds < 2.5 && Banner() is { Warm: true, Seconds: >= 117 }
+                && !h.Said("The match starts now") && MatchHistory.Warming);
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 8);
+            warmEndNow = () => warmUpNow!(); // the plugin answers, and its warm-up stays on
+            Click(three[1], Hud.StartWord);
+            h.Run(WarmUpAsksMost * WarmUpEndWaitSeconds + 2);
+            h.Run(20);
+            var spent = WarmUpAsksSpent && h.Sent.Count(c => c == EndAsk) == WarmUpAsksMost && WarmUpSince != null && Banner() is { Warm: true } && !h.Said("The match starts now");
+            fakePlan.Spawned(AccountId(three[2].Item2), h.Clock); // a human spawns again
+            h.Run(1.1);
+            Check($"Warm-up: an end asked for {WarmUpAsksMost} times that never came - no more asking, followed on with its banner, nothing said of an end, the history's match "
+                + "not begun; asked again once a human spawns",
+                spent && !WarmUpAsksSpent && MatchHistory.Warming);
+
             // ---- who is coming, by the server's own list and the log stream: the live lab's run AX - a join needing a map it lacked, CS2's prompt to confirm a first
             // Workshop download left unanswered. The server logged the connect and nothing after it; os_joining said nobody (the game hears of a client only once it
             // has every addon); CS2 dropped it at 120 s and wrote no "disconnected" line. The server's own list has such a joiner connecting until the drop ----
