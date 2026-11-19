@@ -21,14 +21,16 @@ public sealed class HudSlots
     public const double DrainSeconds = IdleCloseSeconds - DrainAfterOpenSeconds - 0.5; // the idle line's run (gungame_hud.css): out before the close, the line's late start and its trip to the game counted
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
-    /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); FUN: Fun, Bots; SERVER: Players, Game, Sync;
-    /// HELP: Help, How. Players is v4.6.0's and Bots v4.8.0's: an older content has no rule for its page class, and no button that opens it.</summary>
-    public enum Page { Start, Maps, Game, Help, How, Fun, Sync, Players, Bots }
+    /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); HISTORY: History; STATS: Stats; FUN: Fun, Bots;
+    /// SERVER: Players, Game, Sync; HELP: Help, How. Players is v4.6.0's, Bots v4.8.0's, History and Stats v4.15.0's: an older content has no rule for its page
+    /// class, and no button that opens it.</summary>
+    public enum Page { Start, Maps, Game, Help, How, Fun, Sync, Players, Bots, History, Stats }
 
     /// <summary>The main tab a page belongs to, as the layout groups them.</summary>
     public static string GroupOf(Page page) => page switch
     {
-        Page.Maps => "maps", Page.Fun or Page.Bots => "fun", Page.Players or Page.Game or Page.Sync => "server", Page.Help or Page.How => "help", _ => "start",
+        Page.Maps => "maps", Page.History => "history", Page.Stats => "stats", Page.Fun or Page.Bots => "fun", Page.Players or Page.Game or Page.Sync => "server",
+        Page.Help or Page.How => "help", _ => "start",
     };
 
     /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none, 1 now playing.

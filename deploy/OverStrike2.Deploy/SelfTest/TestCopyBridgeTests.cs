@@ -193,6 +193,26 @@ static class TestCopyBridgeTests
             Quiet(() => tc.CmdBridgeRun(["candidate", "--keep-flag"]));
             check("bridge-run --keep-flag keeps the maintenance flag in the copy", !(Json.Arr(created["bridge-copy"], "Cmd").Select(Json.PyStr).FirstOrDefault() ?? "").Contains("maintenance"));
 
+            // --seed: the lab's made-up history, ballots and likes in the copy, never in production's data
+            var seedDir = Path.Combine(Path.GetTempPath(), $"os2-deploy-seed-{Environment.ProcessId}");
+            Directory.CreateDirectory(seedDir);
+            File.WriteAllText(Path.Combine(seedDir, "history.jsonl"), "{\"v\":1}\n");
+            File.WriteAllText(Path.Combine(seedDir, "votes.json"), "{}");
+            containers.Remove("bridge");
+            Quiet(() => tc.CmdBridgeRun(["candidate", "--seed", seedDir]));
+            var seedScript = Json.Arr(created["bridge-copy"], "Cmd").Select(Json.PyStr).FirstOrDefault() ?? "";
+            check("bridge-run --seed: the seed's files written into the copy after production's are copied there, before the candidate starts - production's data read-only in the helper all the same",
+                  seedScript.Contains($"echo {Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"v\":1}\n"))} | base64 -d > /dst/history.jsonl; ", StringComparison.Ordinal)
+                  && seedScript.Contains($"echo {Convert.ToBase64String(Encoding.UTF8.GetBytes("{}"))} | base64 -d > /dst/votes.json; ", StringComparison.Ordinal)
+                  && !seedScript.Contains("ballots.jsonl", StringComparison.Ordinal) && seedScript.IndexOf("cp -a /src/. /dst/", StringComparison.Ordinal) < seedScript.IndexOf("base64 -d", StringComparison.Ordinal)
+                  && Json.Arr(created["bridge-copy"], "HostConfig", "Binds").Select(Json.PyStr).SequenceEqual([$"{Data}:/src:ro", $"{Data}-candidate:/dst"]));
+            containers.Remove("bridge");
+            File.Delete(Path.Combine(seedDir, "history.jsonl"));
+            File.Delete(Path.Combine(seedDir, "votes.json"));
+            r = Refused(() => tc.CmdBridgeRun(["candidate", "--seed", seedDir]));
+            check("bridge-run --seed with a folder that holds no seed: refused, before any copy", r is not null && r.Contains("--lab-seed") && !containers.ContainsKey("bridge"));
+            Directory.Delete(seedDir, true);
+
             // a failed copy starts no candidate
             containers.Remove("bridge");
             created.Remove("bridge");

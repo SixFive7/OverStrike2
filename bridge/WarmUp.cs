@@ -92,6 +92,7 @@ static partial class Program
         {
             Log($"warm-up: the plugin does not answer {EarlyJoin.WarmUpCommand} - no warm-up on this map");
             WarmUpOver();
+            MatchHistory.NoWarmUp(); // History.cs: the match counts from the map's start
             return;
         }
         if (state == null) // no answer: asked again, and given up after as many looks as a warm-up has to begin (an answer that finds it on gives them back)
@@ -99,6 +100,7 @@ static partial class Program
             if (--WarmUpLooks > 0) { WarmUpTickSoon(); return; }
             Log($"warm-up: no answer to {EarlyJoin.WarmUpCommand} for {WarmUpFindSeconds} s - not followed on this map");
             WarmUpOver();
+            MatchHistory.NoWarmUp();
             return;
         }
         if (WarmUpEnding is { } ending) // the bridge asked for its end: said once a look finds it off, asked again while it is not
@@ -107,6 +109,7 @@ static partial class Program
             {
                 Log($"warm-up: ended, {(now - ending.At).TotalSeconds:0} s after the bridge last asked - the match is on");
                 WarmUpOver();
+                MatchHistory.WarmUpEnded(HistoryNow()); // History.cs: the real match starts now, for everybody in
                 Post(Messages.News, EarlyJoin.StartLine(ending.Says, ending.Coming));
                 return;
             }
@@ -116,6 +119,7 @@ static partial class Program
                 {
                     Log($"warm-up: asked {ending.Asks} times to end it, and CS2 is still in its warm-up - no more asking, left to the plugin");
                     WarmUpOver();
+                    MatchHistory.WarmUpEnded(HistoryNow()); // History.cs: the match counted from here - the plugin ends the warm-up within seconds
                     return;
                 }
                 EndWarmUp(now, ending.Why, ending.Says);
@@ -141,6 +145,7 @@ static partial class Program
             if (--WarmUpLooks > 0) { WarmUpTickSoon(); return; } // none yet, or off before anybody spawned: the plugin begins it again within seconds
             Log(WarmUpSince == null ? "warm-up: none began on this map (the plugin loaded during it?)" : "warm-up: off before anybody spawned, and not begun again - the match runs as CS2 has it");
             WarmUpOver();
+            MatchHistory.NoWarmUp();
             return;
         }
         if (WarmUpSince == null) { WarmUpSince = now; Log("warm-up: on - the match starts once everybody coming has spawned, or at the most"); }
@@ -219,6 +224,7 @@ static partial class Program
         var atMost = WarmUpLatest() is { } latest && now >= latest.AddSeconds(-2);
         Log($"warm-up: {(atMost ? $"CS2's own clock ended it, {EarlyJoin.WarmUpMostSeconds} s since the first spawn" : "the game left it by itself")}, {(now - WarmUpSince!.Value).TotalSeconds:0} s on{(coming.Count > 0 ? $", still coming: {string.Join(", ", coming)}" : "")} - the match is on");
         WarmUpOver();
+        MatchHistory.WarmUpEnded(HistoryNow()); // History.cs: the real match is on, for everybody in
         Post(Messages.News, EarlyJoin.StartLine(atMost ? $"{EarlyJoin.WarmUpMostSeconds} s are up" : "The warm-up is over", coming));
     }
 

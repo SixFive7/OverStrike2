@@ -59,6 +59,21 @@ public sealed class HudBrowser
     public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
         FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
 
+    /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19; a page of its own since the owner's 304 a): the HISTORY page (HudHistoryPage).</summary>
+    public const string HistoryTab = "os_tab_history";
+
+    /// <summary>MAPS' History button, the first way into the matches played: out of sight since content v4.15.0, which has the HISTORY page in its place. Its
+    /// click opens that page too, and nothing is sent to it, until the layout drops it.</summary>
+    public const string HistoryButton = "os_fl_hist";
+
+    /// <summary>The first content with the HISTORY and STATS pages (content v4.15.0): until this server's own content is that one, and for a game whose HUD check
+    /// named an older one, the plugin sends none of their words and classes, so no game logs "Unable to find panel" for a panel its content lacks (as
+    /// HudVote.NumbersLevel).</summary>
+    public const int HistoryLevel = 57;
+
+    /// <summary>Whether a game gets the HISTORY and STATS pages: this server's content has them, and the game is not known to hold an older one.</summary>
+    public static bool HasHistory(string version) => HudVersion.Level >= HistoryLevel && !HudVersion.IsBefore(version, HistoryLevel);
+
     /// <summary>The search area's hint (content v4.9.0): "Search  Press Y and type a map name" (233), a button whose click says how on the window's line
     /// (ChatReply.HowToSearch) - typing is chat's, and neither the HUD nor the server can open the chat box (the client refuses messagemode from the server). Content v4.8.0 typed on an on-screen keyboard: its search box
     /// (OldSearchBox) opened it, and its forty keys were os_kb_*. Release 196 removed it: the keyboard never opens since, and a

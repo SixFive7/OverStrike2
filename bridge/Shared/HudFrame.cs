@@ -37,7 +37,9 @@ public sealed class HudFrame
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
         bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs,
         VoteState? BarVote = null, HudState? BarState = null, HudChat? Chat = null, bool ChatLive = false, bool MatchScreen = false, HudVote.Download? Download = null,
-        HudChat.Route ChatRoute = HudChat.Default, bool ChatLift = false);
+        HudChat.Route ChatRoute = HudChat.Default, bool ChatLift = false, HudHistory? History = null, HudStats? Stats = null);
+    // History: the plugin's copy of the bridge's match history (the HISTORY page, HudHistoryPage); Stats: its copy of the STATS page's block (HudStats) - each
+    // null until its first fetch is in.
     // Chat, ChatLive: the chat column's lines and whether its feed is live - the plugin's frames run and the bridge answers (content v4.14.0, HudChat); MatchScreen:
     // the match-end screen is up (the game's phase); ChatLift: CS2 has lifted its chat for it - the phase ended a while ago, as CS2 lifts it only once its screen
     // shows the scoreboard - so with CS2's chat open the column's foot follows its typing line up (meos); Download: a winner's download, as the watcher's line says it.
@@ -98,6 +100,15 @@ public sealed class HudFrame
         screen.Var(HudView.Global, HudVote.ModeVar, w.Mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) screen.Var(HudView.Global, name, words); // the popup's words
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
+        // The STATS page's words, the same for everybody: on os_global, and the bars' and pictures' panels, while somebody's window shows the page (content v4.15.0)
+        // - the screen sends only what changed, so a block that stands costs nothing after its first frame.
+        if (w.Stats is { } stats && humans.Any(h => views.GetValueOrDefault(h.Slot) is { Window: true, Page: HudSlots.Page.Stats } && HudBrowser.HasHistory(h.Version)))
+        {
+            var (statVars, statClasses) = stats.Global();
+            foreach (var (name, words) in statVars) screen.Var(HudView.Global, name, words);
+            foreach (var (id, cls, on) in statClasses) screen.Class(id, cls, on);
+            screen.Pictures(Everybody, [.. HudStats.PicturePanels.Select(p => (p, ThumbOf(w.Catalog, stats.Pictures.GetValueOrDefault(p) ?? "")))]);
+        }
         foreach (var h in humans) Player(w, h, playerOf(h.Slot), views.GetValueOrDefault(h.Slot), funClicks, funWhy, screen, botClicks, botWhy);
     }
 
@@ -182,6 +193,16 @@ public sealed class HudFrame
     static void Menu(World w, Human h, HudPlayer p, HudSlots.Page page, int perPage, IScreen screen)
     {
         var (vote, now, slot) = (w.Vote, w.Now, h.Slot);
+        if (page is HudSlots.Page.History or HudSlots.Page.Stats) // content v4.15.0's own pages: a game known to hold an older content has no tab to open them
+        {
+            if (!HudBrowser.HasHistory(h.Version)) return;
+            if (page == HudSlots.Page.Stats) { foreach (var (name, words) in (w.Stats ?? new HudStats()).YouOf(h.Account)) screen.Var(HudView.Screen, name, words, slot); return; }
+            var (historyVars, historyClasses, historyPictures) = p.History.View(w.History, w.Catalog, w.State, p.Browser, h.Account, now, vote, w.Mode.Id);
+            foreach (var (name, words) in historyVars) screen.Var(HudView.Screen, name, words, slot);
+            foreach (var (id, cls, on) in historyClasses) screen.Class(id, cls, on, slot);
+            screen.Pictures(slot, historyPictures);
+            return;
+        }
         var ballot = page == HudSlots.Page.Maps && OnBallot(p, vote);
         var (texts, classes) = page switch
         {

@@ -5,7 +5,9 @@ static partial class Program
 {
     static void Ingest(string line, string? gameMap)
     {
-        if (line.Length == 0 || Parse(line) is not { } e) return;
+        if (line.Length == 0) return;
+        if (FragOf(line) is { } frag) { HistoryFrag(frag); return; } // History.cs: a kill, an assist, a suicide, a chicken - for the history alone, and not logged
+        if (Parse(line) is not { } e) return;
         Log($"{e.Kind} {e.Name} {e.SteamId} {e.Text}".TrimEnd() + (e.Kind == Kind.MapStart ? $" [X-Game-Map: {gameMap ?? "none"}]" : ""));
         switch (e.Kind)
         {
@@ -16,6 +18,7 @@ static partial class Program
             case Kind.MatchEnd: OnMatchEnd(); break;
             case Kind.Shutdown: ServerGoingDown("the quit's echo"); break;
         }
+        HistoryIngest(e); // History.cs: the match history, after the map start above has told the bridge which map it is
     }
 
     // ---- log-line parser. HTTP push form: MM/DD/YYYY - HH:MM:SS.mmm - <event> (disk form "L ... : " tolerated). See docs/reference.md. ----

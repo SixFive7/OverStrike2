@@ -24,7 +24,8 @@ public static class Hud
 
     /// <summary>Paths on the bridge's HTTP port, followed by LOG_SECRET: the plugin GETs the live state, the map catalog and the search
     /// index, and POSTs a player's click.</summary>
-    public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/";
+    public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/", HistoryPath = "/history/",
+        StatsPath = "/stats/";
 
     /// <summary>The live state's long poll (the bridge's HudTransport.cs, the plugin's BridgeLink.cs): how long the bridge holds a poll that has the
     /// newest version before it answers that nothing changed; the version line every answer starts with; the word of an answer without a change.</summary>

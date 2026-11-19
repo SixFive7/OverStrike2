@@ -45,7 +45,7 @@ public static class HudMenu
 
     /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
     /// one. While the vote is open (MAPS, Browse) a Play puts the map on the vote, with this player's vote; after a vote, the wait before the next one.</summary>
-    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0, string serverMode = "")
+    public static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0, string serverMode = "")
     {
         if (s.PickIn(m.Key) is >= 0 and var due) return CardPending(due); // a confirmed pick of it counts down: its Cancel, for everybody
         if (vote is { Open: true, Round: > 0 } v)
@@ -93,7 +93,8 @@ public static class HudMenu
         return (t, c);
     }
 
-    static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
+    /// <summary>A card's likes as the browser says them: "+3  -1", or "no likes".</summary>
+    public static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
 
     /// <summary>The red strip across a card's picture - the map browser's and the ballot's: why the map is unavailable or broken
     /// (the reason, where the list gives one), or what it crashed. The one text of a map's record on screen.</summary>

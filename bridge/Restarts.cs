@@ -349,6 +349,7 @@ static partial class Program
         if (MatchLength.InRounds(CurrentMode.Id)) ApplyMatchLength(); // MatchTime.cs: the match starts over, its rounds too - Wingman's chosen count takes it whole
         var (sent, reply) = RematchSend(Send);
         Log($"rematch by {due.By}: {sent} -> {reply ?? "(rcon failed)"}");
+        if (reply != null) MatchHistory.Restarted(HistoryNow(), fair: false); // History.cs: a player's restart ends the match (the fairness restart is gone: the warm-up waits instead)
         if (RematchRefused(reply) is { } why) Post(Messages.News, M.Refused(why));
     }
 

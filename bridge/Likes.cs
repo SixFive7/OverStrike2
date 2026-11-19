@@ -26,6 +26,7 @@ static partial class Program
     static void SaveLikes()
     {
         CatalogVersion++; // every saved vote changes a card in the menu
+        StatsDirty();     // ...and the STATS page's likes (Stats.cs)
         WriteAtomic(LikesPath, JsonSerializer.Serialize(Likes, Ctx.Default.DictionaryStringDictionaryStringInt32));
     }
 

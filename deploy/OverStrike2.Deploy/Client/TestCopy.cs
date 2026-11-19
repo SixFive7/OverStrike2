@@ -31,8 +31,10 @@ namespace OverStrike2.Deploy;
 ///
 /// A CANDIDATE BRIDGE beside the test copy: production's bridge set aside the same way, a candidate on a copy of the bridge's data.
 ///     testcopy bridge-prep      after prep: production's bridge inspect saved; a Docker stop; renamed aside to &lt;bridge&gt;-prod-aside
-///     testcopy bridge-run &lt;tag&gt; [--keep-flag]   a copy of production's bridge data (a helper container: the game image as root, no network,
-///                               production's data read-only) in &lt;data dir&gt;-candidate; then the candidate on &lt;bridge.image&gt;:&lt;tag&gt;
+///     testcopy bridge-run &lt;tag&gt; [--keep-flag] [--seed DIR]   a copy of production's bridge data (a helper container: the game image as root, no network,
+///                               production's data read-only) in &lt;data dir&gt;-candidate; then the candidate on &lt;bridge.image&gt;:&lt;tag&gt;. --seed DIR: the copy's
+///                               history.jsonl, ballots.jsonl and votes.json are DIR's - the lab's made-up seed (bridge --lab-seed DIR), for the HISTORY and STATS pages
+///                               on camera with no player of production's; bridge-rm takes them away with the copy, and production's own are never written
 ///     testcopy bridge-rm        a Docker stop and delete the candidate (refuses a bridge without the candidate's label), then the copy
 ///     testcopy bridge-restore   production's bridge renamed back and started; checks it is the same container, on its IP and MAC
 /// A test copy run beside a candidate reads the candidate's copy of the bridge's data, read-only as production's game server reads
@@ -641,10 +643,19 @@ sealed class TestCopy
     public void CmdBridgeRun(IReadOnlyList<string> argv)
     {
         H.NeedLock();
-        var keepFlag = argv.Contains("--keep-flag");
-        var tags = argv.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToList();
-        if (tags.Count != 1 || argv.Any(a => a.StartsWith("--", StringComparison.Ordinal) && a != "--keep-flag") || !Regex.IsMatch(tags[0], @"^[\w.-]+$"))
-            throw Out.Stop("usage: os2-deploy testcopy bridge-run <image tag> [--keep-flag]");
+        var keepFlag = false;
+        string? seed = null;
+        var tags = new List<string>();
+        for (var i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] == "--keep-flag") keepFlag = true;
+            else if (argv[i] == "--seed" && i + 1 < argv.Count) seed = argv[++i];
+            else if (argv[i].StartsWith("--", StringComparison.Ordinal)) tags.Add("");
+            else tags.Add(argv[i]);
+        }
+        if (tags.Count != 1 || !Regex.IsMatch(tags[0], @"^[\w.-]+$"))
+            throw Out.Stop("usage: os2-deploy testcopy bridge-run <image tag> [--keep-flag] [--seed DIR]");
+        var seeded = seed is null ? [] : SeedFiles(seed);
         var image = $"{BridgeRepo}:{tags[0]}";
         if (Inspect(BridgeAside) is null || !File.Exists(BridgeSaved))
             throw Out.Stop("REFUSED: production's bridge is not aside - run bridge-prep first");
@@ -663,10 +674,13 @@ sealed class TestCopy
         var dst = CopyDir(src);
         var owner = Json.Str(d, "Config", "User") ?? "";
         var script = "set -e; find /dst -mindepth 1 -delete; cp -a /src/. /dst/; " + (keepFlag ? "" : "rm -f /dst/maintenance; ")
+                     + string.Concat(seeded.Select(f => $"echo {Convert.ToBase64String(f.Data)} | base64 -d > /dst/{f.Name}; "))
                      + (Regex.IsMatch(owner, @"^\d+(:\d+)?$") ? $"chown {owner} /dst; " : "")
                      + "echo files: $(find /dst -type f | wc -l), $(du -sh /dst | cut -f1); ls -ln /dst/state.json 2>/dev/null || echo 'no state.json'";
         var (code, output) = Helper($"{Bridge}-copy", [$"{src}:/src:ro", $"{dst}:/dst"], script);
         Log($"copy of the bridge's data -> <data>-candidate: exit {code}; " + string.Join(" | ", Py.SplitLines(output).TakeLast(2)));
+        if (seeded.Count > 0)
+            Log($"the copy's {string.Join(", ", seeded.Select(f => f.Name))} are the lab's seed from {seed} (made-up players; production's own untouched)");
         if (code != 0)
             throw Out.Stop("REFUSED: the copy failed - no candidate started");
         var created = H.Call($"/containers/create?name={Bridge}", "POST", BridgeBody(d, image, dst));
@@ -676,6 +690,17 @@ sealed class TestCopy
         var now = Inspect(Bridge);
         Log("start ->", st, StatusOf(now), "restarts", Json.PyStr(now?["RestartCount"]), "net", Py.Repr(Pinned(now)),
             Pinned(now).SequenceEqual(Pinned(d)) ? "- the same as production's" : $"- NOT production's {Py.Repr(Pinned(d))}");
+    }
+
+    /// <summary>The lab's seed in a folder (bridge --lab-seed DIR): its history.jsonl, ballots.jsonl and votes.json, each a file the bridge reads at its start;
+    /// refused when the folder has none of them.</summary>
+    public static List<(string Name, byte[] Data)> SeedFiles(string dir)
+    {
+        string[] names = ["history.jsonl", "ballots.jsonl", "votes.json"];
+        var found = names.Where(n => File.Exists(Path.Combine(dir, n))).Select(n => (n, File.ReadAllBytes(Path.Combine(dir, n)))).ToList();
+        if (found.Count == 0)
+            throw Out.Stop($"REFUSED: {dir} holds none of {string.Join(", ", names)} - make the seed with: dotnet run --project bridge -- --lab-seed {dir}");
+        return found;
     }
 
     public void CmdBridgeRm()

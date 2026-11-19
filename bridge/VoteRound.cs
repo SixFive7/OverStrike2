@@ -507,6 +507,7 @@ static partial class Program
     {
         b.Open = false; b.DoneAt = now;
         VoteWaitUntil = now.AddSeconds(MapVote.WaitSeconds);
+        KeepBallot(b, o, how, tally, present); // Ballots.cs: every decided ballot, its cards' votes, for the STATS page
         if (o.Map is { } chosen && o.ShownAt > 0 && S.Shown.TryGetValue(Key(chosen), out var times))
         {
             times.Remove(o.ShownAt);

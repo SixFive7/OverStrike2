@@ -163,6 +163,8 @@ static partial class Program
     static void RecordCrash(string key, string why)
     {
         S.Crashes[key] = S.Crashes.GetValueOrDefault(key) + 1;
+        S.CrashesEver[key] = S.CrashesEver.GetValueOrDefault(key) + 1; // the STATS page's hall of shame keeps it (Stats.cs)
+        StatsDirty();
         StampMark(key);
         CatalogVersion++;
         var name = NameOfKey(key);
