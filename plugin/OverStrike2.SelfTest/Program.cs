@@ -482,8 +482,9 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var hudFrameSrc = Source("plugin", "OverStrike2", "HudScreenFrame.cs");
     Check(hudClicks.Contains("HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who)", StringComparison.Ordinal)
           && hudClicks.IndexOf("HudScores.Click(", StringComparison.Ordinal) < hudClicks.IndexOf("if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)", StringComparison.Ordinal)
-          && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans);", StringComparison.Ordinal),
-        "HUD: SCORES and Back to the vote are handled before the ballot's own clicks, by the match-end screen as the last frame saw it, and a look that ends by itself is logged");
+          && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans);", StringComparison.Ordinal)
+          && hudFrameSrc.Contains("\"the match-end screen ended with the map\"", StringComparison.Ordinal) && Source("plugin", "OverStrike2", "HudScreen.cs").Contains("ScoresEndWithMap(); //", StringComparison.Ordinal),
+        "HUD: SCORES and Back to the vote are handled before the ballot's own clicks, by the match-end screen as the last frame saw it, and a look that ends by itself is logged - with the map's end too, where no frame comes to see it");
     // the match history and the STATS page's block: fetched as the Sync page's block is, when their versions move, decoded on the thread pool, and handed to the frame
     var linkSrc = Source("plugin", "OverStrike2", "BridgeLink.cs");
     Check(hudFrameSrc.Contains("bridge?.TakeHistory(now, state?.HistoryVersion ?? 0) is { } past) history = past;", StringComparison.Ordinal)
@@ -499,6 +500,13 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !hudClicks.Contains("HistoryButton", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
           && historyChat.Contains("|| HistoryOpen(player), VoteOpen);", StringComparison.Ordinal) && historyChat.Contains("Player(player.Slot).History.Find(words);", StringComparison.Ordinal),
         "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs; MAPS' old History button is gone, its click with it) - and a chat line typed while it shows searches it");
+    // O2 (the lab round on rel-220): a typed !play plays its map in the mode its card's Play would load it in - the browser's mode filter first
+    var playChat = Source("plugin", "OverStrike2", "HudScreenChat.cs");
+    Check(playChat.Contains("var filter = Player(player.Slot).Browser.Mode;", StringComparison.Ordinal)
+          && playChat.Contains("bridge($\"!map {HudMenu.PlayArg(exact, filter, mode.Id)}\");", StringComparison.Ordinal)
+          && playChat.Contains("bridge($\"!map {HudMenu.PlayArg(hits[0], filter, mode.Id)}\");", StringComparison.Ordinal)
+          && !playChat.Contains("PlayArg(exact, \"\"", StringComparison.Ordinal) && !playChat.Contains("PlayArg(hits[0], \"\"", StringComparison.Ordinal),
+        "HUD: a typed !play plays its map in the mode its card's Play would load it in - the browser's mode filter when that mode has it, else the server's, else its first (O2)");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");

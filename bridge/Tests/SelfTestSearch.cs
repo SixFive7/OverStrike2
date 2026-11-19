@@ -98,5 +98,31 @@ static partial class Program
                 Served().TextOf(b) is { } cut && cut.Length <= HudSearch.MaxText && cut.EndsWith(" armsrace", StringComparison.Ordinal) && Found("armsrace").Contains(b));
         }
         finally { h.Dispose(); ModeMapsDir = null; }
+
+        // ---- G3 (the lab round on rel-220): a search by Valve's name ranks the official map at least as high as the Workshop ports of it - its text, which is
+        // Valve's name and its modes (SearchIndex.cs), counts as its name, and a tie puts it first - where it sat behind every ranked port, on a later page ----
+        var portCat = new HudCatalog
+        {
+            Version = 1,
+            Maps =
+            [
+                new HudCatalog.Entry("3900000101", "1", 1, 3900000101, "Dust II", 40, false, -1, 0, 0, 0),
+                new HudCatalog.Entry("3900000102", "2", 2, 3900000102, "de_dust2 remake", 40, false, -1, 0, 0, 0),
+                new HudCatalog.Entry("3900000103", "3", 3, 3900000103, "Cobblestone 2v2", 40, false, -1, 0, 0, 0),
+                new HudCatalog.Entry("de_dust2", "de_dust2", 0, 0, "de_dust2", 0, true, -1, 0, 0, 0, RankAr: -1, RankDm: 0, RankWm: 0),
+                new HudCatalog.Entry("de_cbble", "de_cbble", 0, 0, "de_cbble", 0, true, -1, 0, 0, 0, RankAr: -1, RankDm: 0, RankWm: 0),
+            ],
+        };
+        var portIndex = new HudSearch();
+        portIndex.Set("3900000101", "dust ii 3900000101 classic");
+        portIndex.Set("3900000102", "de dust2 remake 3900000102 classic");
+        portIndex.Set("3900000103", "cobblestone 2v2 3900000103 wingman");
+        portIndex.Set("de_dust2", "dust ii deathmatch wingman");
+        portIndex.Set("de_cbble", "cobblestone deathmatch wingman");
+        List<string> Ranked(string q) => [.. new HudBrowser { Query = q }.Matches(portCat, 0, portIndex).Select(m => m.Key)];
+        Check($"G3: a search by Valve's name ranks the official map at least as high as the Workshop ports of it - dust ii, dust2 and cobblestone each find it first, its ports after it "
+            + $"({string.Join(" ", Ranked("dust ii"))} | {string.Join(" ", Ranked("dust2"))} | {string.Join(" ", Ranked("cobblestone"))})",
+            Ranked("dust ii") is ["de_dust2", "3900000101"] && Ranked("dust2") is ["de_dust2", "3900000102"] && Ranked("cobblestone") is ["de_cbble", "3900000103"]
+            && Ranked("remake") is ["3900000102"]);
     }
 }

@@ -145,7 +145,7 @@ public sealed class HudBrowser
         if (q != "")
         {
             int Score(HudCatalog.Entry m) => m.Arg.Equals(q, StringComparison.OrdinalIgnoreCase) || m.Id.ToString(CultureInfo.InvariantCulture) == q ? 10_000
-                : index.Score(m.Key, m.Name, words);
+                : index.Score(m.Key, m.Name, words, textIsName: m.Official); // an official map's text is Valve's name of it (G3)
             foreach (var m in hits) if (Score(m) is > 0 and var n) score[m.Key] = n;
             hits = hits.Where(m => score.ContainsKey(m.Key));
         }
@@ -165,7 +165,7 @@ public sealed class HudBrowser
             SortBy.Votes => hits.OrderByDescending(m => m.Up - m.Down).ThenByDescending(m => m.Up).ThenBy(RankKey),
             SortBy.Name => hits.OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ThenBy(RankKey),
             SortBy.Size => hits.OrderBy(m => m.Official ? int.MaxValue : m.SizeMb).ThenBy(RankKey),
-            _ when q != "" && !Descending => hits.OrderByDescending(m => score.GetValueOrDefault(m.Key)).ThenBy(RankKey),
+            _ when q != "" && !Descending => hits.OrderByDescending(m => score.GetValueOrDefault(m.Key)).ThenByDescending(m => m.Official).ThenBy(RankKey), // ties: the official map first, never behind its ports (G3)
             _ => hits.OrderBy(RankKey).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase),
         };
         var list = sorted.ToList();
