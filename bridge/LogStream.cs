@@ -9,6 +9,7 @@ static partial class Program
         if (FragOf(line) is { } frag) { HistoryFrag(frag); return; } // History.cs: a kill, an assist, a suicide, a chicken - for the history alone, and not logged
         if (Parse(line) is not { } e) return;
         Log($"{e.Kind} {e.Name} {e.SteamId} {e.Text}".TrimEnd() + (e.Kind == Kind.MapStart ? $" [X-Game-Map: {gameMap ?? "none"}]" : ""));
+        var inWarmUp = e.Kind == Kind.MatchEnd && WarmUpSince != null && WarmUpOnNow; // WarmUp.cs: a match end in the restart kind's waiting time, seen before OnMatchEnd ends the warm-up
         switch (e.Kind)
         {
             case Kind.Chat: Present(e.SteamId, e.Name); break; // the players' own chat: who is on, never a command (the menu is the interface)
@@ -18,7 +19,7 @@ static partial class Program
             case Kind.MatchEnd: OnMatchEnd(); break;
             case Kind.Shutdown: ServerGoingDown("the quit's echo"); break;
         }
-        HistoryIngest(e); // History.cs: the match history, after the map start above has told the bridge which map it is
+        HistoryIngest(e, inWarmUp); // History.cs: the match history, after the map start above has told the bridge which map it is - a warm-up's match end no match
     }
 
     // ---- log-line parser. HTTP push form: MM/DD/YYYY - HH:MM:SS.mmm - <event> (disk form "L ... : " tolerated). See docs/reference.md. ----

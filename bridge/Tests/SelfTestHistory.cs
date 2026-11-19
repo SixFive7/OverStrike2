@@ -106,6 +106,24 @@ static partial class Program
         wu.MatchEnded(T(18, 51), "scrimcomp2v2 mg_x de_unseen score 9:6 after 10 min");
         Check("...a match end while the record still thinks the warm-up is on (its end went by unseen): the match is kept, from the map's start, its start marked not known",
             warm.Count == 3 && warm[2] is { MapName: "Unseen", Score: "9:6" } && warm[2].Start == T(18, 41) && warm[2].Missing.SequenceEqual(["start"]) && warm[2].Players.Single() is { Account: 1002, Seconds: 595 });
+        wu.MapStarted(T(18, 52), "ar_wait", 3000000016, "Wait", "armsrace");
+        wu.Entered(T(18, 52, 5), 1001, "Alice");
+        wu.Entered(T(18, 52, 9), 1002, "Bob");
+        wu.Killed(T(18, 53), 1001, 1002, "knife_t", "", 1); // the knife kill that wins the waiting time's Arms Race
+        wu.MatchEnded(T(18, 53), "gungameprogressive mg_x ar_wait score 0:0 after 1 min", inWarmUp: true);
+        var wonInWarmUp = warm.Count == 3 && wu.Running && wu.StartedAt == T(18, 53);
+        wu.Killed(T(18, 54), 1002, 1001, "ak47", "", 15);
+        wu.MatchEnded(T(19, 5), "gungameprogressive mg_x ar_wait score 0:0 after 11 min");
+        Check("...the restart kind's waiting time (the match itself, in Arms Race and Deathmatch) won or run out is no match - the bridge saw its warm-up on - and the next match "
+            + "on the map is the real one, from that end: everybody in from it, its frags from there, no winner from the waiting time's knife",
+            wonInWarmUp && warm.Count == 4 && warm[3] is { MapName: "Wait", Mode: "armsrace", Winner: 0 } && warm[3].Start == T(18, 53) && warm[3].Missing.Count == 0
+            && warm[3].Players.Select(p => (p.Account, p.Seconds, p.First)).SequenceEqual([(1001L, 720, T(18, 53)), (1002L, 720, T(18, 53))])
+            && warm[3].Players[1].Frags is { Kills: 1 } && warm[3].Players[0].Frags is { Kills: 0, Knife: 0, Deaths: 1 });
+        wu.MapStarted(T(19, 6), "ar_wait", 3000000016, "Wait", "armsrace");
+        wu.Entered(T(19, 6, 5), 1001, "Alice");
+        wu.WarmUpEnded(T(19, 7));
+        wu.MatchEnded(T(19, 8), "gungameprogressive mg_x ar_wait score 0:0 after 1 min", inWarmUp: true);
+        Check("...and the bridge's word decides should the record have the match on already: a match end in the warm-up is no match", warm.Count == 4 && wu.Running);
 
         // ---- the frags: the game's kill lines ----
         const string KillDay = "11/20/2026"; // a log line's prefix is built from its parts (no date beside a time in this file)
@@ -300,6 +318,32 @@ static partial class Program
                 warmedAt && warmLive is { LogName: "de_warmlive", EndedBy: HudHistory.ByMatchEnd } && warmLive.Start == startedAt && startedAt > warmLive.Start.AddSeconds(-1)
                 && h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") && warmLive.Players.All(p => p.First == warmLive.Start)
                 && warmLive.Players.First(p => p.Account == 1002).Frags is { Kills: 1, Knife: 1 } && warmLive.Players.First(p => p.Account == 1001).Frags is { Kills: 0, Deaths: 1 });
+
+            // the restart kind (Arms Race, Deathmatch): the match itself is the waiting time - won during it, it is no match, and the next match on the map is the real one
+            h.Fresh();
+            File.Delete(HistoryPath);
+            LoadHistory();
+            warmOn = true;
+            h.Line("Loading map \"ar_waitlive\"");
+            h.Join(("Alice", "[U:1:1001]"));
+            h.Join(("Bob", "[U:1:1002]"));
+            h.Run(2);
+            h.Line("\"Alice<2><[U:1:1001]><CT>\" [0 0 0] killed \"Bob<2><[U:1:1002]><CT>\" [100 0 0] with \"knife\"");
+            var waiting = MatchHistory.Warming && WarmUpSince != null && WarmUpOnNow;
+            HudActive = () => true;
+            h.MatchEnd();
+            HudActive = () => false;
+            warmOn = false; // the plugin's warm-up ended at the bridge's word
+            var noEntry = History.Entries.Count == 0 && MatchHistory.Running && WarmUpSince == null;
+            var realFrom = MatchHistory.StartedAt;
+            h.Run(300);
+            h.Line("\"Bob<2><[U:1:1002]><CT>\" [0 0 0] killed \"Alice<2><[U:1:1001]><CT>\" [100 0 0] with \"ak47\"");
+            h.Run(300);
+            h.MatchEnd();
+            var real = History.Entries.FirstOrDefault();
+            Check($"...the restart kind's waiting time won (an Arms Race win during it): no entry, the line says the win does not count, and the next match on the map is the real one - from that end ({realFrom:HH:mm:ss}), the waiting time's knife kill no frag",
+                waiting && noEntry && h.Said(EarlyJoin.WonInWarmUp) && History.Entries.Count == 1 && real is { LogName: "ar_waitlive", EndedBy: HudHistory.ByMatchEnd, Winner: 0 } && real.Start == realFrom
+                && real.Players.All(p => p.First == realFrom) && real.Players.First(p => p.Account == 1002).Frags is { Kills: 1 } && real.Players.First(p => p.Account == 1001).Frags is { Kills: 0, Knife: 0, Deaths: 1 });
         }
         finally { h.Dispose(); }
 

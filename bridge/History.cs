@@ -39,9 +39,10 @@ sealed partial class MatchTracker
     public string Source = "live";
     public Action<HudHistory.Entry>? Finished;
 
-    /// <summary>Every map starts in CS2's own warm-up (the live bridge's, WarmUp.cs, since release 219): its match counts from the warm-up's end (WarmUpEnded),
-    /// a map that ends during it is no match, and whoever joined during it is in it from its start. False for the backfill: the logs it reads are from before
-    /// the warm-up, whose matches counted from the map's start.</summary>
+    /// <summary>Every map starts with a warm-up (the live bridge's, WarmUp.cs, since release 219) - CS2's own, or the match itself ended by one restart (the
+    /// restart kind, release 220): its match counts from the warm-up's end (WarmUpEnded), a map that ends during it is no match, nor a match end during it
+    /// (MatchEnded's inWarmUp), and whoever joined during it is in it from its start. False for the backfill: the logs it reads are from before the warm-up,
+    /// whose matches counted from the map's start.</summary>
     public bool UsesWarmUp;
 
     /// <summary>Every match's frags are recorded (the live bridge reads every kill line): a match with none has players with none, not players with none known.
@@ -128,7 +129,8 @@ sealed partial class MatchTracker
         cur = new Match { Start = at, MapId = mapId, MapName = mapName, LogName = logName, Mode = mode, Warming = UsesWarmUp };
     }
 
-    /// <summary>The map's warm-up is over (the bridge ended it, or CS2's own clock did): the real match starts now, with everybody in the game in it from this
+    /// <summary>The map's warm-up is over, as a look of the bridge's finds it - CS2's warm-up off, or the restart kind's round start after the plugin's
+    /// os_restart 1 - whether the bridge asked or its clock ran out: the real match starts now, with everybody in the game in it from this
     /// moment - whoever joined during the warm-up is present at its start - and their seconds count from here.</summary>
     public void WarmUpEnded(DateTimeOffset at)
     {
@@ -163,11 +165,13 @@ sealed partial class MatchTracker
 
     /// <summary>A match ended (CS2's "Game Over: scrimcomp2v2 mg_ar_shoots de_assembly score 2:9 after 11 min"): its entry, with its mode and Wingman's
     /// score, and in Arms Race its winner - the human whose knife kill came with the end; its end screen is the next match's start on that map, should the
-    /// vote play it again.</summary>
-    public void MatchEnded(DateTimeOffset at, string gameOver)
+    /// vote play it again. <paramref name="inWarmUp"/>: the bridge saw the warm-up on as the match ended - the restart kind's waiting time, where the match
+    /// itself runs (Arms Race, Deathmatch), won or run out: no match, and the next match on the map, from this end, is the real one (WarmUp.cs).</summary>
+    public void MatchEnded(DateTimeOffset at, string gameOver, bool inWarmUp = false)
     {
         var (mode, logName, score) = ReadGameOver(gameOver);
-        if (cur is { Warming: true } unseen) // CS2 ends no match during its warm-up: its end went by unseen - the match counts from the map's start, its start not known
+        if (inWarmUp && cur != null) cur.Warming = true; // the waiting time's win counts for nothing, whatever the record thought of it
+        else if (cur is { Warming: true } unseen) // CS2 ends no match during its own warm-up, and the bridge saw none on: its end went by unseen - the match counts from the map's start, its start not known
         {
             NoWarmUp();
             unseen.Missing.Add("start");
@@ -458,8 +462,9 @@ static partial class Program
     /// <summary>A frag line of the live log stream, for the history (LogStream.cs hands it here before anything else reads the line).</summary>
     static void HistoryFrag(LogFrag f) => Frag(MatchHistory, HistoryNow(), f);
 
-    /// <summary>A line of the game's log, for the history: who entered, acted and left, the maps' starts, the matches' ends, the quit.</summary>
-    static void HistoryIngest(LogEvent e)
+    /// <summary>A line of the game's log, for the history: who entered, acted and left, the maps' starts, the matches' ends, the quit. <paramref name="inWarmUp"/>:
+    /// a match end the bridge saw during the warm-up (LogStream.cs looks before OnMatchEnd ends it).</summary>
+    static void HistoryIngest(LogEvent e, bool inWarmUp = false)
     {
         var at = HistoryNow();
         switch (e.Kind)
@@ -468,7 +473,7 @@ static partial class Program
             case Kind.Chat: MatchHistory.Seen(at, AccountId(e.SteamId), e.Name); break;
             case Kind.Disconnected: MatchHistory.Left(at, AccountId(e.SteamId)); break;
             case Kind.MapStart: MatchHistory.MapStarted(at, S.LogName ?? e.Text, S.Map?.Id ?? 0, S.Map?.Name ?? "", S.Mode, LastStartWasServerStart); break;
-            case Kind.MatchEnd: MatchHistory.MatchEnded(at, e.Text); break;
+            case Kind.MatchEnd: MatchHistory.MatchEnded(at, e.Text, inWarmUp); break;
             case Kind.Shutdown: MatchHistory.ServerDown(at); break;
         }
     }

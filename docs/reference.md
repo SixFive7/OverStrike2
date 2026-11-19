@@ -795,11 +795,14 @@ none); `missing` (what the record does not know: `start`, `end`, `map id`, `play
 once; `winner`, Arms Race's winner (an account); `pairs`, every two humans one of whom killed the other, with how often (`[killer, victim, kills]`), and
 `nemesis`, the first of them.
 
-**The record** (`History.cs`, `MatchTracker`) follows the game's own log stream. Every map starts in CS2's own warm-up ([the warm-up](#the-match-length-and-the-restarts)),
-so a match is on a map from the warm-up's end - the map's own start where it had none (a plugin without it), or the end screen of the match before it on that
-map when the vote plays it again - to the first of: its end screen (CS2's `Game Over`, which also gives its mode and Wingman's score), a map change, a player's
-Restart match after its first minute, the server going down, or a hole in the record (the bridge down: a short one leaves the match on, its players and times
-not known in full; a long one ends it where the record stopped). A map that ends during its warm-up - a change, a restart, everybody gone - is no match. Its
+**The record** (`History.cs`, `MatchTracker`) follows the game's own log stream. Every map starts with a warm-up ([the warm-up](#the-match-length-and-the-restarts)) -
+CS2's own, or the match itself ended by one restart - so a match is on a map from the warm-up's end, where a look of the bridge's finds it over (CS2's warm-up
+off, or the restart's round start) - the map's own start where it had none (a plugin without it), or the end screen of the match before it on that map when
+the vote plays it again - to the first of: its end screen (CS2's `Game Over`, which also gives its mode and Wingman's score), a map change, a player's Restart
+match after its first minute, the server going down, or a hole in the record (the bridge down: a short one leaves the match on, its players and times not
+known in full; a long one ends it where the record stopped). A map that ends during its warm-up - a change, a restart, everybody gone - is no match, nor is a
+match end during it, the restart kind's waiting time won or run out (the bridge saw the warm-up on): the next match on the map, from that end, is the real one.
+A match end the record finds in the warm-up when the bridge saw none on - its end gone by unseen - is kept, from the map's start (`missing: start`). Its
 humans are everybody who entered the game during it - whoever joined during the warm-up from its end on - and everybody still in from the match before it, each
 with their time in it. Their frags come from the game's kill lines, which the rest of the bridge does not read and which are never logged (`LogFrag`): a kill
 names both players and their places, so the distance between them is the kill's length (a unit is an inch); an assist, a suicide and a chicken have their own
