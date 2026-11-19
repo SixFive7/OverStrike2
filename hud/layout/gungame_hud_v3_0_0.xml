@@ -308,8 +308,6 @@
 									<Button id="os_fm_ar" class="os-chipb os-chipm-armsrace"><Label class="os-chipb-text" text="Arms Race" /></Button>
 									<Button id="os_fm_dm" class="os-chipb os-chipm-deathmatch"><Label class="os-chipb-text" text="Deathmatch" /></Button>
 									<Button id="os_fm_wm" class="os-chipb os-chipm-wingman"><Label class="os-chipb-text" text="Wingman" /></Button>
-									<!-- The first server half's History button (srv-521, a view on these cards), out of sight: the HISTORY tab opens a page of its own now -->
-									<Button id="os_fl_hist" class="os-chipb"><Label class="os-chipb-text" text="History" /></Button>
 									<Panel class="os-mbar-fill" />
 									<Panel id="os_q_search" class="os-search">
 										<Button id="os_q_how">
@@ -973,7 +971,7 @@
 											<Panel class="os-strow"><Label class="os-strow-name" text="{s:osstc3n}" /><Label class="os-strow-value" text="{s:osstc3v}" /></Panel>
 										</Panel>
 									</Panel>
-									<Panel class="os-stcol">
+									<Panel class="os-stcol os-stcol-mid">
 										<Panel class="os-sttile">
 											<Label class="os-sttile-title" text="Most voted for" />
 											<Panel class="os-strow"><Label class="os-strow-rank" text="1" /><Label class="os-strow-name" text="{s:osstv1n}" /><Label class="os-strow-value" text="{s:osstv1v}" /></Panel>

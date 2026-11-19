@@ -813,8 +813,8 @@ cards, each vote and its moves, each added card, each decision - and looks each 
 
 **The pages** (content v4.15.0, `HudBrowser.HistoryLevel` 57; an older content gets nothing of them): HISTORY and STATS are pages of their own, tabs in the top row
 after MAPS (`os_tab_history`, `os_tab_stats`), current while they show (`page-history`, `page-stats`) and as wide as the window. Every word on them is a variable
-and every state a class; the buttons take clicks only, so CS2 keeps a name for none of them. MAPS' History button (`os_fl_hist`) stays out of sight; a click on it
-opens HISTORY, and nothing is sent to it. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px.
+and every state a class; the buttons take clicks only, so CS2 keeps a name for none of them. MAPS' History button (`os_fl_hist`, the first History view's) is
+gone from the layout. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px.
 
 - **HISTORY** (`HudHistoryPage`, the plugin's own, from its copy of the history): four wide cards a page, newest first (`os_h1` to `os_h4`, 142 px high). A card
   has the map's picture (`os_h<k>_thumb`, the map's own as on the browser's cards) with its mode and On now, its name, Official and size, when it ran and how long,

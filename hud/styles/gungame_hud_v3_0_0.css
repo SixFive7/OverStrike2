@@ -9914,19 +9914,8 @@ Label
 
 /* -- HISTORY and STATS (content v4.15.0): two pages of their own, each a tab in the top row, current while it shows (page-history, page-stats), the window's
    whole width as MAPS has it. Every word on them is a variable, every state a class - on os_screen, or on a card, a bar or a picture that takes it - and the
-   buttons take clicks only, so CS2 keeps a name for none of them (the HUD budget's rule since 2026-11-19). MAPS' History button (os_fl_hist), the first server
-   half's way into its History view on the browser's cards (srv-521), stays out of sight, and that view's class (hist) does nothing, until the server's half
-   follows the pages. -- */
-#os_fl_hist
-{
-	visibility: collapse;
-}
-
-.os-screen.hist #os_fl_hist
-{
-	visibility: collapse;
-}
-
+   buttons take clicks only, so CS2 keeps a name for none of them (the HUD budget's rule since 2026-11-19). MAPS' History button and its view on the browser's
+   cards are gone with the pages' server half. -- */
 .os-screen.page-history #os_tab_history
 {
 	border-bottom: 2px solid os-gold;
@@ -10328,7 +10317,7 @@ Label
 
 .os-hacts
 {
-	width: 210px;
+	width: 240px;
 	height: 100%;
 	flow-children: down;
 	padding: 14px 14px 0px 0px;
@@ -10429,7 +10418,7 @@ Label
 
 .os-hplay-text
 {
-	max-width: 186px;
+	max-width: 216px;
 	horizontal-align: center;
 	vertical-align: center;
 	font-size: 12px;
@@ -10521,18 +10510,20 @@ Label
 	opacity: 0.3;
 }
 
-/* - STATS: the head's line with the maps new this week at its right, the viewing player's own line, and three columns of tiles, 380 wide and 16 apart: the
-   page's 1,172. A row is a rank, a name and a value; a record's row has its words instead of a rank. A map's bar is its count over the first's, a mode's its
+/* - STATS: the head's line with the maps new this week at its right, the viewing player's own line, and three columns of tiles, 16 apart in the page's 1,172:
+   the maps' 380, the votes' and likes' 332 and the records' 428, whose rows hold a key, a name and a value side by side. A row is a rank, a name and a value; a record's row has its words instead of a rank. A map's bar is its count over the first's, a mode's its
    share: the steps w0 ... w10 on the bar's panel (os_st_bar<k>, os_st_m*). The first map of the most played and of the most liked shows its picture (os_st_pic1,
    os_st_pic2: HudThumbs' classes). A record that may have nothing yet - the players' rows 6 and 7, every fun record - shows by its class (str6, str7,
    stf1 ... stf6), and the page dims while the server has no history (stnone): on os_screen, or on os_global for every player at once. - */
 .os-sthead-text
 {
+	max-width: 600px;
 	vertical-align: center;
 	font-size: 14px;
 	font-weight: bold;
 	letter-spacing: 1px;
 	color: os-gold-hi;
+	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
@@ -10549,7 +10540,7 @@ Label
 
 .os-sthead-new
 {
-	max-width: 520px;
+	max-width: 420px;
 	vertical-align: center;
 	font-size: 13px;
 	color: os-text;
@@ -10654,8 +10645,14 @@ Label
 	flow-children: down;
 }
 
+.os-stcol-mid
+{
+	width: 332px;
+}
+
 .os-stcol-last
 {
+	width: 428px;
 	margin-right: 0px;
 }
 
@@ -10695,6 +10692,11 @@ Label
 .os-sthero-small
 {
 	height: 64px;
+}
+
+.os-stcol-mid .os-sthero-name
+{
+	max-width: 200px;
 }
 
 .os-sthero-shade

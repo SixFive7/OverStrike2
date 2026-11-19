@@ -248,6 +248,7 @@ static partial class Program
             var chatLog = new HudChat();
             chatLog.Say("Alice", "CT", "gg", teamOnly: false);
             var chatSent = HudChat.Column(chatLog.For(1, "CT")); // the chat column (content v4.14.0): the frame draws it for every player
+            var historyView = new HudHistoryPage().View(null, null, full, new HudBrowser(), 1, DateTime.UtcNow); // the HISTORY page (content v4.15.0): its words, classes and pictures
             var sentTexts = HudView.StaticTexts().Concat(HudView.Texts(full)).Concat(HudView.PlayerTexts(full, 1, "x", true)).Concat(menuMaps.Texts).Concat(menuQueue.Texts)
                 .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(botsPage.Texts).Concat(ballotView.Texts).Concat(HudView.LatelyTexts(full, 1, 0)).Select(t => t.Id).Append("os_rst_secs").Append("os_cu_head")
                 .Concat(Enumerable.Range(1, 6).Select(k => $"os_cu_{k}")).Concat(HudMenu.RecentWords(["dust"]).Texts.Concat(HudMenu.PopularWords(["aim"]).Texts).Select(t => t.Id))
@@ -256,7 +257,8 @@ static partial class Program
                 .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(botsPage.Classes).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
                 .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"os_cu_{k}", "used", true), ($"os_cu_{k}", "good", true), ($"os_cu_{k}", "bad", false) }))
                 .Concat(HudMenu.RecentWords(["dust"]).Classes).Concat(HudMenu.PopularWords(["aim"]).Classes).Append((HudView.Screen, "qhelp", true))
-                .Concat(chatSent.Classes).Concat([(HudView.TabGame, "off", true), (HudDash.Tab, "off", true), (HudVote.IdleBar, "snap", true)]).ToList(); // the frame's own (content v4.14.0)
+                .Concat(chatSent.Classes).Concat([(HudView.TabGame, "off", true), (HudDash.Tab, "off", true), (HudVote.IdleBar, "snap", true)]) // the frame's own (content v4.14.0)
+                .Concat(historyView.Classes).Concat(new HudStats().Global().Classes).ToList(); // HISTORY's and STATS' (content v4.15.0)
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run", "chaton", "hb", "meos",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             // the buttons this content has, every one the plugin listens to
@@ -273,7 +275,7 @@ static partial class Program
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"os_m{k}_play", $"os_m{k}_up", $"os_m{k}_down" }))
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
-                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton, HudBrowser.HistoryTab, HudBrowser.HistoryButton]).ToList();
+                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton]).Concat(HudHistoryPage.Buttons).ToList(); // the HISTORY and STATS tabs are HudView.Tabs'
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the twelve cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -341,17 +343,16 @@ static partial class Program
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page); the cards' numbers, the chat column and the history go to this content's games and to no game known to hold one before them (HudVote.NumbersLevel, HudBrowser.HistoryLevel, HudChat.Level)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text")
                     && !HudVersion.IsBefore(HudVersion.Content, HudVote.NumbersLevel) && !HudVersion.IsBefore(HudVersion.Content, HudChat.Level) && !HudVersion.IsBefore(HudVersion.Content, HudBrowser.HistoryLevel)
-                    && HudVersion.IsBefore(replaced, HudBrowser.HistoryLevel) && !last.Contains(HudBrowser.HistoryTab) && !last.Contains(HudBrowser.HistoryButton) && !last.Contains(HudVote.WhyButton(7)));
-                // ...its own version button, the HISTORY and STATS tabs, MAPS' History button (out of sight: the first server half's way into its History view), the
-                // dislike's seventh reason (the crash), and the two pages' panels: HISTORY's cards, their pictures and buttons and the page's buttons, STATS' bars and
-                // pictures. The pages' are fed and listened to by the server's half of them (the data contract of 2026-11-19), which follows: till then, by nothing.
-                var pageIds = Enumerable.Range(1, 4).SelectMany(k => new[] { $"os_h{k}", $"os_h{k}_thumb", $"os_h{k}_up", $"os_h{k}_down", $"os_h{k}_play" })
-                    .Concat(["os_hf_all", "os_hf_ar", "os_hf_dm", "os_hf_wm", "os_hf_mine", "os_hf_order", "os_hf_clear", "os_hpg_first", "os_hpg_prev", "os_hpg_next", "os_hpg_last", "os_tab_stats",
-                        "os_st_pic1", "os_st_pic2", "os_st_bar1", "os_st_bar2", "os_st_bar3", "os_st_bar4", "os_st_bar5", "os_st_mar", "os_st_mdm", "os_st_mwm"]).ToHashSet();
-                var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim" || pageIds.Contains(id))).ToList();
+                    && HudVersion.IsBefore(replaced, HudBrowser.HistoryLevel) && !last.Contains(HudBrowser.HistoryTab) && !last.Contains(HudVote.WhyButton(7)));
+                // ...its own version button, the HISTORY and STATS tabs, the dislike's seventh reason (the crash), and the two pages' panels: HISTORY's cards, their
+                // pictures and buttons and the page's buttons (HudHistoryPage), STATS' bars and pictures (HudStats) - every one fed or listened to by the pages' server
+                // half; a picture's panel takes a map's picture classes.
+                var pageIds = Enumerable.Range(1, HudHistoryPage.Cards).SelectMany(k => new[] { HudHistoryPage.Card(k), HudHistoryPage.Thumb(k) }).Concat(HudHistoryPage.Buttons)
+                    .Concat(HudStats.BarPanels).Concat(HudStats.PicturePanels).Append(HudStats.Tab).ToHashSet();
+                var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || HudStats.PicturePanels.Contains(id) || id is "os_vidle" or "os_vlim")).ToList();
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
-                var expectedAdded = new HashSet<string>(pageIds) { HudVersion.Button(HudVersion.Content), HudBrowser.HistoryTab, HudBrowser.HistoryButton, HudVote.WhyButton(7) };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, the HISTORY and STATS tabs, MAPS' History button, the dislike's seventh reason, and the two pages' {pageIds.Count} - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                var expectedAdded = new HashSet<string>(pageIds) { HudVersion.Button(HudVersion.Content), HudBrowser.HistoryTab, HudVote.WhyButton(7) };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, the HISTORY and STATS tabs, the dislike's seventh reason, and the two pages' {pageIds.Count} - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 var noTakeBack = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
                 Check($"Content {HudVersion.Content}: a vote is never taken back - no CLICK TO TAKE BACK on your own card's badge, and no hover that swaps the badge's words",
@@ -759,7 +760,6 @@ static partial class Program
             // on os_screen (the stats' also on os_global, for every player at once) - and the buttons take clicks only, so CS2 keeps a name for none of them. The server's
             // half follows; until it lands, these checks hold the names it is to send. Sizes are read from the stylesheet; words at 0.46 em a character (the lab's 4:3
             // frame of MAPS' chips: Deathmatch 69 px at 15 px) and 0.5 em for bold ones and the tabs' capitals (its frame of the tab row: PLAYERS 71 px at 16 px, 2.5 px apart).
-            const string StatsTab = "os_tab_stats"; // the server's half names it with its page
             var tagRx = new Regex(@"<(/?)(Panel|Button)\b[^>]*?(/?)>");
             string Subtree(string x, string open)
             {
@@ -800,7 +800,7 @@ static partial class Program
             string[] hPageButtons = ["os_hf_all", "os_hf_ar", "os_hf_dm", "os_hf_wm", "os_hf_mine", "os_hf_order", "os_hf_clear", "os_hpg_first", "os_hpg_prev", "os_hpg_next", "os_hpg_last"];
             var hCards = Enumerable.Range(1, HCards).Select(k => Subtree(historyXml, $"<Panel id=\"os_h{k}\" class=\"os-hcard\">")).ToList();
             var hCardIds = Enumerable.Range(1, HCards).SelectMany(k => new[] { $"os_h{k}", $"os_h{k}_thumb", $"os_h{k}_up", $"os_h{k}_down", $"os_h{k}_play" }).ToList();
-            Check($"HISTORY (content v4.15.0): a page of its own, {HCards} cards of a match a page, each the same - the map's picture (os_h<k>_thumb) with its mode and On now, its name, Official and size, when and how long, how it ended, who joined, how often the map was played and a fun line, its likes with Like and Dislike, Vote for it and You played in it - every word a variable (osh<k> {string.Join(" ", hWords)}); the bar's mode chips, Mine, the order, Clear or how to search, and the count; the empty words; the pager; no id in it but the cards, their pictures and the buttons",
+            Check($"HISTORY (content v4.15.0): a page of its own, {HCards} cards of a match a page, each the same - the map's picture (os_h<k>_thumb) with its mode and On now, its name, Official and size, when and how long, how it ended, who joined, how often the map was played and a fun line, its likes with Like and Dislike, Vote for it and You played in it - every word a variable (osh<k> {string.Join(" ", hWords)}); the bar's mode chips, Mine, the order, Clear or how to search, and the count; the empty words; the pager; no id in it but the cards, their pictures and the buttons; its variables exactly the server's (HudHistoryPage.View)",
                 hCards.All(c => c.Length > 0) && hCards.Select((c, i) => c.Replace($"os_h{i + 1}", "os_hK", StringComparison.Ordinal).Replace($"osh{i + 1}", "oshK", StringComparison.Ordinal)).Distinct().Count() == 1
                 && hWords.All(w => Regex.IsMatch(hCards[0], $@"text=""[^""]*\{{s:osh1{w}\}}")) && Regex.Matches(hCards[0], @"\{s:[^}]+\}").Count == hWords.Length
                 && hCards[0].Contains("<Panel id=\"os_h1_thumb\" class=\"os-hthumb\">", StringComparison.Ordinal) && hCards[0].Contains("<Label class=\"os-hwhen\" text=\"{s:osh1w}  \u00b7  {s:osh1d}\" />", StringComparison.Ordinal)
@@ -811,7 +811,8 @@ static partial class Program
                 && new[] { "os-htag os-htag-now", "os-htag os-htag-official", "os-hmine" }.All(c => hCards[0].Contains($"<Label class=\"{c}\"", StringComparison.Ordinal))
                 && new[] { "oshcount", "oshpage", "oshempty" }.All(v => historyXml.Contains($"text=\"{{s:{v}}}\"", StringComparison.Ordinal))
                 && hPageButtons.All(b => Regex.IsMatch(historyXml, $@"<Button id=""{b}"" class=""os-(chipb|pgb) ")) && historyXml.Contains("<Label class=\"os-hsearch\" text=\"Type in chat to search\" />", StringComparison.Ordinal)
-                && Ids(historyXml).SetEquals(hCardIds.Concat(hPageButtons)));
+                && Ids(historyXml).SetEquals(hCardIds.Concat(hPageButtons))
+                && Regex.Matches(historyXml, @"\{s:([^}]+)\}").Select(m => m.Groups[1].Value).ToHashSet().SetEquals(historyView.Vars.Select(v => v.Name))); // the server's own words, every one
             // its look, and that it fits: the bar, four cards and the pager in the page's 719; a card's words and its buttons in its 142 at 16:9 and at 4:3, every line
             // as high as its words at 1.25 em (who joined two lines); the bar at 4:3 in the page's 1,172, the wider of Clear and the hint, and the contract's count
             int HBody(Func<string, string, int> px) => px(".os-hbody", "padding") + px(".os-hhead", "height") + px(".os-hwhen", "height") + px(".os-hend", "height")
@@ -825,15 +826,18 @@ static partial class Program
             var hCard = PxOf(".os-hcard", "height");
             var hPage = PxOf(".os-mbar", "height") + PxOf(".os-mbar", "margin-bottom") + HCards * (hCard + PxOf(".os-hcard", "margin-bottom")) + PxOf(".os-hpager", "margin-top") + PxOf(".os-pager", "height");
             var (hBody, hBody43, hActs, hActs43, hLines, hLines43) = (HBody(PxOf), HBody(PxOf43), HActs(PxOf), HActs(PxOf43), HLines(PxOf), HLines(PxOf43));
+            string[] playWords = [HudMenu.Locked, HudMenu.Unlocked, HudMenu.CardPending(10), $"Vote in {MapVote.Left(90)}", "Put to the vote", "Not on the list"]; // the browser's Play words, the longest
+            var play43 = playWords.Max(w => TabCaps(w.ToUpperInvariant(), PxOf43(".os-hplay-text", "font-size"), 1.5));
             var hBar43 = PxOf43(".os-mbar-label", "width") + 17 + new[] { "All", "Arms Race", "Deathmatch", "Wingman", "Mine", "Oldest first" }.Sum(Chip)
                 + Math.Max(Chip("Clear the search"), 4 + Words("Type in chat to search", PxOf43(".os-hsearch", "font-size"))) + Words("75 matches  \u00b7  42 maps  \u00b7  since Fri 3 Oct", PxOf43(".os-hcount", "font-size"));
-            Check($"HISTORY (content v4.15.0), its look: current in the top row while it shows, the window's whole width (no live column); a card shows while it holds a match (used), each of its classes and the page's has a rule; the picture 252 x {hCard}, the map's own (HudThumbs' classes); MAPS' History button and its class do nothing; it fits - {hPage} of the page's {PageBody}, a card's words {hBody} and {hBody43} (4:3) and its buttons {hActs:0} and {hActs43:0} of {hCard}, the bar at 4:3 about {hBar43:0} of 1172{(missingPx.Count > 0 ? "; no size for " + string.Join(", ", missingPx) : "")}",
+            Check($"HISTORY (content v4.15.0), its look: current in the top row while it shows, the window's whole width (no live column); a card shows while it holds a match (used), each of its classes and the page's has a rule; the picture 252 x {hCard}, the map's own (HudThumbs' classes); MAPS' History button and its class gone; it fits - {hPage} of the page's {PageBody}, a card's words {hBody} and {hBody43} (4:3) and its buttons {hActs:0} and {hActs43:0} of {hCard}, the longest Play words at 4:3 about {play43:0} of {PxOf(".os-hplay-text", "max-width")}, the bar at 4:3 about {hBar43:0} of 1172{(missingPx.Count > 0 ? "; no size for " + string.Join(", ", missingPx) : "")}",
                 HasRule(".os-screen.page-history .os-page-history", "visibility: visible;") && HasRule(".os-screen.page-history .os-live", "visibility: collapse;")
                 && HasRule(".os-screen.page-history #os_tab_history", "border-bottom: 2px solid os-gold;") && HasRule(".os-screen.page-history #os_tab_history .os-tab-text", "color: #FFFFFF;")
                 && HasRule(".os-hcard", "visibility: collapse;") && HasRule(".os-hcard.used", "visibility: visible;")
                 && hCardClasses.All(c => Regex.IsMatch(rules, $@"(?m)^\.os-hcard\.{Regex.Escape(c)}(?![\w-])")) && hPageClasses.All(c => Regex.IsMatch(rules, $@"(?m)^\.os-screen\.{Regex.Escape(c)}(?![\w-])"))
                 && HasRule(".os-hthumb", "width: 252px;") && HasRule(".os-hthumb", "background-size: cover;") && !Regex.IsMatch(rules, @"(?m)^\.os-hthumb\s*\{[^}]*background-image")
-                && HasRule("#os_fl_hist", "visibility: collapse;") && !Regex.IsMatch(rules, @"\.hist(?![\w-])[^{]*\{[^}]*visibility:\s*visible")
+                && !xml.Contains("os_fl_hist", StringComparison.Ordinal) && !Regex.IsMatch(rules, @"\.hist(?![\w-])")
+                && play43 <= PxOf(".os-hplay-text", "max-width") && HasRule(".os-hacts", "padding: 14px 14px 0px 0px;") && PxOf(".os-hplay-text", "max-width") <= PxOf(".os-hacts", "width") - 14 - 2 // in the button: the actions' right padding and its border
                 && HasRule(".os-hf-clear", "visibility: collapse;") && HasRule(".os-screen.hquery .os-hf-clear", "visibility: visible;") && HasRule(".os-screen.hquery .os-hsearch", "visibility: collapse;")
                 && missingPx.Count == 0 && hPage <= PageBody && hBody <= hCard && hBody43 <= hCard && hLines && hLines43 && hActs <= hCard && hActs43 <= hCard && hBar43 <= 1172);
 
@@ -842,11 +846,14 @@ static partial class Program
                 .. new[] { ("osstp", 5), ("osstv", 5), ("osstl", 5), ("osstd", 3), ("osstc", 3), ("ossr", 7), ("ossm", 4), ("ossf", 6) }.SelectMany(t => Enumerable.Range(1, t.Item2).SelectMany(k => new[] { $"{t.Item1}{k}n", $"{t.Item1}{k}v" }))];
             string[] stIds = ["os_st_pic1", "os_st_pic2", .. Enumerable.Range(1, 5).Select(k => $"os_st_bar{k}"), "os_st_mar", "os_st_mdm", "os_st_mwm"];
             (string Class, string Row, string Var)[] stOptional = [("str6", "r6", "ossr6"), ("str7", "r7", "ossr7"), .. Enumerable.Range(1, 6).Select(k => ($"stf{k}", $"f{k}", $"ossf{k}"))];
-            var stCols = Regex.Matches(statsXml, @"<Panel class=""os-stcol( os-stcol-last)?"">").Count;
+            var stCols = Regex.Matches(statsXml, @"<Panel class=""os-stcol( os-stcol-mid| os-stcol-last)?"">").Count;
+            var stServer = MakeStats([], new(), [], new Dictionary<string, int>(), DateTimeOffset.UtcNow, null); // the server's block with nothing in it: every word's name
             var stKeys = Regex.Matches(statsXml, @"<Label class=""os-strow-key"" text=""([^""]+)"" />").Select(m => m.Groups[1].Value).ToList();
-            Check($"STATS (content v4.15.0): a page of its own - the head's line with the maps new this week, You, and {stCols} columns of tiles: the most played maps (the first's picture, a bar each), the modes' shares and the hall of shame; the most voted for, the most liked (the first's picture) and the least liked; the players' records (7), the matches' (4) and the fun ones (6) - {stVars.Length} variables, a row that may have nothing yet shown by its class ({string.Join(" ", stOptional.Select(o => o.Class))}), and no id but the bars' and the pictures' ({stIds.Length})",
+            Check($"STATS (content v4.15.0): a page of its own - the head's line with the maps new this week, You, and {stCols} columns of tiles: the most played maps (the first's picture, a bar each), the modes' shares and the hall of shame; the most voted for, the most liked (the first's picture) and the least liked; the players' records (7), the matches' (4) and the fun ones (6) - {stVars.Length} variables, a row that may have nothing yet shown by its class ({string.Join(" ", stOptional.Select(o => o.Class))}), and no id but the bars' and the pictures' ({stIds.Length}) - the words, classes and panels exactly the server's (HudStats, Stats.cs)",
                 statsXml.Length > 0 && Regex.Matches(statsXml, @"\{s:([^}]+)\}").Select(m => m.Groups[1].Value).ToHashSet().SetEquals(stVars) && Ids(statsXml).SetEquals(stIds) && stCols == 3
-                && statsXml.Contains("<Panel class=\"os-stcol os-stcol-last\">", StringComparison.Ordinal)
+                && statsXml.Contains("<Panel class=\"os-stcol os-stcol-mid\">", StringComparison.Ordinal) && statsXml.Contains("<Panel class=\"os-stcol os-stcol-last\">", StringComparison.Ordinal)
+                && stServer.Vars.Select(v => v.Name).Concat(HudStats.YouVars).ToHashSet().SetEquals(stVars) && stServer.Global().Classes.Where(c => c.Id == HudView.Global).Select(c => c.Class).ToHashSet().SetEquals(stOptional.Select(o => o.Class).Append("stnone"))
+                && HudStats.BarPanels.Concat(HudStats.PicturePanels).ToHashSet().SetEquals(stIds)
                 && stOptional.All(o => Regex.IsMatch(statsXml, $@"<Panel class=""os-strow os-strow-opt os-strow-{o.Row}""><Label class=""os-strow-key"" text=""[^""]+"" /><Label class=""os-strow-name"" text=""\{{s:{o.Var}n\}}"" /><Label class=""os-strow-value"" text=""\{{s:{o.Var}v\}}"" /></Panel>"))
                 && Regex.Matches(statsXml, @"class=""os-strow os-strow-opt ").Count == stOptional.Length
                 && new[] { "os_st_pic1", "os_st_pic2" }.All(p => Regex.IsMatch(statsXml, $@"<Panel id=""{p}"" class=""os-sthero( os-sthero-small)?""><Panel class=""os-sthero-shade"" />"))
@@ -865,16 +872,19 @@ static partial class Program
                 + new[] { "PLAYED", "FAVOURITE" }.Sum(k => TabCaps(k, PxOf43(".os-styou-k", "font-size"), 2) + PxOf(".os-styou-k", "margin-right"))
                 + 5 * (Words("\u00b7", PxOf43(".os-styou-sep", "font-size")) + 2 * 10)
                 + new[] { "37 matches", "12 h", "de_inferno  \u00b7  9 matches", "14 likes  \u00b7  3 dislikes", "since Fri 3 Oct", "#4 of 37 by matches" }.Sum(v => Words(v, PxOf43(".os-styou-v", "font-size"), 0.5));
-            var head43 = Words("412 matches  \u00b7  37 players  \u00b7  since Fri 3 Oct", PxOf43(".os-sthead-text", "font-size"), 0.5) + TabCaps("NEW THIS WEEK", PxOf43(".os-sthead-key", "font-size"), 2)
-                + PxOf(".os-sthead-key", "margin-right") + PxOf(".os-sthead-new", "max-width");
+            var noHistory43 = Words(stServer.Vars.First(v => v.Name == "osst").Text, PxOf43(".os-sthead-text", "font-size"), 0.5); // "No match yet - the records start with ..."
+            var head43 = PxOf(".os-sthead-text", "max-width") + TabCaps("NEW THIS WEEK", PxOf43(".os-sthead-key", "font-size"), 2) + PxOf(".os-sthead-key", "margin-right") + PxOf(".os-sthead-new", "max-width");
+            // a record's name beside its key and the longest value the server words (Night owl's, three figures), at 4:3 in the records' column
+            var owl43 = PxOf(".os-stcol-last", "width") - 2 - 24 - PxOf43(".os-strow-key", "width") - PxOf(".os-strow-value", "margin-left") - Words("112 matches after midnight", PxOf43(".os-strow-value", "font-size"), 0.5);
+            var modes43 = PxOf(".os-stcol", "width") - 2 - 24 - Words("Arms Race 100 %  \u00b7  Deathmatch 100 %  \u00b7  Wingman 100 %", PxOf43(".os-stnote", "font-size"));
             var stLongKey = stKeys.MaxBy(k => k.Length) ?? "";
             var (keyWidth, keyWidth43) = (PxOf(".os-strow-key", "width"), PxOf43(".os-strow-key", "width"));
             var rowsHold = PxOf(".os-strow", "height") >= PxOf(".os-strow-name", "font-size") * 1.25 && PxOf43(".os-strow", "height") >= PxOf43(".os-strow-name", "font-size") * 1.25
                 && PxOf(".os-strow-main .os-strow-name", "height") + PxOf(".os-stbar", "height") <= PxOf(".os-strow", "height")
                 && PxOf43(".os-strow-main .os-strow-name", "height") + PxOf(".os-stbar", "height") <= PxOf43(".os-strow", "height")
                 && Words(stLongKey, PxOf(".os-strow-key", "font-size"), 0.5) <= keyWidth && Words(stLongKey, PxOf43(".os-strow-key", "font-size"), 0.5) <= keyWidth43;
-            var colsWide = 3 * PxOf(".os-stcol", "width") + 2 * PxOf(".os-stcol", "margin-right");
-            Check($"STATS (content v4.15.0), its look: current in the top row while it shows, the window's whole width; a record's row hidden till its class shows it, on os_screen or os_global, and the page dimmed while there is no history (stnone); the bars in steps w0 ... w10, the modes' in their colours; the pictures the maps' own; it fits - columns {string.Join(", ", stColumns.Select(c => c.ToString("0", System.Globalization.CultureInfo.InvariantCulture)))} and at 4:3 {string.Join(", ", stColumns43.Select(c => c.ToString("0", System.Globalization.CultureInfo.InvariantCulture)))} of {stRoom}, {colsWide} wide of 1172; \"{stLongKey}\" in its {keyWidth} and {keyWidth43} (4:3); at 4:3 You about {you43:0} and the head {head43:0} of 1172{(missingPx.Count > 0 ? "; no size for " + string.Join(", ", missingPx) : "")}",
+            var colsWide = PxOf(".os-stcol", "width") + PxOf(".os-stcol-mid", "width") + PxOf(".os-stcol-last", "width") + 2 * PxOf(".os-stcol", "margin-right");
+            Check($"STATS (content v4.15.0), its look: current in the top row while it shows, the window's whole width; a record's row hidden till its class shows it, on os_screen or os_global, and the page dimmed while there is no history (stnone); the bars in steps w0 ... w10, the modes' in their colours; the pictures the maps' own; it fits - columns {string.Join(", ", stColumns.Select(c => c.ToString("0", System.Globalization.CultureInfo.InvariantCulture)))} and at 4:3 {string.Join(", ", stColumns43.Select(c => c.ToString("0", System.Globalization.CultureInfo.InvariantCulture)))} of {stRoom}, {colsWide} wide of 1172; \"{stLongKey}\" in its {keyWidth} and {keyWidth43} (4:3); at 4:3 You about {you43:0} and the head at most {head43:0} of 1172, with no history its line about {noHistory43:0} of {PxOf(".os-sthead-text", "max-width")}; a record's name beside Night owl's 112 matches after midnight {owl43:0} px at 4:3, the modes' line {modes43:0} to spare{(missingPx.Count > 0 ? "; no size for " + string.Join(", ", missingPx) : "")}",
                 HasRule(".os-screen.page-stats .os-page-stats", "visibility: visible;") && HasRule(".os-screen.page-stats .os-live", "visibility: collapse;")
                 && HasRule(".os-screen.page-stats #os_tab_stats", "border-bottom: 2px solid os-gold;") && HasRule(".os-screen.page-stats #os_tab_stats .os-tab-text", "color: #FFFFFF;")
                 && HasRule(".os-strow-opt", "visibility: collapse;") && stOptional.All(o => HasRule($".os-screen.{o.Class} .os-strow-{o.Row}", "visibility: visible;") && HasRule($".os-global.{o.Class} .os-strow-{o.Row}", "visibility: visible;"))
@@ -882,7 +892,8 @@ static partial class Program
                 && Enumerable.Range(0, 11).All(k => HasRule($".os-stbar.w{k} .os-stbar-fill", $"width: {k * 10}%;")) && HasRule(".os-stbar-fill", "width: 0%;")
                 && new[] { "ar", "dm", "wm" }.All(m => HasRule($".os-stbar-{m} .os-stbar-fill", $"background-color: os-{m};")) && HasRule(".os-sthero", "background-size: cover;")
                 && HasRule(".os-styou", "padding: 0px 14px;") && colsWide == 1172 && HasRule(".os-stcol-last", "margin-right: 0px;")
-                && missingPx.Count == 0 && stColumns.All(c => c <= stRoom) && stColumns43.All(c => c <= stRoom) && rowsHold && you43 <= 1172 && head43 <= 1172);
+                && missingPx.Count == 0 && stColumns.All(c => c <= stRoom) && stColumns43.All(c => c <= stRoom) && rowsHold && you43 <= 1172 && head43 <= 1172
+                && noHistory43 <= PxOf(".os-sthead-text", "max-width") && owl43 >= 70 && modes43 >= 0);
             var rowWords = Regex.Matches(tabRowXml, @"<Button id=""([^""]+)"" class=""os-tab"">(?:<Panel />)?<Label class=""os-tab-text"" text=""([^""]+)"" />").Select(m => (Id: m.Groups[1].Value, Word: m.Groups[2].Value.ToUpperInvariant())).ToList();
             var tabs43 = rowWords.Where(t => t.Id != HudView.TabMaps).Sum(t => TabCaps(t.Word, PxOf43(".os-tab-text", "font-size"), 2.5) + 2 * 17) + 2 * 18 + 30; // during a vote: Vote with its dot, and the vote's Maps
             Check($"The top row with HISTORY and STATS (content v4.15.0): during a vote, its fullest, at 4:3 about {tabs43:0} of the window's 1240", rowWords.Count == 13 && tabs43 <= 1240 && missingPx.Count == 0);
@@ -906,11 +917,10 @@ static partial class Program
                 && HasRule(".os-global.warm #os_k_thumb .os-logo", "animation-name: os-warm-breathe;") && rules.Contains("@keyframes 'os-warm-breathe'", StringComparison.Ordinal)
                 && PxOf(".os-global.warm .os-banner", "width") == PxOf(".os-banner", "width") + 40 && missingPx.Count == 0
                 && warmLine <= warmText && warmTitle <= warmText && warmSecs <= PxOf(".os-banner-count", "width"));
-            string[] pageClassIds = [.. Enumerable.Range(1, HCards).Select(k => $"os_h{k}"), .. stIds]; // the panels the server's half puts classes on, but the pictures' ending _thumb
-            string[] rowTabs = ["os_tab_start", HudVote.BackButton, HudView.TabMaps, HudVote.BrowseButton, HudBrowser.HistoryTab, StatsTab, HudView.TabFun, HudBots.Tab, "os_sub_players", HudView.TabGame, HudDash.Tab, "os_tab_help", HudView.TabHow];
+            string[] rowTabs = ["os_tab_start", HudVote.BackButton, HudView.TabMaps, HudVote.BrowseButton, HudBrowser.HistoryTab, HudStats.Tab, HudView.TabFun, HudBots.Tab, "os_sub_players", HudView.TabGame, HudDash.Tab, "os_tab_help", HudView.TabHow];
             var tabRow = Regex.Match(noComments, @"<Panel class=""os-tabs"">(.*?)</Panel>\s*<Panel class=""os-subs"">", RegexOptions.Singleline).Groups[1].Value;
             Check("One row of tabs (content v4.14.0), every page a tab - Start, Vote, Maps, History and Stats (content v4.15.0), Fun, Bots, Players, Game, Sync, Help, How it works - Vote only while a vote is on, Maps then the browser that adds to it; the sub-tab bar's other buttons out of sight under their ids; a tab with nothing to use greyed (off); the Players page's every row and the caption fed",
-                Regex.Matches(tabRow, @"<Button id=""([^""]+)"" class=""os-tab"">").Select(m => m.Groups[1].Value).SequenceEqual(rowTabs) && rowTabs.All(id => HudView.Tabs.Any(x => x.Id == id) || id is HudVote.BackButton or HudVote.BrowseButton or HudBrowser.HistoryTab or StatsTab)
+                Regex.Matches(tabRow, @"<Button id=""([^""]+)"" class=""os-tab"">").Select(m => m.Groups[1].Value).SequenceEqual(rowTabs) && rowTabs.All(id => HudView.Tabs.Any(x => x.Id == id) || id is HudVote.BackButton or HudVote.BrowseButton)
                 && Regex.IsMatch(rules, @"(?m)^\.os-subs\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"(?m)^#os_v_back\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.os-screen\.voting #os_v_back\s*\{\s*visibility:\s*visible;")
                 && Regex.IsMatch(rules, @"\.os-screen\.vbrowse #os_v_browse\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(rules, @"\.os-screen\.voting #os_tab_maps\s*\{\s*visibility:\s*collapse;")
                 && Regex.IsMatch(rules, @"(?m)^\.os-tab\.off\s*\{\s*opacity:") && Regex.IsMatch(rules, @"(?m)^\.os-subtitle\s*\{\s*visibility:\s*collapse;")
@@ -1201,7 +1211,7 @@ static partial class Program
             var classNames = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value)).ToHashSet();
             var styleClasses = classNames.Where(c => !Regex.IsMatch(c, @"^latest-\d+$")).Concat(thumbClasses).Concat(HudVersion.Classes().Select(c => c.Class)).ToHashSet(); // the old count
             var engineIds = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat(ids.Where(id => id.EndsWith("_thumb", StringComparison.Ordinal))) // the pictures: the cards', now playing's and the countdown's
-                .Concat(pageClassIds).Concat([HudView.Global, HudView.Screen]).ToHashSet(); // and the panels HISTORY's and STATS' server half is to put classes on
+                .Concat(HudStats.PicturePanels).Concat([HudView.Global, HudView.Screen]).ToHashSet(); // and STATS' two pictures
             var sentNames = sentClasses.Select(c => c.Class).Concat(screenClasses).ToHashSet();
             var engineClasses = classNames.Where(c => !c.StartsWith("os-", StringComparison.Ordinal) && !c.StartsWith("AspectRatio", StringComparison.Ordinal)
                     && !c.StartsWith("HUD_", StringComparison.Ordinal) && !Regex.IsMatch(c, @"^latest-\d+$"))
