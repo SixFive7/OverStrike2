@@ -756,11 +756,28 @@ known only in part. The mode, Liked, Official, Ours and size
 filters apply by the map, a search by the map's name or a player's, and the sort's direction gives the oldest first. The plugin fetches the newest 2,400 matches
 (`/history/`, when `hist` in the live state moves) and decodes them on the thread pool: a full block, about 1.4 MB, takes some 30 ms to read.
 
-**The look** (content v4.15.0): the HISTORY tab stands right after MAPS in the top row, current while `hist` is on (MAPS, or the vote's Maps, is then not);
-the History button stands after the mode chips, where the first row has room at every aspect, and is lit by `on` as any chip. Under `hist` a card's picture
-is 30 px lower (82 of 112) and its tags step back, and three lines take their place: when the match ran, who was in it and the note - one row each, 12 px
-(14 px at 4:3), cut with an ellipsis; `hinc` draws an amber bar beside them. The card's play label moves up with the picture's foot. The dislike's dialog
-has a seventh reason, `crash` (It crashed the server), its button `os_why_7`; chat says it as `!down crash` or `!crash`.
+**The pages** (content v4.15.0: the HUD's half; the server's half follows the data contract of 2026-11-19): HISTORY and STATS are pages of their own, tabs in
+the top row after MAPS, current while they show (`page-history`, `page-stats`) and as wide as the window. Every word on them is a variable and every state a
+class; the buttons take clicks only, so CS2 keeps a name for none of them.
+
+- **HISTORY**: four wide cards a page, newest first (`os_h1` to `os_h4`, 142 px high). A card has the map's picture (`os_h<k>_thumb`, the map's own as on the
+  browser's cards) with its mode and On now, its name, Official and size, when it ran and how long, how it ended, who joined, how often the map has been played
+  and a fun line; at its right the map's likes with the player's own Like and Dislike (`os_h<k>_up`, `os_h<k>_down`: the dislike's dialog) and Vote for it
+  (`os_h<k>_play`, the browser's Play for that map). The words are on `os_screen` (`osh<k>` with `n s w d e p c f v a`, and `oshcount`, `oshpage`, `oshempty`);
+  the card's classes are `used`, `liked`, `disliked`, `official`, `mode-armsrace` / `mode-deathmatch` / `mode-wingman`, `hinc`, `now`, `queued` and `mine`, and
+  the page's on `os_screen` `hm-all` / `hm-armsrace` / `hm-deathmatch` / `hm-wingman`, `hmine`, `holdest`, `hquery`, `hnone`, `hfirst` and `hlast`. The bar's
+  chips (`os_hf_*`) and the pager (`os_hpg_*`) are buttons. A line typed in chat while HISTORY shows searches the matches by map or player; Clear then takes the
+  hint's place.
+- **STATS**: the head's line (`osst`) with the maps new this week (`osstnw`), the viewing player's own line (`ossy1` to `ossy6`), and three columns of tiles: the
+  most played maps (`osstp<k>`; the first's picture `os_st_pic1`, a bar each `os_st_bar<k>` in steps `w0` to `w10`), the modes' shares (`osstmd`, bars
+  `os_st_mar`, `os_st_mdm`, `os_st_mwm`) and the hall of shame (`osstc<k>`); the most voted for (`osstv<k>`), the most liked (`osstl<k>`, the first's picture
+  `os_st_pic2`) and the least liked (`osstd<k>`); the players' records (`ossr1` to `ossr7`), the matches' (`ossm1` to `ossm4`) and the fun ones (`ossf1` to
+  `ossf6`, and `ossfnote`). A row is a name (`<name>n`) and a value (`<name>v`). A record that may have nothing yet - the players' 6 and 7, every fun record -
+  shows by its class (`str6`, `str7`, `stf1` to `stf6`), and the page dims while there is no history (`stnone`); these and the stats' words may be on
+  `os_screen` or, the same for everybody, on `os_global`.
+
+MAPS' History button (`os_fl_hist`) stays out of sight and `hist` does nothing. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px. The
+dislike's dialog has a seventh reason, `crash` (It crashed the server), its button `os_why_7`; chat says it as `!down crash` or `!crash`.
 
 ## Fun settings
 

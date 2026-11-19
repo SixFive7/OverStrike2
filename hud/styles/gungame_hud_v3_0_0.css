@@ -9848,107 +9848,1266 @@ Label
 	width: 120px;
 }
 
-/* -- the match history (content v4.15.0): MAPS' History view - hist on os_screen, the server's (HudBrowser.History), on only while MAPS shows it, never on the
-   ballot - a card a match, newest first, each the map's own card with its current likes and the player's own Like and Dislike, as in the browser. Under hist
-   the HISTORY tab is current and MAPS (during a vote its map browser's Maps) is not; a card's picture is 30 px lower and its tags step back, and three lines take
-   their place: when the match ran (osh<k>w), who was in it, longest first (osh<k>p), and a note - its length, Wingman's score, a mark for a match the record
-   knows only in part (osh<k>n; hinc on the card, the server's, draws a bar beside the lines). The play label moves up with the picture's foot. -- */
-.os-screen.page-maps.hist #os_tab_history
+/* -- HISTORY and STATS (content v4.15.0): two pages of their own, each a tab in the top row, current while it shows (page-history, page-stats), the window's
+   whole width as MAPS has it. Every word on them is a variable, every state a class - on os_screen, or on a card, a bar or a picture that takes it - and the
+   buttons take clicks only, so CS2 keeps a name for none of them (the HUD budget's rule since 2026-11-19). MAPS' History button (os_fl_hist), the first server
+   half's way into its History view on the browser's cards (srv-521), stays out of sight, and that view's class (hist) does nothing, until the server's half
+   follows the pages. -- */
+#os_fl_hist
+{
+	visibility: collapse;
+}
+
+.os-screen.hist #os_fl_hist
+{
+	visibility: collapse;
+}
+
+.os-screen.page-history #os_tab_history
 {
 	border-bottom: 2px solid os-gold;
 }
 
-.os-screen.page-maps.hist #os_tab_history .os-tab-text
+.os-screen.page-history #os_tab_history .os-tab-text
 {
 	color: #FFFFFF;
 }
 
-.os-screen.page-maps.hist #os_tab_maps
+.os-screen.page-stats #os_tab_stats
 {
-	border-bottom: 2px solid #00000000;
+	border-bottom: 2px solid os-gold;
 }
 
-.os-screen.page-maps.hist #os_tab_maps .os-tab-text
+.os-screen.page-stats #os_tab_stats .os-tab-text
 {
-	color: os-faint;
+	color: #FFFFFF;
 }
 
-.os-screen.page-maps.hist #os_tab_maps:hover .os-tab-text
-{
-	color: os-text;
-}
-
-.os-screen.vbrowse.hist #os_v_browse
-{
-	border-bottom: 2px solid #00000000;
-}
-
-.os-screen.vbrowse.hist #os_v_browse .os-tab-text
-{
-	color: os-faint;
-}
-
-.os-screen.vbrowse.hist #os_v_browse:hover .os-tab-text
-{
-	color: os-text;
-}
-
-.os-screen.hist .os-mthumb
-{
-	height: 82px;
-}
-
-.os-screen.hist .os-mtags
-{
-	visibility: collapse;
-}
-
-.os-screen.hist .os-mplay-text
-{
-	margin-top: 54px;
-}
-
-.os-screen.hist .os-mcard.broken .os-mplay-text
-{
-	margin-top: 34px;
-}
-
-.os-screen.hist .os-mcard.crashed .os-mplay-text
-{
-	margin-top: 34px;
-}
-
-.os-mhist
-{
-	visibility: collapse;
-	width: 100%;
-	margin-top: 3px;
-	flow-children: down;
-}
-
-.os-screen.hist .os-mhist
+.os-screen.page-history .os-page-history
 {
 	visibility: visible;
 }
 
-.os-mhist Label
+.os-screen.page-stats .os-page-stats
+{
+	visibility: visible;
+}
+
+.os-screen.page-history .os-live
+{
+	visibility: collapse;
+}
+
+.os-screen.page-stats .os-live
+{
+	visibility: collapse;
+}
+
+.os-page-history
+{
+	flow-children: down;
+}
+
+.os-page-stats
+{
+	flow-children: down;
+}
+
+/* - HISTORY's bar: the mode, Mine and the order, each lit by its class on os_screen; then how to search - a line typed in chat - or, while a search is on
+   (hquery), Clear in its place; the count at the right. While the chat is open on History the hint is lit, as MAPS' search box is. - */
+.os-hf-clear
+{
+	visibility: collapse;
+}
+
+.os-screen.hquery .os-hf-clear
+{
+	visibility: visible;
+}
+
+.os-hsearch
+{
+	vertical-align: center;
+	margin-left: 4px;
+	font-size: 12px;
+	color: os-faint;
+	white-space: nowrap;
+}
+
+.os-screen.hquery .os-hsearch
+{
+	visibility: collapse;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-history .os-hsearch
+{
+	color: os-gold-hi;
+}
+
+.os-hf-old
+{
+	visibility: collapse;
+}
+
+.os-screen.holdest .os-hf-new
+{
+	visibility: collapse;
+}
+
+.os-screen.holdest .os-hf-old
+{
+	visibility: visible;
+}
+
+.os-screen.hm-all .os-hf-all
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.os-screen.hm-armsrace .os-hf-ar
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.os-screen.hm-deathmatch .os-hf-dm
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.os-screen.hm-wingman .os-hf-wm
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.os-screen.hmine .os-hf-mine
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.os-screen.hm-all .os-hf-all .os-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.hm-armsrace .os-hf-ar .os-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.hm-deathmatch .os-hf-dm .os-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.hm-wingman .os-hf-wm .os-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.hmine .os-hf-mine .os-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.os-hcount
+{
+	vertical-align: center;
+	font-size: 13px;
+	color: os-dim;
+	white-space: nowrap;
+}
+
+/* - HISTORY's cards: four a page, 142 high across the page - the mode's band, the picture (252 x 142, the map's own as on the browser's cards: HudThumbs'
+   classes on os_h<k>_thumb), the words, and at the right its likes with Like and Dislike, and Vote for it: the browser's buttons for that map. A card shows
+   while it holds a match (used); its other classes are the browser's (liked, disliked, official, mode-*, now, queued), the record's (hinc: known only in
+   part) and the player's (mine: in it). - */
+.os-hlist
 {
 	width: 100%;
-	height: 16px;
+	flow-children: down;
+}
+
+.os-hcard
+{
+	visibility: collapse;
+	width: 100%;
+	height: 142px;
+	margin-bottom: 8px;
+	flow-children: right;
+	border-radius: 5px;
+	border: 1px solid #FFFFFF14;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #FFFFFF0D ), to( #FFFFFF04 ) );
+}
+
+.os-hcard.used
+{
+	visibility: visible;
+}
+
+.os-hcard.mine
+{
+	border: 1px solid #E9B44C59;
+}
+
+.os-hband
+{
+	width: 4px;
+	height: 100%;
+	border-radius: 5px 0px 0px 5px;
+	background-color: #FFFFFF14;
+}
+
+.os-hcard.mode-armsrace .os-hband
+{
+	background-color: os-ar;
+}
+
+.os-hcard.mode-deathmatch .os-hband
+{
+	background-color: os-dm;
+}
+
+.os-hcard.mode-wingman .os-hband
+{
+	background-color: os-wm;
+}
+
+.os-hthumb
+{
+	width: 252px;
+	height: 100%;
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #34404D ), color-stop( 0.55, #1C2530 ), to( #121820 ) );
+	background-size: cover;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.os-hthumb-shade
+{
+	width: 100%;
+	height: 100%;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.4, #00000000 ), to( #00000099 ) );
+}
+
+.os-hmode
+{
+	visibility: collapse;
+	horizontal-align: left;
+	vertical-align: top;
+	margin: 8px 0px 0px 8px;
+	padding: 2px 7px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.os-hcard.mode-armsrace .os-hmode-armsrace
+{
+	visibility: visible;
+	background-color: os-ar;
+	color: #14100A;
+}
+
+.os-hcard.mode-deathmatch .os-hmode-deathmatch
+{
+	visibility: visible;
+	background-color: os-dm;
+}
+
+.os-hcard.mode-wingman .os-hmode-wingman
+{
+	visibility: visible;
+	background-color: os-wm;
+}
+
+.os-htag
+{
+	visibility: collapse;
+	padding: 2px 7px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #10141A;
+}
+
+.os-htag-now
+{
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 8px 8px;
+	background-color: os-up;
+}
+
+.os-hcard.now .os-htag-now
+{
+	visibility: visible;
+}
+
+.os-htag-official
+{
+	vertical-align: center;
+	margin-left: 10px;
+	background-color: #D8DEE4;
+}
+
+.os-hcard.official .os-htag-official
+{
+	visibility: visible;
+}
+
+.os-hbody
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+	padding: 9px 16px 0px 16px;
+}
+
+.os-hhead
+{
+	width: 100%;
+	height: 24px;
+	flow-children: right;
+}
+
+.os-hname
+{
+	max-width: 520px;
+	vertical-align: center;
+	font-size: 17px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-hsize
+{
+	vertical-align: center;
+	margin-left: 10px;
 	font-size: 12px;
+	color: os-dim;
+	white-space: nowrap;
+}
+
+.os-hwhen
+{
+	width: 100%;
+	height: 18px;
+	font-size: 13px;
+	color: os-gold-hi;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-hend
+{
+	width: 100%;
+	height: 18px;
+	font-size: 13px;
+	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-hcard.hinc .os-hend
+{
+	color: #E8B65C;
+}
+
+.os-hwho
+{
+	width: 100%;
+	height: 36px;
+	margin-top: 2px;
+	font-size: 13px;
+	color: os-text;
+	text-overflow: ellipsis;
+}
+
+.os-hfacts
+{
+	width: 100%;
+	height: 17px;
+	flow-children: right;
+}
+
+.os-hplayed
+{
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	color: os-text;
+	white-space: nowrap;
+}
+
+.os-hfun
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	margin-left: 14px;
+	font-size: 12px;
+	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-hacts
+{
+	width: 210px;
+	height: 100%;
+	flow-children: down;
+	padding: 14px 14px 0px 0px;
+}
+
+.os-hvoterow
+{
+	width: 100%;
+	height: 28px;
+	flow-children: right;
+}
+
+.os-hvotes
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	margin-right: 8px;
+	text-align: right;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 14px;
+	color: os-dim;
+}
+
+.os-hcard.liked .os-hvotes
+{
+	color: os-up;
+}
+
+.os-hcard.disliked .os-hvotes
+{
+	color: os-down;
+}
+
+.os-hvote
+{
+	width: 34px;
+	height: 100%;
+	margin-left: 6px;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.os-hvote:hover
+{
+	border: 1px solid #FFFFFF59;
+	background-color: #FFFFFF17;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.os-hvote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.os-hvote .os-chev
+{
+	horizontal-align: center;
+}
+
+.os-hcard.liked .os-hvote-up
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F2E;
+}
+
+.os-hcard.disliked .os-hvote-down
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.os-hplay
+{
+	width: 100%;
+	height: 36px;
+	margin-top: 12px;
+	border-radius: 4px;
+	border: 1px solid #E9B44C99;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C2E ), to( #E9B44C12 ) );
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.os-hplay:hover
+{
+	border: 1px solid os-gold-hi;
+	background-color: #E9B44C40;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.os-hplay:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.os-hplay-text
+{
+	max-width: 186px;
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: os-gold-hi;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-hcard.queued .os-hplay
+{
+	border: 1px solid os-up;
+	background-color: #7BD88F24;
+}
+
+.os-hcard.queued .os-hplay-text
+{
+	color: os-up;
+}
+
+.os-hmine
+{
+	visibility: collapse;
+	horizontal-align: center;
+	margin-top: 8px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: os-gold;
+}
+
+.os-hcard.mine .os-hmine
+{
+	visibility: visible;
+}
+
+.os-hempty
+{
+	visibility: collapse;
+	width: 100%;
+	margin-top: 40px;
+	text-align: center;
+	font-size: 16px;
+	color: os-dim;
+}
+
+.os-screen.hnone .os-hempty
+{
+	visibility: visible;
+}
+
+.os-hpager
+{
+	margin-top: 6px;
+}
+
+.os-hpage
+{
+	min-width: 180px;
+	vertical-align: center;
+	margin: 0px 14px;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 14px;
+	letter-spacing: 1px;
+	text-align: center;
+	color: os-text;
+}
+
+.os-screen.hfirst .os-hpg-first
+{
+	opacity: 0.3;
+}
+
+.os-screen.hfirst .os-hpg-prev
+{
+	opacity: 0.3;
+}
+
+.os-screen.hlast .os-hpg-next
+{
+	opacity: 0.3;
+}
+
+.os-screen.hlast .os-hpg-last
+{
+	opacity: 0.3;
+}
+
+/* - STATS: the head's line with the maps new this week at its right, the viewing player's own line, and three columns of tiles, 380 wide and 16 apart: the
+   page's 1,172. A row is a rank, a name and a value; a record's row has its words instead of a rank. A map's bar is its count over the first's, a mode's its
+   share: the steps w0 ... w10 on the bar's panel (os_st_bar<k>, os_st_m*). The first map of the most played and of the most liked shows its picture (os_st_pic1,
+   os_st_pic2: HudThumbs' classes). A record that may have nothing yet - the players' rows 6 and 7, every fun record - shows by its class (str6, str7,
+   stf1 ... stf6), and the page dims while the server has no history (stnone): on os_screen, or on os_global for every player at once. - */
+.os-sthead-text
+{
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	color: os-gold-hi;
+	white-space: nowrap;
+}
+
+.os-sthead-key
+{
+	vertical-align: center;
+	margin-right: 10px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: os-faint;
+}
+
+.os-sthead-new
+{
+	max-width: 520px;
+	vertical-align: center;
+	font-size: 13px;
 	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.os-mcard.hinc .os-mhist
+.os-styou
 {
-	padding-left: 6px;
-	border-left: 2px solid #E8A33D;
+	width: 100%;
+	height: 34px;
+	margin-bottom: 10px;
+	flow-children: right;
+	padding: 0px 14px;
+	border-radius: 5px;
+	border: 1px solid #E9B44C59;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C24 ), to( #E9B44C08 ) );
 }
 
-.AspectRatio4x3 .os-win .os-mhist Label
+.os-styou-key
 {
+	vertical-align: center;
+	margin-right: 16px;
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: os-gold-hi;
+}
+
+.os-styou-k
+{
+	vertical-align: center;
+	margin-right: 6px;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: os-faint;
+}
+
+.os-styou-v
+{
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-styou-v1
+{
+	max-width: 120px;
+}
+
+.os-styou-v2
+{
+	max-width: 90px;
+}
+
+.os-styou-v3
+{
+	max-width: 230px;
+}
+
+.os-styou-v4
+{
+	max-width: 200px;
+}
+
+.os-styou-v5
+{
+	max-width: 150px;
+}
+
+.os-styou-v6
+{
+	max-width: 190px;
+}
+
+.os-styou-sep
+{
+	vertical-align: center;
+	margin: 0px 10px;
+	font-size: 13px;
+	color: os-faint;
+}
+
+.os-stcols
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	flow-children: right;
+}
+
+.os-stcol
+{
+	width: 380px;
+	height: 100%;
+	margin-right: 16px;
+	flow-children: down;
+}
+
+.os-stcol-last
+{
+	margin-right: 0px;
+}
+
+.os-sttile
+{
+	width: 100%;
+	margin-bottom: 10px;
+	flow-children: down;
+	padding: 8px 12px 8px 12px;
+	border-radius: 5px;
+	border: 1px solid #FFFFFF12;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0A ), to( #FFFFFF03 ) );
+}
+
+.os-sttile-title
+{
+	height: 22px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: os-faint;
+}
+
+.os-sthero
+{
+	width: 100%;
+	height: 92px;
+	margin-bottom: 6px;
+	border-radius: 4px;
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #34404D ), color-stop( 0.55, #1C2530 ), to( #121820 ) );
+	background-size: cover;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.os-sthero-small
+{
+	height: 64px;
+}
+
+.os-sthero-shade
+{
+	width: 100%;
+	height: 100%;
+	border-radius: 4px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000000 ), to( #000000CC ) );
+}
+
+.os-sthero-name
+{
+	max-width: 240px;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 6px 10px;
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-sthero-value
+{
+	horizontal-align: right;
+	vertical-align: bottom;
+	margin: 0px 10px 7px 0px;
+	font-size: 13px;
+	font-weight: bold;
+	color: os-gold-hi;
+	white-space: nowrap;
+}
+
+.os-strow
+{
+	width: 100%;
+	height: 24px;
+	flow-children: right;
+}
+
+.os-strow-opt
+{
+	visibility: collapse;
+}
+
+.os-screen.str6 .os-strow-r6
+{
+	visibility: visible;
+}
+
+.os-screen.str7 .os-strow-r7
+{
+	visibility: visible;
+}
+
+.os-screen.stf1 .os-strow-f1
+{
+	visibility: visible;
+}
+
+.os-screen.stf2 .os-strow-f2
+{
+	visibility: visible;
+}
+
+.os-screen.stf3 .os-strow-f3
+{
+	visibility: visible;
+}
+
+.os-screen.stf4 .os-strow-f4
+{
+	visibility: visible;
+}
+
+.os-screen.stf5 .os-strow-f5
+{
+	visibility: visible;
+}
+
+.os-screen.stf6 .os-strow-f6
+{
+	visibility: visible;
+}
+
+.os-global.str6 .os-strow-r6
+{
+	visibility: visible;
+}
+
+.os-global.str7 .os-strow-r7
+{
+	visibility: visible;
+}
+
+.os-global.stf1 .os-strow-f1
+{
+	visibility: visible;
+}
+
+.os-global.stf2 .os-strow-f2
+{
+	visibility: visible;
+}
+
+.os-global.stf3 .os-strow-f3
+{
+	visibility: visible;
+}
+
+.os-global.stf4 .os-strow-f4
+{
+	visibility: visible;
+}
+
+.os-global.stf5 .os-strow-f5
+{
+	visibility: visible;
+}
+
+.os-global.stf6 .os-strow-f6
+{
+	visibility: visible;
+}
+
+.os-strow-rank
+{
+	width: 18px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 12px;
+	color: os-faint;
+}
+
+.os-strow-key
+{
+	width: 112px;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-strow-main
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+}
+
+.os-strow-name
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-size: 13px;
+	color: os-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-strow-main .os-strow-name
+{
+	width: 100%;
 	height: 18px;
+	vertical-align: top;
+}
+
+.os-strow-value
+{
+	vertical-align: center;
+	margin-left: 10px;
+	font-size: 12px;
+	font-weight: bold;
+	color: #FFFFFF;
+	white-space: nowrap;
+}
+
+.os-stbar
+{
+	width: fill-parent-flow( 1 );
+	height: 4px;
+	vertical-align: center;
+	border-radius: 2px;
+	background-color: #FFFFFF0F;
+}
+
+.os-strow-main .os-stbar
+{
+	width: 100%;
+	vertical-align: top;
+}
+
+.os-stbar-fill
+{
+	width: 0%;
+	height: 100%;
+	border-radius: 2px;
+	background-color: os-gold;
+}
+
+.os-stbar-ar .os-stbar-fill
+{
+	background-color: os-ar;
+}
+
+.os-stbar-dm .os-stbar-fill
+{
+	background-color: os-dm;
+}
+
+.os-stbar-wm .os-stbar-fill
+{
+	background-color: os-wm;
+}
+
+.os-stbar.w0 .os-stbar-fill
+{
+	width: 0%;
+}
+
+.os-stbar.w1 .os-stbar-fill
+{
+	width: 10%;
+}
+
+.os-stbar.w2 .os-stbar-fill
+{
+	width: 20%;
+}
+
+.os-stbar.w3 .os-stbar-fill
+{
+	width: 30%;
+}
+
+.os-stbar.w4 .os-stbar-fill
+{
+	width: 40%;
+}
+
+.os-stbar.w5 .os-stbar-fill
+{
+	width: 50%;
+}
+
+.os-stbar.w6 .os-stbar-fill
+{
+	width: 60%;
+}
+
+.os-stbar.w7 .os-stbar-fill
+{
+	width: 70%;
+}
+
+.os-stbar.w8 .os-stbar-fill
+{
+	width: 80%;
+}
+
+.os-stbar.w9 .os-stbar-fill
+{
+	width: 90%;
+}
+
+.os-stbar.w10 .os-stbar-fill
+{
+	width: 100%;
+}
+
+.os-stnote
+{
+	width: 100%;
+	height: 18px;
+	margin-top: 2px;
+	font-size: 12px;
+	color: os-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.os-screen.stnone .os-stcols
+{
+	opacity: 0.45;
+}
+
+.os-global.stnone .os-stcols
+{
+	opacity: 0.45;
+}
+
+/* - 4:3: the pages' words 2 px larger, the smallest at 14 px, as all the window's (288 b), and the rows and the record's words a little taller and wider to hold them. - */
+.AspectRatio4x3 .os-win .os-hsearch
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hcount
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-hmode
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-htag
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hbody
+{
+	padding: 6px 16px 0px 16px;
+}
+
+.AspectRatio4x3 .os-win .os-hhead
+{
+	height: 26px;
+}
+
+.AspectRatio4x3 .os-win .os-hname
+{
+	font-size: 19px;
+}
+
+.AspectRatio4x3 .os-win .os-hsize
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hwhen
+{
+	height: 20px;
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-hend
+{
+	height: 20px;
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-hwho
+{
+	height: 38px;
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-hfacts
+{
+	height: 19px;
+}
+
+.AspectRatio4x3 .os-win .os-hplayed
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hfun
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hvotes
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-hplay-text
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hmine
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-hempty
+{
+	font-size: 18px;
+}
+
+.AspectRatio4x3 .os-win .os-hpage
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-sthead-text
+{
+	font-size: 16px;
+}
+
+.AspectRatio4x3 .os-win .os-sthead-key
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-sthead-new
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-styou-key
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-styou-k
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-styou-v
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-styou-sep
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-sttile-title
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-sthero-name
+{
+	font-size: 17px;
+}
+
+.AspectRatio4x3 .os-win .os-sthero-value
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-strow
+{
+	height: 26px;
+}
+
+.AspectRatio4x3 .os-win .os-strow-rank
+{
+	width: 20px;
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-strow-key
+{
+	width: 130px;
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-strow-name
+{
+	font-size: 15px;
+}
+
+.AspectRatio4x3 .os-win .os-strow-main .os-strow-name
+{
+	height: 20px;
+}
+
+.AspectRatio4x3 .os-win .os-strow-value
+{
+	font-size: 14px;
+}
+
+.AspectRatio4x3 .os-win .os-stnote
+{
+	height: 20px;
 	font-size: 14px;
 }
