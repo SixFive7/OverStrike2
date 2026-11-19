@@ -348,7 +348,8 @@ static partial class Program
             Regex.Matches(menuWords, @"![a-z]+").All(m => ChatCommands.Find(m.Value) != null));
         HudSelfTest(Check);
         FrameSelfTest(Check); // SelfTestFrame.cs: the HUD's frame as the plugin draws it, run against a recorded screen
-        HistorySelfTest(Check); // SelfTestHistory.cs: the match history - the record, its file, the backfill from the logs, the browser's History view
+        HistorySelfTest(Check); // SelfTestHistory.cs: the match history - the record with the warm-up and the frags, its file, the backfill, the HISTORY page view
+        StatsSelfTest(Check); // SelfTestStats.cs: the STATS page, our ballots kept and read back, the lab's seed
         CheckSelfTest(Check);
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
         SettingsSelfTest(Check); // SelfTestSettings.cs: the settings file, else the environment, and the line that says which

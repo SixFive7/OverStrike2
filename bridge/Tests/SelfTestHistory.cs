@@ -1,5 +1,6 @@
-// --selftest, the match history (History.cs, HudHistory.cs): the record as the game's events make it, its file's lines and the plugin's block, the backfill
-// read back from made-up day logs and a console log, the live bridge writing it, and the map browser's History view. Made-up players only.
+// --selftest, the match history (History.cs, HudHistory.cs): the record as the game's events make it - with the warm-up and the frags - its file's lines
+// and the plugin's block, the backfill read back from made-up day logs and a console log, the live bridge writing it, and the HISTORY page
+// (HudHistoryPage). Made-up players only.
 static partial class Program
 {
     static void HistorySelfTest(Action<string, bool> Check)
@@ -7,23 +8,23 @@ static partial class Program
         DateTimeOffset T(int h, int m, int s = 0) => new(2026, 11, 20, h, m, s, TimeSpan.FromHours(1));
         var got = new List<HudHistory.Entry>();
 
-        // ---- the record ----
+        // ---- the record, from before the warm-up (the backfill's matches) ----
         var t = new MatchTracker { Finished = got.Add };
         t.MapStarted(T(21, 0), "de_alpha", 3000000001, "Alpha", "wingman");
         t.Entered(T(21, 0, 20), 1001, "Alice");
         t.Entered(T(21, 1), 1002, "Bob");
         t.MatchEnded(T(21, 11), "scrimcomp2v2 mg_x de_alpha score 9:4 after 10 min");
         var first = got.Count == 1 ? got[0] : null;
-        Check("History: a match to its end screen is one entry - its map, mode and score, each human with their time in it",
-            first is { MapId: 3000000001, MapName: "Alpha", Mode: "wingman", Score: "9:4", EndedBy: HudHistory.ByMatchEnd, Missing.Count: 0 }
-            && first.Players.Count == 2 && first.Players[0] is { Account: 1001, Name: "Alice", Seconds: 640 } && first.Players[1] is { Account: 1002, Seconds: 600 }
-            && first.Start == T(21, 0) && first.End == T(21, 11) && first.From == T(21, 0, 20));
+        Check("History: a match to its end screen is one entry - its map, mode and score, each human with their time in it, the most of them in it at once",
+            first is { MapId: 3000000001, MapName: "Alpha", Mode: "wingman", Score: "9:4", EndedBy: HudHistory.ByMatchEnd, Missing.Count: 0, Most: 2, Winner: 0, Pairs: null }
+            && first.Players.Count == 2 && first.Players[0] is { Account: 1001, Name: "Alice", Seconds: 640, Frags: null } && first.Players[1] is { Account: 1002, Seconds: 600 }
+            && first.Start == T(21, 0) && first.End == T(21, 11) && first.From == T(21, 0, 20) && first.Key == "3000000001");
         t.Left(T(21, 15), 1002);
         t.Entered(T(21, 16), 1003, "Cara");
         t.MatchEnded(T(21, 22), "scrimcomp2v2 mg_x de_alpha score 3:9 after 10 min");
         var second = got.Count == 2 ? got[1] : null;
         Check("...played again, the next match on that map runs from the end screen, with whoever was in it and for how long",
-            second is { MapId: 3000000001, Score: "3:9" } && second.Start == T(21, 11)
+            second is { MapId: 3000000001, Score: "3:9", Most: 2 } && second.Start == T(21, 11)
             && second.Players.Select(p => (p.Account, p.Seconds)).SequenceEqual([(1001L, 660), (1002L, 240), (1003L, 360)]));
         t.MapStarted(T(21, 23), "de_beta", 3000000002, "Beta", "wingman");
         Check("...the end screen alone before a change is no match", got.Count == 2);
@@ -31,7 +32,7 @@ static partial class Program
         t.Restarted(T(21, 23, 40), fair: true);
         t.Restarted(T(21, 30), fair: false);
         var third = got.Count == 3 ? got[2] : null;
-        Check("...a fairness restart is the same match, a player's restart after its first minute ends it; after a change only who entered again is in",
+        Check("...a fairness restart (before the warm-up) is the same match, a player's restart after its first minute ends it; after a change only who entered again is in",
             third is { MapName: "Beta", EndedBy: HudHistory.ByRestart } && third.Start == T(21, 23) && third.Players.Count == 1 && third.Players[0] is { Account: 1004, Seconds: 390 });
         t.MapStarted(T(21, 40), "ar_gamma", 0, "ar_gamma", "armsrace");
         var fourth = got.Count == 4 ? got[3] : null;
@@ -40,7 +41,8 @@ static partial class Program
         var fifth = got.Count == 5 ? got[4] : null;
         Check("...a map change ends the match that was on (Beta's after the restart, from it), and the server going down the next",
             fourth is { EndedBy: HudHistory.ByMapChange, MapName: "Beta" } && fourth.Start == T(21, 30) && fourth.Players[0].Seconds == 600
-            && fifth is { EndedBy: HudHistory.ByServerStop, MapId: 0, MapName: "ar_gamma", Mode: "armsrace" } && fifth.Players.Count == 1 && fifth.Players[0].Seconds == 590);
+            && fifth is { EndedBy: HudHistory.ByServerStop, MapId: 0, MapName: "ar_gamma", Mode: "armsrace" } && fifth.Players.Count == 1 && fifth.Players[0].Seconds == 590
+            && fifth.Key == "ar_gamma");
         t.MapStarted(T(22, 0), "de_delta", 3000000004, "Delta", "wingman");
         t.MapStarted(T(22, 10), "de_eps", 3000000005, "Eps", "wingman");
         t.Entered(T(22, 10, 5), 1001, "Alice");
@@ -70,6 +72,86 @@ static partial class Program
         Check("...at the record's end a match still on is an entry, ending at the last human's leaving, its end not known",
             finished && last is { EndedBy: HudHistory.ByUnknown } && last.End == T(1, 20) && last.Missing.SequenceEqual(["end"]) && !w.Finish(T(3, 1)));
 
+        // ---- the warm-up: every map starts in it (WarmUp.cs, release 219); its match counts from its end ----
+        var warm = new List<HudHistory.Entry>();
+        var wu = new MatchTracker { Finished = warm.Add, UsesWarmUp = true, RecordsFrags = true };
+        wu.MapStarted(T(18, 0), "de_warm", 3000000011, "Warm", "wingman");
+        wu.Entered(T(18, 0, 10), 1001, "Alice");
+        wu.Entered(T(18, 0, 40), 1002, "Bob");
+        wu.Left(T(18, 1), 1002);
+        wu.Entered(T(18, 1, 10), 1003, "Cara");
+        wu.Killed(T(18, 1, 20), 1001, 1003, "ak47", "headshot", 10);
+        var warming = wu.Warming && !wu.Running;
+        wu.WarmUpEnded(T(18, 2));
+        wu.Killed(T(18, 3), 1003, 1001, "deagle", "", 20);
+        wu.MatchEnded(T(18, 12), "scrimcomp2v2 mg_x de_warm score 9:3 after 10 min");
+        var warmed = warm.Count == 1 ? warm[0] : null;
+        Check("History with the warm-up: the match counts from the warm-up's end - whoever joined during it in from that start, their seconds from it; one who left during it was never in; a kill in the warm-up no frag",
+            warming && warmed is { Start.Hour: 18, Start.Minute: 2, Most: 2 } && warmed.Players.Select(p => (p.Account, p.Seconds, p.First)).SequenceEqual([(1001L, 600, T(18, 2)), (1003L, 600, T(18, 2))])
+            && warmed.Players[0].Frags is { Kills: 0, Deaths: 1 } && warmed.Players[1].Frags is { Kills: 1, Hs: 0, Deaths: 0 } && warmed.Pairs is [{ Killer: 1003, Victim: 1001, Kills: 1 }]);
+        wu.MapStarted(T(18, 13), "de_cold", 3000000012, "Cold", "wingman");
+        wu.Entered(T(18, 13, 5), 1001, "Alice");
+        wu.MapStarted(T(18, 18), "de_colder", 3000000013, "Colder", "wingman");
+        wu.Entered(T(18, 18, 5), 1001, "Alice");
+        wu.ServerDown(T(18, 22));
+        Check("...a map that ends during its warm-up records no match: a map change, or the server going down", warm.Count == 1);
+        wu.MapStarted(T(18, 30), "de_none", 3000000014, "None", "wingman");
+        wu.Entered(T(18, 30, 5), 1001, "Alice");
+        wu.NoWarmUp();
+        wu.MatchEnded(T(18, 40), "scrimcomp2v2 mg_x de_none score 9:1 after 10 min");
+        Check("...a map with no warm-up after all (a plugin without it) runs as CS2 has it, from the map's start as before",
+            warm.Count == 2 && warm[1].Start == T(18, 30) && warm[1].Players.Single() is { Account: 1001, Seconds: 595 } && warm[1].Players[0].Frags is { Any: false });
+
+        // ---- the frags: the game's kill lines ----
+        const string KillDay = "11/20/2026"; // a log line's prefix is built from its parts (no date beside a time in this file)
+        string L(string ev) => KillDay + " - 18:05:00.000 - " + ev;
+        var kill = FragOf(L("\"Alice<2><[U:1:1001]><CT>\" [486 -150 2] killed \"Bob<3><[U:1:1002]><TERRORIST>\" [-466 -1524 2] with \"scar20\" (headshot penetrated)"));
+        var onBot = FragOf(L("\"Alice<2><[U:1:1001]><CT>\" [0 0 0] killed \"Botty<5><BOT><TERRORIST>\" [100 0 0] with \"knife_t\""));
+        var byBot = FragOf(L("\"Botty<5><BOT><CT>\" [0 0 0] killed \"Bob<3><[U:1:1002]><TERRORIST>\" [0 0 0] with \"ak47\""));
+        Check($"Frags: a kill line read - both players (a bot is 0), the weapon, the game's marks, the metres between them ({kill?.Metres:0.0} m)",
+            kill is { What: "kill", Killer: 1001, Victim: 1002, Weapon: "scar20", Marks: "headshot penetrated" } && Math.Abs(kill.Metres - 42.46) < 0.05
+            && onBot is { Killer: 1001, Victim: 0, Weapon: "knife_t" } && byBot is { Killer: 0, Victim: 1002 });
+        Check("...an assist (a flash's too), a suicide and a chicken; chat that says a kill line, and every other line, is none",
+            FragOf(L("\"Cara<4><[U:1:1003]><CT>\" assisted killing \"Bob<3><[U:1:1002]><TERRORIST>\"")) is { What: "assist", Killer: 1003 }
+            && FragOf(L("\"Cara<4><[U:1:1003]><CT>\" flash-assisted killing \"Bob<3><[U:1:1002]><TERRORIST>\"")) is { What: "assist", Killer: 1003 }
+            && FragOf(L("\"Bob<3><[U:1:1002]><TERRORIST>\" [-373 -1478 2] committed suicide with \"world\"")) is { What: "suicide", Killer: 1002 }
+            && FragOf(L("\"Alice<2><[U:1:1001]><CT>\" [1 2 3] killed other \"chicken<77>\" [4 5 6] with \"ak47\"")) is { What: "chicken", Killer: 1001 }
+            && FragOf(L("\"Eve<6><[U:1:1005]><CT>\" say \"Alice<2><[U:1:1001]><CT> [0 0 0] killed Bob<3><[U:1:1002]><CT> [0 0 0] with ak47\"")) == null
+            && FragOf(L("\"Alice<2><[U:1:1001]><CT>\" entered the game")) == null && FragOf(L("Game Over: deathmatch mg_x de_x score 0:0 after 9 min")) == null
+            && FragOf(L("\"Botty<5><BOT><CT>\" [0 0 0] committed suicide with \"world\"")) == null);
+        var frag = new List<HudHistory.Entry>();
+        var f = new MatchTracker { Finished = frag.Add, UsesWarmUp = true, RecordsFrags = true };
+        f.MapStarted(T(19, 0), "ar_frags", 0, "ar_frags", "armsrace");
+        foreach (var (who, name) in new[] { (1001L, "Alice"), (1002L, "Bob"), (1003L, "Cara") }) f.Entered(T(19, 0, 5), who, name);
+        f.WarmUpEnded(T(19, 1));
+        f.Killed(T(19, 2), 1001, 1002, "awp", "noscope", 48.4);
+        f.Killed(T(19, 3), 1001, 0, "taser", "attackerinair", 2);
+        f.Killed(T(19, 4), 1001, 1002, "ak47", "headshot penetrated", 12);
+        f.Killed(T(19, 5), 0, 1001, "ak47", "", 5);
+        f.Killed(T(19, 6), 1001, 1003, "ak47", "", 5);
+        f.Assisted(T(19, 6), 1002);
+        f.Suicide(T(19, 7), 1003);
+        f.Chicken(T(19, 8), 1002);
+        f.Chicken(T(19, 8), 1002);
+        f.Killed(T(19, 10, 58), 1002, 1003, "knifegg", "", 1);
+        f.Entered(T(19, 10), 1004, "Dan");
+        f.MatchEnded(T(19, 11), "gungameprogressive mg_armsrace ar_frags score 0:0 after 10 min");
+        var fr = frag.Count == 1 ? frag[0] : null;
+        HudHistory.Frags? Of(long account) => fr?.Players.FirstOrDefault(p => p.Account == account)?.Frags;
+        Check("...counted per player: kills (bots too), deaths, assists, head shots, wallbangs, noscopes, in-air, taser and knife kills, chickens, suicides, the longest kill, the best streak",
+            Of(1001) is { Kills: 4, Deaths: 1, Hs: 1, Wall: 1, Noscope: 1, Air: 1, Taser: 1, Knife: 0, Streak: 3, Far: 48.4 } && Of(1002) is { Kills: 1, Deaths: 2, Assists: 1, Chickens: 2, Knife: 1 }
+            && Of(1003) is { Kills: 0, Deaths: 3, Suicides: 1 } && Of(1004) is { Any: false });
+        Check("...Arms Race's winner: the human whose knife kill came with the end; who killed whom, every pair, the most first; the most humans in it at once",
+            fr is { Winner: 1002, Most: 4 } && fr.Pairs is [{ Killer: 1001, Victim: 1002, Kills: 2 }, ..] && fr.Pairs.Count == 3 && fr.Nemesis is { Killer: 1001, Kills: 2 }
+            && fr.TopFragger is { Player.Account: 1001, Kills: 4 });
+        var late = new List<HudHistory.Entry>();
+        var l2 = new MatchTracker { Finished = late.Add, RecordsFrags = true };
+        l2.MapStarted(T(20, 0), "ar_late", 0, "ar_late", "armsrace");
+        l2.Entered(T(20, 0, 5), 1001, "Alice");
+        l2.Killed(T(20, 5), 1001, 0, "knife", "", 1);
+        l2.MatchEnded(T(20, 10), "gungameprogressive mg_armsrace ar_late score 0:0 after 10 min");
+        Check("...a knife kill long before the end won nothing", late.Count == 1 && late[0].Winner == 0);
+
         // ---- the file's lines, the plugin's block, the words ----
         var odd = first! with { Players = [new HudHistory.Player(1009, "Ann \"the\" Öst\t1", 61, first.Start)] };
         var back = HudHistory.FromJsonLine(HudHistory.ToJsonLine(odd));
@@ -77,16 +159,27 @@ static partial class Program
         var decoded = HudHistory.Decode(block.Encode());
         Check("History: an entry's line reads back the same - any name, its time's offset - and the plugin's block carries the newest first with its version",
             back != null && back.Players[0].Name == "Ann \"the\" Öst\t1" && back.Start == odd.Start && back.Start.Offset == TimeSpan.FromHours(1) && back.MapId == odd.MapId
-            && back.Score == "9:4" && back.Missing.Count == 0 && HudHistory.FromJsonLine("not json") == null && HudHistory.FromJsonLine("{\"v\":2}") == null
+            && back.Score == "9:4" && back.Missing.Count == 0 && back.Players[0].Frags == null && HudHistory.FromJsonLine("not json") == null && HudHistory.FromJsonLine("{\"v\":2}") == null
             && decoded is { Version: 7 } && decoded.Entries.Count == 2 && decoded.Entries[0].End == second!.End && HudHistory.Decode("nonsense") == null);
-        Check("...its words: the day and span from when its humans were in, who longest first, its length and Wingman's score, a mark for what is not known",
-            HudHistory.When(first) == "Fri 20 Nov  ·  21:00 - 21:11" && HudHistory.Who(first) == "Alice and Bob"
+        var fragLine = HudHistory.ToJsonLine(fr!);
+        var fragBack = HudHistory.FromJsonLine(fragLine);
+        var compact = HudHistory.FromJsonLine(HudHistory.ToJsonLine(fr!, compact: true));
+        Check($"...the frags in the file whole - a player's every count, the longest kill, the winner, the most at once, the pairs and the top pair - and in the plugin's block only the kills ({fragLine.Length} and {HudHistory.ToJsonLine(fr!, compact: true).Length} characters)",
+            fragBack is { Winner: 1002, Most: 4 } && fragBack.Pairs?.Count == 3 && fragBack.Players.First(p => p.Account == 1001).Frags == Of(1001) && fragBack.Players.First(p => p.Account == 1004).Frags is { Any: false }
+            && fragLine.Contains("\"nemesis\":[1001,1002,2]", StringComparison.Ordinal)
+            && compact is { Winner: 1002, Most: 4, Pairs: null } && compact.Players.First(p => p.Account == 1001).Frags is { Kills: 4, Deaths: 0, Far: 0 } && compact.TopFragger is { Player.Account: 1001 });
+        Check("...its words: the day and span from when its humans were in, its length, how it ended with Wingman's score and a mark for what is not known, everybody who joined",
+            HudHistory.When(first) == "Fri 20 Nov  ·  21:00 - 21:11" && HudHistory.Duration(first) == "11 min" && HudHistory.Minutes(0.4) == "under a minute" && HudHistory.Minutes(72) == "1 h 12 min"
+            && HudHistory.Minutes(120) == "2 h" && HudHistory.Ended(first) == "Match end  ·  9:4" && HudHistory.Ended(sixth!) == "Match end  ·  from the logs, partly"
+            && HudHistory.Ended(fifth!) == "Server restart" && HudHistory.Ended(fifth! with { EndedBy = HudHistory.ByServerStart }) == "The server went down"
+            && HudHistory.Ended(fourth!) == "Map change" && HudHistory.Ended(third!) == "Match restarted" && HudHistory.Ended(seventh!) == "Not known  ·  from the logs, partly"
+            && HudHistory.Joined(first) == "2 players: Alice and Bob" && HudHistory.Joined(fifth!) == "1 player: Alice"
+            && HudHistory.Joined(first with { Players = Enumerable.Range(1, 6).Select(i => new HudHistory.Player(i, $"P{i}", 100 - i, first.Start)).ToList() }) == "6 players: P1, P2, P3, P4, P5 and P6"
             && HudHistory.Who(first with { Players = Enumerable.Range(1, 6).Select(i => new HudHistory.Player(i, $"P{i}", 100 - i, first.Start)).ToList() }) == "P1, P2, P3, P4 and 2 more"
-            && HudHistory.Note(first) == "11 min  ·  9:4" && HudHistory.Note(sixth!) == "9 min  ·  from the logs, partly"
             && HudHistory.When(last! with { End = T(1, 20).AddDays(1) }).EndsWith("01:01 - Sat 01:20", StringComparison.Ordinal));
-        var stateLine = new HudState { HistoryVersion = 42 };
-        Check("...the live state names the block's version, and a state without it names none", HudState.Decode(stateLine.Encode())?.HistoryVersion == 42
-            && HudState.Decode(new HudState().Encode())?.HistoryVersion == 0);
+        var stateLine = new HudState { HistoryVersion = 42, StatsVersion = 43 };
+        Check("...the live state names the block's version and the STATS page's, and a state without them names none",
+            HudState.Decode(stateLine.Encode()) is { HistoryVersion: 42, StatsVersion: 43 } && HudState.Decode(new HudState().Encode()) is { HistoryVersion: 0, StatsVersion: 0 });
         Check("A dislike's reason for a map that took the server down: carried by the codecs as itself (an older plugin reads a dislike); the last reason of all, the popup's seventh button (os_why_7) with content v4.15.0, which has it",
             DownReasons.Crash is { Word: "crash", Value: HudCatalog.CrashVote, Label: "It crashed the server" } && HudCatalog.Carried(HudCatalog.CrashVote) == HudCatalog.CrashVote
             && HudCatalog.Carried(-8) == -1 && DownReasons.All[^1] == DownReasons.Crash && HudVote.WhyButton(DownReasons.All.Length) == "os_why_7"
@@ -128,6 +221,8 @@ static partial class Program
             ConsoleLine("19:00:00") + "Loading map \"de_gamma\"",
             ConsoleLine("19:00:01") + "Started: \"\"",
             ConsoleLine("19:01:00") + "\"Dan<3><[U:1:1004]><>\" entered the game",
+            ConsoleLine("19:05:00") + "\"Dan<3><[U:1:1004]><CT>\" [0 0 0] killed \"Botty<5><BOT><TERRORIST>\" [400 0 0] with \"ak47\" (headshot)",
+            ConsoleLine("19:05:00") + "\"Dan<3><[U:1:1004]><CT>\" [0 0 0] killed \"Botty<6><BOT><TERRORIST>\" [40 0 0] with \"ak47\"",
             ConsoleLine("19:12:00") + "Game Over: deathmatch mg_x de_gamma score 0:0 after 12 min",
             ConsoleLine("20:15:00") + "\"Eve<4><[U:1:1005]><>\" entered the game",
             "11/20 20:15:01 [Server] some other console line",
@@ -137,12 +232,12 @@ static partial class Program
         Check($"History backfill: the day logs and the console's, in time order - {filled.Count} entries ({words})",
             filled.Count == 4 && words.StartsWith($"history backfill: 4 match(es) from {Day} 19:00 to {Day} 20:45, 2 of them incomplete, 4 human(s)", StringComparison.Ordinal));
         var (gamma, alpha, beta, shoots) = filled.Count == 4 ? (filled[0], filled[1], filled[2], filled[3]) : (null, null, null, null);
-        Check("...a console's match: its map known by its file alone (no Workshop id), its mode from the Game Over line",
+        Check("...a console's match: its map known by its file alone (no Workshop id), its mode from the Game Over line, its frags from the console's kill lines - two in the same second each its own",
             gamma is { LogName: "de_gamma", MapName: "de_gamma", MapId: 0, Mode: "deathmatch", Source: "backfill" } && gamma.Missing.SequenceEqual(["map id"])
-            && gamma.Players.Single() is { Account: 1004, Seconds: 660 });
-        Check("...a day log's: the Workshop id the change sent, the name the server showed, the score, the fairness restart no split",
+            && gamma.Players.Single() is { Account: 1004, Seconds: 660, Frags: { Kills: 2, Hs: 1 } });
+        Check("...a day log's: the Workshop id the change sent, the name the server showed, the score, the fairness restart no split, no frags (the day logs have none)",
             alpha is { MapId: 3000000001, MapName: "Alpha", Mode: "wingman", Score: "9:7", EndedBy: HudHistory.ByMatchEnd } && alpha.Missing.Count == 0 && alpha.Start == U(20, 10, 1)
-            && alpha.Players.Select(p => (p.Account, p.Seconds)).SequenceEqual([(1001L, 592), (1002L, 570)]));
+            && alpha.Players.Select(p => (p.Account, p.Seconds)).SequenceEqual([(1001L, 592), (1002L, 570)]) && alpha.Players.All(p => p.Frags == null) && alpha.Most == 2);
         Check("...the end screen before the change is no match; a match the server's start ended says so",
             beta is { MapId: 3000000002, MapName: "Beta", EndedBy: HudHistory.ByServerStart } && beta.Players.Single() is { Account: 1001, Seconds: 535 });
         Check("...an official map has no Workshop id to miss, a mode said just after its start is its own, and the match on at the logs' end is written, its end not known",
@@ -161,45 +256,77 @@ static partial class Program
             h.Join(("Alice", "[U:1:1001]"));
             h.Run(120);
             h.Join(("Bob", "[U:1:1002]"));
+            h.Line("\"Alice<2><[U:1:1001]><CT>\" [0 0 0] killed \"Bob<2><[U:1:1002]><CT>\" [100 0 0] with \"ak47\" (headshot)");
             h.Run(60);
             h.Leave(("Bob", "[U:1:1002]"));
             h.Run(60);
             h.MatchEnd();
             var lines = File.Exists(HistoryPath) ? File.ReadAllLines(HistoryPath) : [];
             var live = lines.Length == 1 ? HudHistory.FromJsonLine(lines[0]) : null;
-            Check("History, live: the bridge's log stream makes the entry, appends it to history.jsonl and moves the plugin's copy",
-                live is { LogName: "de_live", EndedBy: HudHistory.ByMatchEnd, Mode: "armsrace", Source: "live" } && live.Players.Select(p => (p.Account, p.Seconds)).SequenceEqual([(1001L, 240), (1002L, 60)])
-                && History.Entries.Count == 1 && History.Version > before && History.Encode().Contains("de_live", StringComparison.Ordinal));
+            Check("History, live: the bridge's log stream makes the entry - a plugin with no warm-up: from the map's start - appends it to history.jsonl and moves the plugin's copy; its frags from the kill lines, never logged",
+                live is { LogName: "de_live", EndedBy: HudHistory.ByMatchEnd, Mode: "armsrace", Source: "live", Most: 2 } && live.Players.Select(p => (p.Account, p.Seconds)).SequenceEqual([(1001L, 240), (1002L, 60)])
+                && live.Players[0].Frags is { Kills: 1, Hs: 1 } && live.Players[1].Frags is { Deaths: 1 } && live.Pairs is [{ Killer: 1001, Victim: 1002 }]
+                && History.Entries.Count == 1 && History.Version > before && History.Encode().Contains("de_live", StringComparison.Ordinal) && !Told.Any(x => x.Contains("killed", StringComparison.Ordinal)));
             File.AppendAllText(HistoryPath, "a line that is no entry\n");
             Check("...and a bridge reads it back at its start, newest first, a line that does not read skipped and said",
                 LoadHistory().Contains("1 match(es)", StringComparison.Ordinal) && LoadHistory().Contains("1 line(s) that do not read skipped", StringComparison.Ordinal)
                 && History.Entries.Count == 1 && History.Entries[0].LogName == "de_live");
+
+            // with the warm-up: the plugin says it is on, two spawned and nobody still coming - the bridge ends it once everybody is in, and the match starts then
+            h.Fresh();
+            File.Delete(HistoryPath);
+            LoadHistory();
+            var warmOn = true;
+            h.Server = c => c == EarlyJoin.WarmUpCommand ? EarlyJoin.WarmUpReply(warmOn, 5, 2, 100) : c.StartsWith(EarlyJoin.WarmUpCommand + " ", StringComparison.Ordinal) ? "os_warmup: ended"
+                : c == EarlyJoin.JoiningCommand ? EarlyJoin.JoiningReply([]) : "";
+            h.Line("Loading map \"de_warmlive\"");
+            h.Join(("Alice", "[U:1:1001]"));
+            h.Join(("Bob", "[U:1:1002]"));
+            h.Line("\"Alice<2><[U:1:1001]><CT>\" [0 0 0] killed \"Bob<2><[U:1:1002]><CT>\" [100 0 0] with \"ak47\"");
+            var warmedAt = MatchHistory.Warming;
+            h.Run(EarlyJoin.SettleSeconds + 5);
+            warmOn = false;
+            var startedAt = MatchHistory.StartedAt;
+            h.Line("\"Bob<2><[U:1:1002]><CT>\" [0 0 0] killed \"Alice<2><[U:1:1001]><CT>\" [100 0 0] with \"knife\"");
+            h.Run(300);
+            h.MatchEnd();
+            var warmLive = History.Entries.FirstOrDefault();
+            Check($"...with the warm-up: the bridge's end of it starts the match - its start then, both players in from it, the warm-up's kill no frag ({startedAt:HH:mm:ss})",
+                warmedAt && warmLive is { LogName: "de_warmlive", EndedBy: HudHistory.ByMatchEnd } && warmLive.Start == startedAt && startedAt > warmLive.Start.AddSeconds(-1)
+                && h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") && warmLive.Players.All(p => p.First == warmLive.Start)
+                && warmLive.Players.First(p => p.Account == 1002).Frags is { Kills: 1, Knife: 1 } && warmLive.Players.First(p => p.Account == 1001).Frags is { Kills: 0, Deaths: 1 });
         }
         finally { h.Dispose(); }
 
-        // ---- the plugin's cost: a block at its most, decoded as the plugin takes it after every match end; the History view worked out over a full catalog ----
+        // ---- the plugin's cost: a block at its most, decoded as the plugin takes it after every match end; the HISTORY page worked out over it ----
         var big = new HudHistory { Version = 9 };
         for (var i = 0; i < HudHistory.BlockMax; i++)
-            big.Entries.Add(first! with
+            big.Entries.Add(fr! with
             {
-                Start = first.Start.AddMinutes(-15 * i), End = first.End.AddMinutes(-15 * i), MapId = 3000000000 + i % 500, MapName = $"Map {i % 500}",
-                Players = Enumerable.Range(0, 4).Select(k => new HudHistory.Player(2000 + k, $"Player number {k}", 600, first.Start)).ToList(),
+                Start = first.Start.AddMinutes(-15 * i), End = first.End.AddMinutes(-15 * i), MapId = 3000000000 + i % 500, MapName = $"Map {i % 500}", LogName = "",
+                Players = Enumerable.Range(0, 4).Select(k => new HudHistory.Player(2000 + k, $"Player number {k}", 600, first.Start, new HudHistory.Frags(Kills: 20 + k, Deaths: 10))).ToList(),
             });
         var bigText = big.Encode();
         HudHistory.Decode(bigText); // the first, which also compiles it
         var decodes = Enumerable.Range(0, 5).Select(_ => { var sw = System.Diagnostics.Stopwatch.StartNew(); var d = HudHistory.Decode(bigText); sw.Stop(); return (Count: d?.Entries.Count ?? 0, Ms: sw.Elapsed.TotalMilliseconds); }).ToList();
         var decodeMs = decodes.Select(x => x.Ms).OrderBy(x => x).ElementAt(2);
-        var bigCatalog = new HudCatalog();
-        for (var i = 0; i < 9000; i++) bigCatalog.Maps.Add(new($"{3000000000 + i}", $"{i + 1}", i + 1, 3000000000 + i, $"Map {i}", 100, false, -1, 0, 0, 0, RankAr: i + 1));
-        var viewTimes = Enumerable.Range(0, 5).Select(i => { var vb = new HudBrowser { History = true, Past = big, Page = i }; var sw = System.Diagnostics.Stopwatch.StartNew(); var n = vb.Matches(bigCatalog, 1001).Count; vb.PageOf(vb.Matches(bigCatalog, 1001)); vb.PastPage(); sw.Stop(); return (n, sw.Elapsed.TotalMilliseconds); }).ToList();
+        var viewTimes = Enumerable.Range(0, 5).Select(i =>
+        {
+            var hp = new HudHistoryPage { Page = i, Query = i % 2 == 0 ? "" : "number 2" };
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var n = hp.Matches(big, 2001).Count;
+            hp.View(big, null, new HudState(), new HudBrowser(), 2001, DateTime.UtcNow);
+            sw.Stop();
+            return (n, sw.Elapsed.TotalMilliseconds);
+        }).ToList();
         var viewMs = viewTimes.Select(x => x.Item2).OrderBy(x => x).ElementAt(2);
         Console.WriteLine($"history cost: decode {HudHistory.BlockMax} matches ({bigText.Length / 1024} KB) {string.Join(", ", decodes.Select(x => x.Ms.ToString("0.0")))} ms; "
-            + $"the view over 9000 maps {string.Join(", ", viewTimes.Select(x => x.Item2.ToString("0.0")))} ms");
+            + $"the HISTORY page {string.Join(", ", viewTimes.Select(x => x.Item2.ToString("0.0")))} ms");
         Check($"History: the plugin's block at its most ({HudHistory.BlockMax} matches, {bigText.Length / 1024} KB) decodes whole ({decodeMs:0.0} ms, median of 5, this build) - off the "
-            + $"game thread (BridgeLink.TakeHistory); a player's History view over 9,000 maps takes {viewMs:0.0} ms, once for each change of the history or the catalog",
+            + $"game thread (BridgeLink.TakeHistory); a player's HISTORY page over it takes {viewMs:0.0} ms, once for each change of the page or the history",
             decodes.All(x => x.Count == HudHistory.BlockMax) && viewTimes.All(x => x.n == HudHistory.BlockMax));
 
-        // ---- the map browser's History view ----
+        // ---- the HISTORY page ----
         var catalog = new HudCatalog
         {
             Maps =
@@ -211,44 +338,60 @@ static partial class Program
         };
         catalog.Votes[1001] = new() { ["3000000001"] = 1, ["3000000002"] = -1 };
         var unlisted = alpha! with { MapId = 3999999999, MapName = "Gone Map", LogName = "de_gone", Players = [new HudHistory.Player(1005, "Eve", 300, alpha.Start)] };
-        var past = new HudHistory { Version = 3, Entries = [shoots!, beta!, alpha, unlisted] }; // newest first
-        var b = new HudBrowser { Past = past };
-        Check("History view: the History button turns it on, from the first page; a search the chat sets turns it off again",
-            b.Click(HudBrowser.HistoryButton, 0) && b.History && b.Page == 0 && b.Matches(catalog, 1001).Count == 4);
-        var cards = b.Matches(catalog, 1001);
-        var page = b.PageOf(cards);
-        var onPage = b.PastPage();
-        Check("...a card a match, newest first: each the map's own card - an official one by its name, one no list has now made under the name it had",
-            cards.Select(c => c.Name).SequenceEqual(["ar_shoots", "Beta", "Alpha", "Gone Map"]) && cards[3] is { Key: "3999999999", Arg: "3999999999", Up: 0 }
-            && onPage.Count == 4 && onPage[1] == beta && page.Count == 4);
-        var (texts, classes) = HudMenu.Maps(catalog, new HudState(), b, 1001, DateTime.UtcNow, history: true);
-        var (_, oldClasses) = HudMenu.Maps(catalog, new HudState(), b, 1001, DateTime.UtcNow);
-        Check($"...only to a content that has it (level {HudBrowser.HistoryLevel}, after v4.14.0): to an older one nothing of it, so no game logs a panel it lacks",
-            !oldClasses.Any(x => x.Id == HudBrowser.HistoryButton || x.Class is "hist" or "hinc") && !HudBrowser.HasHistory("v4.14.0") && HudBrowser.HasHistory(HudVersion.Content) == HudVersion.Level >= HudBrowser.HistoryLevel
-            && !HudBrowser.HasHistory("v4.13.0"));
-        string Text(string id) => texts.LastOrDefault(x => x.Id == id).Text ?? "";
+        var again = alpha with { Start = alpha.Start.AddDays(-2), End = alpha.End.AddDays(-2), Most = 3, Winner = 1001 };
+        var past = new HudHistory { Version = 3, Entries = [shoots!, beta!, alpha, unlisted, again] }; // newest first
+        var page = new HudHistoryPage();
+        var s = new HudState { Key = "3000000002" };
+        var (vars, classes, pictures) = page.View(past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow);
+        string Var(string name) => vars.LastOrDefault(x => x.Name == name).Text ?? "";
         bool On(string id, string cls) => classes.LastOrDefault(x => x.Id == id && x.Class == cls).On;
-        var hw = HudMenu.HistoryWords(b);
-        Check("...the page: its count, the History button lit and hist on os_screen; each card's likes and the player's own vote as in the browser; the match lines as variables",
-            Text("os_m_count") == "4 matches" && On(HudBrowser.HistoryButton, "on") && On(HudView.Screen, "hist") && Text("os_m2_name") == "Beta" && Text("os_m3_votes") == "+3  -1"
-            && On("os_m3", "liked") && On("os_m2", "disliked") && !On("os_m1", "liked") && On("os_m1", "hinc") && !On("os_m3", "hinc")
-            && hw.Count == 3 * HudMenu.Cards && hw.Contains(("osh3w", HudHistory.When(alpha))) && hw.Contains(("osh3p", "Alice and Bob")) && hw.Contains(("osh5w", "")));
-        Check("...a card's Like, Dislike and Play are the browser's own, for that match's map: the one vote a player has on it",
-            HudMenu.Command("os_m3_up", catalog, new HudState(), b, 1001, DateTime.UtcNow) == "!up 12" && HudMenu.Command("os_m2_down", catalog, new HudState(), b, 1001, DateTime.UtcNow) == "!down 40"
-            && HudMenu.Command("os_m4_up", catalog, new HudState(), b, 1001, DateTime.UtcNow) == "!up 3999999999");
-        b.Mode = "wingman";
-        var wingman = b.Matches(catalog, 1001).Select(c => c.Name).ToList();
-        b.Mode = ""; b.Liked = true;
-        var liked = b.Matches(catalog, 1001).Select(c => c.Name).ToList();
-        b.Liked = false; b.Query = "eve";
-        var byPlayer = b.Matches(catalog, 1001).Select(c => c.Name).ToList();
-        b.Query = ""; b.Descending = true;
-        var oldest = b.Matches(catalog, 1001).Select(c => c.Name).FirstOrDefault();
-        b.Descending = false;
-        var (emptyTexts, _) = HudMenu.Maps(catalog, new HudState(), new HudBrowser { History = true, Past = new HudHistory { Version = 1 } }, 1001, DateTime.UtcNow, history: true);
-        b.Find("dust");
-        Check("...the filters the browser has: the mode, Liked, a search by the map's or a player's name, oldest first; an empty history says so",
-            wingman.SequenceEqual(["Beta", "Alpha", "Gone Map"]) && liked.SequenceEqual(["Alpha"]) && byPlayer.SequenceEqual(["Gone Map"]) && oldest == "Gone Map"
-            && emptyTexts.LastOrDefault(x => x.Id == "os_m_empty").Text == HudMenu.HistoryEmpty && !b.History && HudMenu.HistoryWords(b).All(x => x.Text == ""));
+        Check($"HISTORY page: four cards a page, newest first; the count, the page, no empty words ({Var("oshcount")})",
+            Var("oshcount") == $"5 matches  ·  4 maps  ·  since {HudHistory.Day(again.From)}" && Var("oshpage") == "Page 1 of 2" && Var("oshempty") == ""
+            && Var("osh1n") == "ar_shoots" && Var("osh2n") == "Beta" && Var("osh3n") == "Alpha" && Var("osh4n") == "Gone Map"
+            && On(HudView.Screen, "hfirst") && !On(HudView.Screen, "hlast") && On(HudView.Screen, "hm-all") && !On(HudView.Screen, "hnone"));
+        Check("...a card's words: when, how long, how it ended, everybody who joined, how often its map was played, a fun line, its likes, its size, Vote for it as the browser's Play",
+            Var("osh3w") == HudHistory.When(alpha) && Var("osh3d") == "10 min" && Var("osh3e") == "Match end  ·  9:7" && Var("osh3p") == "2 players: Alice and Bob"
+            && Var("osh3c") == "Played twice" && Var("osh3f") == $"First played {HudHistory.Day(again.From)}  ·  Most at once: 2" && Var("osh3v") == "+3  -1" && Var("osh3s") == "200 MB"
+            && Var("osh3a") == "Put to the vote" && Var("osh1s") == HudMenu.OfficialSize && Var("osh1c") == "Played once" && Var("osh2a") == "On now"
+            && Var("osh4v") == "" && Var("osh4a") == "Not on the list" && Var("osh4s") == "");
+        Check("...a card's classes: used, the player's own like or dislike, official, the match's mode, a record known in part, on now, mine; its picture the map's",
+            On("os_h3", "used") && On("os_h3", "liked") && On("os_h2", "disliked") && On("os_h1", "official") && !On("os_h3", "official") && On("os_h3", "mode-wingman") && On("os_h1", "mode-armsrace")
+            && On("os_h1", "hinc") && !On("os_h3", "hinc") && On("os_h2", "now") && !On("os_h3", "now") && On("os_h3", "mine") && !On("os_h4", "mine") && !On("os_h4", "liked")
+            && pictures.Count == HudHistoryPage.Cards && pictures[2].Panel == "os_h3_thumb" && pictures[3].Classes.Length == 0);
+        Check("...a card's Like, Dislike and Vote for it are the browser's own, for that match's map; Vote for it in the match's mode; nothing for a map on no list or the map that is on",
+            page.Command("os_h3_up", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!up 12" && page.Command("os_h2_down", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!down 40"
+            && page.Command("os_h3_play", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!map 12 wingman" && page.Command("os_h1_play", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == "!map ar_shoots"
+            && page.Command("os_h4_up", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == null && page.Command("os_h2_play", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == null
+            && page.Command("os_h9_up", past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) == null);
+        var fifthCard = page.Click(HudHistoryPage.NextButton, page.Matches(past, 1001).Count) ? page.View(past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow) : default;
+        Check("...the pager: the next page has the fifth match, its last; the cards with none are empty and unused",
+            fifthCard.Vars?.LastOrDefault(x => x.Name == "osh1f").Text == $"First played {HudHistory.Day(again.From)}  ·  Most at once: 3  ·  Won by Alice"
+            && fifthCard.Vars.LastOrDefault(x => x.Name == "osh2n").Text == "" && fifthCard.Classes.LastOrDefault(x => x.Id == "os_h2" && x.Class == "used") is { On: false }
+            && fifthCard.Classes.LastOrDefault(x => x.Id == HudView.Screen && x.Class == "hlast") is { On: true });
+        page.Click("os_hf_wm", 5);
+        var wingmanOnly = page.Matches(past, 1001).Select(e => e.MapName).ToList();
+        page.Click(HudHistoryPage.MineButton, 5);
+        var mine = page.Matches(past, 1001).Select(e => e.MapName).ToList();
+        page.Click("os_hf_all", 5);
+        page.Click(HudHistoryPage.MineButton, 5);
+        page.Find("eve");
+        var byPlayer = page.Matches(past, 1001).Select(e => e.MapName).ToList();
+        var (searchVars, searchClasses, _) = page.View(past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow);
+        page.Click(HudHistoryPage.ClearButton, 5);
+        page.Click(HudHistoryPage.OrderButton, 5);
+        var oldest = page.Matches(past, 1001).Select(e => e.Start).FirstOrDefault();
+        page.Find("nobody at all");
+        var (noneVars, noneClasses, _) = page.View(past, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow);
+        var (emptyVars, _, _) = new HudHistoryPage().View(new HudHistory { Version = 1 }, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow);
+        var (loadingVars, _, _) = new HudHistoryPage().View(null, catalog, s, new HudBrowser(), 1001, DateTime.UtcNow);
+        Check("...the mode chips, Mine, a search by a map's or a player's name (the count says what it found), oldest first; no match found, no history yet, and the history on its way say so",
+            wingmanOnly.SequenceEqual(["Beta", "Alpha", "Gone Map", "Alpha"]) && mine.SequenceEqual(["Beta", "Alpha", "Alpha"]) && byPlayer.SequenceEqual(["Gone Map"])
+            && searchVars.LastOrDefault(x => x.Name == "oshcount").Text == "1 of 5 matches" && searchClasses.LastOrDefault(x => x.Class == "hquery").On
+            && oldest == again.Start && noneVars.LastOrDefault(x => x.Name == "oshempty").Text == "No match on a map or with a player like \"nobody at all\"" && noneClasses.LastOrDefault(x => x.Class == "hnone").On
+            && emptyVars.LastOrDefault(x => x.Name == "oshempty").Text == HudHistoryPage.Empty && loadingVars.LastOrDefault(x => x.Name == "oshcount").Text == "Loading the history...");
+        Check("...the page's buttons all take clicks only, and only to a content that has the page (level 57, content v4.15.0)",
+            HudHistoryPage.Buttons.Count() == 4 * 3 + 11 && HudHistoryPage.Buttons.All(b => b.StartsWith("os_h", StringComparison.Ordinal)) && !HudBrowser.HasHistory("v4.14.0")
+            && HudBrowser.HasHistory(HudVersion.Content) == HudVersion.Level >= HudBrowser.HistoryLevel && HudView.Tabs.Any(x => x.Id == HudBrowser.HistoryTab && x.Page == HudSlots.Page.History)
+            && HudView.Tabs.Any(x => x.Id == HudStats.Tab && x.Page == HudSlots.Page.Stats));
     }
 }

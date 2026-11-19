@@ -18,9 +18,11 @@ public static class HudView
     public const string TabHow = "os_tab_how", TabFun = "os_tab_fun", TabGame = "os_tab_game", TabMaps = "os_tab_maps";
 
     /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
-    /// BrowseButton), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own.</summary>
+    /// BrowseButton), HISTORY and STATS (content v4.15.0), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens
+    /// its first page; a sub-tab its own.</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
-        [("os_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("os_tab_help", HudSlots.Page.Help),
+        [("os_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (HudBrowser.HistoryTab, HudSlots.Page.History), (HudStats.Tab, HudSlots.Page.Stats),
+         (TabGame, HudSlots.Page.Game), ("os_tab_help", HudSlots.Page.Help),
          (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("os_tab_server", HudSlots.Page.Players),
          ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help),
          (HudBots.SubFun, HudSlots.Page.Fun), (HudBots.Tab, HudSlots.Page.Bots)];
@@ -40,6 +42,8 @@ public static class HudView
         HudSlots.Page.Game => "The match length, and the two restarts: the match or the whole server",
         HudSlots.Page.Sync => "The Workshop sync: what it does now, its queue, its history",
         HudSlots.Page.Help => "Where everything is",
+        HudSlots.Page.History => "Every match a human played, the newest first: a search is a chat line",
+        HudSlots.Page.Stats => "The server's records, from every match played",
         _ => "Every rule and chance of a map pick",
     };
 

@@ -125,6 +125,7 @@ static partial class Program
         h.SearchVersion = Search.Version;
         h.DashVersion = DashVersion; // SyncDash.cs: the Sync page's block
         h.HistoryVersion = History.Version; // History.cs: the match history's block
+        h.StatsVersion = StatsNow.Version;   // Stats.cs: the STATS page's
         if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), VoteState.LabelMax), ArgOf(prev)); // the HUD cuts it at the button's real width
         PutNotices(h, now);
         if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line

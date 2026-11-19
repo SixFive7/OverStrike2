@@ -1,13 +1,18 @@
-// The match history (the history tab, 2026-11-19): every match a human was in, kept for good in history.jsonl under the data folder - one JSON object a
-// line, oldest first (HudHistory.cs) - and the newest of them sent to the plugin for the map browser's History view.
+// The match history (the history tab, 2026-11-19; the HISTORY page since the owner's 304 a): every match a human was in, kept for good in history.jsonl
+// under the data folder - one JSON object a line, oldest first (HudHistory.cs) - and the newest of them sent to the plugin for the HISTORY page, and read
+// for the STATS page (Stats.cs).
 //
-// MatchTracker follows the game's own events and finishes an entry when a match is over: its end screen (CS2's "Game Over"), a map change, a restart
-// of the match that is not the fairness one, the server going down, or a hole in the record. A match is on a map: from its start - the map's start,
-// or the end screen of the match before it on that map, should the vote play it again - to that end. Its humans are everybody who entered the game
-// during it, and everybody still in from the match before it; their seconds are their time in it. Bots never enter the log as players with a Steam
-// account, and the lab's fake players never enter the game at all, so neither is ever in it. A match nobody human was in is no entry, nor is the end
-// screen alone before a change (EndScreenSeconds). The live bridge feeds it from its log stream (HistoryIngest); --history-backfill feeds it the same
-// events read back from the bridge's day logs and the game's console log, as far back as they reach, and marks what they cannot tell (Missing).
+// MatchTracker follows the game's own events and finishes an entry when a match is over: its end screen (CS2's "Game Over"), a map change, a player's
+// restart of the match, the server going down, or a hole in the record. A match is on a map: from its start - the end of the map's warm-up (WarmUp.cs:
+// every map starts in CS2's own warm-up since release 219), the map's own start where there was none, or the end screen of the match before it on that
+// map, should the vote play it again - to that end. A map that ends during its warm-up is no match. Its humans are everybody who entered the game during
+// it - whoever joined during the warm-up from its start - and everybody still in from the match before it; their seconds are their time in it. Their
+// frags come from the game's kill lines (LogFrag: kills, assists, suicides, chickens), the most of them in it at once from who is in, Arms Race's winner
+// from the knife kill that came with its end. Bots never enter the log as players with a Steam account, and the lab's fake players never enter the game
+// at all, so neither is ever in it. A match nobody human was in is no entry, nor is the end screen alone before a change (EndScreenSeconds). The live
+// bridge feeds it from its log stream (HistoryIngest, HistoryFrag); --history-backfill feeds it the same events read back from the bridge's day logs and
+// the game's console log, as far back as they reach - its matches from before the warm-up, counted from the map's start, their frags where a console log
+// has the kill lines - and marks what they cannot tell (Missing).
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -17,15 +22,39 @@ sealed partial class MatchTracker
     /// was only the screen, no match.</summary>
     public const double EndScreenSeconds = 150;
 
-    /// <summary>A restart of the match by a player, this early in it, is still the same match (and every fairness restart is: the joiner starts it over with
-    /// everybody, EarlyJoin.cs).</summary>
+    /// <summary>A restart of the match by a player, this early in it, is still the same match (and every fairness restart was: the joiner started it over with
+    /// everybody, before the warm-up took its place).</summary>
     public const double RestartGraceSeconds = 60;
 
     /// <summary>The least time its humans were in a match for it to be one: a map voted away the moment somebody came in is no match.</summary>
     public const double LeastSeconds = 60;
 
+    /// <summary>A knife kill this close before Arms Race's Game Over is the one that won it (the last level is the knife; CS2 logs the kill and the end in the
+    /// same second).</summary>
+    public const double WinningKillSeconds = 3;
+
+    /// <summary>Metres in a unit of the game's world (an inch).</summary>
+    public const double MetresPerUnit = 0.0254;
+
     public string Source = "live";
     public Action<HudHistory.Entry>? Finished;
+
+    /// <summary>Every map starts in CS2's own warm-up (the live bridge's, WarmUp.cs, since release 219): its match counts from the warm-up's end (WarmUpEnded),
+    /// a map that ends during it is no match, and whoever joined during it is in it from its start. False for the backfill: the logs it reads are from before
+    /// the warm-up, whose matches counted from the map's start.</summary>
+    public bool UsesWarmUp;
+
+    /// <summary>Every match's frags are recorded (the live bridge reads every kill line): a match with none has players with none, not players with none known.
+    /// The backfill records a match's frags only where its logs have kill lines (a console log).</summary>
+    public bool RecordsFrags;
+
+    sealed class FragCount
+    {
+        public int Kills, Deaths, Assists, Hs, Knife, Taser, Noscope, Wall, Air, Chickens, Suicides, Streak, Run;
+        public double Far;
+
+        public HudHistory.Frags Done() => new(Kills, Deaths, Assists, Hs, Knife, Taser, Noscope, Wall, Air, Chickens, Suicides, Far, Math.Max(Streak, Run));
+    }
 
     sealed class Match
     {
@@ -33,20 +62,30 @@ sealed partial class MatchTracker
         public long MapId;
         public string MapName = "", LogName = "", Mode = "";
         public bool AfterEnd;   // begun at the last match's end screen: the next match on that map, should it be played again
+        public bool Warming;    // in the map's warm-up: no match yet (UsesWarmUp)
         public DateTimeOffset LastLeft; // when the last human to leave it left
+        public int Most;        // the most humans in it at once
+        public long Winner;     // Arms Race's winner
+        public bool FragsSeen;  // a frag of it was read
         public readonly SortedSet<string> Missing = new(StringComparer.Ordinal);
         public readonly Dictionary<long, (string Name, double Seconds, DateTimeOffset First)> Roster = new();
+        public readonly Dictionary<long, FragCount> Frags = new();
+        public readonly Dictionary<(long Killer, long Victim), int> Pairs = new();
     }
 
     readonly Dictionary<long, (string Name, DateTimeOffset Since)> present = new();
     Match? cur;
     DateTimeOffset lastStart = DateTimeOffset.MinValue;
     string lastLog = "";
+    (long Account, DateTimeOffset At) lastKnife = (0, DateTimeOffset.MinValue);
 
-    /// <summary>A match is on, as far as the record knows.</summary>
-    public bool Running => cur != null;
+    /// <summary>A match is on, as far as the record knows (a map in its warm-up has none yet).</summary>
+    public bool Running => cur is { Warming: false };
 
-    /// <summary>When the match that is on began; null with none on.</summary>
+    /// <summary>The map that is on is in its warm-up, as far as the record knows.</summary>
+    public bool Warming => cur is { Warming: true };
+
+    /// <summary>When the match that is on began; null with none on (its map's start during the warm-up).</summary>
     public DateTimeOffset? StartedAt => cur?.Start;
 
     /// <summary>Nothing known: no match on, nobody in (a new record; the self-test's sections).</summary>
@@ -56,6 +95,7 @@ sealed partial class MatchTracker
         cur = null;
         lastStart = DateTimeOffset.MinValue;
         lastLog = "";
+        lastKnife = (0, DateTimeOffset.MinValue);
     }
 
     /// <summary>The Workshop id of the map that is on, as far as the record knows: 0 for an official map, or one it was not told.</summary>
@@ -64,10 +104,10 @@ sealed partial class MatchTracker
     /// <summary>Something the record cannot tell about the match that is on (a backfill's: "map id" for a map start its log does not name).</summary>
     public void Note(string missing) => cur?.Missing.Add(missing);
 
-    /// <summary>The next match on the same map: its map as the last one's, a Workshop id it lacked lacking still.</summary>
-    static Match Next(Match? m, DateTimeOffset at, bool afterEnd, string logName = "", string mode = "")
+    /// <summary>The next match on the same map: its map as the last one's, a Workshop id it lacked lacking still; whoever is in, in it.</summary>
+    Match Next(Match? m, DateTimeOffset at, bool afterEnd, string logName = "", string mode = "")
     {
-        var n = new Match { Start = at, MapId = m?.MapId ?? 0, MapName = m?.MapName ?? "", LogName = m?.LogName ?? logName, Mode = m?.Mode ?? mode, AfterEnd = afterEnd };
+        var n = new Match { Start = at, MapId = m?.MapId ?? 0, MapName = m?.MapName ?? "", LogName = m?.LogName ?? logName, Mode = m?.Mode ?? mode, AfterEnd = afterEnd, Most = present.Count };
         if (m?.Missing.Contains("map id") == true) n.Missing.Add("map id");
         return n;
     }
@@ -75,8 +115,9 @@ sealed partial class MatchTracker
     /// <summary>The humans in the game now, as the record knows them.</summary>
     public int Present => present.Count;
 
-    /// <summary>A map started: the match that was on is over (the server started, or the map changed), and the new map's first match begins. Everybody
-    /// reconnects into it, and is in it once they enter. The second line of the same load (CS2 logs "Loading map" and "Started:") changes nothing.</summary>
+    /// <summary>A map started: the match that was on is over (the server started, or the map changed), and the new map's first match begins - with the warm-up,
+    /// once it ends. Everybody reconnects into it, and is in it once they enter. The second line of the same load (CS2 logs "Loading map" and "Started:")
+    /// changes nothing.</summary>
     public void MapStarted(DateTimeOffset at, string logName, long mapId, string mapName, string mode, bool serverStart = false)
     {
         if ((at - lastStart).TotalSeconds < 10 && (logName == "" || logName.Equals(lastLog, StringComparison.OrdinalIgnoreCase))) { Name(mapId, mapName, mode); return; }
@@ -84,7 +125,31 @@ sealed partial class MatchTracker
         present.Clear();
         lastStart = at;
         lastLog = logName;
-        cur = new Match { Start = at, MapId = mapId, MapName = mapName, LogName = logName, Mode = mode };
+        cur = new Match { Start = at, MapId = mapId, MapName = mapName, LogName = logName, Mode = mode, Warming = UsesWarmUp };
+    }
+
+    /// <summary>The map's warm-up is over (the bridge ended it, or CS2's own clock did): the real match starts now, with everybody in the game in it from this
+    /// moment - whoever joined during the warm-up is present at its start - and their seconds count from here.</summary>
+    public void WarmUpEnded(DateTimeOffset at)
+    {
+        if (cur is not { Warming: true } m) return;
+        m.Warming = false;
+        m.Start = at;
+        foreach (var (account, p) in present.ToList())
+        {
+            present[account] = (p.Name, at);
+            Touch(m, account, p.Name, at, 0);
+        }
+        m.Most = present.Count;
+    }
+
+    /// <summary>No warm-up on this map after all (a plugin without it, or none began): the match runs as CS2 has it, from the map's start as before.</summary>
+    public void NoWarmUp()
+    {
+        if (cur is not { Warming: true } m) return;
+        m.Warming = false;
+        foreach (var (account, p) in present.ToList()) Touch(m, account, p.Name, p.Since > m.Start ? p.Since : m.Start, 0);
+        m.Most = Math.Max(m.Most, present.Count);
     }
 
     /// <summary>The map's own words, once known (the server's name for it, its Workshop id, its mode), for the match that is on.</summary>
@@ -97,34 +162,38 @@ sealed partial class MatchTracker
     }
 
     /// <summary>A match ended (CS2's "Game Over: scrimcomp2v2 mg_ar_shoots de_assembly score 2:9 after 11 min"): its entry, with its mode and Wingman's
-    /// score; its end screen is the next match's start on that map, should the vote play it again.</summary>
+    /// score, and in Arms Race its winner - the human whose knife kill came with the end; its end screen is the next match's start on that map, should the
+    /// vote play it again.</summary>
     public void MatchEnded(DateTimeOffset at, string gameOver)
     {
         var (mode, logName, score) = ReadGameOver(gameOver);
         if (cur != null && mode != "") cur.Mode = mode;
+        if (cur is { Warming: false } m && mode == Modes.ArmsRaceId && lastKnife.Account > 0 && (at - lastKnife.At).TotalSeconds is >= 0 and <= WinningKillSeconds)
+            m.Winner = lastKnife.Account;
         var was = cur;
         Close(at, HudHistory.ByMatchEnd, score);
         cur = Next(was, at, afterEnd: true, logName, mode);
     }
 
-    /// <summary>The match restarted (the bridge's os_restart). A fairness restart is the same match, the joiner in it; a player's Restart match ends it
-    /// and starts the next on that map - unless the match had barely begun (RestartGraceSeconds).</summary>
+    /// <summary>The match restarted (the bridge's os_restart). A fairness restart (before the warm-up took its place) was the same match, the joiner in it; a
+    /// player's Restart match ends it and starts the next on that map - unless the match had barely begun (RestartGraceSeconds).</summary>
     public void Restarted(DateTimeOffset at, bool fair)
     {
-        if (cur == null || fair || (at - cur.Start).TotalSeconds < RestartGraceSeconds) return;
-        var was = cur;
+        if (cur is not { Warming: false } m || fair || (at - m.Start).TotalSeconds < RestartGraceSeconds) return;
         Close(at, HudHistory.ByRestart);
-        cur = Next(was, at, afterEnd: false);
+        cur = Next(m, at, afterEnd: false);
     }
 
     /// <summary>A human entered the game. With no match known - the record began, or came back, inside one - a match begins here, its start and its
-    /// players not known in full.</summary>
+    /// players not known in full. During the warm-up they are present, and in the match once it starts.</summary>
     public void Entered(DateTimeOffset at, long account, string name)
     {
         if (account <= 0) return;
         if (cur == null) { cur = new Match { Start = at }; cur.Missing.Add("start"); cur.Missing.Add("players"); }
         present[account] = present.TryGetValue(account, out var p) ? (name, p.Since) : (name, at);
+        if (cur.Warming) return;
         Touch(cur, account, name, present[account].Since, 0);
+        cur.Most = Math.Max(cur.Most, present.Count);
     }
 
     /// <summary>A human who was not known to be in acted (chat): in from now - the record missed their entering.</summary>
@@ -132,17 +201,79 @@ sealed partial class MatchTracker
     {
         if (account <= 0 || present.ContainsKey(account)) return;
         Entered(at, account, name);
-        cur?.Missing.Add("players");
+        if (cur is { Warming: false }) cur.Missing.Add("players");
     }
 
-    /// <summary>A human left the game (any disconnect: a map change's reconnect enters again).</summary>
+    /// <summary>A human left the game (any disconnect: a map change's reconnect enters again). One who leaves during the warm-up was never in the match.</summary>
     public void Left(DateTimeOffset at, long account)
     {
-        if (!present.Remove(account, out var p) || cur == null) return;
-        var since = p.Since > cur.Start ? p.Since : cur.Start;
-        Touch(cur, account, p.Name, since, Math.Max(0, (at - since).TotalSeconds));
-        cur.LastLeft = at;
+        if (!present.Remove(account, out var p) || cur is not { Warming: false } m) return;
+        var since = p.Since > m.Start ? p.Since : m.Start;
+        Touch(m, account, p.Name, since, Math.Max(0, (at - since).TotalSeconds));
+        m.LastLeft = at;
     }
+
+    // ---- the frags: the game's kill lines (LogFrag), counted in the match that is on - none during the warm-up ----
+
+    FragCount? FragsOf(Match m, long account) => account > 0 ? m.Frags.TryGetValue(account, out var f) ? f : m.Frags[account] = new FragCount() : null;
+
+    /// <summary>A kill: by a human or a bot (account 0) of a human or a bot, with this weapon, the game's marks ("headshot", "penetrated", "noscope",
+    /// "attackerinair" ...) and over this many metres.</summary>
+    public void Killed(DateTimeOffset at, long killer, long victim, string weapon, string marks, double metres)
+    {
+        var knife = IsKnife(weapon);
+        if (knife) lastKnife = (killer, at);
+        if (cur is not { Warming: false } m) return;
+        m.FragsSeen = true;
+        if (FragsOf(m, killer) is { } k)
+        {
+            k.Kills++;
+            if (marks.Contains("headshot", StringComparison.Ordinal)) k.Hs++;
+            if (marks.Contains("penetrated", StringComparison.Ordinal)) k.Wall++;
+            if (marks.Contains("noscope", StringComparison.Ordinal)) k.Noscope++;
+            if (marks.Contains("attackerinair", StringComparison.Ordinal)) k.Air++;
+            if (knife) k.Knife++;
+            if (weapon.Equals("taser", StringComparison.OrdinalIgnoreCase)) k.Taser++;
+            if (metres > k.Far) k.Far = metres;
+            k.Run++;
+            k.Streak = Math.Max(k.Streak, k.Run);
+        }
+        if (FragsOf(m, victim) is { } v)
+        {
+            v.Deaths++;
+            v.Run = 0;
+        }
+        if (killer > 0 && victim > 0 && killer != victim) m.Pairs[(killer, victim)] = m.Pairs.GetValueOrDefault((killer, victim)) + 1;
+    }
+
+    /// <summary>A human's assist in a kill.</summary>
+    public void Assisted(DateTimeOffset at, long account)
+    {
+        if (cur is not { Warming: false } m || FragsOf(m, account) is not { } a) return;
+        m.FragsSeen = true;
+        a.Assists++;
+    }
+
+    /// <summary>A human killed themselves (a fall, their own grenade): a suicide, and a death.</summary>
+    public void Suicide(DateTimeOffset at, long account)
+    {
+        if (cur is not { Warming: false } m || FragsOf(m, account) is not { } s) return;
+        m.FragsSeen = true;
+        s.Suicides++;
+        s.Deaths++;
+        s.Run = 0;
+    }
+
+    /// <summary>A human killed a chicken.</summary>
+    public void Chicken(DateTimeOffset at, long account)
+    {
+        if (cur is not { Warming: false } m || FragsOf(m, account) is not { } c) return;
+        m.FragsSeen = true;
+        c.Chickens++;
+    }
+
+    /// <summary>Whether a weapon of a kill line is a knife: Valve's knives and every skin of one, Arms Race's golden knife among them.</summary>
+    public static bool IsKnife(string weapon) => weapon.Contains("knife", StringComparison.OrdinalIgnoreCase) || weapon.Equals("bayonet", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The server went down cleanly (the quit's echo): the match that was on is over.</summary>
     public void ServerDown(DateTimeOffset at)
@@ -182,6 +313,7 @@ sealed partial class MatchTracker
         var m = cur;
         cur = null;
         if (m == null) return;
+        if (m.Warming) return; // the map ended during its warm-up: no match
         foreach (var (account, p) in present.ToList())
         {
             var since = p.Since > m.Start ? p.Since : m.Start;
@@ -197,9 +329,15 @@ sealed partial class MatchTracker
 
     HudHistory.Entry Snapshot(Match m, DateTimeOffset at, string by, string score = "")
     {
-        var players = m.Roster.Select(r => new HudHistory.Player(r.Key, r.Value.Name, (int)Math.Round(r.Value.Seconds), r.Value.First))
+        var frags = RecordsFrags || m.FragsSeen;
+        var players = m.Roster.Select(r => new HudHistory.Player(r.Key, r.Value.Name, (int)Math.Round(r.Value.Seconds), r.Value.First,
+                frags ? m.Frags.TryGetValue(r.Key, out var f) ? f.Done() : new HudHistory.Frags() : null))
             .OrderBy(p => p.First).ThenBy(p => p.Account).ToList();
-        return new HudHistory.Entry(m.Start, at, m.MapId, m.MapName != "" ? m.MapName : m.LogName, m.LogName, m.Mode, by, score, players, m.Missing.ToList(), Source);
+        var inIt = m.Roster.Keys.ToHashSet();
+        var pairs = frags ? m.Pairs.Where(p => inIt.Contains(p.Key.Killer) && inIt.Contains(p.Key.Victim)).OrderByDescending(p => p.Value).ThenBy(p => p.Key.Killer).ThenBy(p => p.Key.Victim)
+            .Select(p => new HudHistory.Pair(p.Key.Killer, p.Key.Victim, p.Value)).ToList() : null;
+        return new HudHistory.Entry(m.Start, at, m.MapId, m.MapName != "" ? m.MapName : m.LogName, m.LogName, m.Mode, by, score, players, m.Missing.ToList(), Source,
+            Math.Max(m.Most, players.Count > 0 ? 1 : 0), inIt.Contains(m.Winner) ? m.Winner : 0, pairs);
     }
 
     [GeneratedRegex(@"^(\S+)\s+\S+\s+(\S+)\s+score\s+(\d+):(\d+)")] private static partial Regex GameOverRx();
@@ -222,7 +360,7 @@ static partial class Program
     /// <summary>The time zone the history's times are in: the container's own (TZ), UTC in --selftest.</summary>
     static TimeZoneInfo HistoryZone = TimeZoneInfo.Local;
 
-    static readonly MatchTracker MatchHistory = new() { Finished = KeepMatch };
+    static readonly MatchTracker MatchHistory = new() { Finished = KeepMatch, UsesWarmUp = true, RecordsFrags = true };
 
     /// <summary>The history the plugin is sent, newest first; its version moves with every new entry and with every bridge, so a plugin fetches after a restart.</summary>
     static readonly HudHistory History = new() { Version = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond };
@@ -256,6 +394,7 @@ static partial class Program
         History.Entries.Insert(0, e);
         History.Version++;
         HistoryText = History.Encode();
+        StatsDirty(); // Stats.cs
         Log($"history: {e.MapName} ({e.Mode}), {e.Start:HH:mm}-{e.End:HH:mm}, {e.EndedBy}, {e.Players.Count} human(s): {HudHistory.Who(e, 8)}");
     }
 
@@ -265,6 +404,54 @@ static partial class Program
 
     /// <summary>Set by OnMapStart: the start it just took was the server's own (a start of the start map nobody asked for).</summary>
     static bool LastStartWasServerStart;
+
+    // ---- the frags: the game's kill lines, which the rest of the bridge does not read ----
+
+    /// <summary>A frag line of the game's log: a kill ("kill": the killer's and the victim's accounts, 0 for a bot; the weapon; the game's marks such as
+    /// "headshot penetrated"; the metres between them), an assist ("assist"), a suicide ("suicide") or a chicken killed ("chicken"), the human's account as
+    /// Killer.</summary>
+    sealed record LogFrag(string What, long Killer, long Victim, string Weapon, string Marks, double Metres);
+
+    const string FragWho = @"""(?:.+?)<\d+><(\[U:1:\d+\]|BOT|STEAM_[0-5]:[01]:\d+)><[^>]*>""";
+    [GeneratedRegex("^" + FragWho + @" \[(-?\d+) (-?\d+) (-?\d+)\] killed " + FragWho + @" \[(-?\d+) (-?\d+) (-?\d+)\] with ""([^""]*)""(?: \(([^)]*)\))?$")] private static partial Regex KillRx();
+    [GeneratedRegex("^" + FragWho + @" (?:flash-)?assisted killing """)] private static partial Regex AssistRx();
+    [GeneratedRegex("^" + FragWho + @" \[-?\d+ -?\d+ -?\d+\] committed suicide with """)] private static partial Regex SuicideRx();
+    [GeneratedRegex("^" + FragWho + @" \[-?\d+ -?\d+ -?\d+\] killed other ""chicken<")] private static partial Regex ChickenRx();
+
+    /// <summary>A line of the game's log as a frag, or null for any other line: "Alice&lt;2&gt;&lt;[U:1:1]&gt;&lt;CT&gt;" [486 -150 2] killed "Bob&lt;3&gt;&lt;BOT&gt;&lt;TERRORIST&gt;"
+    /// [-466 -1524 2] with "scar20" (headshot), and the assist's, the suicide's and the chicken's lines (their shapes in docs/reference.md).</summary>
+    static LogFrag? FragOf(string line)
+    {
+        var msg = PrefixRx().Replace(line, "", 1).Trim();
+        if (!msg.StartsWith('"')) return null;
+        static long Account(string id) => AccountId(id) is > 0 and var a ? a : 0;
+        if (KillRx().Match(msg) is { Success: true } k)
+        {
+            double N(int g) => double.Parse(k.Groups[g].Value, CultureInfo.InvariantCulture);
+            var (dx, dy, dz) = (N(2) - N(6), N(3) - N(7), N(4) - N(8));
+            return new("kill", Account(k.Groups[1].Value), Account(k.Groups[5].Value), k.Groups[9].Value, k.Groups[10].Value,
+                Math.Sqrt(dx * dx + dy * dy + dz * dz) * MatchTracker.MetresPerUnit);
+        }
+        if (AssistRx().Match(msg) is { Success: true } a) return Account(a.Groups[1].Value) is > 0 and var who ? new("assist", who, 0, "", "", 0) : null;
+        if (SuicideRx().Match(msg) is { Success: true } s) return Account(s.Groups[1].Value) is > 0 and var who2 ? new("suicide", who2, 0, "", "", 0) : null;
+        if (ChickenRx().Match(msg) is { Success: true } c) return Account(c.Groups[1].Value) is > 0 and var who3 ? new("chicken", who3, 0, "", "", 0) : null;
+        return null;
+    }
+
+    /// <summary>A frag into a match record.</summary>
+    static void Frag(MatchTracker t, DateTimeOffset at, LogFrag f)
+    {
+        switch (f.What)
+        {
+            case "kill": t.Killed(at, f.Killer, f.Victim, f.Weapon, f.Marks, f.Metres); break;
+            case "assist": t.Assisted(at, f.Killer); break;
+            case "suicide": t.Suicide(at, f.Killer); break;
+            case "chicken": t.Chicken(at, f.Killer); break;
+        }
+    }
+
+    /// <summary>A frag line of the live log stream, for the history (LogStream.cs hands it here before anything else reads the line).</summary>
+    static void HistoryFrag(LogFrag f) => Frag(MatchHistory, HistoryNow(), f);
 
     /// <summary>A line of the game's log, for the history: who entered, acted and left, the maps' starts, the matches' ends, the quit.</summary>
     static void HistoryIngest(LogEvent e)
@@ -294,7 +481,7 @@ static partial class Program
 
     /// <summary>One event read back from a log, for the backfill: when, which source (0 the bridge's day log, 1 the game's console log - the bridge's is the
     /// richer at the same moment), its kind and its words.</summary>
-    sealed record BackEvent(DateTimeOffset At, int Source, int Seq, string Kind, string Name, long Account, string Text);
+    sealed record BackEvent(DateTimeOffset At, int Source, int Seq, string Kind, string Name, long Account, string Text, LogFrag? Frag = null);
 
     /// <summary>bridge --history-backfill OUT [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...: the history from the bridge's day logs (bridge-*.log) and
     /// the game's console logs (console.log, its "[Server] L" lines), as far back as they reach - read only, written to OUT (one JSON object a line,
@@ -343,8 +530,9 @@ static partial class Program
         // Where the bridge's day logs reach, they are the record: the console's lines there are the same moments told without the maps' ids and names.
         var bridged = events.Where(e => e.Source == 0).Select(e => e.At).DefaultIfEmpty().ToList();
         var (bridgeFrom, bridgeTo) = events.Any(e => e.Source == 0) ? (bridged.Min(), bridged.Max()) : (DateTimeOffset.MaxValue, DateTimeOffset.MinValue);
-        events = events.Where(e => until == null || e.At < until.Value).Where(e => e.Source == 0 || e.At < bridgeFrom || e.At > bridgeTo)
-            .GroupBy(e => (e.At, e.Kind, e.Account, e.Kind == "map" ? e.Text.ToLowerInvariant() : "")).Select(g => g.OrderBy(e => e.Source).First()) // one moment told twice
+        events = events.Where(e => until == null || e.At < until.Value).Where(e => e.Source == 0 || e.Kind == "frag" || e.At < bridgeFrom || e.At > bridgeTo) // the frags only a console log has
+            .GroupBy(e => (e.At, e.Kind, e.Account, e.Kind == "map" ? e.Text.ToLowerInvariant() : e.Kind == "frag" ? e.Seq.ToString(CultureInfo.InvariantCulture) : ""))
+            .Select(g => g.OrderBy(e => e.Source).First()) // one moment told twice; every frag its own
             .OrderBy(e => e.At).ThenBy(e => e.Source).ThenBy(e => e.Seq).ToList();
         var entries = new List<HudHistory.Entry>();
         var t = new MatchTracker { Source = "backfill", Finished = entries.Add };
@@ -379,6 +567,7 @@ static partial class Program
                 case "quit": t.ServerDown(e.At); break;
                 case "fair": fairAt = e.At; break;
                 case "restart": t.Restarted(e.At, (e.At - fairAt).TotalSeconds <= 15); break;
+                case "frag": Frag(t, e.At, e.Frag!); break;
             }
             last = e.At;
         }
@@ -427,6 +616,7 @@ static partial class Program
             var logLine = c.Groups[1].Value;
             if (ConsoleStampRx().Match(logLine) is not { Success: true } s) return null;
             var at = Local(DateTime.ParseExact(s.Groups[1].Value, "MM/dd/yyyy - HH:mm:ss", CultureInfo.InvariantCulture), zone);
+            if (FragOf(logLine) is { } frag) return new(at, 1, ++seq, "frag", "", frag.Killer, "", frag);
             if (Parse(logLine) is not { } e) return null;
             seq++;
             return e.Kind switch

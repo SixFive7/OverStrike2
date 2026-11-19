@@ -25,6 +25,9 @@ sealed class State
     public Dictionary<string, List<StockEntry>> Stock { get; set; } = new(); // the discovery stock, a lane per mode (Stock.cs)
     public Dictionary<string, List<long>> Shown { get; set; } = new();       // map key -> when it was a card on a ballot (unix seconds), the last ShownFadeDays (VoteRound.cs)
     public HashSet<string> Met { get; set; } = new();                        // every map shown on a ballot or played here: NEW TO US is the rest
+    public Dictionary<string, int> CrashesEver { get; set; } = new();        // map key -> every crash counted on it, never lifted (the STATS page's hall of shame; Crashes is lifted by an update)
+    public bool CrashesEverSeeded { get; set; }                              // CrashesEver began with the crash marks there were (once, at the first start that had it)
+    public DateTime? StatsSince { get; set; }                                // when this bridge first counted the frags (UTC): the STATS page's "Counting since"
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

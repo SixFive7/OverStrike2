@@ -9,6 +9,9 @@ public sealed class HudPlayer
     /// <summary>The map browser: sort, filters, search, page.</summary>
     public HudBrowser Browser { get; } = new();
 
+    /// <summary>The HISTORY page: its chips, Mine, the order, the search, the page (content v4.15.0).</summary>
+    public HudHistoryPage History { get; } = new();
+
     /// <summary>The card of an unlisted Workshop id this player typed.</summary>
     public WorkshopCard Card { get; } = new();
 

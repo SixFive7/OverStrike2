@@ -77,3 +77,9 @@ dotnet run --project deploy/OverStrike2.Deploy -- <command> ...      # from the 
 | `rehearse prep\|backup\|stage\|up\|compose\|hold\|down\|restore\|clean\|logs\|sh\|rcon\|ship\|status` | the release rehearsal: production's game server, bridge and sync set aside under the server lock with nobody on, this checkout's builds run as a throwaway stack (`[rehearse]` in the config), everything put back. `hold on\|off` (or `up --hold`) keeps the rehearsal's bridge on its map for the live lab - the bridge's maintenance flag in the rehearsal's copy of its data, never production's; `down` and `restore` lift it |
 
 `os2-deploy --selftest` runs every case of the retired Python tests, ported under the same names (`--selftest <suite>` one of them).
+
+**The lab's seed.** The HISTORY and STATS pages are filmed and tested on a test copy with made-up players, never production's: `dotnet run --project
+bridge -- --lab-seed DIR` writes a made-up `history.jsonl`, `ballots.jsonl` and `votes.json` into DIR (Test A to Test D and four more names, on maps with
+pictures, dated over the five evenings before the day it runs), and `os2-deploy testcopy bridge-run <tag> --seed DIR` writes them into the candidate bridge's
+copy of the data (`<data>-candidate`) after production's files are copied there, before the candidate starts. `testcopy bridge-rm` deletes the copy, and the
+seed with it; production's own data folder is only ever read. Production's real history goes on at a release, from the backfill.

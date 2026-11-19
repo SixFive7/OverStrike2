@@ -95,7 +95,12 @@ sealed partial class HudScreen
     /// <summary>A chat line as the words it would search this player's browser for, or null (ChatCommands.SearchOf): only while their window is on MAPS > Browse in a game that
     /// shows the HUD (HudFrame.BrowserOpen). Read inside the player's own chat message, so it only looks; the search waits for the next frame (ChatSearch).</summary>
     public string? SearchOf(CCSPlayerController player, string line) =>
-        ChatCommands.SearchOf(line, HudFrame.BrowserOpen(slots.WindowOpen(player.Slot), slots.PageOf(player.Slot), Player(player.Slot), vote, HasCards(player)), VoteOpen);
+        ChatCommands.SearchOf(line, HudFrame.BrowserOpen(slots.WindowOpen(player.Slot), slots.PageOf(player.Slot), Player(player.Slot), vote, HasCards(player))
+            || HistoryOpen(player), VoteOpen);
+
+    /// <summary>Whether this player's window shows the HISTORY page in a game whose content has it: a chat line typed there searches its matches.</summary>
+    bool HistoryOpen(CCSPlayerController player) =>
+        slots.WindowOpen(player.Slot) && slots.PageOf(player.Slot) == HudSlots.Page.History && HasCards(player) && HudBrowser.HasHistory(VersionOf(Account(player)));
 
     /// <summary>The words of a chat line SearchOf took, which shows in chat as it was typed: the browser's search when they find a map (SearchFor).</summary>
     public void ChatSearch(CCSPlayerController player, string words)
@@ -108,6 +113,13 @@ sealed partial class HudScreen
     /// cards stay as they are, and the window's line alone says so. False then, and with no map list yet (the line was chat anyway).</summary>
     bool SearchFor(CCSPlayerController player, string words)
     {
+        if (HistoryOpen(player)) // the HISTORY page: its matches on a map, or with a player, whose name has these words - found or not, its count says so
+        {
+            Player(player.Slot).History.Find(words);
+            log.LogInformation("Over Strike 2 HUD: {Name} searched the match history: {Words}", player.PlayerName, Hud.Clean(words, HudSearch.MaxQuery));
+            CounterStrikeSharp.API.Server.NextFrame(Frame);
+            return true;
+        }
         if (catalog == null) return false;
         var account = Account(player);
         if (!Finds(account, words)) { WindowNote(player.Slot, ChatReply.ChatSearchNone(words)); return false; }

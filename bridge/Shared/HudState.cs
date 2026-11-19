@@ -31,6 +31,7 @@ public sealed class HudState
     public long SearchVersion;                          // the search index's version: the plugin fetches it again when this moves
     public long DashVersion;                            // the Sync page's block (HudDash): the plugin fetches it again when this moves
     public long HistoryVersion;                         // the match history's block (HudHistory): the plugin fetches it again when this moves
+    public long StatsVersion;                           // the STATS page's block (HudStats): ...and this one
     public string RestartKind = "";                     // a restart coming (the bridge's Restarts.cs): game-update (a CS2 update), our-update, daily, downloads; "" none
     public string RestartWhen = "";                     // ...match-end (at the end of this match) or now
     public int RestartIn = -1;                          // ...its seconds left, -1 while it waits for the match's end
@@ -147,6 +148,7 @@ public sealed class HudState
         if (SearchVersion > 0) Line("srch", SearchVersion);
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         if (HistoryVersion > 0) Line("hist", HistoryVersion); // ...as it does this one
+        if (StatsVersion > 0) Line("stats", StatsVersion);
         if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
             .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(restartWords, 240)).Append('\n');
         void Raw(string name, params object[] fields) => s.Append(name).Append('\t').Append(string.Join('\t', fields.Select(f => f is string t ? t : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
@@ -199,6 +201,7 @@ public sealed class HudState
                 case "srch": s.SearchVersion = Long(f, 1); break;
                 case "dash": s.DashVersion = Long(f, 1); break;
                 case "hist": s.HistoryVersion = Long(f, 1); break;
+                case "stats": s.StatsVersion = Long(f, 1); break;
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
                 case "ok" when Long(f, 1) >= 0 && HudVersion.IsWord(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
                 case "topl" when Str(f, 4) != "": (s.TopAtMs, s.TopUntilMs, s.TopCat, s.TopText) = (Long(f, 1), Long(f, 2), Str(f, 3), Str(f, 4)); break;

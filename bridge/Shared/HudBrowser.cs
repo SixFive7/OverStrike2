@@ -24,8 +24,6 @@ public sealed class HudBrowser
     public bool Descending;                  // the natural direction flipped: a second click on the sort that is on
     public Band Size = Band.All;
     public bool Liked, Official, Ours;        // Ours: the server's own maps (ours.json; Over Strike 2's Our maps)
-    public bool History;                     // the History view (HistoryButton): the matches played, newest first, a card a match (HudHistory)
-    public HudHistory? Past;                 // ...from the plugin's copy of the history, which the frame hands every browser
     public string Mode = "";                 // the mode filter (content v4.2.0): a mode's id, or "" for every mode's maps
     public string Query = "";                // what !find (!s) asked for in chat, a chat line typed on MAPS > Browse (233), or a Workshop link or id pasted there
     public int Page;                         // zero-based; clamped whenever the matches are counted
@@ -58,24 +56,23 @@ public sealed class HudBrowser
     /// <summary>The class on os_screen that lights a mode chip.</summary>
     public static string ModeClass(string mode) => mode == "" ? "fm-all" : $"fm-{mode}";
 
-    /// <summary>The History view's button (the history tab, 2026-11-19): it shows the matches played, newest first, each on its map's own card - the map's
-    /// current likes and the player's own Like and Dislike, Play and the rest as in the browser - with when it ran and who was in it (HudMenu.HistoryWords).</summary>
-    public const string HistoryButton = "os_fl_hist";
-
-    /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19: a tab of its own): MAPS with the History view on, as the History button does - the
-    /// tab current while it is on (the stylesheet: page-maps with hist on os_screen); the MAPS tab is the map browser and turns the view off.</summary>
-    public const string HistoryTab = "os_tab_history";
-
-    /// <summary>The first content with the History view - the button, the cards' match lines (HudMenu.HistoryWords) and the stylesheet's rules for hist and
-    /// hinc: the HUD half, the content after v4.14.0. Until this server's own content is that one, and for a game whose HUD check named an older one, the plugin
-    /// sends none of it, so no game logs "Unable to find panel" for a panel its content lacks (as HudVote.NumbersLevel).</summary>
-    public const int HistoryLevel = 57;
-
-    /// <summary>Whether a game gets the History view: this server's content has it, and the game is not known to hold an older one.</summary>
-    public static bool HasHistory(string version) => HudVersion.Level >= HistoryLevel && !HudVersion.IsBefore(version, HistoryLevel);
-
     public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
         FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
+
+    /// <summary>The HISTORY tab in the top row (the history tab, 2026-11-19; a page of its own since the owner's 304 a): the HISTORY page (HudHistoryPage).</summary>
+    public const string HistoryTab = "os_tab_history";
+
+    /// <summary>MAPS' History button, the first way into the matches played: out of sight since content v4.15.0, which has the HISTORY page in its place. Its
+    /// click opens that page too, and nothing is sent to it, until the layout drops it.</summary>
+    public const string HistoryButton = "os_fl_hist";
+
+    /// <summary>The first content with the HISTORY and STATS pages (content v4.15.0): until this server's own content is that one, and for a game whose HUD check
+    /// named an older one, the plugin sends none of their words and classes, so no game logs "Unable to find panel" for a panel its content lacks (as
+    /// HudVote.NumbersLevel).</summary>
+    public const int HistoryLevel = 57;
+
+    /// <summary>Whether a game gets the HISTORY and STATS pages: this server's content has them, and the game is not known to hold an older one.</summary>
+    public static bool HasHistory(string version) => HudVersion.Level >= HistoryLevel && !HudVersion.IsBefore(version, HistoryLevel);
 
     /// <summary>The search area's hint (content v4.9.0): "Search  Press Y and type a map name" (233), a button whose click says how on the window's line
     /// (ChatReply.HowToSearch) - typing is chat's, and neither the HUD nor the server can open the chat box (the client refuses messagemode from the server). Content v4.8.0 typed on an on-screen keyboard: its search box
@@ -124,58 +121,14 @@ public sealed class HudBrowser
     /// several times a frame for every open window, and the list runs to thousands of maps.</summary>
     public List<HudCatalog.Entry> Matches(HudCatalog catalog, long account, HudSearch? search = null)
     {
-        var state = (catalog, search, account, Query, Sort, Descending, Size, Liked, Official, Ours, Mode, History, History ? Past?.Version ?? -1 : 0);
+        var state = (catalog, search, account, Query, Sort, Descending, Size, Liked, Official, Ours, Mode);
         if (lastMatches != null && lastMatchesFor.Equals(state)) return lastMatches;
         lastMatchesFor = state;
-        return lastMatches = History ? WorkHistory(catalog, account) : Work(catalog, account, search);
+        return lastMatches = Work(catalog, account, search);
     }
 
-    (HudCatalog?, HudSearch?, long, string, SortBy, bool, Band, bool, bool, bool, string, bool, long) lastMatchesFor;
+    (HudCatalog?, HudSearch?, long, string, SortBy, bool, Band, bool, bool, bool, string) lastMatchesFor;
     List<HudCatalog.Entry>? lastMatches;
-    List<HudHistory.Entry> lastPast = new();
-
-    /// <summary>The History view's list: a card a match, newest first (Descending: oldest first), each the map's own catalog entry - or one made for a map no
-    /// longer on the lists, under the name it had - through this player's filters: the mode, Liked, Official, Ours and the size by the map, a search by the
-    /// map's name or a player's. The matches themselves go alongside (PastPage).</summary>
-    List<HudCatalog.Entry> WorkHistory(HudCatalog catalog, long account)
-    {
-        var byId = new Dictionary<long, HudCatalog.Entry>();
-        var byName = new Dictionary<string, HudCatalog.Entry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var m in catalog.Maps)
-        {
-            if (m.Id > 0) byId.TryAdd(m.Id, m);
-            if (m.Official) byName.TryAdd(m.Name, m);
-        }
-        var q = Hud.Clean(Query, HudSearch.MaxQuery).Trim();
-        var past = new List<HudHistory.Entry>();
-        var maps = new List<HudCatalog.Entry>();
-        foreach (var e in Past?.Entries ?? [])
-        {
-            var m = e.MapId > 0 && byId.TryGetValue(e.MapId, out var w) ? w : e.MapId == 0 && byName.TryGetValue(e.LogName, out var o) ? o : null;
-            if (Mode != "" && e.Mode != Mode) continue;
-            if (Liked && (m == null || catalog.MyVote(account, m.Key) <= 0)) continue;
-            if (Official && m?.Official != true) continue;
-            if (Ours && m?.Ours != true) continue;
-            if (Size != Band.All && (m == null || m.Official || BandOf(m.SizeMb) != Size)) continue;
-            if (q != "" && !(e.MapName.Contains(q, StringComparison.OrdinalIgnoreCase) || e.LogName.Contains(q, StringComparison.OrdinalIgnoreCase)
-                || e.Players.Any(p => p.Name.Contains(q, StringComparison.OrdinalIgnoreCase)))) continue;
-            past.Add(e);
-            maps.Add(m ?? Unlisted(e));
-        }
-        if (Descending) { past.Reverse(); maps.Reverse(); }
-        lastPast = past;
-        return maps;
-    }
-
-    /// <summary>A card for a match's map that is on no list now: its Workshop id (or, for one known by its file alone, that name) as its key and argument.</summary>
-    static HudCatalog.Entry Unlisted(HudHistory.Entry e)
-    {
-        var key = e.MapId > 0 ? e.MapId.ToString(CultureInfo.InvariantCulture) : e.LogName;
-        return new HudCatalog.Entry(key, key, 0, e.MapId, e.MapName, 0, false, -1, 0, 0, 0);
-    }
-
-    /// <summary>The History view's matches on this player's page, in the cards' order (after Matches and PageOf have worked out the page).</summary>
-    public List<HudHistory.Entry> PastPage() => History ? lastPast.Skip(Page * PerPage).Take(PerPage).ToList() : [];
 
     List<HudCatalog.Entry> Work(HudCatalog catalog, long account, HudSearch? search)
     {
@@ -254,7 +207,6 @@ public sealed class HudBrowser
             if (buttonId == id) { Mode = mode; Page = 0; return true; }
         switch (buttonId)
         {
-            case HistoryButton: History = !History; Page = 0; return true;
             case LikedButton: Liked = !Liked; Page = 0; return true;
             case OfficialButton: Official = !Official; if (Official) { Size = Band.All; Ours = false; } Page = 0; return true;
             case OursButton: Ours = !Ours; if (Ours) { Size = Band.All; Official = false; } Page = 0; return true;
@@ -272,7 +224,7 @@ public sealed class HudBrowser
     public void Find(string text)
     {
         Query = Hud.Clean(text, HudSearch.MaxQuery);
-        Size = Band.All; Liked = false; Official = false; Ours = false; Mode = ""; History = false; // a search is the maps', not the matches played
+        Size = Band.All; Liked = false; Official = false; Ours = false; Mode = "";
         Page = 0;
     }
 }

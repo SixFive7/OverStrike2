@@ -425,15 +425,21 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && hudClicks.IndexOf("HudScores.Click(", StringComparison.Ordinal) < hudClicks.IndexOf("if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)", StringComparison.Ordinal)
           && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans);", StringComparison.Ordinal),
         "HUD: SCORES and Back to the vote are handled before the ballot's own clicks, by the match-end screen as the last frame saw it, and a look that ends by itself is logged");
-    // the match history (the history tab): fetched as the Sync page's block is, when its version moves, and handed to the frame for the map browser's History view
+    // the match history and the STATS page's block: fetched as the Sync page's block is, when their versions move, decoded on the thread pool, and handed to the frame
     var linkSrc = Source("plugin", "OverStrike2", "BridgeLink.cs");
     Check(hudFrameSrc.Contains("bridge?.TakeHistory(now, state?.HistoryVersion ?? 0) is { } past) history = past;", StringComparison.Ordinal)
-          && hudFrameSrc.Contains("chatRoute, matchEndLifted, history);", StringComparison.Ordinal) && linkSrc.Contains("root + Hud.HistoryPath + secret", StringComparison.Ordinal)
-          && linkSrc.Contains("historyDecode = Task.Run(() => HudHistory.Decode(text));", StringComparison.Ordinal) && !hudFrameSrc.Contains("HudHistory.Decode(", StringComparison.Ordinal),
-        "HUD: the match history is fetched when its version moves, decoded on the thread pool - never on the game thread (a full block takes tens of ms) - and handed to the frame");
-    Check(hudClicks.Contains("if (buttonId == HudBrowser.HistoryTab && HudBrowser.HasHistory(VersionOf(who)))", StringComparison.Ordinal)
-          && hudClicks.Contains("me.Browser.History = true;", StringComparison.Ordinal) && hudClicks.Contains("if (buttonId == HudView.TabMaps) me.Browser.History = false;", StringComparison.Ordinal),
-        "HUD: the HISTORY tab opens MAPS with the History view on - during a vote its map browser - and the MAPS tab is the map browser again");
+          && hudFrameSrc.Contains("bridge?.TakeStats(now, state?.StatsVersion ?? 0) is { } records) stats = records;", StringComparison.Ordinal)
+          && hudFrameSrc.Contains("chatRoute, matchEndLifted, history, stats);", StringComparison.Ordinal) && linkSrc.Contains("root + Hud.HistoryPath + secret, root + Hud.StatsPath + secret", StringComparison.Ordinal)
+          && linkSrc.Contains("historyDecode = Task.Run(() => HudHistory.Decode(text));", StringComparison.Ordinal) && linkSrc.Contains("statsDecode = Task.Run(() => HudStats.Decode(text));", StringComparison.Ordinal)
+          && !hudFrameSrc.Contains("HudHistory.Decode(", StringComparison.Ordinal) && !hudFrameSrc.Contains("HudStats.Decode(", StringComparison.Ordinal),
+        "HUD: the match history and the STATS block are fetched when their versions move, decoded on the thread pool - never on the game thread (a full history takes tens of ms) - and handed to the frame");
+    var historyChat = Source("plugin", "OverStrike2", "HudScreenChat.cs");
+    Check(hudClicks.Contains("if (slots.PageOf(player.Slot) == HudSlots.Page.History && HudBrowser.HasHistory(VersionOf(who)))", StringComparison.Ordinal)
+          && hudClicks.Contains("page.Click(buttonId, page.Matches(history, who).Count)", StringComparison.Ordinal)
+          && hudClicks.Contains("page.Command(buttonId, history, catalog, state, me.Browser, who, now, mode.Id, vote) is { } said", StringComparison.Ordinal)
+          && hudClicks.Contains("buttonId == HudBrowser.HistoryButton && HudBrowser.HasHistory(VersionOf(who))", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
+          && historyChat.Contains("|| HistoryOpen(player), VoteOpen);", StringComparison.Ordinal) && historyChat.Contains("Player(player.Slot).History.Find(words);", StringComparison.Ordinal),
+        "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs) - and a chat line typed while it shows searches it");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");

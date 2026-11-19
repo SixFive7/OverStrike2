@@ -31,7 +31,7 @@ How they talk (`<secret>` is `bridge.secret`):
 | Log feed (`logaddress_add_http`) | engine to bridge, `POST /log/<secret>` | Every log line: joins, chat, map starts, match ends, quits |
 | RCON | bridge to engine | Map changes, mode settings, plugin commands, `status` |
 | RCON | watcher to its own engine | Quit, players, a liveness echo, background downloads |
-| HTTP | plugin to bridge | `GET /hud/<secret>`, the live state, a long poll with versions; `/catalog/`, `/search/` and `/dash/` when their versions move; `POST /act/<secret>`, a click |
+| HTTP | plugin to bridge | `GET /hud/<secret>`, the live state, a long poll with versions; `/catalog/`, `/search/`, `/dash/`, `/history/` and `/stats/` when their versions move; `POST /act/<secret>`, a click |
 | HTTP | watcher to bridge | `POST /ready/`, `/quitting/`, `/restart-notice/`, `/updated/` ([server.md](server.md#the-bridges-side)) |
 | HTTP | sync to bridge | `POST /reload/`: read the lists now; `POST /removed/`: the Workshop's verdicts |
 | HTTP | deploy tools to bridge | `GET /health/<secret>` |
@@ -751,54 +751,85 @@ dislike. The health page counts the marks per reason. The answer to a plain Disl
 Every match a human was in, kept for good in `history.jsonl` in the bridge's data folder: one JSON object a line, oldest first (`HudHistory.ToJsonLine`) - `start`
 and `end` in the server's local time with their offset; `map` (`id`, the Workshop id, 0 for an official map or one not known; `name`, the name the server showed;
 `log`, the name the game logged); `mode`; `endedBy` (`match end`, `map change`, `server start`, `server stop`, `restart`, `not known`); `score` (Wingman's final
-score, when it has one); `players` (each human's `account`, the `name` they had then, their `seconds` in it and when they were `first` in it); `missing` (what the
-record does not know: `start`, `end`, `map id`, `players`, `times`); `source` (`live` or `backfill`).
+score, when it has one); `players` (each human's `account`, the `name` they had then, their `seconds` in it, when they were `first` in it, and their frags where
+they were recorded: `k` kills, bots too, `d` deaths, their own suicides among them, `a` assists, `hs` head shots, `knife`, `taser`, `noscope`, `wall` (the game's
+`penetrated`) and `air` kills, `chickens`, `suicides`, `far` the longest kill in metres, `streak` the best run of kills without a death, `frags: 0` for one who had
+none); `missing` (what the record does not know: `start`, `end`, `map id`, `players`, `times`); `source` (`live` or `backfill`); `most`, the most humans in it at
+once; `winner`, Arms Race's winner (an account); `pairs`, every two humans one of whom killed the other, with how often (`[killer, victim, kills]`), and
+`nemesis`, the first of them.
 
-**The record** (`History.cs`, `MatchTracker`) follows the game's own log stream. A match is on a map from its start - the map's start, or the end screen of the
-match before it on that map when the vote plays it again - to the first of: its end screen (CS2's `Game Over`, which also gives its mode and Wingman's score), a
-map change, a player's Restart match after its first minute (a fairness restart is the same match), the server going down, or a hole in the record (the bridge
-down: a short one leaves the match on, its players and times not known in full; a long one ends it where the record stopped). Its humans are everybody who
-entered the game during it and everybody still in from the match before it, each with their time in it. Bots never enter the log with a Steam account and the
-lab's fake players never enter the game, so neither is ever in it; a test copy keeps its own file. A match nobody human was in is no entry, nor one they were in
-for under a minute (`LeastSeconds`), nor an end screen alone before a change (`EndScreenSeconds`). Each new entry is appended and logged (`history:`).
+**The record** (`History.cs`, `MatchTracker`) follows the game's own log stream. Every map starts in CS2's own warm-up ([the warm-up](#the-match-length-and-the-restarts)),
+so a match is on a map from the warm-up's end - the map's own start where it had none (a plugin without it), or the end screen of the match before it on that
+map when the vote plays it again - to the first of: its end screen (CS2's `Game Over`, which also gives its mode and Wingman's score), a map change, a player's
+Restart match after its first minute, the server going down, or a hole in the record (the bridge down: a short one leaves the match on, its players and times
+not known in full; a long one ends it where the record stopped). A map that ends during its warm-up - a change, a restart, everybody gone - is no match. Its
+humans are everybody who entered the game during it - whoever joined during the warm-up from its end on - and everybody still in from the match before it, each
+with their time in it. Their frags come from the game's kill lines, which the rest of the bridge does not read and which are never logged (`LogFrag`): a kill
+names both players and their places, so the distance between them is the kill's length (a unit is an inch); an assist, a suicide and a chicken have their own
+lines; a kill in the warm-up is none. Arms Race's winner is the human whose knife kill came with its end (CS2 logs both in the same second). Bots never enter the
+log with a Steam account and the lab's fake players never enter the game, so neither is ever in it; a test copy keeps its own file. A match nobody human was in
+is no entry, nor one they were in for under a minute (`LeastSeconds`), nor an end screen alone before a change (`EndScreenSeconds`). Each new entry is appended
+and logged (`history:`).
 
 **The backfill**, `bridge --history-backfill OUT [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...`, makes the same entries from the logs, as far back as they
 reach, read only, into OUT: the bridge's day logs (`logs/bridge-*.log` in its data folder) and the game's console log (`addons/metamod/console.log`, its
 `[Server] L` lines). Where the day logs reach they are the record; the console's lines add the stretches before them, without the maps' Workshop ids (`missing:
-map id`). `--until` stops where the live record takes over. The plugins' own logs name some players but not who was in a match, so they are no source.
+map id`), and the frags where they have kill lines (the day logs have none). Its matches are from before the warm-up, so they count from the map's start.
+`--until` stops where the live record takes over. The plugins' own logs name some players but not who was in a match, so they are no source.
 
-**The History view** is a view of the map browser - its History button, `os_fl_hist`, or the HISTORY tab in the top row, `os_tab_history`, which opens MAPS
-with the view on (during a vote, MAPS' map browser); the MAPS tab is the map browser and turns it off. Both are the content's after v4.14.0
-(`HudBrowser.HistoryLevel`) - an older content gets none of it. It shows the matches, newest first, a card a match on the browser's own cards and pages. A card is its map's - its current likes and dislikes, the
-player's own Like and Dislike (that player's one vote on that map, as on Start and in the browser), Play and the tags - and on `os_screen`, per player, card k
-(1-12) has when it ran (`osh<k>w`), who was in it (`osh<k>p`) and the line under them (`osh<k>n`: its length, Wingman's score, `from the logs, partly` for a match
-known only in part); `hist` is on `os_screen` while MAPS shows the view (not the ballot) - the HISTORY tab current - and `hinc` on a card whose match is
-known only in part. The mode, Liked, Official, Ours and size
-filters apply by the map, a search by the map's name or a player's, and the sort's direction gives the oldest first. The plugin fetches the newest 2,400 matches
-(`/history/`, when `hist` in the live state moves) and decodes them on the thread pool: a full block, about 1.4 MB, takes some 30 ms to read.
+**Our ballots** (`Ballots.cs`): every decided ballot is a line of `ballots.jsonl` beside it - when, its round, the server's mode, how it was decided, how many
+were present, every card (its map's key, `random` for Random, its name, mode and final votes: a player's last vote of the round counts) and the key of what
+won. `bridge --ballots-backfill OUT --maps DIR [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...` reads the ballots back out of the day logs - each open line's
+cards, each vote and its moves, each added card, each decision - and looks each card's name up in the map lists in DIR (a copy of the bridge's data folder:
+`maps.json`, `maps-deathmatch.json`, `maps-wingman.json`); a name no list has stays a name (`name:` and the label). Every crash counted on a map is kept too
+(`crashesEver` in `state.json`, begun with the crash marks there were), where the crash marks are lifted by a Workshop update.
 
-**The pages** (content v4.15.0: the HUD's half; the server's half follows the data contract of 2026-11-19): HISTORY and STATS are pages of their own, tabs in
-the top row after MAPS, current while they show (`page-history`, `page-stats`) and as wide as the window. Every word on them is a variable and every state a
-class; the buttons take clicks only, so CS2 keeps a name for none of them.
+**The pages** (content v4.15.0, `HudBrowser.HistoryLevel` 57; an older content gets nothing of them): HISTORY and STATS are pages of their own, tabs in the top row
+after MAPS (`os_tab_history`, `os_tab_stats`), current while they show (`page-history`, `page-stats`) and as wide as the window. Every word on them is a variable
+and every state a class; the buttons take clicks only, so CS2 keeps a name for none of them. MAPS' History button (`os_fl_hist`) stays out of sight; a click on it
+opens HISTORY, and nothing is sent to it. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px.
 
-- **HISTORY**: four wide cards a page, newest first (`os_h1` to `os_h4`, 142 px high). A card has the map's picture (`os_h<k>_thumb`, the map's own as on the
-  browser's cards) with its mode and On now, its name, Official and size, when it ran and how long, how it ended, who joined, how often the map has been played
-  and a fun line; at its right the map's likes with the player's own Like and Dislike (`os_h<k>_up`, `os_h<k>_down`: the dislike's dialog) and Vote for it
-  (`os_h<k>_play`, the browser's Play for that map). The words are on `os_screen` (`osh<k>` with `n s w d e p c f v a`, and `oshcount`, `oshpage`, `oshempty`);
-  the card's classes are `used`, `liked`, `disliked`, `official`, `mode-armsrace` / `mode-deathmatch` / `mode-wingman`, `hinc`, `now`, `queued` and `mine`, and
-  the page's on `os_screen` `hm-all` / `hm-armsrace` / `hm-deathmatch` / `hm-wingman`, `hmine`, `holdest`, `hquery`, `hnone`, `hfirst` and `hlast`. The bar's
-  chips (`os_hf_*`) and the pager (`os_hpg_*`) are buttons. A line typed in chat while HISTORY shows searches the matches by map or player; Clear then takes the
-  hint's place.
-- **STATS**: the head's line (`osst`) with the maps new this week (`osstnw`), the viewing player's own line (`ossy1` to `ossy6`), and three columns of tiles: the
-  most played maps (`osstp<k>`; the first's picture `os_st_pic1`, a bar each `os_st_bar<k>` in steps `w0` to `w10`), the modes' shares (`osstmd`, bars
-  `os_st_mar`, `os_st_mdm`, `os_st_mwm`) and the hall of shame (`osstc<k>`); the most voted for (`osstv<k>`), the most liked (`osstl<k>`, the first's picture
-  `os_st_pic2`) and the least liked (`osstd<k>`); the players' records (`ossr1` to `ossr7`), the matches' (`ossm1` to `ossm4`) and the fun ones (`ossf1` to
-  `ossf6`, and `ossfnote`). A row is a name (`<name>n`) and a value (`<name>v`). A record that may have nothing yet - the players' 6 and 7, every fun record -
-  shows by its class (`str6`, `str7`, `stf1` to `stf6`), and the page dims while there is no history (`stnone`); these and the stats' words may be on
-  `os_screen` or, the same for everybody, on `os_global`.
+- **HISTORY** (`HudHistoryPage`, the plugin's own, from its copy of the history): four wide cards a page, newest first (`os_h1` to `os_h4`, 142 px high). A card
+  has the map's picture (`os_h<k>_thumb`, the map's own as on the browser's cards) with its mode and On now, its name, Official and size, when it ran and how long,
+  how it ended, who joined, how often the map has been played and a fun line; at its right the map's likes with the player's own Like and Dislike
+  (`os_h<k>_up`, `os_h<k>_down`: the dislike's dialog, the crash among its reasons) and Vote for it (`os_h<k>_play`: the browser's Play for that map, with all its
+  states, in the match's mode where the map plays in it). Its words, on `os_screen`: `osh<k>n` the map's name as the browser's card says it, `osh<k>w` when
+  (`Fri 20 Nov  ·  21:00 - 21:11`), `osh<k>d` how long (`11 min`, `under a minute`), `osh<k>e` how it ended (`Match end`, `Map change`, `Server restart` for the
+  server's own planned quit, `The server went down` when it came back without one, `Match restarted`, `Not known`; Wingman's score after it, and `from the logs,
+  partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`), `osh<k>c` how often
+  its map was played in any mode (`Played once`, `Played twice`, `Played 14 times`), `osh<k>f` the fun line (`First played Fri 3 Oct  ·  Most at once: 9`, and
+  `  ·  Won by Alice` in Arms Race or `  ·  Most kills: Bob` where recorded), `osh<k>v` its likes now (`+3  -1`), `osh<k>s` its size (`763 MB`, `In the game` for
+  an official map), `osh<k>a` Vote for it's words (`Not on the list` for a map no list has now); all empty on a card with no match. The card's classes are `used`,
+  `liked`, `disliked`, `official`, `mode-armsrace` / `mode-deathmatch` / `mode-wingman`, `hinc`, `now`, `queued` (the map on the open vote) and `mine` (the player
+  was in it). The page's words are `oshcount` (`75 matches  ·  42 maps  ·  since Fri 3 Oct`, filtered `12 of 75 matches`), `oshpage` and `oshempty`; its classes on
+  `os_screen` are `hm-all` / `hm-armsrace` / `hm-deathmatch` / `hm-wingman`, `hmine`, `holdest`, `hquery`, `hnone`, `hfirst` and `hlast`. The bar's chips
+  (`os_hf_all`, `os_hf_ar`, `os_hf_dm`, `os_hf_wm`), Mine (`os_hf_mine`), the order (`os_hf_order`), Clear (`os_hf_clear`) and the pager (`os_hpg_*`) are buttons.
+  A line typed in chat while HISTORY shows searches the matches by the map's name or a player's, found or not; Clear then takes the hint's place. The plugin
+  fetches the newest 2,400 matches (`/history/`, when `hist` in the live state moves) - compact: a player's frags but the kills, and the pairs, stay in the file -
+  and decodes them on the thread pool.
+- **STATS** (`Stats.cs`): the bridge works every record out of the history, the likes, our ballots and the crashes, and sends the words whole (`/stats/`, when
+  `stats` in the live state moves; `HudStats`): again whenever one of those changes and every hour, its version moving only when its words do. Ties go to the
+  most recent - the map played last, the player in a match last. The head's line (`osst`: `412 matches  ·  37 players  ·  since Fri 3 Oct`) with the maps whose
+  first match was in the last 7 days (`osstnw`: `5 maps: x, y, z and 2 more`, or `none yet`); the viewing player's own line (`ossy1` to `ossy6`: matches, hours,
+  the favourite map, the likes and dislikes they have given, since when, their place by matches - `No match yet` for one with none); and three columns of tiles,
+  a row each a name (`<row>n`) and a value (`<row>v`): the most played maps (`osstp1` to `osstp5`, matches per map; the first's picture `os_st_pic1`, a bar each
+  `os_st_bar<k>` against the first, in steps `w0` to `w10`), the modes' shares of the matches (`osstmd`, bars `os_st_mar`, `os_st_mdm`, `os_st_mwm`) and the hall of
+  shame (`osstc1` to `osstc3`: every crash counted on a map and the `crash` dislikes); the most voted for in our ballots (`osstv1` to `osstv5`, the cards' votes,
+  every mode), the most liked (`osstl1` to `osstl5`, likes in `votes.json`, fewer dislikes first in a tie; the first's picture `os_st_pic2`) and the least liked
+  (`osstd1` to `osstd3`, dislikes of any reason); the players' records (`ossr1` to `ossr7`: the most matches, hours, evenings - days with a match - matches ended
+  after midnight and before five, the first one in, and, shown by `str6` and `str7` once there are some, Arms Race's wins and kills), the matches' (`ossm1` to
+  `ossm4`: the longest, the shortest real one - a minute at least, ended by its match end - the busiest evening, the Wingman blowout) and the fun ones (`ossf1` to
+  `ossf6`, each shown by its class `stf1` to `stf6` once it has data: the most kills in one match, the Sharpshooter - the best share of head shots past 50 kills -
+  knife kills, chickens, the longest shot, the nemesis - the most kills of one player on another - and `ossfnote`, `Counting since` the day the frags began). The
+  page dims while there is no history (`stnone`). Everything but You is the same for everybody, on `os_global`; You is on each player's `os_screen`, sent only
+  while their window shows the page.
 
-MAPS' History button (`os_fl_hist`) stays out of sight and `hist` does nothing. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px. The
-dislike's dialog has a seventh reason, `crash` (It crashed the server), its button `os_why_7`; chat says it as `!down crash` or `!crash`.
+**The lab's seed**: `bridge --lab-seed DIR` writes a made-up `history.jsonl`, `ballots.jsonl` and `votes.json` into DIR - Test A to Test D and four more names,
+fifteen matches over the five evenings before the day it runs, on maps with pictures, every record of STATS with data - so the pages can be filmed and tested
+with no real player on them. `os2-deploy testcopy bridge-run <tag> --seed DIR` puts them into the candidate bridge's copy of the data
+([deploy/README.md](../deploy/README.md)); `testcopy bridge-rm` takes the copy away with them, and production's own files are never written.
+
+The dislike's dialog has a seventh reason, `crash` (It crashed the server), its button `os_why_7`; chat says it as `!down crash` or `!crash`.
 
 ## Fun settings
 

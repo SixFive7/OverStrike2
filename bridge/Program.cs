@@ -44,6 +44,8 @@ static partial class Program
         if (args is ["--selftest"]) return SelfTest();
         if (args is ["--search-index", .. var rest]) return SearchIndexFile.Command(rest); // SearchIndexFile.cs: the committed search.json, written or checked
         if (args is ["--history-backfill", .. var past]) return HistoryBackfillCommand(past); // History.cs: the match history read back from the logs, into a file
+        if (args is ["--ballots-backfill", .. var votes]) return BallotsBackfillCommand(votes); // Ballots.cs: our ballots read back from the day logs, into a file
+        if (args is ["--lab-seed", .. var seed]) return LabSeedCommand(seed); // LabSeed.cs: the made-up history, ballots and likes of a test copy's candidate bridge
         Files = new LogFile(Path.Combine(StateDir, "logs")); // LogFile.cs: the log's day files under the data folder, from the first line on
         Log(BridgeConfig.Settings.StartLine);       // where the settings came from - no value in it
         if (BridgeConfig.StopCode(BridgeConfig.Settings) is { } refused) return refused; // settings it cannot use, or none: its line said why
@@ -62,7 +64,11 @@ static partial class Program
         if (File.Exists(statePath)) S = JsonSerializer.Deserialize(File.ReadAllText(statePath), Ctx.Default.State) ?? new();
         ExpireMarks();                              // CrashWatch.cs: marks whose maps got a Workshop update while the bridge was down
         LoadLikes();
-        Log(LoadHistory());                         // History.cs: the match history, for the map browser's History view
+        Log(LoadHistory());                         // History.cs: the match history, for the HISTORY and STATS pages
+        Log(LoadBallots());                         // Ballots.cs: our decided ballots, for the STATS page
+        if (S.CrashesEver.Count == 0 && !S.CrashesEverSeeded) foreach (var (key, n) in S.Crashes) S.CrashesEver[key] = n; // Stats.cs: every crash kept, from the marks there are
+        S.CrashesEverSeeded = true;
+        S.StatsSince ??= Now();                     // Stats.cs: the frags are counted from this bridge's first start on
         ModeProbing = true;                         // ModeSwitch.cs: ask the server which mode it is in, once RCON answers
         Rc = new Rcon(RconHost, RconPort, RconPassword);
         foreach (var sig in new[] { PosixSignal.SIGTERM, PosixSignal.SIGINT })
@@ -103,6 +109,7 @@ static partial class Program
     static void AfterWork()
     {
         try { RefreshCatalog(); } catch (Exception e) { Log("hud: rebuilding the map list failed: " + e.Message); }
+        try { RefreshStats(); } catch (Exception e) { Log("stats: making the STATS page's block failed: " + e.Message); } // Stats.cs
         PublishHudSafe();
     }
     static Action<int, Action> After = (ms, work) => Task.Delay(ms).ContinueWith(_ => Post(work)); // --selftest swaps in a timer on its own clock

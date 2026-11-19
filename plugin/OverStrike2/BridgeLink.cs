@@ -5,7 +5,7 @@ namespace OverStrike2;
 /// <summary>The HUD's line to the bridge, over the stack network the log push already uses - the plugin's one place for it (the bridge's is
 /// HudTransport.cs). The live state is a long poll, GET /hud/&lt;secret&gt;?v=&lt;version&gt;&amp;draw=1 (or draw=0, Hud.DrawQuery): the bridge answers when its
 /// state changes, or after Hud.LongPollSeconds that nothing did; every answer starts with its version and the bridge's clock, and its countdowns
-/// are end times the HUD counts down itself (HudState.AsOf). GET /catalog/, /search/, /dash/ and /history/ when their versions move, POST /act/&lt;secret&gt;?v=1
+/// are end times the HUD counts down itself (HudState.AsOf). GET /catalog/, /search/, /dash/, /history/ and /stats/ when their versions move, POST /act/&lt;secret&gt;?v=1
 /// for a click, answered with the state after it in the same form. The address and the secret are the settings file's bridge.url and
 /// bridge.secret, or without the file the cs2 service's own CS2_LOG_HTTP_URL (http://bridge:8080/log/&lt;secret&gt;) - PluginSetup.cs.
 ///
@@ -25,7 +25,7 @@ sealed class BridgeLink
 
     /// <summary>The time the bridge's clock says it is now, as the HUD counts its countdowns (unix milliseconds).</summary>
     public long BridgeNowMs(DateTime now) => HudState.Ms(now) + ClockOffsetMs;
-    readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl, historyUrl;
+    readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl, historyUrl, statsUrl;
     readonly List<(Task<string?> Task, DateTime Sent)> acts = new();
     readonly List<Waiting> waiting = new();             // clicks that must arrive and found the line full, oldest first: one a player and kind (Kind)
     readonly Func<string, Task<string?>> post;           // the POST of a click: the bridge's /act, or the self-test's hand
@@ -55,10 +55,11 @@ sealed class BridgeLink
     /// <summary>The kind of waiting slot a click takes, or null for a click the line may drop: a vote (IsVote), or the HUD check's click (!hudok), without
     /// which the check would warn a player whose HUD works. A newer click of the same kind replaces a player's waiting one.</summary>
     public static string? Kind(string command) => IsVote(command) ? "vote" : command.StartsWith("!hudok ", StringComparison.Ordinal) ? "check" : null;
-    Task<string?>? fetch, catalogFetch, searchFetch, dashFetch, historyFetch;
+    Task<string?>? fetch, catalogFetch, searchFetch, dashFetch, historyFetch, statsFetch;
     Task<HudHistory?>? historyDecode;
-    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry, nextHistoryTry;
-    long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked, historyHave, historyAsked;
+    Task<HudStats?>? statsDecode;
+    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry, nextHistoryTry, nextStatsTry;
+    long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked, historyHave, historyAsked, statsHave, statsAsked;
 
     public int Failures { get; private set; }          // in a row; reset by any answer
     public string LastError { get; private set; } = "";
@@ -68,19 +69,20 @@ sealed class BridgeLink
     /// the latest - an answer asked for before a map change is the old map's, however late the game thread takes it. MinValue: none yet.</summary>
     public DateTime StateAsOf { get; private set; }
 
-    BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl, string historyUrl, Func<string, Task<string?>>? post = null)
+    BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl, string historyUrl, string statsUrl, Func<string, Task<string?>>? post = null)
     {
         this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; this.dashUrl = dashUrl; this.historyUrl = historyUrl;
+        this.statsUrl = statsUrl;
         this.post = post ?? Post;
     }
 
     /// <summary>A link whose clicks go to this hand instead of the bridge: the self-test's (plugin/OverStrike2.SelfTest).</summary>
-    public static BridgeLink ForTest(Func<string, Task<string?>> post) => new("", "", "", "", "", "", post);
+    public static BridgeLink ForTest(Func<string, Task<string?>> post) => new("", "", "", "", "", "", "", post);
 
     /// <summary>The link to the bridge at root (http://host:port) with the secret in its paths - both from PluginSetup.</summary>
     public static BridgeLink At(string root, string secret) =>
         new(root + Hud.StatePath + secret, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret, root + Hud.DashPath + secret,
-            root + Hud.HistoryPath + secret);
+            root + Hud.HistoryPath + secret, root + Hud.StatsPath + secret);
 
     /// <summary>On the game thread, every frame of the plugin's timer: hands back the newest state text that arrived since the last
     /// call (from a poll or from an action's answer), and starts the next poll when one is due and wanted. draws: whether this plugin draws the HUD,
@@ -185,6 +187,31 @@ sealed class BridgeLink
     /// <summary>On the game thread, every frame: the match history (HudHistory), fetched when the live state names a newer version - at a bridge's start and
     /// at the end of every match a human was in - and decoded on the thread pool, never here: a full block (HudHistory.BlockMax matches, about 1.4 MB) takes
     /// some 30 ms to read (the bridge's self-test measures it). Returns the history once a fetch and its decode are done, else null.</summary>
+    public HudStats? TakeStats(DateTime now, long wanted)
+    {
+        HudStats? stats = null;
+        if (statsDecode is { IsCompleted: true } decoded)
+        {
+            statsDecode = null;
+            stats = decoded.IsCompletedSuccessfully ? decoded.Result : null;
+            if (stats != null) statsHave = statsAsked; else nextStatsTry = now.AddSeconds(5);
+        }
+        if (statsFetch is { IsCompleted: true } done)
+        {
+            statsFetch = null;
+            if (Result(done) is { } text) statsDecode = Task.Run(() => HudStats.Decode(text));
+            else nextStatsTry = now.AddSeconds(5);
+        }
+        if (wanted > 0 && wanted != statsHave && statsFetch == null && statsDecode == null && now >= nextStatsTry)
+        {
+            statsAsked = wanted;
+            statsFetch = GetText(statsUrl);
+        }
+        return stats;
+    }
+
+    /// <summary>On the game thread, every frame: the STATS page's block (HudStats), fetched when the live state names a newer version and decoded on the thread
+    /// pool, as the history is (TakeHistory). Returns the block once a fetch and its decode are done, else null.</summary>
     public HudHistory? TakeHistory(DateTime now, long wanted)
     {
         HudHistory? past = null;

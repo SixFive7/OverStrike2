@@ -5,7 +5,9 @@ static partial class Program
 {
     static void Ingest(string line, string? gameMap)
     {
-        if (line.Length == 0 || Parse(line) is not { } e) return;
+        if (line.Length == 0) return;
+        if (FragOf(line) is { } frag) { HistoryFrag(frag); return; } // History.cs: a kill, an assist, a suicide, a chicken - for the history alone, and not logged
+        if (Parse(line) is not { } e) return;
         Log($"{e.Kind} {e.Name} {e.SteamId} {e.Text}".TrimEnd() + (e.Kind == Kind.MapStart ? $" [X-Game-Map: {gameMap ?? "none"}]" : ""));
         switch (e.Kind)
         {

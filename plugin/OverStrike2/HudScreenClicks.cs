@@ -44,16 +44,20 @@ sealed partial class HudScreen
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
-        if (buttonId == HudBrowser.HistoryTab && HudBrowser.HasHistory(VersionOf(who))) // the HISTORY tab: MAPS with the History view on, as its button turns it on
+        if (buttonId == HudBrowser.HistoryButton && HudBrowser.HasHistory(VersionOf(who))) { slots.Show(player.Slot, HudSlots.Page.History, now); Server.NextFrame(Frame); return; } // MAPS' old way in (out of sight)
+        if (slots.PageOf(player.Slot) == HudSlots.Page.History && HudBrowser.HasHistory(VersionOf(who))) // the HISTORY page (content v4.15.0; the tab opened it, HudView.Tabs)
         {
-            slots.Show(player.Slot, HudSlots.Page.Maps, now);
-            me.Browser.History = true;
-            me.Browser.Page = 0;
-            if (vote is { Round: > 0, Open: true }) me.VoteView = (vote.Round, VoteView(player.Slot).Page, true); // during a vote: its map browser, a card's Play adds to it
-            Server.NextFrame(Frame);
-            return;
+            var page = me.History;
+            if (page.Click(buttonId, page.Matches(history, who).Count)) { Server.NextFrame(Frame); return; } // its chips, Mine, the order, Clear, the pager
+            if (page.Command(buttonId, history, catalog, state, me.Browser, who, now, mode.Id, vote) is { } said) // a card's Like, Dislike or Vote for it: the browser's for that map
+            {
+                if (said.StartsWith("!map ", StringComparison.Ordinal) && vote is { Round: > 0, Open: true }) Act(player, who, said, $"round {vote.Round}, from the HISTORY page");
+                else Act(player, who, said);
+                Server.NextFrame(Frame);
+                return;
+            }
+            if (buttonId.StartsWith("os_h", StringComparison.Ordinal)) { Server.NextFrame(Frame); return; } // a card's button with nothing to send (the map that is on, a double click)
         }
-        if (buttonId == HudView.TabMaps) me.Browser.History = false; // MAPS is the map browser; HISTORY its History view
         if (HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who) is { } scoresDid) // SCORES, or Back to the vote, at the match-end screen (HudScores)
         {
             log.LogInformation("Over Strike 2 HUD: {Name} {Button} during the vote ({Phase}) - {Did}", player.PlayerName, buttonId == HudScores.Button ? "SCORES" : "Back to the vote",

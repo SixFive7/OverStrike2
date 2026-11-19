@@ -45,6 +45,8 @@ static partial class Program
         SyncDoc?.Dispose(); SyncDoc = null; SyncStamp = null; SyncReadAt = default; SyncProblem = ""; dashBody = ""; webWritten = ""; webPage = ""; webWrittenAt = default; syncTicks = 0;
         hudPolledTicks = 0; hudHeldTicks = 0;
         MatchHistory.Clear(); History.Clear(); HistoryText = History.Encode(); LastStartWasServerStart = false; // History.cs: the match history, its plugin copy
+        Ballots.Clear(); var statsVersion = StatsNow.Version + 1; StatsNow = MakeStats([], new(), [], new Dictionary<string, int>(), HistoryNow(), null); StatsNow.Version = statsVersion; // Ballots.cs, Stats.cs: no ballot,
+        StatsText = StatsNow.Encode(); StatsStale = false; StatsMadeAt = Now(); // the STATS block of nothing, as a bridge that has just started makes it
         ClearNotices();
         // the two settings a test may switch
         HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check);
@@ -58,7 +60,7 @@ static partial class Program
         nameof(Send), nameof(After), nameof(Now), nameof(HudActive), nameof(HudHeld), nameof(Rc), nameof(Loop), nameof(Signals), nameof(Clock), nameof(Dice),
         nameof(SelfTesting), nameof(SyncOn), nameof(DashZone), nameof(HistoryZone), nameof(ModeProbeEnabled), nameof(ToldAll), nameof(SelfTestMaps), nameof(FakeColours),
         nameof(CatalogText), nameof(catalogBuilt), nameof(DashText), nameof(DashVersion), nameof(SaySeq), nameof(HudTextNow), nameof(HudTextVersion), nameof(HudLock), nameof(HudWaiting),
-        nameof(logPosts), nameof(lastLogTicks), nameof(Files),
+        nameof(logPosts), nameof(lastLogTicks), nameof(Files), nameof(BallotJson),
     ];
 
     /// <summary>Every static field of the bridge that can change is named once: reset by ResetAll - itself, or by a helper it calls (ResetCrashWatch,
