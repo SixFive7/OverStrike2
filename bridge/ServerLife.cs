@@ -47,6 +47,7 @@ static partial class Program
         RestartGoing(); // Restarts.cs: a restart announced is happening
         MatchEndUntil = default; EndScreenAt = null;
         StartAwaited();
+        ForgetUnloadable("the server is restarting"); // OfficialPools.cs: the new process may have a map this one turned away (a CS2 update)
         Save();
     }
 

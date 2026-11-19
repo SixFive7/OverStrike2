@@ -1,5 +1,6 @@
 // The bridge: hears the game server's log and the plugin's clicks, decides, and sends the server its orders over RCON. See docs/reference.md.
 global using BridgeWire = OverStrike2.Core.BridgeWire; // what the other programs say to the bridge, and where (core/BridgeWire.cs)
+global using GamePools = OverStrike2.Core.GamePools;   // the installed game's own map pools, as the restart watcher reports them (core/GamePools.cs)
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -53,6 +54,7 @@ static partial class Program
         Log(ReadBlockedFile());                     // Blocked.cs: blocked.json, beside broken.json's own blocked maps
         Log(ReloadSearch(SearchFile));              // SearchIndex.cs: the map browser's full-text index - read here, then watched like the others
         Log(ReloadSizes(SizesFile));                // Sizes.cs: each map's measured size, for the too-big rule - read here, then watched like the others
+        Log(LoadGamePools());                       // OfficialPools.cs: the installed game's own pools, as the restart watcher last reported them
         foreach (var mode in Modes.All.Where(m => !m.ArmsRace)) Log(ReloadModeMaps(mode)); // ModeSwitch.cs: the other modes' Workshop lists - read here, then watched like the others
         Log(ReloadOurs(OursFile));                  // Ours.cs: our own maps, a section of the menu
         Log(ReloadRatings(RatingsFile));            // Popularity.cs: the Workshop's ratings and trend, the keep set's lists

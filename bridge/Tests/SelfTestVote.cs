@@ -172,8 +172,8 @@ static partial class Program
             Ask(alice, m[0]); Land(); // the map that is on
             var pageMaps = Maps.Skip(1040).Take(MapVote.PageCards).ToList();
             foreach (var x in Maps.Except(pageMaps).Where(x => x != m[0])) S.Crashes[Key(x)] = 1; // every other map has crashed: the dice can only take these
-            var dmLeft = Modes.Deathmatch.Official.Take(2).ToHashSet();
-            foreach (var name in Modes.Deathmatch.Official.Skip(2)) Broken[name] = 3; // and Deathmatch can only take two
+            var dmLeft = OfficialsOf(Modes.Deathmatch).Select(o => o.Name).Take(2).ToHashSet();
+            foreach (var name in OfficialsOf(Modes.Deathmatch).Select(o => o.Name).Skip(2)) Broken[name] = 3; // and Deathmatch can only take two
             h.MatchEnd();
             Console.WriteLine("ballot: " + string.Join(" | ", Ballot?.Options.Select(o => $"{o.N}. {OptionLabel(Ballot, o)} ({o.Source}, {o.Mode.Id})") ?? []));
             var fill = MapVote.PageCards - 3; // the server's own mode fills what Keep and the two other modes leave of the page
@@ -1226,7 +1226,8 @@ static partial class Program
             Fresh();
             var dmFile = ModeMapsPath(Modes.Deathmatch);
             if (File.Exists(dmFile)) File.Delete(dmFile);
-            Check($"No maps-deathmatch.json: Deathmatch has Valve's {Modes.Deathmatch.Official.Length} official maps", ReloadModeMaps(Modes.Deathmatch).Contains("not found") && PoolOf(Modes.Deathmatch).Count == Modes.Deathmatch.Official.Length
+            Check($"No maps-deathmatch.json: Deathmatch has Valve's {Modes.Deathmatch.Official.Length} official maps and our {Modes.Deathmatch.Extras.Length} (de_ancient)", ReloadModeMaps(Modes.Deathmatch).Contains("not found")
+                && PoolOf(Modes.Deathmatch).Count == Modes.Deathmatch.Official.Length + Modes.Deathmatch.Extras.Length
                 && PoolOf(Modes.Deathmatch).All(x => x.Official && x.Mode == "deathmatch"));
 
             // ---- hotfix 218a: CS2 1.41.9.9 took mg_casualcharlie away - de_boulder, de_fachwerk and cs_shelter load nothing now, and no route may pick them ----
@@ -1262,7 +1263,7 @@ static partial class Program
             var read = ReloadModeMaps(Modes.Deathmatch);
             Console.WriteLine("reload: " + read);
             Check("maps-deathmatch.json in maps.json's shape: 3 Workshop maps, an official extra; entries without an id or a name skipped, an official map once",
-                ModeWorkshop(Modes.Deathmatch).Count == 3 && PoolOf(Modes.Deathmatch).Count == Modes.Deathmatch.Official.Length + 1 + 3 && PoolOf(Modes.Deathmatch).All(x => x.Mode == "deathmatch")
+                ModeWorkshop(Modes.Deathmatch).Count == 3 && PoolOf(Modes.Deathmatch).Count == Modes.Deathmatch.Official.Length + Modes.Deathmatch.Extras.Length + 1 + 3 && PoolOf(Modes.Deathmatch).All(x => x.Mode == "deathmatch")
                 && ModeWorkshop(Modes.Deathmatch).Any(x => x.Name == "dm_two") && read.Contains("3 Workshop maps"));
             var dmOne = ModeWorkshop(Modes.Deathmatch)[0];
             Check("Another mode's Workshop map: no list number in its label, its Workshop id as its argument, found by its id in the mode it belongs to",

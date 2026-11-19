@@ -1,4 +1,5 @@
-// The one way the map changes: a change said and sent at once; a load that never arrives is given up.
+// The one way the map changes: a change said and sent at once; a load that never arrives is given up, and a map the server says it does not
+// have ("invalid map name") is given up at once.
 
 static partial class Program
 {
@@ -27,6 +28,16 @@ static partial class Program
         if (reply == null) // the server did not take it (it is restarting, or RCON is down): nothing is loading, so nothing may be waited for
         {
             Announce($"The server did not answer - {Clip(Label(change.Map), 40)} was not loaded");
+            return;
+        }
+        if (change.Map.Official && InvalidMapName(reply)) // the engine has no such map (OfficialPools.cs): nothing loads, so nothing may be waited for
+        {
+            Unloadable.Add(change.Map.Name);
+            CatalogVersion++;
+            ModeBack();
+            Log($"load refused: the server has no {change.Map.Name} (\"invalid map name\") - out of every pool until the server process is a new one");
+            var gone = $"{Clip(Label(change.Map), 40)} is not on the server";
+            if (!change.Auto || !AutoRoll(gone, ModeOf(change.Map))) Announce($"{gone} - It was not loaded{(change.Auto ? "" : " - Start a vote for another map")}");
             return;
         }
         StartRollOwed = false; // the server has left its start map one way or another

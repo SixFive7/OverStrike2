@@ -25,6 +25,7 @@ static partial class Program
         Maps = SelfTestMaps; ModeMaps.Clear(); Broken = new(); BrokenReasons = new(); NonMaps = new(); BlockedOwn = new(); BlockedInBroken = new(); Blocked = new();
         WorkshopCheck = new(); Removed = new(); Sizes = new(); SizeBounds = default; Ours = new(); Search = new(); SearchText = Search.Encode();
         SearchStored = new(); SearchModes = new(); SearchStale = default;
+        GameReport = null; GameReportAt = default; GameInstalled = new(StringComparer.OrdinalIgnoreCase); Unloadable.Clear(); // OfficialPools.cs: no report, nothing refused
         RatingScores = new(); RatingTrend = new(); RatingsFetched = 0; WorkshopInfo = new(); NumbersStamp++;
         knownFor = null; knownByKey = new(); updatedByKey = new(); popularityFor = null; popularity.Clear(); keptFor = null; kept = new(); wingmanIndex = (null, new());
         CatalogVersion++; // the menu's map list is made again

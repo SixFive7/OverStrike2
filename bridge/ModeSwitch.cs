@@ -28,13 +28,16 @@ static partial class Program
     static string? ModeMapsDir; // where the per-mode files are: beside MAPS_FILE, unless --selftest points elsewhere
     static string ModeMapsPath(Modes.Mode mode) => Path.Combine(ModeMapsDir ?? DataDir, mode.MapsFile);
 
-    /// <summary>A mode's official maps: Arms Race's from OFFICIAL_MAPS (never rolled, as always), the others' Valve's pool plus any official
-    /// extra the mode's file names - all rollable, because they are what the mode starts from.</summary>
+    /// <summary>A mode's official maps: Arms Race's from OFFICIAL_MAPS (never rolled, as always), the others' Valve's pool - the installed game's
+    /// own as the restart watcher reported it, else Modes.cs's (OfficialPools.cs) - plus our extras (Modes.Mode.Extras) and any official extra the
+    /// mode's file names, those two only when installed; never a map the server turned away this process. All rollable, because they are what the
+    /// mode starts from.</summary>
     static List<MapInfo> OfficialsOf(Modes.Mode mode)
     {
         if (mode.ArmsRace) return Officials;
-        var extra = ModeMaps.GetValueOrDefault(mode.Id)?.Where(m => m.Official).Select(m => m.Name) ?? [];
-        return mode.Official.Concat(extra).Distinct(StringComparer.OrdinalIgnoreCase).Select(n => new MapInfo(0, 0, n, 0, true, mode.Id)).ToList();
+        var extra = mode.Extras.Concat(ModeMaps.GetValueOrDefault(mode.Id)?.Where(m => m.Official).Select(m => m.Name) ?? []).Where(InstalledNow);
+        return (GamePool(mode) ?? mode.Official.Where(InstalledNow)).Concat(extra).Distinct(StringComparer.OrdinalIgnoreCase).Where(n => !Unloadable.Contains(n))
+            .Select(n => new MapInfo(0, 0, n, 0, true, mode.Id)).ToList();
     }
 
     /// <summary>What a mode's dice take from: Arms Race's ranked list (officials never), or a mode's official maps and its Workshop maps.</summary>
@@ -53,7 +56,7 @@ static partial class Program
     {
         var path = ModeMapsPath(mode);
         var had = ModeMaps.GetValueOrDefault(mode.Id) ?? [];
-        if (!File.Exists(path)) { ModeMaps[mode.Id] = []; CatalogVersion++; return $"{mode.Id} maps: {path} not found - {mode.Name} has Valve's {mode.Official.Length} official maps only"; }
+        if (!File.Exists(path)) { ModeMaps[mode.Id] = []; CatalogVersion++; return $"{mode.Id} maps: {path} not found - {mode.Name} has its {OfficialsOf(mode).Count} official maps only"; }
         List<MapInfo>? list;
         try { list = JsonSerializer.Deserialize(File.ReadAllText(path), Ctx.Default.ListMapInfo); }
         catch (Exception e) { return $"{mode.Id} maps: {path} unreadable ({Clip(e.Message, 120)}) - kept the {had.Count} loaded"; }

@@ -18,6 +18,7 @@ try
     OrganizeTests.Run();
     PreviewTests.Run();
     RestartTests.Run();
+    PoolsTests.Run();
     InstallTests.Run(root);
 }
 finally

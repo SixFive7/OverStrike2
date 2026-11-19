@@ -11,8 +11,8 @@ static class BridgeWireTests
         Check("bridge wire: the addresses, each a route of its own under the bridge's root, the secret after it",
             BridgeWire.Url("http://bridge:8080/", BridgeWire.RestartNotice, "abc123") == "http://bridge:8080/restart-notice/abc123"
             && BridgeWire.Route(BridgeWire.Ready) == "/ready/" && BridgeWire.Route(BridgeWire.Log) == "/log/"
-            && new[] { BridgeWire.Log, BridgeWire.Health, BridgeWire.Ready, BridgeWire.Quitting, BridgeWire.RestartNotice, BridgeWire.Updated, BridgeWire.Removed, BridgeWire.Reload }
-                .Distinct().Count() == 8);
+            && new[] { BridgeWire.Log, BridgeWire.Health, BridgeWire.Ready, BridgeWire.Quitting, BridgeWire.RestartNotice, BridgeWire.Updated, BridgeWire.Removed, BridgeWire.Reload,
+                    BridgeWire.Pools }.Distinct().Count() == 9 && BridgeWire.Route(BridgeWire.Pools) == "/pools/");
         Check("bridge wire: the watcher's ready report - its head, the ids a line, the background download's line, its title one line",
             BridgeWire.ReadyBody(["901", "902"], BridgeWire.CurrentLine("903", 40, "A\ttitle\nwith breaks")) == "os2-ready\t1\n901\n902\ncurrent\t903\t40\tA title with breaks\n"
             && BridgeWire.ReadyBody([], null) == "os2-ready\t1\n" && BridgeWire.CurrentLine("903", null, "") == "current\t903\t-\t");

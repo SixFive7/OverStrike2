@@ -35,6 +35,7 @@ static partial class Program
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Quitting) + LogSecret) { QuitNoticeRequest(c); return; } // the restart watcher, right before its planned quit (CrashWatch.cs)
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.RestartNotice) + LogSecret) { RestartNoticeRequest(c); return; } // the restart watcher: a restart coming, or not after all (Restarts.cs)
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Updated) + LogSecret) { UpdatedRequest(c); return; }     // the restart watcher: the new engine is up, and what it is (Restarts.cs)
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Pools) + LogSecret) { PoolsReport(c); return; }         // the restart watcher: the installed game's own map pools (OfficialPools.cs)
         if (c.Request.HttpMethod == "GET" && path == BridgeWire.Route(BridgeWire.Health) + LogSecret) { HealthRequest(c); return; }        // is it up, and hearing the server
         var ok = c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Log) + LogSecret;
         var body = ok ? new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd() : "";
@@ -71,6 +72,7 @@ static partial class Program
             StockHealth(),
             ReasonHealth(),
             ModeHealth(),
+            PoolsHealth(),
             VoteHealth(),
             RestartHealth(),
             SyncHealth(),

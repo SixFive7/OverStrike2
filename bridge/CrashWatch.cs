@@ -122,6 +122,7 @@ static partial class Program
         if (last is not { } previous) { Log($"crash watch: spawn {spawn} - the first reading since this bridge started"); return; }
         if (spawn > previous) return; // the same process: every load counts up
         var what = $"a new server process (spawn {previous} -> {spawn})";
+        ForgetUnloadable(what); // OfficialPools.cs: a map the old process turned away may load in this one
         if (since.Count == 0 || spawn < 1 || spawn > since.Count)
         {
             Log($"crash watch: {what} that does not fit the {since.Count} map start(s) seen since the last reading - not judged");
