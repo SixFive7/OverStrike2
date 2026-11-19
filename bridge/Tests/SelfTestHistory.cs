@@ -124,6 +124,24 @@ static partial class Program
         wu.WarmUpEnded(T(19, 7));
         wu.MatchEnded(T(19, 8), "gungameprogressive mg_x ar_wait score 0:0 after 1 min", inWarmUp: true);
         Check("...and the bridge's word decides should the record have the match on already: a match end in the warm-up is no match", warm.Count == 4 && wu.Running);
+
+        // ---- the live record starts at a map's start: a bridge that starts inside a map writes nothing of it ----
+        var restarted = new List<HudHistory.Entry>();
+        var rs = new MatchTracker { Finished = restarted.Add, UsesWarmUp = true, RecordsFrags = true, FromMapStart = true };
+        rs.Seen(T(21, 0), 1001, "Alice");
+        rs.Entered(T(21, 0, 5), 1002, "Bob");
+        rs.Killed(T(21, 1), 1001, 1002, "ak47", "", 10);
+        rs.MatchEnded(T(21, 4), "gungameprogressive mg_x ar_x score 0:0 after 9 min");
+        rs.ServerDown(T(21, 5));
+        var nothingYet = restarted.Count == 0 && !rs.Running && !rs.Warming;
+        rs.MapStarted(T(21, 10), "ar_after", 3000000020, "After", "armsrace");
+        rs.Entered(T(21, 10, 5), 1001, "Alice");
+        rs.WarmUpEnded(T(21, 11));
+        rs.MatchEnded(T(21, 21), "gungameprogressive mg_x ar_after score 0:0 after 10 min");
+        Check("History, the live record: a bridge that starts inside a map writes no match of it - its presence, a kill, a match end, the server's stop - and the next map's "
+            + "match is known in full; the backfill, whose first log may begin inside a match, keeps that match not known in full",
+            nothingYet && restarted.Count == 1 && restarted[0] is { MapName: "After", Mode: "armsrace" } && restarted[0].Missing.Count == 0
+            && restarted[0].Players.Single() is { Account: 1001, Seconds: 600 } && !new MatchTracker().FromMapStart);
         wu.MapStarted(T(19, 10), "dm_idle", 3000000017, "Idle", "deathmatch");
         wu.MatchEnded(T(19, 20), "deathmatch mg_x dm_idle score 0:0 after 10 min"); // an empty map's match run out in its waiting time (the restart kind's)
         var idleWarming = warm.Count == 4 && wu.Warming;
@@ -380,6 +398,37 @@ static partial class Program
             Check("...each player under the name the server shows them by (a chat line, a click: on a copy the lab's test name, OsDocName's), never the connect line's",
                 History.Entries.FirstOrDefault() is { LogName: "de_namelive" } named && named.Players.First(p => p.Account == 1003).Name == "Doc Name"
                 && named.Players.First(p => p.Account == 1002).Name == "Bob");
+
+            // a bridge restart (every deploy restarts it) inside a map: no match - not at a match end, not at the server's next stop - until the next map's start
+            h.Fresh();
+            File.Delete(HistoryPath);
+            LoadHistory();
+            h.Join(("Alice", "[U:1:1001]"));
+            h.Line("\"Alice<2><[U:1:1001]><CT>\" say \"hello\"");
+            h.Run(300);
+            h.MatchEnd();
+            h.Run(300);
+            h.Line("rcon from \"192.0.2.10:64265\": command \"quit\"");
+            var afterRestart = History.Entries.Count == 0 && !File.Exists(HistoryPath) && !MatchHistory.Running;
+            h.Line("Loading map \"de_afterrestart\"");
+            h.Join(("Alice", "[U:1:1001]"));
+            MatchHistory.NoWarmUp(); // as for a plugin without the warm-up: the match from the map's start
+            h.Run(300);
+            h.Line("rcon from \"192.0.2.10:64265\": command \"quit\"");
+            var full = History.Entries.FirstOrDefault();
+            Check("History, live: a bridge that starts inside a map (a restart, every deploy's) writes no match - not at a match end, not at the server's stop, none with "
+                + "no map - and the next map's match is known in full",
+                afterRestart && History.Entries.Count == 1 && full is { LogName: "de_afterrestart", EndedBy: HudHistory.ByServerStop } && full.Missing.Count == 0
+                && full.Players.Single() is { Account: 1001, Seconds: 300 });
+
+            // a map start nobody asked for (an operator's changelevel) takes the mode the bridge last knew; the mode it settles on then is the match's
+            h.Fresh();
+            S.Mode = Modes.WingmanId;
+            h.Line("Loading map \"ar_baggage\"");
+            var startedIn = MatchHistory.Mode;
+            TakePluginMode(Modes.ArmsRace, null);
+            Check($"History, live: the mode the bridge settles on after a map start nobody asked for (the plugin's word) is the match's - not the one it last knew ({startedIn})",
+                startedIn == Modes.WingmanId && MatchHistory.Mode == Modes.ArmsRaceId && S.Mode == Modes.ArmsRaceId);
         }
         finally { h.Dispose(); }
 

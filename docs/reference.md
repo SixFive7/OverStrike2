@@ -823,8 +823,12 @@ with their time in it. Their frags come from the game's kill lines, which the re
 names both players and their places, so the distance between them is the kill's length (a unit is an inch); an assist, a suicide and a chicken have their own
 lines; a kill in the warm-up is none. Arms Race's winner is the human whose knife kill came with its end (CS2 logs both in the same second). Bots never enter the
 log with a Steam account and the lab's fake players never enter the game, so neither is ever in it; a test copy keeps its own file. A match nobody human was in
-is no entry, nor one they were in for under a minute (`LeastSeconds`), nor an end screen alone before a change (`EndScreenSeconds`). Each new entry is appended
-and logged (`history:`).
+is no entry, nor one they were in for under a minute (`LeastSeconds`), nor an end screen alone before a change (`EndScreenSeconds`). A bridge that starts
+inside a map - a restart, every deploy's - records nothing of it, not at a match end nor at the server's stop: the record starts again at the next map's start,
+where everybody enters again (`FromMapStart`; the backfill, whose first log may begin inside a match, keeps that one, not known in full). A match's mode is the
+one the bridge settles on after its map's start: a map start nobody asked for (an operator's `changelevel`) takes the mode the bridge last knew until the
+plugin's word or the convars say which it is (`HistoryModeSettled`), and a Game Over's mode is the last word. Each new entry is appended and logged
+(`history:`).
 
 **The backfill**, `bridge --history-backfill OUT [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...`, makes the same entries from the logs, as far back as they
 reach, read only, into OUT: the bridge's day logs (`logs/bridge-*.log` in its data folder) and the game's console log (`addons/metamod/console.log`, its
@@ -839,7 +843,8 @@ cards, each vote and its moves, each added card, each decision - and looks each 
 `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`); a name no list has stays a name (`name:` and the label). Every crash counted on a map is kept too
 (`crashesEver` in `state.json`, begun with the crash marks there were), where the crash marks are lifted by a Workshop update.
 
-**The pages** (content v4.15.0, `HudBrowser.HistoryLevel` 57; an older content gets nothing of them): HISTORY and STATS are pages of their own, tabs in the top row
+**The pages** (content v4.15.0, `HudBrowser.HistoryLevel` 57; only a game whose HUD check named v4.15.0 or a newer content gets anything of them - not one
+not seen yet or not known, which may hold an older content and would log "Unable to find panel" for each of their panels): HISTORY and STATS are pages of their own, tabs in the top row
 after MAPS (`os_tab_history`, `os_tab_stats`), current while they show (`page-history`, `page-stats`) and as wide as the window. Every word on them is a variable
 and every state a class; the buttons take clicks only, so CS2 keeps a name for none of them. MAPS' History button (`os_fl_hist`, the first History view's) is
 gone from the layout. At 4:3 every word on both pages is 2 px larger, the smallest at 14 px.
@@ -876,8 +881,9 @@ gone from the layout. At 4:3 every word on both pages is 2 px larger, the smalle
   `ossm4`: the longest, the shortest real one - a minute at least, ended by its match end - the busiest evening, the Wingman blowout) and the fun ones (`ossf1` to
   `ossf6`, each shown by its class `stf1` to `stf6` once it has data: the most kills in one match, the Sharpshooter - the best share of head shots past 50 kills -
   knife kills, chickens, the longest shot, the nemesis - the most kills of one player on another - and `ossfnote`, `Counting since` the day the frags began). The
-  page dims while there is no history (`stnone`). Everything but You is the same for everybody, on `os_global`; You is on each player's `os_screen`, sent only
-  while their window shows the page.
+  page dims while there is no history (`stnone`). Its words are the same for everybody, on `os_global`, which every content has; its bars and pictures - panels
+  of content v4.15.0's own - and You go to each viewer's own slot, You on their `os_screen`, only while their window shows the page: never into everybody's
+  state, which every game reads.
 
 **The lab's seed**: `bridge --lab-seed DIR` writes a made-up `history.jsonl`, `ballots.jsonl` and `votes.json` into DIR - Test A to Test D and four more names,
 fifteen matches over the five evenings before the day it runs, on maps with pictures, every record of STATS with data - so the pages can be filmed and tested

@@ -49,6 +49,11 @@ sealed partial class MatchTracker
     /// The backfill records a match's frags only where its logs have kill lines (a console log).</summary>
     public bool RecordsFrags;
 
+    /// <summary>The live record: a bridge that starts inside a map - restarted, deployed - records nothing until the next map's start, where everybody enters
+    /// again and its match is known from its start: a bridge restart writes no match (the lab round on rel-220's ce3e9af: one wrote a match with no map at
+    /// the server's next stop). False for the backfill, whose first log may begin inside a match: that match begins where it finds it, not known in full.</summary>
+    public bool FromMapStart;
+
     sealed class FragCount
     {
         public int Kills, Deaths, Assists, Hs, Knife, Taser, Noscope, Wall, Air, Chickens, Suicides, Streak, Run;
@@ -115,6 +120,9 @@ sealed partial class MatchTracker
 
     /// <summary>The Workshop id of the map that is on, as far as the record knows: 0 for an official map, or one it was not told.</summary>
     public long MapId => cur?.MapId ?? 0;
+
+    /// <summary>The mode of the match that is on, as far as the record knows ("" with none on).</summary>
+    public string Mode => cur?.Mode ?? "";
 
     /// <summary>Something the record cannot tell about the match that is on (a backfill's: "map id" for a map start its log does not name).</summary>
     public void Note(string missing) => cur?.Missing.Add(missing);
@@ -185,6 +193,7 @@ sealed partial class MatchTracker
     /// match runs out during it: the warm-up's end starts the real match, as ever.</summary>
     public void MatchEnded(DateTimeOffset at, string gameOver, bool inWarmUp = false, bool warmUpGoesOn = false)
     {
+        if (cur == null && FromMapStart) return; // a bridge started inside this map: the next match is known from the next map's start
         var (mode, logName, score) = ReadGameOver(gameOver);
         var idle = UsesWarmUp && cur is { Warming: true } && present.Count == 0; // an empty map in its warm-up, its match run out: nobody's, and the warm-up goes on
         if (inWarmUp && cur != null) cur.Warming = true; // the waiting time's win counts for nothing, whatever the record thought of it
@@ -213,10 +222,11 @@ sealed partial class MatchTracker
     }
 
     /// <summary>A human entered the game. With no match known - the record began, or came back, inside one - a match begins here, its start and its
-    /// players not known in full. During the warm-up they are present, and in the match once it starts.</summary>
+    /// players not known in full; or, for the live record (FromMapStart), nothing until the next map's start. During the warm-up they are present, and
+    /// in the match once it starts.</summary>
     public void Entered(DateTimeOffset at, long account, string name)
     {
-        if (account <= 0) return;
+        if (account <= 0 || cur == null && FromMapStart) return;
         if (cur == null) { cur = new Match { Start = at }; cur.Missing.Add("start"); cur.Missing.Add("players"); }
         present[account] = present.TryGetValue(account, out var p) ? (name, p.Since) : (name, at);
         if (cur.Warming) return;
@@ -388,7 +398,7 @@ static partial class Program
     /// <summary>The time zone the history's times are in: the container's own (TZ), UTC in --selftest.</summary>
     static TimeZoneInfo HistoryZone = TimeZoneInfo.Local;
 
-    static readonly MatchTracker MatchHistory = new() { Finished = KeepMatch, UsesWarmUp = true, RecordsFrags = true };
+    static readonly MatchTracker MatchHistory = new() { Finished = KeepMatch, UsesWarmUp = true, RecordsFrags = true, FromMapStart = true };
 
     /// <summary>The history the plugin is sent, newest first; its version moves with every new entry and with every bridge, so a plugin fetches after a restart.</summary>
     static readonly HudHistory History = new() { Version = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond };
@@ -480,6 +490,11 @@ static partial class Program
 
     /// <summary>A frag line of the live log stream, for the history (LogStream.cs hands it here before anything else reads the line).</summary>
     static void HistoryFrag(LogFrag f) => Frag(MatchHistory, HistoryNow(), f);
+
+    /// <summary>The bridge settled the mode of the map that is on after its start (ModeSwitch.cs: the plugin's word, the convars, a map that came up in another
+    /// mode): the match on it runs in that mode. A map start nobody asked for - an operator's changelevel, a server that rotated by itself - takes the mode
+    /// the bridge last knew until the probe says otherwise, and an entry closed before any Game Over put it right kept that one.</summary>
+    static void HistoryModeSettled() => MatchHistory.Name(0, "", S.Mode);
 
     /// <summary>A line of the game's log, for the history: who entered, acted and left, the maps' starts, the matches' ends, the quit. <paramref name="inWarmUp"/>:
     /// a match end the bridge saw during the warm-up (LogStream.cs looks before OnMatchEnd ends it); <paramref name="warmUpGoesOn"/>: before anybody spawned,

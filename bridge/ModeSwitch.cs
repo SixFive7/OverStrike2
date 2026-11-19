@@ -166,6 +166,7 @@ static partial class Program
         var came = loadedIn is { } l && l.Id != told.Id ? $" (the map that is on loaded in {l.Name})" : "";
         Log($"mode: the plugin was told {told.Name}{came}, not {CurrentMode.Name} as last recorded - taking the plugin's");
         S.Mode = told.Id; Save();
+        HistoryModeSettled(); // History.cs: the match on this map runs in it
     }
 
     /// <summary>From Tick: the mode probe, when one is due - every 10 s until RCON answers. The plugin's word first (AskPluginMode); without it,
@@ -183,6 +184,7 @@ static partial class Program
         if (on.Id == CurrentMode.Id) return;
         Log($"mode: the server is in {on.Name}, not {CurrentMode.Name} as last recorded - taking the server's");
         S.Mode = on.Id; Save();
+        HistoryModeSettled();
     }
 
     static bool ModeVerifyDue; // the bridge's own change just landed: check that the server came up in the mode it was told
@@ -222,7 +224,7 @@ static partial class Program
         if (S.Map is not { Official: true } map || ModeReloads > 0 || Pending != null || LoadPending)
         {
             Log($"mode: {CurrentLabel()} came up in {came}, not {want.Name} - left as it is");
-            if (on != null) { S.Mode = on.Id; Save(); }
+            if (on != null) { S.Mode = on.Id; Save(); HistoryModeSettled(); }
             return;
         }
         ModeReloads++;
