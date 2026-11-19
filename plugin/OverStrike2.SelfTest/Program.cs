@@ -354,25 +354,43 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs") };
     Check(harness.All(t => t.Contains("os_restart 1", StringComparison.Ordinal) && !t.Contains("mp_restartgame", StringComparison.Ordinal)),
         "restart guard: the docs' harness restarts the match with os_restart, which goes through - never with a bare mp_restartgame, which is refused");
-    // the fairness restart (EarlyJoinWatch.cs; its plan, ../../bridge/Shared/EarlyJoin.cs, is the bridge's --selftest's): the game fed in, the bridge asked
+    // the warm-up (EarlyJoinWatch.cs; its rule and plan, ../../bridge/Shared/EarlyJoin.cs, are the bridge's --selftest's): CS2's own warm-up begun and kept, the game fed in
     var host = Source("plugin", "OverStrike2", "OverStrike2.cs");
-    var fair = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
-    Check(host.Contains("new EarlyJoinWatch(this, Logger, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);", StringComparison.Ordinal)
-          && fair.Contains("if (hotReload) plan.Skip(", StringComparison.Ordinal)
-          && Source("plugin", "OverStrike2", "HudScreenFair.cs").Contains("bridge.Act(account, name, EarlyJoin.Command);", StringComparison.Ordinal),
-        "fairness restart: wired with the reload's flag (a plugin loaded mid-map does nothing on that map), in every mode, and its ask the plugin's own word on /act");
-    Check(fair.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)
-          && fair.Contains("if (Rules() is not { } rules || rules.WarmupPeriod || rules.TotalRoundsPlayed != 0) return HookResult.Continue;", StringComparison.Ordinal)
-          && fair.Contains("var others = Utilities.GetPlayers().Count(o => o.Slot != slot && Human(o) && OnTeam(o));", StringComparison.Ordinal)
-          && fair.Contains("EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason)", StringComparison.Ordinal)
+    var warm = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
+    Check(host.Contains("new EarlyJoinWatch(this, Logger).Load(hotReload);", StringComparison.Ordinal)
+          && warm.Contains("if (hotReload) plan.Skip(", StringComparison.Ordinal) && warm.Contains("if (plan.Skipped != null || Rules() is not { } rules) return;", StringComparison.Ordinal)
+          && !File.Exists(Path.Combine(root, "plugin", "OverStrike2", "HudScreenFair.cs")) && host != "" && !host.Contains("AskFairRestart", StringComparison.Ordinal),
+        "warm-up: wired with the reload's flag (a plugin loaded mid-map begins nothing on that map), in every mode; the fairness restart's ask and its screen are gone");
+    Check(warm.Contains("plugin.AddTimer(BeginDelay, () => Begin(\"the map's start\"), TimerFlags.STOP_ON_MAPCHANGE);", StringComparison.Ordinal)
+          && warm.Contains("Server.ExecuteCommand($\"mp_warmuptime_all_players_connected 0; mp_endwarmup_player_count 0; mp_warmuptime {EarlyJoin.IdleClockSeconds}\");", StringComparison.Ordinal)
+          && warm.Contains("if (!rules.WarmupPeriod) Server.ExecuteCommand(\"mp_warmup_start\");", StringComparison.Ordinal)
+          && warm.Contains("Server.ExecuteCommand(\"mp_warmup_end\");", StringComparison.Ordinal) && !warm.Contains("mp_warmup_pausetimer 1", StringComparison.Ordinal)
+          && !warm.Contains("mp_restartgame", StringComparison.Ordinal) && !warm.Contains("os_restart", StringComparison.Ordinal),
+        "warm-up: CS2's own - begun a second into every map with mp_warmup_start, neither all players connected nor a player count to end it, an idle clock until somebody spawns, ended with mp_warmup_end; never a restart of the match, never the blocked pause");
+    Check(warm.Contains("firstSpawnTime = Server.CurrentTime;", StringComparison.Ordinal)
+          && warm.Contains("var (name, target) = (p.PlayerName, firstSpawnTime.Value + EarlyJoin.WarmUpMostSeconds);", StringComparison.Ordinal)
+          && warm.Contains("var seconds = (int)Math.Ceiling(Math.Max(ClockLeast, resets == false ? target - start : target - now));", StringComparison.Ordinal)
+          && warm.Contains("if (Math.Abs(rules.WarmupPeriodStart - set.StartBefore) > 0.25f) resets = true;", StringComparison.Ordinal)
+          && warm.Contains("SetClock(rules, Server.CurrentTime + EarlyJoin.IdleClockSeconds, ", StringComparison.Ordinal)
+          && warm.Contains("if (Server.CurrentTime >= target + EarlyJoin.SafetySeconds)", StringComparison.Ordinal)
+          && warm.Contains("Math.Max(0, rules.WarmupPeriodStart + time - Server.CurrentTime)", StringComparison.Ordinal)
+          && warm.Contains("plan.SpawnedCount, rules == null ? null : Left(rules))", StringComparison.Ordinal),
+        "warm-up: CS2's clock ends at the most from the first spawn - set a frame after it, from now or from the warm-up's start as a change is seen to count, set again when off - os_warmup tells the bridge the seconds left on it, and SafetySeconds past it the plugin ends it itself; while nobody has spawned the idle clock never runs out");
+    Check(warm.Contains("if (plan.FirstSpawn != null)", StringComparison.Ordinal) && warm.Contains("if (again >= AgainMost)", StringComparison.Ordinal)
+          && warm.Contains("Begin($\"CS2 left it before anybody spawned - again, {again} of {AgainMost}\");", StringComparison.Ordinal),
+        "warm-up: CS2 leaving it before anybody spawned begins it again, three times on a map at the most; after a spawn an end is the end - nothing restarts the match");
+    Check(warm.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)
+          && warm.Contains("if (ev.Userid is not { } p || !Human(p) || !OnTeam(p) || Account(p) is not (> 0 and var account)) return HookResult.Continue;", StringComparison.Ordinal)
+          && warm.Contains("EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason)", StringComparison.Ordinal)
           && Source("bridge", "Players.cs").Contains("if (EarlyJoin.Reconnects(reason))", StringComparison.Ordinal)
-          && fair.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
-        "fairness restart: humans only - no bot, no TV - a match's start only out of warmup with no round played, the others on a team counted at each spawn, and a map change's or the addon download's reconnect is no leaving - by the bridge's own rule (EarlyJoin.Reconnects), so LOOPDEACTIVATE is a leaving in both");
-    Check(fair.Contains("plugin.RegisterEventHandler<EventPlayerConnectFull>(OnConnectFull);", StringComparison.Ordinal)
-          && fair.Contains("plan.Entered(account, DateTime.UtcNow)", StringComparison.Ordinal)
-          && fair.Contains("var toSpawn = plan.StillToSpawn(humans.Where(p => p.Connected == PlayerConnectedState.Connected).Select(Account), DateTime.UtcNow)", StringComparison.Ordinal)
-          && fair.Contains("command.ReplyToCommand(EarlyJoin.JoiningReply(Joining().Select(p => p.PlayerName)));", StringComparison.Ordinal),
-        "fairness restart: os_joining names the humans in the game still to spawn on a team too (EarlyJoin.StillToSpawn), fed by every entering - the bridge's wait holds through CS2's team menu");
+          && warm.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
+        "warm-up: humans only - no bot, no TV - a spawn on a team, and a map change's or the addon download's reconnect is no leaving - by the bridge's own rule (EarlyJoin.Reconnects), so LOOPDEACTIVATE is a leaving in both");
+    Check(warm.Contains("plugin.RegisterEventHandler<EventPlayerConnectFull>(OnConnectFull);", StringComparison.Ordinal)
+          && warm.Contains("plan.Entered(account, DateTime.UtcNow)", StringComparison.Ordinal)
+          && warm.Contains("var toSpawn = plan.StillToSpawn(humans.Where(p => p.Connected == PlayerConnectedState.Connected).Select(Account), DateTime.UtcNow)", StringComparison.Ordinal)
+          && warm.Contains("command.ReplyToCommand(EarlyJoin.JoiningReply(Joining().Select(p => p.PlayerName)));", StringComparison.Ordinal)
+          && warm.Contains("if (caller != null) return;", StringComparison.Ordinal),
+        "warm-up: os_joining names the humans in the game still to spawn on a team too (EarlyJoin.StillToSpawn), fed by every entering - the bridge waits through CS2's team menu; os_warmup and os_joining are the console's and RCON's only");
     // the live lab's probe for the spawn invisibility (InvisProbe.cs): loaded, the console's only, and the spotted state cleared through the state-changed path
     var probe = Source("plugin", "OverStrike2", "InvisProbe.cs");
     Check(host.Contains("new InvisProbe(this, Logger).Load();", StringComparison.Ordinal) && probe.Contains("if (caller != null) return; // the server console and RCON only", StringComparison.Ordinal)

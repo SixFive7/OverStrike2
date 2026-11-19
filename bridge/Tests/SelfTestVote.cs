@@ -818,12 +818,12 @@ static partial class Program
             Check("...the window counts it down - Next match in, its bar over the change's seconds - everybody still frozen, and its line says what won",
                 cutVote is { Kept: true, NextMatch: true, NextMatchCounts: true, Freeze: true } && cutVote.DoneSeconds == AgainSeconds && HudVote.Clocks(cutVote) is { IdleKey: "Next match in" } cutClock
                 && cutClock.IdleNum == $"{AgainSeconds} s" && HudVote.DoneLine(cutVote).EndsWith(" again (3 of 3)", StringComparison.Ordinal) && HudVote.DoneKey(cutVote) == "Next match in");
-            Check("...and the match that starts then is no match that has just ended: the 30 s after a match end, which hold a fairness restart and Restart match, end with the countdown",
+            Check("...and the match that starts then is no match that has just ended: the 30 s after a match end, which hold Restart match, end with the countdown",
                 Ballot is { KeptUntil: { } endsAt } && MatchEndUntil == endsAt);
             h.Run(AgainSeconds - 0.5);
             Check("...half a second before it, still counting, everybody frozen", Ballot is { NextMatch: true } && LiveVote() is { Freeze: true, NextMatch: true });
             h.Run(0.6);
-            Check("...then, as the next match starts, the window closes and everybody unfreezes; a join may restart it for fairness, and Restart match may go",
+            Check("...then, as the next match starts, the window closes and everybody unfreezes, and Restart match may go - no warm-up: no map loaded",
                 Ballot is null && !LiveVote().Freeze && RematchBlocked(h.Clock) == null);
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
@@ -1098,9 +1098,9 @@ static partial class Program
             OperatorSwitch(answers: true, blockLate: true);
             Check("Race: CS2 brought Arms Race back under de_inferno, and the plugin's block has not put Wingman's values back yet",
                 fakeTold == Modes.Wingman && fakeLoaded == Modes.ArmsRace && (gameType, gameMode) == (1, 0) && S.Mode == "armsrace" && ModeProbing);
-            h.Run(3);
+            h.Run(3); // the warm-up's look a second into the map (os_warmup, WarmUp.cs) may come before the question: it reads nothing of the mode
             Check($"...the bridge asks the plugin, which was told Wingman, and takes its word over the convars, which say Arms Race ({string.Join(" | ", h.Sent)})",
-                h.Sent.FirstOrDefault() == Modes.AskLine && S.Mode == "wingman" && !ModeProbing && !h.Sent.Contains("game_type"));
+                h.Sent.FirstOrDefault(c => !c.StartsWith(EarlyJoin.WarmUpCommand, StringComparison.Ordinal)) == Modes.AskLine && S.Mode == "wingman" && !ModeProbing && !h.Sent.Contains("game_type"));
             Check("...and tells the plugin no mode, then or at the re-tell after the start: nothing calls off the operator's os_mode, nor the plugin's own second load",
                 !h.Sent.Any(c => c.StartsWith("os_mode ")) && fakeTold == Modes.Wingman);
             h.Run(5); // the plugin's wait, ModePlan.AgainAfterSeconds after the start
@@ -1131,7 +1131,7 @@ static partial class Program
             OperatorSwitch(answers: false, blockLate: true);
             h.Run(3);
             Check($"A plugin from before the question (5.0.0, 5.1.0): CounterStrikeSharp's usage line, so the convars and the re-tell as ever - the race lost as before this bridge, the server in Arms Race throughout ({string.Join(" | ", h.Sent)})",
-                h.Sent.FirstOrDefault() == Modes.AskLine && h.Sent.Contains("game_type") && h.Sent.Contains("os_mode armsrace") && S.Mode == "armsrace" && fakeTold == Modes.ArmsRace);
+                h.Sent.FirstOrDefault(c => !c.StartsWith(EarlyJoin.WarmUpCommand, StringComparison.Ordinal)) == Modes.AskLine && h.Sent.Contains("game_type") && h.Sent.Contains("os_mode armsrace") && S.Mode == "armsrace" && fakeTold == Modes.ArmsRace);
             OperatorSwitch(answers: false, blockLate: false);
             h.Run(3);
             Check("...and with its block in time, as live: the convars say Wingman, which the bridge takes and tells, as ever",

@@ -1,5 +1,5 @@
 // The game's phase, as the plugin answers it over RCON (Command, plugin/OverStrike2/HudScreenNextMatch.cs). The bridge asks while a match's end is fresh: a
-// Restart match or a fairness restart is refused while the match-end screen is up - the game ignores a restart then - and taken the moment the next match is
+// Restart match is refused while the match-end screen is up - the game ignores a restart then - and taken the moment the next match is
 // on, which may come 8 s after the vote decided (NextMatch.cs) or after the screen's full 90 s. Before this the bridge went by the clock alone: the 30 s after
 // a match end.
 //

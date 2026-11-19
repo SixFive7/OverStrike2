@@ -73,6 +73,7 @@ static partial class Program
             ModeHealth(),
             VoteHealth(),
             RestartHealth(),
+            WarmUpHealth(),
             SyncHealth(),
             Files?.Health(DateTime.Now) ?? "log files: off (the console alone)",
             $"maintenance {(MaintenanceOn ? "on" : "off")}") + "\n";

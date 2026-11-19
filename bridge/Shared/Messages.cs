@@ -81,6 +81,7 @@ public static class Messages
         WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, Drawn: true),
         // restarts and updates
         RestartAfterMatch = new("restartend", "The server restarts after this match", Surface.Banner, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
+        WarmUp = new("warmup", "The warm-up at a map's start: whom it waits for, counting down to the latest start (its end: a News line)", Surface.Countdown, Who.Everybody, Who.Nobody, Who.Nobody, Server, 0, Drawn: true),
         RestartCountdown = new("restart", "The restart counting down (10 s)", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         GameUpdate = new("cs2update", "A CS2 update: update your game", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         Updated = new("updated", "\"Updated to vX\" after the reconnect", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Server, 60),
@@ -101,7 +102,7 @@ public static class Messages
     [
         Welcome, Tagline, WelcomeBack, NowPlaying, Joined, Outdated, Newer, Hold, HoldBack, HoldNoMenu, CheckClick, CheckWarning, VoteWindow, VoteStarted, VoteInactivity, VoteLimit,
         VoteWaiting, VoteDecided, VoteKept, VoteRefused, VoteRefusedYou, FunChanged, FunRandom, FunDefault, FunRefused, GameChanger, BotsPreset, BotsOff, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
-        DownloadFailed, WorkshopDownload, PlayAsksFirst, WhyDislike, RestartAfterMatch, RestartCountdown, GameUpdate, Updated, UpdatedJoiner, PlayerRestart, MatchRestart, News,
+        DownloadFailed, WorkshopDownload, PlayAsksFirst, WhyDislike, RestartAfterMatch, WarmUp, RestartCountdown, GameUpdate, Updated, UpdatedJoiner, PlayerRestart, MatchRestart, News,
         ServerDown, CrashNote, Answer, CommandReply, VoteClick,
     ];
 

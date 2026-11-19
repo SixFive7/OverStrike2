@@ -29,7 +29,7 @@ static partial class Program
             var notPosted = named.Where(n => !n.Kind.Drawn && !Posted(n.Name)).Select(n => n.Name).ToList();
             var drawnPosted = named.Where(n => n.Kind.Drawn && Posted(n.Name)).Select(n => n.Name).ToList();
             Check($"Catalogue: every kind is posted somewhere ({named.Count(n => !n.Kind.Drawn)}) or drawn by the live state, which only its row describes ({named.Count(n => n.Kind.Drawn)}: {string.Join(", ", named.Where(n => n.Kind.Drawn).Select(n => n.Name))}){(notPosted.Count + drawnPosted.Count > 0 ? $": posted by nothing {string.Join(" ", notPosted)}; drawn but posted {string.Join(" ", drawnPosted)}" : "")}",
-                named.Count == Messages.All.Length && notPosted.Count == 0 && drawnPosted.Count == 0 && named.Count(n => n.Kind.Drawn) == 10);
+                named.Count == Messages.All.Length && notPosted.Count == 0 && drawnPosted.Count == 0 && named.Count(n => n.Kind.Drawn) == 11);
         }
         else Console.WriteLine("skip the catalogue's posters: no sources beside the selftest");
         // ---- the routing: Messages.Route, the one decision of the bridge's Post and the plugin's ----

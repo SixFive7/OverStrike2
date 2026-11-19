@@ -106,17 +106,17 @@ static partial class Program
             if ((now - p.MissingSince.Value).TotalSeconds < EarlyJoin.DropConfirmSeconds) continue;
             if (p.Returning != null)
             {
-                if (!p.OffList) Log($"fair: {p.Name} is on the way back through a reconnect, and the server lists them no more - their own download of the map, or a crash, which CS2 writes no line for: still joining until they are in, {EarlyJoin.SignOnMostSeconds} s from their departure at the most");
+                if (!p.OffList) Log($"joining: {p.Name} is on the way back through a reconnect, and the server lists them no more - their own download of the map, or a crash, which CS2 writes no line for: still joining until they are in, {EarlyJoin.SignOnMostSeconds} s from their departure at the most");
                 p.OffList = true;
                 continue;
             }
             p.SigningOn = null; p.MissingSince = null; ended = true;
-            Log($"fair: {p.Name} was connecting, and the server lists them no more - gone before they were in, which CS2 writes no \"disconnected\" line for");
+            Log($"joining: {p.Name} was connecting, and the server lists them no more - gone before they were in, which CS2 writes no \"disconnected\" line for");
         }
         if (ended) SignOnsChanged();
     }
 
-    /// <summary>What the plugin's os_fair last heard from the bridge (EarlyJoin.BridgeViewCommand) - whom its log stream has signing on and status's joiners -
+    /// <summary>What the plugin's os_warmup last heard from the bridge (EarlyJoin.BridgeViewCommand) - whom its log stream has signing on and status's joiners -
     /// and whether a word to it is due: one a second at the most, and only when either changed, so a join's "connected" and "entered the game" a moment apart
     /// say nothing.</summary>
     static List<string> SignOnsTold = [];
@@ -124,7 +124,7 @@ static partial class Program
     static bool SignOnsTell;
 
     /// <summary>The server's own list (status), read every StatusWatchSeconds while anyone signs on by the log stream or its last reading had anyone joining, and
-    /// each second of a fairness restart's wait (FairWait): the humans not yet active at the last reading (null: none read since the bridge started, or no players
+    /// each second of a warm-up (JoiningNow): the humans not yet active at the last reading (null: none read since the bridge started, or no players
     /// table), and whether a reading is due. Not while a map loads (LoadPending): its RCON answers late or not at all then.</summary>
     const int StatusWatchSeconds = 2;
     static List<string>? StatusJoining;
@@ -146,7 +146,7 @@ static partial class Program
         WatchStatus();
     }
 
-    /// <summary>status, read now: its humans not yet active (StatusJoining, told to os_fair when they change), and the log stream's sign-ons it no longer has
+    /// <summary>status, read now: its humans not yet active (StatusJoining, told to os_warmup when they change), and the log stream's sign-ons it no longer has
     /// ended (EndDroppedSignOns) - CS2's drop of a first-download prompt, which writes no line. null: no players table.</summary>
     static List<EarlyJoin.StatusClient>? ReadServerList(DateTime now)
     {

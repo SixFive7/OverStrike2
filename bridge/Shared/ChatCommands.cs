@@ -57,6 +57,8 @@ public static class ChatCommands
             "!matchlength", "!matchtime", "!mins", "!rounds"),
         new("!restart", "", "Restart a stuck server - Twice to confirm", "Game", "!reboot", "!unstuck", "!stuck", "!restartserver", "!serverrestart", "!rebootserver", "!serverreboot"),
         new("!rematch", "", "Restart the match - Twice to confirm", "Game", "!restartmatch", "!matchrestart", "!restartgame", "!rr", "!newmatch", "!resetmatch", "!matchreset", "!newgame"),
+        new(Hud.StartWord, "", "End the warm-up now: the match starts for everybody", "Game", "!begin", "!live", "!golive", "!startmatch", "!matchstart",
+            "!endwarmup", "!warmupend", "!nowarmup", "!skipwarmup", "!letsgo"), // the warm-up's (EarlyJoin.cs); no !ready: in a pick-up game it says one player is ready
         new("!cancel", "", "Stop your own countdown: a pick, Previous, Restart match or the server's restart", "Game", "!stop", "!abort", "!nvm", "!nevermind", "!hold", "!wait", "!norestart", "!norematch"),
         new("!menu", "", "Open the full menu", "Menu", "!gg", "!hud", "!os", "!os2", "!open", "!mainmenu", "!overstrike", "!panel", "!home", "!window"),
         new("!help", "", "The Help page, and this list", "Menu", "!commands", "!cmds", "!h", "!?", "!info", "!command", "!cmd", "!helpme", "!support", "!guide"),
@@ -229,6 +231,7 @@ public static class ChatCommands
             "!time" => low is "10" or "60" or "8" or "16" ? new(Kind.Bridge, $"!time {low}", word) : low == "" ? new(Kind.Bridge, "!time", word) : Usage(), // alone: the other length (release 198); 8|16 Wingman's rounds (199)
             "!restart" => new(Kind.Bridge, "!restart", word),
             "!rematch" => new(Kind.Bridge, "!rematch", word),
+            Hud.StartWord => new(Kind.Bridge, Hud.StartWord, word),
             "!cancel" => arg == "" ? new(Kind.Bridge, Hud.CancelMine, word) : Usage(), // the player's own newest countdown (the bridge's CancelMine)
             "!menu" => new(Kind.Page, "Start", word),
             "!help" => new(Kind.Commands, "Help", word),

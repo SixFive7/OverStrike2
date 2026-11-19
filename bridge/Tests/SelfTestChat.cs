@@ -4,7 +4,7 @@
 // held to docs/reference.md's table of them. !skip and its aliases are Next's (the vote for the next map), and so is !new now that the new-maps
 // setting is gone; !reset is the Fun page's Default and !fix is no word any more; !sync opens the Sync page; there is no queue (!q is gone,
 // !done's words are Next's, and !cancel stops the player's own countdown); the Rules page's words are How it works', and !drops is the drops
-// setting's own word.
+// setting's own word. !start ends the warm-up (EarlyJoin.cs: anybody may), and does nothing outside one.
 using System.Text.RegularExpressions;
 
 static partial class Program
@@ -28,6 +28,7 @@ static partial class Program
         ("!time", ["!length", "!minutes", "!timelimit", "!roundtime", "!duration", "!matchlength", "!matchtime", "!mins", "!rounds"]),
         ("!restart", ["!reboot", "!unstuck", "!stuck", "!restartserver", "!serverrestart", "!rebootserver", "!serverreboot"]), // !fix is gone, !reset is the Fun page's Default
         ("!rematch", ["!restartmatch", "!matchrestart", "!restartgame", "!rr", "!newmatch", "!resetmatch", "!matchreset", "!newgame"]),
+        ("!start", ["!begin", "!live", "!golive", "!startmatch", "!matchstart", "!endwarmup", "!warmupend", "!nowarmup", "!skipwarmup", "!letsgo"]), // the warm-up's: refused outside one
         ("!cancel", ["!stop", "!abort", "!nvm", "!nevermind", "!hold", "!wait", "!norestart", "!norematch"]),
         ("!menu", ["!gg", "!hud", "!os", "!os2", "!open", "!mainmenu", "!overstrike", "!panel", "!home", "!window"]),
         ("!help", ["!commands", "!cmds", "!h", "!?", "!info", "!command", "!cmd", "!helpme", "!support", "!guide"]),
@@ -62,9 +63,9 @@ static partial class Program
         Check($"Chat: no word maps to two actions: {primaries.Count + aliasWords.Count + shortcutWords.Count} words ({primaries.Count} primaries, {aliasWords.Count} aliases, {shortcutWords.Count} shortcuts), each once{(twice.Count > 0 ? "; twice: " + string.Join(" ", twice) : "")}", twice.Count == 0);
         var shadows = aliasWords.Concat(shortcutWords).Where(a => primaries.Contains(a) || funWords.Contains(a)).ToList();
         Check($"Chat: no alias or shortcut shadows a primary or a fun word ({funWords.Count} of those){(shadows.Count > 0 ? ": " + string.Join(" ", shadows) : "")}", shadows.Count == 0);
-        var heavy = new[] { "!fix", "!start", "!get", "!add", "!spam", "!lag", "!fps", "!bug", "!nextmap", "!newmap", "!1v1", "!war", "!practice", "!space", "!normal" };
+        var heavy = new[] { "!fix", "!get", "!add", "!spam", "!lag", "!fps", "!bug", "!nextmap", "!newmap", "!1v1", "!war", "!practice", "!space", "!normal", "!ready", "!rdy" };
         var taken = heavy.Where(w => ChatCommands.Parse(w).Kind != ChatCommands.Kind.Unknown).ToList();
-        Check($"Chat: no generic word sets off something heavy - !fix restarts nothing any more, and !reset is the Fun page's Default; the others are no words of ours{(taken.Count > 0 ? ": " + string.Join(" ", taken) : "")}",
+        Check($"Chat: no generic word sets off something heavy - !fix restarts nothing any more, and !reset is the Fun page's Default; !start ends a warm-up and nothing else (WarmUp.cs refuses it outside one); the others, !ready among them, are no words of ours{(taken.Count > 0 ? ": " + string.Join(" ", taken) : "")}",
             taken.Count == 0 && ChatCommands.Parse("!reset") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.DefaultWord });
         var sharedFun = funWords.Where(primaries.Contains).ToList();
         var blasts = Fun.Find("nades")!.Choices.Select(c => c.Id).ToList();

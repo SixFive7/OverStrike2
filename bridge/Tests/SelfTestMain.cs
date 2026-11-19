@@ -357,7 +357,7 @@ static partial class Program
         StockSelfTest(Check); // SelfTestStock.cs: the discovery stock, the disk, queues.json and the watcher's report
         BallotSelfTest(Check); // SelfTestBallot.cs: the Workshop's numbers, popularity, the kept maps, the points, the tags, the recipe, restarts
         MatchSelfTest(Check);  // SelfTestMatch.cs: a player's restart, Restart match, the match length for the match that is on
-        EarlyJoinSelfTest(Check); // SelfTestEarlyJoin.cs: the fairness restart's plan - which spawn is a join, when the match runs, the minute every restart opens again
+        EarlyJoinSelfTest(Check); // SelfTestEarlyJoin.cs: the warm-up's plan and words - who is still to spawn, the first spawn its clock runs from, os_warmup's answer, the banner
         DashSelfTest(Check); // SelfTestDash.cs: the Sync page's block, its words out of the sync's file, the website's data, the layout's labels
         TabSelfTest(Check);
         GuiSelfTest(Check);
