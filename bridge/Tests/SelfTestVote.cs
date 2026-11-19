@@ -80,7 +80,7 @@ static partial class Program
             && Modes.ParseState("Unknown command \"os_mode\"!") is null && Modes.ParseState("") is null && Modes.ParseState(null) is null
             && Modes.ParseState("os_mode: told casual, loaded in armsrace, on armsrace") is null && Modes.ParseState("os_mode: told wingman, loaded in armsrace") is null);
         Check($"Modes: Valve's official pools - Deathmatch {Modes.Deathmatch.Official.Length} maps, Wingman {Modes.Wingman.Official.Length}, Arms Race {Modes.ArmsRace.Official.Length} - each map once, Arms Race's the bridge's OFFICIAL_MAPS",
-            Modes.Deathmatch.Official.Length == 15 && Modes.Wingman.Official.Length == 7 && Modes.All.All(m => m.Official.Distinct().Count() == m.Official.Length)
+            Modes.Deathmatch.Official.Length == 12 && Modes.Wingman.Official.Length == 7 && Modes.All.All(m => m.Official.Distinct().Count() == m.Official.Length)
             && Modes.ArmsRace.Official.Order().SequenceEqual(Officials.Select(o => o.Name).Order()));
 
         // ---- the harness (SelfTestHarness.cs), and a fake server that remembers game_type and game_mode ----
@@ -1217,8 +1217,34 @@ static partial class Program
             Fresh();
             var dmFile = ModeMapsPath(Modes.Deathmatch);
             if (File.Exists(dmFile)) File.Delete(dmFile);
-            Check($"No maps-deathmatch.json: Deathmatch has Valve's {Modes.Deathmatch.Official.Length} official maps", ReloadModeMaps(Modes.Deathmatch).Contains("not found") && PoolOf(Modes.Deathmatch).Count == 15
+            Check($"No maps-deathmatch.json: Deathmatch has Valve's {Modes.Deathmatch.Official.Length} official maps", ReloadModeMaps(Modes.Deathmatch).Contains("not found") && PoolOf(Modes.Deathmatch).Count == 12
                 && PoolOf(Modes.Deathmatch).All(x => x.Official && x.Mode == "deathmatch"));
+
+            // ---- hotfix 218a: CS2 1.41.9.9 took mg_casualcharlie away - de_boulder, de_fachwerk and cs_shelter load nothing now, and no route may pick them ----
+            string[] goneMaps = ["de_boulder", "de_fachwerk", "cs_shelter"];
+            bool GoneMap(MapInfo? x) => x != null && goneMaps.Contains(x.Name, StringComparer.OrdinalIgnoreCase);
+            var dmRolls = Enumerable.Range(0, 2000).Select(_ => RandomPick(Modes.Deathmatch)).Concat(Enumerable.Range(0, 300).Select(_ => RandomNext(Modes.Deathmatch))).ToList();
+            var dmCatalog = BuildCatalog().Maps.Select(x => x.Name).ToList();
+            var dmCards = new List<MapInfo?>();
+            for (var i = 0; i < 20; i++) // match-end ballots in Deathmatch, its official maps alone in its pool: each fills its cards from them
+            {
+                Fresh();
+                S.Mode = "deathmatch";
+                foreach (var p in new[] { alice, bob }) h.Join(p);
+                h.MatchEnd();
+                if (Ballot != null) dmCards.AddRange(Ballot.Options.Select(o => o.Map));
+            }
+            Fresh();
+            S.Mode = "deathmatch";
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.Quiet();
+            foreach (var name in goneMaps) h.Talk(alice, $"!map {name}");
+            var notPicked = Pending == null && !(Ballot?.Options.Any(o => GoneMap(o.Map)) ?? false) && !h.Sent.Any(c => goneMaps.Any(g => c.Contains(g, StringComparison.OrdinalIgnoreCase)));
+            Check($"Hotfix 218a: de_boulder, de_fachwerk and cs_shelter, gone with CS2 1.41.9.9, are in no pool - {dmRolls.Count} rolls and Random's dice, {dmCards.Count} ballot cards, "
+                + "the browser's catalog and a !map of each by name pick none of them, and no command names them",
+                Modes.All.All(m => !m.Official.Any(n => goneMaps.Contains(n, StringComparer.OrdinalIgnoreCase))) && !OfficialsOf(Modes.Deathmatch).Any(GoneMap) && !PoolOf(Modes.Deathmatch).Any(GoneMap)
+                && dmRolls.All(x => x != null && !GoneMap(x)) && dmCards.Count >= 20 && !dmCards.Any(GoneMap) && !dmCatalog.Any(n => goneMaps.Contains(n, StringComparer.OrdinalIgnoreCase)) && notPicked);
+            Fresh();
             File.WriteAllText(dmFile, """
                 [{"rank": 1, "id": 3070000001, "name": "dm_one", "sizeMb": 41}, {"rank": 2, "id": 3070000002, "name": " dm_two ", "sizeMb": 12},
                  {"rank": 3, "id": 3070000003, "name": "dm_three", "sizeMb": 0}, {"name": "de_extra", "official": true},
@@ -1227,7 +1253,7 @@ static partial class Program
             var read = ReloadModeMaps(Modes.Deathmatch);
             Console.WriteLine("reload: " + read);
             Check("maps-deathmatch.json in maps.json's shape: 3 Workshop maps, an official extra; entries without an id or a name skipped, an official map once",
-                ModeWorkshop(Modes.Deathmatch).Count == 3 && PoolOf(Modes.Deathmatch).Count == 15 + 1 + 3 && PoolOf(Modes.Deathmatch).All(x => x.Mode == "deathmatch")
+                ModeWorkshop(Modes.Deathmatch).Count == 3 && PoolOf(Modes.Deathmatch).Count == 12 + 1 + 3 && PoolOf(Modes.Deathmatch).All(x => x.Mode == "deathmatch")
                 && ModeWorkshop(Modes.Deathmatch).Any(x => x.Name == "dm_two") && read.Contains("3 Workshop maps"));
             var dmOne = ModeWorkshop(Modes.Deathmatch)[0];
             Check("Another mode's Workshop map: no list number in its label, its Workshop id as its argument, found by its id in the mode it belongs to",

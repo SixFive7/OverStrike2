@@ -43,8 +43,9 @@ public static class Modes
     public static readonly Mode Deathmatch = new(DeathmatchId, "Deathmatch", 1, 2, 16, "gamemode_deathmatch.cfg", "gamemode_deathmatch_server.cfg",
         ["de_dust2", "de_mirage", "de_inferno", "de_vertigo", "de_cache",           // mg_casualalpha
          "de_train", "de_anubis", "de_ancient_night", "de_overpass", "de_nuke",     // mg_casualdelta
-         "de_boulder", "de_fachwerk", "cs_shelter",                                 // mg_casualcharlie
          "cs_office", "cs_italy"]);                                                 // mg_hostage
+    // mg_casualcharlie (de_boulder, de_fachwerk, cs_shelter) is gone since CS2 1.41.9.9: their folders under csgo_community_addons are empty since
+    // 2026-11-18, so a changelevel to one loads nothing - out of the pool, so no route picks them (hotfix 218a)
 
     public static readonly Mode Wingman = new(WingmanId, "Wingman", 0, 2, 16, "gamemode_competitive2v2.cfg", "gamemode_competitive2v2_server.cfg",
         ["de_debris", "de_eldorado", "de_poseidon", "de_overpass", "de_vertigo", "de_nuke", "de_inferno"]); // the "2v2" template
