@@ -99,7 +99,7 @@ static partial class Program
             Announce($"{Clip(why, 120)} - The change is off.");
         }
         if (Pending == null && !LoadPending && Ballot is not { Open: true } && S.Map is { } on && IsRemoved(on) && newly.Contains(Key(on))
-            && !AutoRoll($"{Clip(Label(on), 40)} {Workshop.Reason(Removed[Key(on)])} - Nobody new can download it"))
+            && AutoRoll($"{Clip(Label(on), 40)} {Workshop.Reason(Removed[Key(on)])} - Nobody new can download it") == null)
             Log("workshop check: the map that is on is gone, and no map is eligible to roll");
     }
 

@@ -174,7 +174,7 @@ static partial class Program
             if (OpenBallot(now, humans, serverStart: true)) { StartRollOwed = false; Log($"start: {humans} player(s) on - a vote instead of the dice"); return; }
             Log("start: the vote could not open - the dice instead");
         }
-        if (!AutoRoll("Server started")) { StartRollOwed = false; Log("start: no map is eligible to roll"); }
+        if (AutoRoll("Server started") == null) { StartRollOwed = false; Log("start: no map is eligible to roll"); }
     }
 
     /// <summary>A match ended: the vote, where the plugin draws it (it polls /hud) and somebody is on; the dice where nothing draws a vote, the
@@ -205,7 +205,7 @@ static partial class Program
         var humans = Humans();
         if (humans <= 0) { Log("match end: nobody on - nothing to do"); return; }
         if (HudActive() && OpenBallot(now, humans, matchEnd: true)) { if (Ballot is { } opened) ScreenToVote(opened, now); return; } // VoteRound.cs
-        if (!AutoRoll("Match over")) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
+        if (AutoRoll("Match over") == null) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
     }
 
     [GeneratedRegex(@"^loaded spawngroup\(\s*1\)\s*:\s*SV:\s*\[1:\s*([^|\]\s]+)\s*\|", RegexOptions.Multiline)] private static partial Regex StatusMapRx();

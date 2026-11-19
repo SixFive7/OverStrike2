@@ -272,8 +272,8 @@ static partial class Program
         if (CurrentMode.ArmsRace || Pending != null || LoadPending || now < ModeResetRetryAt || InMaintenance()) return;
         ModeResetRetryAt = now.AddMinutes(1);
         var from = CurrentMode.Name;
-        if (!AutoRoll($"Nobody on for {ResetEmptyMinutes} minutes - Back to {Modes.Default.Name}", Modes.Default)) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }
-        Log($"reset: nobody on for over {ResetEmptyMinutes} min in {from} - back to {Modes.Default.Name} on {Label(Pending!.Map)}");
+        if (AutoRoll($"Nobody on for {ResetEmptyMinutes} minutes - Back to {Modes.Default.Name}", Modes.Default) is not { } rolled) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }
+        Log($"reset: nobody on for over {ResetEmptyMinutes} min in {from} - back to {Modes.Default.Name} on {Label(rolled)}"); // the map rolled: its change has gone out, and Pending with it (2026-11-18: reading Pending here threw)
     }
 
     /// <summary>The mode's name after a map's label when it is not the mode the server is in: what the ballot and the top line show.</summary>

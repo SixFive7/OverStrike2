@@ -1170,6 +1170,13 @@ static partial class Program
                 h.Said("Back to Arms Race") && h.Sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && h.Sent.Any(c => c.StartsWith("host_workshop_map"))
                 && S.Mode == "armsrace" && (gameType, gameMode) == (1, 0) && S.Map is { } backOn && InArmsRace(backOn) && !backOn.Official);
             Fresh();
+            S.Mode = "deathmatch"; (gameType, gameMode) = (1, 2);
+            Exception? backThrew = null;
+            try { ModeBackToDefault(h.Clock); } catch (Exception e) { backThrew = e; } // as the tick calls it, but outside its catch, which logged and swallowed it
+            Check("...and the way back logs the map the dice rolled from the roll itself: the change has gone out by then, Pending with it (2026-11-18: reading "
+                + "Pending there threw NullReferenceException and lost the line)",
+                backThrew == null && Pending == null && S.Map is { } rolledBack && InArmsRace(rolledBack) && h.Sent.Contains($"host_workshop_map {rolledBack.Id}"));
+            Fresh();
             foreach (var p in new[] { alice, bob }) h.Join(p);
             h.Leave(alice); h.Leave(bob);
             h.Run(ResetEmptyMinutes * 60 + 70);
