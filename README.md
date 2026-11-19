@@ -1,6 +1,73 @@
-# Over Strike 2
+<h1 align="center"><img src="docs/media/hero.jpg" width="100%" alt="Over Strike 2 - Over the top, On the Huis. Arms Race on the whole Steam Workshop, voted together in a menu inside the game."></h1>
 
-*Over the top - On the Huis*
+<p align="center"><i>Over the top - On the Huis</i></p>
+
+<p align="center"><b>Arms Race on the whole Steam Workshop: thousands of community maps, voted together in a menu inside Counter-Strike 2.</b><br>
+Players install nothing - the server hands their game the menu when they join.</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Counter--Strike_2-gun_game-E9B64F?style=for-the-badge&labelColor=0B0D10" alt="Counter-Strike 2: gun game">
+  <img src="https://img.shields.io/badge/CounterStrikeSharp-plugin-E9B64F?style=for-the-badge&labelColor=0B0D10" alt="CounterStrikeSharp plugin">
+  <img src="https://img.shields.io/badge/.NET_10-native_AOT-E9B64F?style=for-the-badge&labelColor=0B0D10" alt=".NET 10, native AOT">
+  <img src="https://img.shields.io/badge/license-Apache_2.0-E9B64F?style=for-the-badge&labelColor=0B0D10" alt="License: Apache 2.0">
+</p>
+
+<p align="center"><a href="docs/media/demo.mp4"><img src="docs/media/demo-loop.webp" width="100%" alt="Over Strike 2 in a real game client: a vote with picture cards, every vote counting live, History, Stats, a warm-up, the map browser, and the scores at a match end"></a></p>
+
+<p align="center">
+  <a href="docs/media/demo.mp4"><b>&#9658;&nbsp; Watch the full demo</b></a> &nbsp;(79 s, MP4, 9 MB)&nbsp; &nbsp;&middot;&nbsp;
+  <a href="docs/install.md"><b>Run your own</b></a> &nbsp;&middot;&nbsp;
+  <a href="#the-hud-page-by-page"><b>Every page of the HUD</b></a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/media/vote.jpg"><img src="docs/media/vote.jpg" alt="The vote: ten picture cards, everybody has voted, the countdown to the change"></a>
+      <p><b>Vote together.</b> Ten picture cards: every pick, a map of each other mode, a fresh Workshop map, a surprise and favourites. Everybody is frozen until all have voted.</p>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/media/maps.jpg"><img src="docs/media/maps.jpg" alt="The map browser: Workshop maps as picture cards with their tags, likes and sizes"></a>
+      <p><b>Every Workshop map, with its picture.</b> Browse, sort and filter thousands of them, and put any of them on the vote. A map that broke something says why.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/media/history.jpg"><img src="docs/media/history.jpg" alt="HISTORY: a wide card per match, with its players, its time, how it ended and its likes"></a>
+      <p><b>History.</b> Every match as a wide card: who played, when, how it ended, how often the map was played, its likes - and Put to the vote.</p>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/media/stats.jpg"><img src="docs/media/stats.jpg" alt="STATS: most played, most voted for, most and least liked, the hall of shame and the records"></a>
+      <p><b>Stats.</b> Most played, most voted for, most and least liked, the hall of shame, player, match and fun records, the modes, new this week - and You.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/media/warmup.jpg"><img src="docs/media/warmup.jpg" alt="A map's warm-up: the banner names who we are still waiting for, beside its countdown"></a>
+      <p><b>A warm-up on every map.</b> Free play while everybody loads: the banner names who we are still waiting for, with its countdown - and anyone can type !start.</p>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/media/search.jpg"><img src="docs/media/search.jpg" alt="A search for cobblestone: Valve's de_cbble and every Workshop match"></a>
+      <p><b>Search from the chat.</b> Press Y and type part of a name - Valve's own names work too: cobblestone finds de_cbble.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/media/fun.jpg"><img src="docs/media/fun.jpg" alt="The fun settings: eighteen switches, from gravity to catch-up"></a>
+      <p><b>Fun for everybody.</b> Eighteen switches anybody can flip until the map changes: gravity, bunny hopping, Vampire, Ghost, laser guns and more.</p>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/media/bots.jpg"><img src="docs/media/bots.jpg" alt="The bots page: twelve settings and six presets"></a>
+      <p><b>Bots for everybody.</b> Twelve settings and six presets: zombie horde, sniper duel, target practice and more.</p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <a href="docs/media/chat.jpg"><img src="docs/media/chat.jpg" alt="The whole 21:9 screen during a vote: the chat column on the left, the ballot in the window beside it"></a>
+      <p><b>The chat beside the window, on any screen.</b> Every line, every vote and every reply in a column of its own beside the window - here on a 21:9 screen. The window fits every shape from 4:3 to 32:9.</p>
+    </td>
+  </tr>
+</table>
 
 Over Strike 2 turns a Counter-Strike 2 dedicated server into an Arms Race (gun game) server that plays the Steam Workshop: thousands of
 community maps, chosen together in a vote that freezes everybody until it is decided, with Deathmatch and Wingman on every ballot and dice
