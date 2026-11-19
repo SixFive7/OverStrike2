@@ -107,7 +107,8 @@ static partial class Program
             Check("...a map on it already gets the vote, and joins its picker", vote.Choices["[U:1:1003]"] == bobsN && BuildVoteState(h.Clock).Maps.Single(o => o.N == bobsN).Who == "Bob and Cara");
             Check("...that was everybody: the most votes win, the change goes out at once, everybody frozen until the map starts", S.Map == m[bobPick] && LoadPending && h.Said("Everybody has voted") && BuildVoteState(h.Clock).Freeze);
             Check("...decided, the cards show with the most votes first: Bob's and Cara's card, then Alice's pick", BuildVoteState(h.Clock) is { Open: false } dv && dv.Maps[0].N == bobsN && dv.Maps[1].Source == VoteSource.Picked);
-            h.Quiet(); h.Talk(alice, $"!map {Rank(4)}");
+            var otherPick = Enumerable.Range(3, m.Count - 3).First(k => k != bobPick); // never the map that loads: Bob's is m[4] when the vote's random cards took m[3]
+            h.Quiet(); h.Talk(alice, $"!map {Rank(otherPick)}");
             Check("A pick while that map loads is refused", h.Said("The next map is still loading") && S.Map == m[bobPick] && LoadPending);
             Land();
 
