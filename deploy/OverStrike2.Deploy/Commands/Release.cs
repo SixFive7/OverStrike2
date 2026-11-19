@@ -14,6 +14,7 @@ sealed class ReleaseStop(string message) : Exception(message);
 ///
 ///     release live &lt;bridge-tag&gt; [--no-plugin] [--under-lock] [--dry-run]
 ///     release publish --note "&lt;what changed&gt;" --client-test &lt;run folder&gt; [--under-lock] [--dry-run] [--wait-minutes N]
+///     release humans
 ///
 /// live - after the release passed its tests (and after publish, when it has HUD content):
 ///   1. 0 humans: A2S twice, 10 s apart, and RCON's status;
@@ -35,6 +36,11 @@ sealed class ReleaseStop(string message) : Exception(message);
 ///   4. workshop hud-publish --note ... --user-approved-update (hud/build.ps1 first, by hand);
 ///   5. the item's time_updated from the keyless Web API, one call at a time, a minute apart, until it moves (the upload) and moves again
 ///      (Valve's approval) or --wait-minutes pass.
+///
+/// humans - live's own human check alone (step 1: A2S twice, 10 s apart, and RCON's status), for the release agent's empty gate: it needs no bridge
+///   image tag and takes no lock (the gate polled `release live &lt;tag&gt; --dry-run` through release 215's runner, and the prune removed that tag).
+///   One line, "humans now: A2S a, b; RCON status c", and the exit code: 0 nobody on (A2S 0 both times, RCON 0 or unreadable), 3 somebody on (any count
+///   above 0), 2 not known (A2S did not answer both times).
 ///
 /// --dry-run: every check that only reads; nothing that writes - no lock, no swap, no copy, no flag, no quit, no upload.</summary>
 sealed class Release
@@ -103,8 +109,8 @@ sealed class Release
         return D.ExecIn(game, ["python3", "-c", Bridge.InnerRcon, pw, command, port], timeout: 30);
     }
 
-    /// <summary>0 humans by A2S twice, 10 s apart (a map change shows 0 for a moment), and by RCON's status where it parses.</summary>
-    void Nobody(string why)
+    /// <summary>The humans on: A2S twice, 10 s apart (a map change shows 0 for a moment), and RCON's status where it parses - logged as one line.</summary>
+    (int? First, int? Second, int? ByRcon) Count(string why)
     {
         var first = humansA2s();
         sleep(10);
@@ -112,8 +118,24 @@ sealed class Release
         var m = PlayersRx.Match(Rcon("status") ?? "");
         int? byRcon = m.Success ? int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : null;
         Log($"humans {why}: A2S {Py.Str(first)}, {Py.Str(second)}; RCON status {(byRcon is not null ? byRcon.Value.ToString(CultureInfo.InvariantCulture) : "unreadable (A2S decides)")}");
+        return (first, second, byRcon);
+    }
+
+    /// <summary>0 humans by A2S twice, 10 s apart, and by RCON's status where it parses - else the release stops.</summary>
+    void Nobody(string why)
+    {
+        var (first, second, byRcon) = Count(why);
         if (first != 0 || second != 0 || byRcon is > 0 or < 0)
             throw new ReleaseStop($"REFUSED: somebody is on (A2S {Py.Str(first)}, {Py.Str(second)}, RCON {Py.Str(byRcon)}) - a release happens only at 0 humans");
+    }
+
+    /// <summary>release humans: the check alone, for the release agent's empty gate - 0 nobody on, 3 somebody on, 2 not known.</summary>
+    public int Humans()
+    {
+        var (first, second, byRcon) = Count("now");
+        if (first is > 0 || second is > 0 || byRcon is > 0)
+            return 3;
+        return first is null || second is null ? 2 : 0;   // A2S must answer 0 both times, as live's own check wants it
     }
 
     string? LockText() => Lock.Length > 0 && File.Exists(Lock) ? File.ReadAllText(Lock, Encoding.UTF8) : null;
@@ -507,15 +529,17 @@ sealed class Release
 
     public static int Command(string[] args)
     {
-        var a = new Args(args, "release live <bridge-tag> [--no-plugin] [--under-lock] [--dry-run] | release publish --note N --client-test RUN [--wait-minutes N] [--under-lock] [--dry-run] [--config FILE]",
+        var a = new Args(args, "release live <bridge-tag> [--no-plugin] [--under-lock] [--dry-run] | release publish --note N --client-test RUN [--wait-minutes N] [--under-lock] [--dry-run] | release humans [--config FILE]",
                          flags: ["--no-plugin", "--under-lock", "--dry-run"], options: ["--note", "--client-test", "--wait-minutes", "--config"]);
-        var command = a.Choice(["live", "publish"]);
+        var command = a.Choice(["live", "publish", "humans"]);
         var tag = a.Positional();
         a.Done();
         var waitMinutes = a.IntOpt("--wait-minutes", 120);
         var rel = new Release(new Config(a.Opt("--config")), dry: a.Flag("--dry-run"));
         try
         {
+            if (command == "humans")
+                return rel.Humans();
             if (command == "live")
             {
                 if (string.IsNullOrEmpty(tag))

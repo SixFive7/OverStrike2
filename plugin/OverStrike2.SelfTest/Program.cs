@@ -358,9 +358,13 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var host = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var warm = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
     Check(host.Contains("earlyJoin.Load(hotReload);", StringComparison.Ordinal)
-          && warm.Contains("if (hotReload) plan.Skip(", StringComparison.Ordinal) && warm.Contains("if (plan.Skipped != null || Rules() is not { } rules) return;", StringComparison.Ordinal)
+          && warm.Contains("if (hotReload || RulesSafe() is not null) LoadedDuringTheMap();", StringComparison.Ordinal) && warm.Contains("if (plan.Skipped != null || Rules() is not { } rules) return;", StringComparison.Ordinal)
+          && warm.Contains("if (Utilities.GetPlayers().Any(p => Human(p)))\n        {\n            plan.Skip(", StringComparison.Ordinal)
+          && warm.Contains("else plugin.AddTimer(BeginDelay, () => Begin(\"the plugin loaded during the map, nobody on: a warm-up as at its start\"), TimerFlags.STOP_ON_MAPCHANGE);", StringComparison.Ordinal)
+          && warm.Contains("if (rules != null && plan.Skipped != null && method == EarlyJoin.Restart && !ours && !waiting && AnyoneOnASide())\n        {", StringComparison.Ordinal)
           && !File.Exists(Path.Combine(root, "plugin", "OverStrike2", "HudScreenFair.cs")) && host != "" && !host.Contains("AskFairRestart", StringComparison.Ordinal),
-        "warm-up: wired with the reload's flag (a plugin loaded mid-map begins nothing on that map), in every mode; the fairness restart's ask and its screen are gone");
+        "warm-up: wired with the reload's flag - a plugin loaded during a map with players on cannot tell who has spawned, says so (blind), and carries out the bridge's end, the restart kind's "
+        + "one restart too (the live lab's W8 on ce3e9af); with nobody on a warm-up as at the map's start - in every mode; the fairness restart's ask and its screen are gone");
     Check(warm.Contains("plugin.AddTimer(BeginDelay, () => Begin(\"the map's start\"), TimerFlags.STOP_ON_MAPCHANGE);", StringComparison.Ordinal)
           && warm.Contains("Send($\"mp_warmuptime_all_players_connected 0; mp_endwarmup_player_count {EarlyJoin.EndWarmUpNever}; mp_warmuptime {EarlyJoin.IdleClockSeconds}\");", StringComparison.Ordinal)
           && !warm.Contains("mp_endwarmup_player_count 0", StringComparison.Ordinal) && EarlyJoin.EndWarmUpNever >= 64 && EarlyJoin.EndWarmUpNow == 0
@@ -389,7 +393,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && warm.Contains("log.LogInformation(\"Over Strike 2 warm-up: ended ({Why}), {Waited:0.0} s after it was asked for - the match starts\", asked.Why, waited);", StringComparison.Ordinal),
         "warm-up: its end by the method and seen to come - the restart's os_restart 1 (the guard lets it through) by the next round start, CS2's own mp_warmup_end by its warm-up off; not come 5 s later the restart again, or the count with mp_warmup_end, 10 s the same, 20 s given up and logged; a match end during the waiting time leaves its next match the real one");
     Check(warm.Contains("if (method == EarlyJoin.Restart) // the match itself is the waiting time", StringComparison.Ordinal)
-          && warm.Contains("if (firstSpawnTime is not { } from) return;\n                if (Server.CurrentTime >= from + EarlyJoin.WarmUpMostSeconds) { End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\"); return; }\n                if (MatchEndNear(rules) is { } near) End(near);", StringComparison.Ordinal)
+          && warm.Contains("if (firstSpawnTime is not { } from) return;\n                if (plan.SpawnedCount == 0) { StartOver(\"everybody who spawned has left\"); return; }\n                if (Server.CurrentTime >= from + EarlyJoin.WarmUpMostSeconds) { End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\"); return; }\n                if (MatchEndNear(rules) is { } near) End(near);", StringComparison.Ordinal)
           && warm.Contains("if (MatchLength.OneRound(modeId()) && rules.RoundTime > 0 && left <= EarlyJoin.EndBeforeSeconds) return", StringComparison.Ordinal)
           && warm.Contains("if (CatchUp.Weapons.Name(w.Value?.DesignerName) == CatchUp.Weapons.Name(EarlyJoin.LastWeapon)) return", StringComparison.Ordinal)
           && EarlyJoin.EndBeforeSeconds >= 5 && EarlyJoin.LastWeapon == "weapon_knifegg"
@@ -401,14 +405,15 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         + $"clock {EarlyJoin.EndBeforeSeconds} s from its end, or a player on Arms Race's last weapon: a match end leaves no way to keep the real match on its sides (the live lab's E7 on 5794269); "
         + "one that comes all the same is on for the bridge through the match-end screen and ended by its word, or here once the next match began - the waiting time still if nobody "
         + "had spawned (an empty map's match run out); CS2's clock is the native kind's alone");
-    Check(warm.Contains("if (method == EarlyJoin.Restart && !AnyoneOnASide())\n        {\n            StartOver(why);\n            return \"waiting again", StringComparison.Ordinal)
+    Check(warm.Contains("if (method == EarlyJoin.Restart && !AnyoneOnASide())\n        {\n            StartOver($\"nobody on a side to restart for ({why})\");\n            return \"waiting again", StringComparison.Ordinal)
           && warm.Contains("if (method == EarlyJoin.Restart && !AnyoneOnASide()) // everybody went meanwhile", StringComparison.Ordinal)
-          && warm.Contains("(firstSpawnTime, newestSpawn, againAfterSpawn, ending, waiting, endFailed) = (null, null, 0, null, true, false);\n        plan.StartOver();", StringComparison.Ordinal)
+          && warm.Contains("(firstSpawnTime, newestSpawn, againAfterSpawn, ending, endFailed, clockFixes) = (null, null, 0, null, false, 0);\n        plan.StartOver();\n        if (method == EarlyJoin.Restart) waiting = true;\n        else if (Rules() is { WarmupPeriod: true } rules) SetClock(rules, Server.CurrentTime + EarlyJoin.IdleClockSeconds, $\"{why}: the idle clock again\");", StringComparison.Ordinal)
+          && warm.Contains("if (plan.SpawnedCount == 0) { StartOver(\"everybody who spawned has left\"); return; } // the lone player gone", StringComparison.Ordinal)
           && warm.Contains("static bool AnyoneOnASide() => Utilities.GetPlayers().Any(p => Human(p) && OnTeam(p));", StringComparison.Ordinal)
           && warm.Contains("(ours, ended, ending, waiting, endFailed) = (false, $\"would not end ({asked.Why})\", null, false, true);", StringComparison.Ordinal)
           && warm.Contains("var mark = plan.Skipped != null ? EarlyJoin.BlindMark : endFailed ? EarlyJoin.FailedMark : \"\";", StringComparison.Ordinal)
           && warm.Contains("plan.SpawnedCount, rules == null ? null : Left(rules), mark)", StringComparison.Ordinal),
-        "warm-up: the restart kind's end with nobody on a side to restart for - a restart there starts no round (the live lab on 997c7bb) - is none: its waiting time goes on, "
+        "warm-up: the waiting time starts over when everybody who spawned has left (both kinds - Wingman's lone player let CS2's clock end it at 120 s), and the restart kind's end with nobody on a side to restart for - a restart there starts no round (the live lab on 997c7bb) - is none: its waiting time goes on, "
         + "its clock from the next spawn, which os_warmup says (no first spawn); an end that would not come with somebody on a side is marked failed, so the bridge says none; "
         + "a plugin loaded mid-map is marked blind");
     Check(warm.Contains("Watch(rules);", StringComparison.Ordinal) && warm.Contains("CS2's warm-up began - not at this plugin's word", StringComparison.Ordinal)

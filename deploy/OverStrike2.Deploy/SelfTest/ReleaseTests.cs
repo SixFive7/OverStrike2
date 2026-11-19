@@ -195,6 +195,24 @@ static class ReleaseTests
                   && output.Contains("`mm_client_extra_addons = " + Hud + "`") && output.Contains("hashes those of the build")
                   && output.Contains("the deployment's check: ALL GOOD") && t.Runs[^1][^1] == verifyOk);
 
+            // ---- humans: live's own human check alone, for the release agent's empty gate - no bridge tag, no lock (release 221: the gate ran release 215's
+            // tool on its tag 9b0465fa71df, which the prune removed)
+            t = new Test();
+            (r, output) = Go(() => t.Release().Humans());
+            var gateQuiet = !File.Exists(t.Lock) && t.Swaps.Count == 0 && t.Runs.Count == 0 && Sent(t).SequenceEqual(["status"]);
+            check("humans: nobody on - exit 0, one line (A2S twice, 10 s apart, and RCON's status), no tag, no lock, nothing else run",
+                  r == "0" && output.Contains("humans now: A2S 0, 0; RCON status 0") && gateQuiet && t.Sleeps.SequenceEqual([10.0]));
+            t = new Test(humans: [0, 1], rconHumans: 1);
+            (r, output) = Go(() => t.Release().Humans());
+            check("humans: somebody on - exit 3", r == "3" && output.Contains("humans now: A2S 0, 1; RCON status 1"));
+            t = new Test(humans: [0, 0], rconHumans: 2);
+            check("humans: A2S 0 twice but RCON's status counts 2 - somebody on, exit 3", Go(() => t.Release().Humans()).R == "3");
+            t = new Test(humans: [null, null], rconHumans: -1);
+            (r, output) = Go(() => t.Release().Humans());
+            check("humans: no A2S answer and RCON's status unreadable - not known, exit 2", r == "2" && output.Contains("humans now: A2S None, None; RCON status unreadable"));
+            t = new Test(humans: [0, 0], rconHumans: -1);
+            check("humans: A2S 0 twice, RCON's status unreadable - A2S decides, exit 0", Go(() => t.Release().Humans()).R == "0");
+
             // ---- the HUD mounted by the server (mm_extra_addons); the item is hud/workshop_id.txt, whatever the container's variables say
             check("the HUD item is the repository's hud/workshop_id.txt", new Test().Release().WorkshopItem() == Hud);
             t = new Test();

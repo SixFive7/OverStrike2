@@ -77,6 +77,7 @@ public sealed record ServerConfig
     public bool BackgroundDownloads { get; init; }             // maps.backgroundDownloads
     public bool DownloadLine { get; init; }                    // maps.downloadLine
     public string HudAddon { get; init; } = "";                // hud.addon, which the settings require: the program never runs without it
+    public bool HudMount { get; init; } = true;                // hud.mount: off only on the live lab's copy (rehearse up --no-item) - no item handed out
     public bool PluginLayer { get; init; }                     // plugin.enabled
     public int Port { get; init; }                             // server.port
     public string RconPassword { get; init; } = "";            // server.rconPassword: the image's CS2_RCONPW by default
@@ -105,6 +106,7 @@ public sealed record ServerConfig
             BackgroundDownloads = s.Maps.BackgroundDownloads,
             DownloadLine = s.Maps.DownloadLine,
             HudAddon = s.Hud.Addon,
+            HudMount = s.Hud.Mount,
             PluginLayer = s.Plugin.Enabled,
             Port = s.Server.Port,
             RconPassword = s.Server.RconPassword,

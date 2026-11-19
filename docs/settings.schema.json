@@ -136,6 +136,11 @@
           "description": "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
           "type": "boolean",
           "default": true
+        },
+        "mount": {
+          "description": "Hand the HUD item to every client: the game server mounts hud.addon (MultiAddonManager's mm_extra_addons, written before every engine start). Off only for the live lab's copy, whose client runs a loose HUD build (os2-deploy rehearse up --no-item): the list is then empty, so no map change brings the item back; production never turns it off.",
+          "type": "boolean",
+          "default": true
         }
       },
       "required": [

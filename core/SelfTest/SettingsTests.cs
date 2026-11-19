@@ -103,6 +103,12 @@ static class SettingsTests
         Check("settings: the example's values, its references resolved", ex.Server.RconPassword == "rcon-secret-value" && ex.Bridge.Secret == "abc123"
               && ex.Hud.Addon == "3823993566" && ex.Hud.Check == "warn" && ex.Bridge.DiscoveryStock == 10 && ex.Restarts.Daily == new TimeOfDay(7, 0) && ex.Server.Name == "My CS2 server");
 
+        // ---- hud.mount: the server hands the HUD item out (off only on the live lab's copy: rehearse up --no-item)
+        var mountOff = Read("""{ "schema": 1, "hud": { "addon": "3823993566", "mount": false } }""", Part.Server);
+        var mountDefault = Read("""{ "schema": 1, "hud": { "addon": "3823993566" } }""", Part.Server);
+        Check("settings: hud.mount on by default - production hands the HUD item out; off read for the live lab's copy",
+              mountDefault.Hud.Mount && !mountOff.Hud.Mount && mountOff.Problems.Count == 0);
+
         // ---- the warm-up's method a mode (the plugin's EarlyJoinWatch)
         var wu = Read("""{ "schema": 1, "hud": { "addon": "3823993566" }, "warmup": { "armsrace": "native", "wingman": "sideways" } }""", Part.Plugin);
         var wuDefault = Read("""{ "schema": 1, "hud": { "addon": "3823993566" } }""", Part.Plugin);

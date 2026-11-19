@@ -83,7 +83,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         plugin.AddTimer(1f, Keep, TimerFlags.REPEAT);
         plugin.AddCommand(Command, "Over Strike 2 warm-up: where it stands | start | end (the bridge ends it once everybody coming is in)", OnCommand);
         plugin.AddCommand(EarlyJoin.JoiningCommand, "Over Strike 2: the humans still coming - connecting, downloading or loading the map, or in the game and not yet spawned on a team (the bridge's, each second of a warm-up)", OnJoining);
-        if (hotReload) plan.Skip("the plugin loaded during this map");
+        if (hotReload || RulesSafe() is not null) LoadedDuringTheMap(); // css_plugins reload: what the plugin before it knew of the warm-up is gone
         log.LogInformation("Over Strike 2 warm-up: every map starts with one, {Most} s from the first human's spawn at the most - CS2's own in {Native}, the match itself and one restart in {Restart}; the bridge ends it sooner once everybody coming has spawned, or at !start ({Command})",
             EarlyJoin.WarmUpMostSeconds, string.Join(", ", Modes.All.Where(m => methodOf(m.Id) == EarlyJoin.Native).Select(m => m.Name).DefaultIfEmpty("none")),
             string.Join(", ", Modes.All.Where(m => methodOf(m.Id) == EarlyJoin.Restart).Select(m => m.Name).DefaultIfEmpty("none")), Command);
@@ -240,6 +240,12 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
     string End(string why)
     {
         var rules = Rules();
+        if (rules != null && plan.Skipped != null && method == EarlyJoin.Restart && !ours && !waiting && AnyoneOnASide())
+        {
+            // loaded during the map: the bridge, which followed the waiting time, asks for its end - taken up here for its one restart
+            (ours, waiting) = (true, true);
+            log.LogInformation("Over Strike 2 warm-up: loaded during the map, and asked for the waiting time's end ({Why}) - taken up for its one restart", why);
+        }
         if (rules == null || !On(rules))
         {
             log.LogInformation("Over Strike 2 warm-up: {Why} - off already", why);
@@ -257,7 +263,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         }
         if (method == EarlyJoin.Restart && !AnyoneOnASide())
         {
-            StartOver(why);
+            StartOver($"nobody on a side to restart for ({why})");
             return "waiting again (nobody on a side to restart for: its clock from the next spawn)";
         }
         (ending, endFailed) = ((why, DateTime.UtcNow, 0, roundStarts), false);
@@ -298,7 +304,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
         {
             if (method == EarlyJoin.Restart && !AnyoneOnASide()) // everybody went meanwhile: a restart with nobody on a side starts no round
             {
-                StartOver($"{asked.Why}: no round start {waited:0} s after the request");
+                StartOver($"nobody on a side to restart for ({asked.Why}: no round start {waited:0} s after the request)");
                 return;
             }
             log.LogError("Over Strike 2 warm-up: it would not end ({Why}) - {Waited:0} s after the request; left so, the plugin asks no more, and os_warmup marks it {Mark}: the bridge says nothing of an end",
@@ -311,15 +317,39 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
     /// <summary>A human on a side - T or CT - now.</summary>
     static bool AnyoneOnASide() => Utilities.GetPlayers().Any(p => Human(p) && OnTeam(p));
 
-    /// <summary>The restart kind's end with nobody on a side to restart for - everybody who spawned has gone, or (before the bridge stopped asking so) nobody
-    /// ever spawned, as when the evening's first connect never gets in: a restart there starts no round, and is no end (the live lab on 997c7bb: "not ended",
-    /// then "it would not end", while the bridge said the match was on). The waiting time goes on, its clock from the next human's spawn as on a map nobody has
-    /// spawned on yet, and os_warmup says so (no first spawn), which the bridge follows.</summary>
+    /// <summary>The waiting time starts over, its clock from the next human's spawn as on a map nobody has spawned on yet: everybody who spawned has left during
+    /// it (a lone player on an empty map - in Wingman CS2's clock ended it at 120 s all the same, and the next player joined a running match), or the restart
+    /// kind's end found nobody on a side to restart for (a restart there starts no round, and is no end: the live lab on 997c7bb). The native kind's CS2 clock
+    /// goes back to the idle clock; os_warmup says no first spawn, which the bridge follows (its own clock from that spawn too).</summary>
     void StartOver(string why)
     {
-        (firstSpawnTime, newestSpawn, againAfterSpawn, ending, waiting, endFailed) = (null, null, 0, null, true, false);
+        (firstSpawnTime, newestSpawn, againAfterSpawn, ending, endFailed, clockFixes) = (null, null, 0, null, false, 0);
         plan.StartOver();
-        log.LogWarning("Over Strike 2 warm-up: nobody on a side to restart for ({Why}) - the waiting time goes on, its clock from the next spawn", why);
+        if (method == EarlyJoin.Restart) waiting = true;
+        else if (Rules() is { WarmupPeriod: true } rules) SetClock(rules, Server.CurrentTime + EarlyJoin.IdleClockSeconds, $"{why}: the idle clock again");
+        log.LogWarning("Over Strike 2 warm-up: {Why} - the waiting time goes on, its clock from the next spawn", why);
+    }
+
+    /// <summary>The plugin loaded during a map (css_plugins reload, a restart of the plugin alone): what the one before it knew of the warm-up - who spawned, when,
+    /// its clock - is gone with it. With humans on, it cannot tell who has spawned: its plan says so (os_warmup's blind mark), and the bridge, which followed the
+    /// warm-up, has it end at once, cleanly - this carries the end out (End: CS2's warm-up end, or the restart kind's one restart; the live lab's W8 on ce3e9af
+    /// saw the bridge drop the warm-up instead, and CS2's own clock end it). With nobody on, there is nothing to lose: a warm-up as at the map's start.</summary>
+    void LoadedDuringTheMap()
+    {
+        method = methodOf(modeId());
+        if (Utilities.GetPlayers().Any(p => Human(p)))
+        {
+            plan.Skip("the plugin loaded during this map, with players on: it cannot tell who has spawned - the bridge has the warm-up it follows end now");
+            log.LogInformation("Over Strike 2 warm-up: loaded during the map with players on - it cannot tell who has spawned: os_warmup says so ({Mark}), and the bridge ends the warm-up it follows", EarlyJoin.BlindMark);
+        }
+        else plugin.AddTimer(BeginDelay, () => Begin("the plugin loaded during the map, nobody on: a warm-up as at its start"), TimerFlags.STOP_ON_MAPCHANGE);
+    }
+
+    /// <summary>The game rules, or null - also where the entity system cannot be asked yet (a plugin loaded before the first map).</summary>
+    static CCSGameRules? RulesSafe()
+    {
+        try { return Rules(); }
+        catch (Exception) { return null; }
     }
 
     /// <summary>Each look: CS2's warm-up as it is now against the last look, and a change nothing here asked for logged - the console's mp_warmup_start or
@@ -376,6 +406,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
                     return;
                 }
                 if (firstSpawnTime is not { } from) return;
+                if (plan.SpawnedCount == 0) { StartOver("everybody who spawned has left"); return; }
                 if (Server.CurrentTime >= from + EarlyJoin.WarmUpMostSeconds) { End($"{EarlyJoin.WarmUpMostSeconds} s since the first spawn"); return; }
                 if (MatchEndNear(rules) is { } near) End(near);
                 return;
@@ -422,6 +453,7 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
                     SetClock(rules, Server.CurrentTime + EarlyJoin.IdleClockSeconds, "nobody has spawned yet: the idle clock again");
                 return;
             }
+            if (plan.SpawnedCount == 0) { StartOver("everybody who spawned has left"); return; } // the lone player gone: not CS2's clock to 120 s for nobody
             var target = first + EarlyJoin.WarmUpMostSeconds;
             if (Server.CurrentTime >= target)
             {

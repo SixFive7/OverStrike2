@@ -147,7 +147,8 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
                 Component("counterstrikesharp", CssVersion, CssUrl, "zip");
                 Component("multiaddonmanager", MamVersion, MamUrl, "tar");
                 Gameinfo(true);
-                var hud = Hud() ? $"on (Workshop addon {config.HudAddon})" : $"NOT delivered (Workshop addon {config.HudAddon}: the WARNING above says why)";
+                var hud = Hud() ? config.HudMount ? $"on (Workshop addon {config.HudAddon})" : $"loaded, the item handed out to nobody (hud.mount off: the live lab's copy)"
+                    : $"NOT delivered (Workshop addon {config.HudAddon}: the WARNING above says why)";
                 CopyPlugins();
                 log.Line($"SUMMARY: plugin layer on, Metamod {MetamodVersion} + CounterStrikeSharp {CssVersion} layer active, HUD {hud} (check 'meta list' and 'css_plugins list' on the server console)");
             }
@@ -303,12 +304,14 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     /// (mm_extra_addons), so every map change - a changelevel to an official map included - carries it to every client. A client-only addon
     /// (mm_client_extra_addons) dropped the HUD at every official-map change; the mounted one keeps it, with one reconnect per change, at about
     /// 5 MiB of the server's memory. The settings have checked the id: digits only, so it is safe in the cfg. False when it could not: no
-    /// MultiAddonManager (which <see cref="Run"/> then refuses), or a cfg that cannot be written.</summary>
+    /// MultiAddonManager (which <see cref="Run"/> then refuses), or a cfg that cannot be written. With hud.mount off - the live lab's copy, whose
+    /// client runs a loose HUD build (rehearse up --no-item) - the list is empty: MultiAddonManager restores the list it read at boot at every map
+    /// change, so an RCON mm_extra_addons "" lasted to the next change only, and the item came back; production's install writes the item.</summary>
     public bool Hud()
     {
         var vdf = Path.Combine(P.Csgo, "addons", "metamod", "multiaddonmanager.vdf");
         var cfg = Path.Combine(P.Csgo, "cfg", "multiaddonmanager", "multiaddonmanager.cfg");
-        var id = config.HudAddon;
+        var id = config.HudMount ? config.HudAddon : "";
         void NoVdf()
         {
             try
@@ -329,7 +332,7 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
         {
             Directory.CreateDirectory(Path.GetDirectoryName(cfg)!);
             File.WriteAllText(cfg, $"""
-                // Written by os2-server install before every engine start, from hud.addon in the settings file. Edits here do not survive.
+                // Written by os2-server install before every engine start, from hud.addon in the settings file (empty with hud.mount off). Edits here do not survive.
                 mm_extra_addons "{id}"              // The HUD addon, mounted by the server: every map change, an official map's too, carries it to every client.
                 mm_client_extra_addons ""           // Nothing for the clients alone (a client-only addon is lost at a changelevel to an official map).
                 mm_extra_addons_timeout 10
@@ -343,7 +346,8 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
                 """.Replace("\r\n", "\n"));
             Directory.CreateDirectory(Path.GetDirectoryName(vdf)!);
             File.WriteAllText(vdf, "\"Metamod Plugin\"\n{\n\t\"alias\"\t\"multiaddonmanager\"\n\t\"file\"\t\"addons/multiaddonmanager/bin/multiaddonmanager\"\n}\n");
-            log.Line($"HUD on: MultiAddonManager {MamVersion} loaded, every client gets Workshop addon {id}");
+            log.Line(config.HudMount ? $"HUD on: MultiAddonManager {MamVersion} loaded, every client gets Workshop addon {id}"
+                : $"HUD item handed out to nobody: MultiAddonManager {MamVersion} loaded with an empty list (hud.mount off - the live lab's copy, its client a loose HUD build)");
             return true;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
