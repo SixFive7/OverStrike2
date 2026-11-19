@@ -357,7 +357,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     // the warm-up (EarlyJoinWatch.cs; its rule and plan, ../../bridge/Shared/EarlyJoin.cs, are the bridge's --selftest's): CS2's own warm-up begun and kept, the game fed in
     var host = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var warm = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
-    Check(host.Contains("new EarlyJoinWatch(this, Logger).Load(hotReload);", StringComparison.Ordinal)
+    Check(host.Contains("earlyJoin.Load(hotReload);", StringComparison.Ordinal)
           && warm.Contains("if (hotReload) plan.Skip(", StringComparison.Ordinal) && warm.Contains("if (plan.Skipped != null || Rules() is not { } rules) return;", StringComparison.Ordinal)
           && !File.Exists(Path.Combine(root, "plugin", "OverStrike2", "HudScreenFair.cs")) && host != "" && !host.Contains("AskFairRestart", StringComparison.Ordinal),
         "warm-up: wired with the reload's flag (a plugin loaded mid-map begins nothing on that map), in every mode; the fairness restart's ask and its screen are gone");
@@ -379,6 +379,15 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(warm.Contains("if (plan.FirstSpawn != null)", StringComparison.Ordinal) && warm.Contains("if (again >= AgainMost)", StringComparison.Ordinal)
           && warm.Contains("Begin($\"CS2 left it before anybody spawned - again, {again} of {AgainMost}\");", StringComparison.Ordinal),
         "warm-up: CS2 leaving it before anybody spawned begins it again, three times on a map at the most; after a spawn an end is the end - nothing restarts the match");
+    Check(host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id);", StringComparison.Ordinal)
+          && host.IndexOf("settings?.Unload();", StringComparison.Ordinal) is var settingsGo and >= 0 && host.IndexOf("earlyJoin?.Unload();", StringComparison.Ordinal) > settingsGo
+          && warm.Contains("(ours, begunAt, lastSet) = (true, DateTime.UtcNow, null);\n            RaiseTeamDamage();", StringComparison.Ordinal)
+          && warm.Contains("if (raised.Count > 0 || !EarlyJoin.TeamDamageMode(modeId(), Read(\"mp_teammates_are_enemies\"))) return;", StringComparison.Ordinal)
+          && warm.Contains("plugin.RegisterListener<Listeners.OnMapEnd>(() => PutBackTeamDamage(\"the map ends during it\"));", StringComparison.Ordinal)
+          && warm.Contains("ended = why;\n        PutBackTeamDamage(why);", StringComparison.Ordinal)
+          && System.Text.RegularExpressions.Regex.Matches(warm, @"PutBackTeamDamage\(ended\);").Count == 2
+          && warm.Contains("public void Unload() => PutBackTeamDamage(\"the plugin unloads\");", StringComparison.Ordinal),
+        "warm-up's team damage: raised at its begin in Arms Race and Wingman (the settings' mode, and not while everybody is an enemy), once a map; put back at every end - the bridge's or the console's, CS2's own clock, CS2 leaving it for good, a map change that cuts it short, the plugin's unload, after the fun changes' own undo");
     Check(warm.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)
           && warm.Contains("if (ev.Userid is not { } p || !Human(p) || !OnTeam(p) || Account(p) is not (> 0 and var account)) return HookResult.Continue;", StringComparison.Ordinal)
           && warm.Contains("EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason)", StringComparison.Ordinal)

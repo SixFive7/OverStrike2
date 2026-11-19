@@ -112,6 +112,30 @@ static partial class Program
             && HudView.CountdownOf(new HudState { WarmUpTitle = "Waiting for Bob", ChangeIn = 5, ChangeMap = "de_dust2" }) is { Eyebrow: "Map change", Warm: false }
             && HudView.CountdownOf(new HudState().AsOf(HudState.Ms(At(0)))) == null && !HudState.Decode(new HudState().Encode(endTimes: true))!.WarmUpOn);
 
+        // ---- the warm-up's team damage: a teammate's hit hurts at least as an enemy's does while it runs, in Arms Race and Wingman ----
+        // Wingman's shares as Valve's cfg has them, Arms Race's as gamemode_armsrace_server.cfg sets them (Instakill), a map that turns friendly fire off itself
+        var wingman = new Dictionary<string, string> { ["mp_friendlyfire"] = "true", ["ff_damage_reduction_bullets"] = "0.33", ["ff_damage_reduction_other"] = "0.4", ["ff_damage_reduction_grenade"] = "0.85" };
+        var armsRace = new Dictionary<string, string> { ["mp_friendlyfire"] = "1", ["ff_damage_reduction_bullets"] = "100", ["ff_damage_reduction_other"] = "100", ["ff_damage_reduction_grenade"] = "1" };
+        var noFf = new Dictionary<string, string>(armsRace) { ["mp_friendlyfire"] = "false" };
+        var wingmanUp = EarlyJoin.RaiseTeamDamage(cv => wingman.GetValueOrDefault(cv));
+        foreach (var (cv, _, value) in wingmanUp) wingman[cv] = value;
+        var (wingmanBack, wingmanKept) = EarlyJoin.PutBackTeamDamage(wingmanUp, cv => wingman.GetValueOrDefault(cv));
+        Check("Warm-up's team damage: in Arms Race and Wingman only - not in Deathmatch, nor while everybody is an enemy (the Fun page's free-for-all)",
+            EarlyJoin.TeamDamageMode(Modes.ArmsRaceId, "false") && EarlyJoin.TeamDamageMode(Modes.WingmanId, "0") && !EarlyJoin.TeamDamageMode(Modes.DeathmatchId, "false")
+            && !EarlyJoin.TeamDamageMode(Modes.ArmsRaceId, "true") && !EarlyJoin.TeamDamageMode(Modes.WingmanId, "1"));
+        Check("...Wingman's shares, Valve's below an enemy's damage, go to 1 while it runs - friendly fire on already, so untouched - and back to Valve's at its end",
+            wingmanUp is [("ff_damage_reduction_bullets", "0.33", "1"), ("ff_damage_reduction_other", "0.4", "1"), ("ff_damage_reduction_grenade", "0.85", "1")]
+            && wingmanBack is [("ff_damage_reduction_bullets", "0.33"), ("ff_damage_reduction_other", "0.4"), ("ff_damage_reduction_grenade", "0.85")] && wingmanKept is []);
+        Check("...Arms Race's own, friendly fire on and Instakill (100), is more than that: nothing raised; a map that turns friendly fire off itself has it on for the "
+            + "warm-up, and back off (as 0) after it",
+            EarlyJoin.RaiseTeamDamage(cv => armsRace.GetValueOrDefault(cv)) is [] && EarlyJoin.RaiseTeamDamage(cv => noFf.GetValueOrDefault(cv)) is [("mp_friendlyfire", "0", "1")]
+            && EarlyJoin.PutBackTeamDamage([("mp_friendlyfire", "0", "1")], _ => "true").Back is [("mp_friendlyfire", "0")]);
+        var chosen = new Dictionary<string, string>(wingman) { ["ff_damage_reduction_bullets"] = "1", ["ff_damage_reduction_other"] = "100", ["ff_damage_reduction_grenade"] = "1" };
+        var (chosenBack, chosenKept) = EarlyJoin.PutBackTeamDamage(wingmanUp, cv => chosen.GetValueOrDefault(cv));
+        Check("...a value something else changed during it - a player's Instakill on the Fun page - keeps that at its end; a convar that cannot be read is left alone",
+            chosenBack is [("ff_damage_reduction_bullets", "0.33"), ("ff_damage_reduction_grenade", "0.85")] && chosenKept is ["ff_damage_reduction_other"]
+            && EarlyJoin.RaiseTeamDamage(_ => null) is [] && EarlyJoin.RaiseTeamDamage(cv => cv == "ff_damage_reduction_bullets" ? "nonsense" : "1") is []);
+
         // ---- the bridge's word to the plugin, and the console's lines ----
         // status as CS2 writes it (a real reply's lines, test names; the connecting row is the live lab's run AY's at the prompt): a joiner there is "connecting" until CS2 drops them
         const string status = "Server:  Running [0.0.0.0:27015]\r\nClient:  Disconnected\r\n----- Status -----\r\n@ Current  :  game\r\nsource   : console\r\n"

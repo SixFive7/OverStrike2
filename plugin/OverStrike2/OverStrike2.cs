@@ -33,6 +33,7 @@ public class OverStrike2Plugin : BasePlugin
     Cloak? cloak;            // a player hidden from everybody else, all of them: Ghost's, the spawn cloak's (SpawnCloak), os_cloak's
     CatchUp.CatchUpModule? catchUp; // the Arms Race catch-up boosts
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
+    EarlyJoinWatch? earlyJoin; // the warm-up every map starts in, and its team damage, which goes back as the plugin unloads
     bool catchUpOn = true;   // what catch-up was last switched to: on while its fun setting is on and the map is Arms Race
 
     string addon = "";
@@ -89,8 +90,9 @@ public class OverStrike2Plugin : BasePlugin
         // The live lab's probe for the spawn invisibility (InvisProbe.cs, os_probe): inert until the console tells it what to watch.
         new InvisProbe(this, Logger).Load();
         // The warm-up (EarlyJoinWatch.cs): every map starts in CS2's own, while everybody coming gets there; the bridge ends it, and the real match starts for all
-        // of them at once - nothing restarts it after that.
-        new EarlyJoinWatch(this, Logger).Load(hotReload);
+        // of them at once - nothing restarts it after that. In Arms Race and Wingman a teammate's hit hurts as an enemy's while it runs (the mode is the settings').
+        earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id);
+        earlyJoin.Load(hotReload);
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // Vampire heals only from enemies, by catch-up's rule of who is one; takes only what catch-up's lifesteal leaves of the half a hit may
@@ -137,6 +139,7 @@ public class OverStrike2Plugin : BasePlugin
     public override void Unload(bool hotReload)
     {
         settings?.Unload(); // every player's fun change ends with this instance, and the next one says so (GameSettings.Unload)
+        earlyJoin?.Unload(); // ...then the warm-up's team damage, which a player's change made during it has had put back first
         effects?.Unload();  // ...Vampire's health cut now, not on a frame after the instance has gone
         cloak?.Unload(); // nobody stays hidden by an instance that is gone
         freeze?.Unload();
