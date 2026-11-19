@@ -250,6 +250,7 @@ alias does, and `!help` lists none. A setting's word alone, without its choice, 
 | `!toosmall` `!tiny` `!cramped` `!smallmap` `!tinymap` | `!down small`; with a map's number, `!toosmall 12` runs `!down 12 small` |
 | `!broken` `!bugged` `!buggy` `!glitched` `!glitchy` | `!down broken`; with a map's number, `!broken 12` runs `!down 12 broken` |
 | `!laggy` `!stutter` `!lowfps` `!slowmap` `!runsbadly` | `!down slow`; with a map's number, `!laggy 12` runs `!down 12 slow` |
+| `!crash` `!crashed` `!crashes` `!servercrash` `!crashedserver` | `!down crash`; with a map's number, `!crash 12` runs `!down 12 crash` |
 | `!grav` | `!gravity` with its choice: `!grav low` runs `!gravity low` |
 | `!lowgrav` `!lowgravity` | `!gravity low` |
 | `!moon` `!moongrav` | `!gravity moon` |
@@ -711,6 +712,7 @@ it once TAB is held. The reasons appear only when a dislike is cast - never for 
 | `small` | Map too small | -4 | A dislike |
 | `broken` | Map is broken | -5 | A dislike |
 | `slow` | Runs badly | -6 | A dislike |
+| `crash` | It crashed the server | -7 | A dislike (since content v4.15.0, the dialog's seventh button) |
 
 Choosing a reason updates that mark. With no choice the mark stays as it is; the plain dislike is what is kept and logged. Taking a mark back takes its effect with
 it. The popup takes no mouse of its own, so it never stops anybody playing: a click needs the cursor the player already has - the window's, or TAB's. A map change, or
@@ -753,6 +755,12 @@ known only in part); `hist` is on `os_screen` while MAPS shows the view (not the
 known only in part. The mode, Liked, Official, Ours and size
 filters apply by the map, a search by the map's name or a player's, and the sort's direction gives the oldest first. The plugin fetches the newest 2,400 matches
 (`/history/`, when `hist` in the live state moves) and decodes them on the thread pool: a full block, about 1.4 MB, takes some 30 ms to read.
+
+**The look** (content v4.15.0): the HISTORY tab stands right after MAPS in the top row, current while `hist` is on (MAPS, or the vote's Maps, is then not);
+the History button stands after the mode chips, where the first row has room at every aspect, and is lit by `on` as any chip. Under `hist` a card's picture
+is 30 px lower (82 of 112) and its tags step back, and three lines take their place: when the match ran, who was in it and the note - one row each, 12 px
+(14 px at 4:3), cut with an ellipsis; `hinc` draws an amber bar beside them. The card's play label moves up with the picture's foot. The dislike's dialog
+has a seventh reason, `crash` (It crashed the server), its button `os_why_7`; chat says it as `!down crash` or `!crash`.
 
 ## Fun settings
 

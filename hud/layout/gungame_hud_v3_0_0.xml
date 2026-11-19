@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.14.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.15.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -19,10 +19,10 @@
   On one full-screen root, in drawing order:
     1. the board  - beside the scoreboard while TAB is held (the client's own HUD_SCOREBOARD_VISIBLE class shows it): your like on the map that
        is on, Start a vote, the vote in one line, the full menu, and at its foot Lately, the last three lines marked for the board;
-    2. the window - the full menu: one row of tabs (content v4.14.0), START, VOTE (while a vote is on), MAPS, FUN, BOTS, PLAYERS, GAME, SYNC, HELP and HOW IT
-       WORKS, with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser, four across and two down, in the shape of
+    2. the window - the full menu: one row of tabs (content v4.14.0), START, VOTE (while a vote is on), MAPS, HISTORY (content v4.15.0: MAPS with its History
+       view, the matches played, a card a match), FUN, BOTS, PLAYERS, GAME, SYNC, HELP and HOW IT WORKS, with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser, four across and two down, in the shape of
        the ballot's ten tiles (four across and three down), each with the vote's own number. Every page stands right of CS2's chat, and the chat column keeps
-       the chat's history on the left, taller than CS2's own. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.14.0): its id tells the server which
+       the chat's history on the left, taller than CS2's own. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.15.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (os-banner), the status banner (os-ban), the outdated and
@@ -193,7 +193,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.14.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.15.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -206,6 +206,8 @@
 						<Button id="os_v_back" class="os-tab"><Panel /><Label class="os-tab-text" text="Vote" /></Button>
 						<Button id="os_tab_maps" class="os-tab"><Label class="os-tab-text" text="Maps" /></Button>
 						<Button id="os_v_browse" class="os-tab"><Label class="os-tab-text" text="Maps" /></Button>
+						<!-- HISTORY (content v4.15.0): MAPS with its History view on, current while it is (hist on os_screen); during a vote its map browser's -->
+						<Button id="os_tab_history" class="os-tab"><Label class="os-tab-text" text="History" /></Button>
 						<Button id="os_tab_fun" class="os-tab"><Label class="os-tab-text" text="Fun" /></Button>
 						<Button id="os_tab_bots" class="os-tab"><Label class="os-tab-text" text="Bots" /></Button>
 						<Button id="os_sub_players" class="os-tab"><Label class="os-tab-text" text="Players" /></Button>
@@ -301,6 +303,9 @@
 									<Button id="os_fm_ar" class="os-chipb os-chipm-armsrace"><Label class="os-chipb-text" text="Arms Race" /></Button>
 									<Button id="os_fm_dm" class="os-chipb os-chipm-deathmatch"><Label class="os-chipb-text" text="Deathmatch" /></Button>
 									<Button id="os_fm_wm" class="os-chipb os-chipm-wingman"><Label class="os-chipb-text" text="Wingman" /></Button>
+									<!-- History (content v4.15.0): the matches played, on the maps' own cards; lit (on) while on. In this row, where it has room at every aspect -->
+									<Panel class="os-mbar-sep" />
+									<Button id="os_fl_hist" class="os-chipb"><Label class="os-chipb-text" text="History" /></Button>
 									<Panel class="os-mbar-fill" />
 									<Panel id="os_q_search" class="os-search">
 										<Button id="os_q_how">
@@ -375,6 +380,7 @@
 													<Panel class="os-mline"><Label id="os_m1_name" class="os-mname" text="{s:text}" /><Label id="os_m1_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m1_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh1w}" /><Label text="{s:osh1p}" /><Label text="{s:osh1n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -409,6 +415,7 @@
 													<Panel class="os-mline"><Label id="os_m2_name" class="os-mname" text="{s:text}" /><Label id="os_m2_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m2_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh2w}" /><Label text="{s:osh2p}" /><Label text="{s:osh2n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -443,6 +450,7 @@
 													<Panel class="os-mline"><Label id="os_m3_name" class="os-mname" text="{s:text}" /><Label id="os_m3_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m3_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh3w}" /><Label text="{s:osh3p}" /><Label text="{s:osh3n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -477,6 +485,7 @@
 													<Panel class="os-mline"><Label id="os_m4_name" class="os-mname" text="{s:text}" /><Label id="os_m4_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m4_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh4w}" /><Label text="{s:osh4p}" /><Label text="{s:osh4n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -513,6 +522,7 @@
 													<Panel class="os-mline"><Label id="os_m5_name" class="os-mname" text="{s:text}" /><Label id="os_m5_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m5_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh5w}" /><Label text="{s:osh5p}" /><Label text="{s:osh5n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -547,6 +557,7 @@
 													<Panel class="os-mline"><Label id="os_m6_name" class="os-mname" text="{s:text}" /><Label id="os_m6_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m6_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh6w}" /><Label text="{s:osh6p}" /><Label text="{s:osh6n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -581,6 +592,7 @@
 													<Panel class="os-mline"><Label id="os_m7_name" class="os-mname" text="{s:text}" /><Label id="os_m7_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m7_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh7w}" /><Label text="{s:osh7p}" /><Label text="{s:osh7n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -615,6 +627,7 @@
 													<Panel class="os-mline"><Label id="os_m8_name" class="os-mname" text="{s:text}" /><Label id="os_m8_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m8_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh8w}" /><Label text="{s:osh8p}" /><Label text="{s:osh8n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -651,6 +664,7 @@
 													<Panel class="os-mline"><Label id="os_m9_name" class="os-mname" text="{s:text}" /><Label id="os_m9_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m9_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh9w}" /><Label text="{s:osh9p}" /><Label text="{s:osh9n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -685,6 +699,7 @@
 													<Panel class="os-mline"><Label id="os_m10_name" class="os-mname" text="{s:text}" /><Label id="os_m10_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m10_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh10w}" /><Label text="{s:osh10p}" /><Label text="{s:osh10n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -719,6 +734,7 @@
 													<Panel class="os-mline"><Label id="os_m11_name" class="os-mname" text="{s:text}" /><Label id="os_m11_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m11_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh11w}" /><Label text="{s:osh11p}" /><Label text="{s:osh11n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -753,6 +769,7 @@
 													<Panel class="os-mline"><Label id="os_m12_name" class="os-mname" text="{s:text}" /><Label id="os_m12_size" class="os-msize" text="{s:text}" /></Panel>
 													<Label id="os_m12_who" class="os-mwho" text="{s:text}" />
 													<Panel class="os-mtags"><Label class="os-mtag os-mtag-next" text="{s:osvnext}" /><Label class="os-mtag os-mtag-lead" text="Leading" /><Label class="os-mtag os-mtag-tie" text="Tie" /><Label class="os-mtag os-mtag-now" text="On now" /><Label class="os-mtag os-mtag-official" text="Official" /><Label class="os-mtag os-mtag-big" text="Too big" /><Label class="os-mtag os-mtag-ads" text="Ads" /><Label class="os-mtag os-mtag-queued" text="Picked" /><Label class="os-mtag os-mtag-ours" text="Our map" /><Label class="os-mtag t-liked" text="Liked by us" /><Label class="os-mtag t-upload" text="New upload" /><Label class="os-mtag t-updated" text="Updated" /><Label class="os-mtag t-trending" text="Trending" /><Label class="os-mtag t-toprated" text="Top rated" /><Label class="os-mtag t-popular" text="Popular" /><Label class="os-mtag t-newtous" text="New to us" /></Panel>
+													<Panel class="os-mhist"><Label text="{s:osh12w}" /><Label text="{s:osh12p}" /><Label text="{s:osh12n}" /></Panel>
 												</Panel>
 											</Panel>
 											<Panel class="os-mvbar"><Panel class="os-mvbar-fill" /></Panel>
@@ -1467,7 +1484,7 @@
 					<Panel class="os-win-foot">
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.14.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.15.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1493,6 +1510,7 @@
 						<Button id="os_why_4" class="os-whyb"><Label class="os-whyb-text" text="{s:oswhys4}" /><Label class="os-whyb-word" text="{s:oswhyw4}" /></Button>
 						<Button id="os_why_5" class="os-whyb"><Label class="os-whyb-text" text="{s:oswhys5}" /><Label class="os-whyb-word" text="{s:oswhyw5}" /></Button>
 						<Button id="os_why_6" class="os-whyb"><Label class="os-whyb-text" text="{s:oswhys6}" /><Label class="os-whyb-word" text="{s:oswhyw6}" /></Button>
+						<Button id="os_why_7" class="os-whyb"><Label class="os-whyb-text" text="{s:oswhys7}" /><Label class="os-whyb-word" text="{s:oswhyw7}" /></Button>
 					</Panel>
 					<Label class="os-why-hint" text="Optional - Click a reason, or type !down and its word" />
 					<Panel class="os-why-track"><Panel class="os-why-fill" /></Panel>
@@ -1529,7 +1547,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.14.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.15.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

@@ -87,9 +87,10 @@ static partial class Program
         var stateLine = new HudState { HistoryVersion = 42 };
         Check("...the live state names the block's version, and a state without it names none", HudState.Decode(stateLine.Encode())?.HistoryVersion == 42
             && HudState.Decode(new HudState().Encode())?.HistoryVersion == 0);
-        Check("A dislike's reason for a map that took the server down: ready, carried by the codecs as itself (an older plugin reads a dislike); it joins the popup with its button (os_why_7) in the HUD content that has it",
+        Check("A dislike's reason for a map that took the server down: carried by the codecs as itself (an older plugin reads a dislike); the last reason of all, the popup's seventh button (os_why_7) with content v4.15.0, which has it",
             DownReasons.Crash is { Word: "crash", Value: HudCatalog.CrashVote, Label: "It crashed the server" } && HudCatalog.Carried(HudCatalog.CrashVote) == HudCatalog.CrashVote
-            && HudCatalog.Carried(-8) == -1 && !DownReasons.All.Contains(DownReasons.Crash));
+            && HudCatalog.Carried(-8) == -1 && DownReasons.All[^1] == DownReasons.Crash && HudVote.WhyButton(DownReasons.All.Length) == "os_why_7"
+            && HudVersion.Level >= HudBrowser.HistoryLevel);
 
         // ---- the backfill ----
         const string Day = "2026-11-20", Slash = "11/20/2026"; // a day log's lines and a console's are built from their parts (no date beside a time in this file)
@@ -223,7 +224,7 @@ static partial class Program
         var (texts, classes) = HudMenu.Maps(catalog, new HudState(), b, 1001, DateTime.UtcNow, history: true);
         var (_, oldClasses) = HudMenu.Maps(catalog, new HudState(), b, 1001, DateTime.UtcNow);
         Check($"...only to a content that has it (level {HudBrowser.HistoryLevel}, after v4.14.0): to an older one nothing of it, so no game logs a panel it lacks",
-            !oldClasses.Any(x => x.Id == HudBrowser.HistoryButton || x.Class is "hist" or "hinc") && HudBrowser.HasHistory("v4.14.0") == HudVersion.Level >= HudBrowser.HistoryLevel
+            !oldClasses.Any(x => x.Id == HudBrowser.HistoryButton || x.Class is "hist" or "hinc") && !HudBrowser.HasHistory("v4.14.0") && HudBrowser.HasHistory(HudVersion.Content) == HudVersion.Level >= HudBrowser.HistoryLevel
             && !HudBrowser.HasHistory("v4.13.0"));
         string Text(string id) => texts.LastOrDefault(x => x.Id == id).Text ?? "";
         bool On(string id, string cls) => classes.LastOrDefault(x => x.Id == id && x.Class == cls).On;

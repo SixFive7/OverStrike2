@@ -191,10 +191,10 @@ static partial class Program
             DownReasons.All[0] is { Word: "meh", Value: DownReasons.Plain, Label: "I did not like the map" } && DownReasons.All[1].Value == TooBigVote && DownReasons.All[1].Label == "Map too big"
             && DownReasons.All[2].Value == AdsVote && DownReasons.All[2].Label == "Shows ads or sends players away"
             && DownReasons.All.Select(r => r.Value).Distinct().Count() == DownReasons.All.Length && DownReasons.All.All(r => r.Value < 0 && HudCatalog.Carried(r.Value) == r.Value)
-            && DownReasons.All.All(r => r.Word.All(char.IsAsciiLetterLower) && !Hud.IsMapArg(r.Word)) && DownReasons.Words == "big, ads, small, broken or slow");
+            && DownReasons.All.All(r => r.Word.All(char.IsAsciiLetterLower) && !Hud.IsMapArg(r.Word)) && DownReasons.Words == "big, ads, small, broken, slow or crash");
         h.Quiet(); h.Talk(alice, "!down");
         Check("A plain !down counts at once as 'I did not like the map', and its note says how to give a reason",
-            Likes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1) && h.Said("You disliked") && h.Said("Why? !down big, ads, small, broken or slow"));
+            Likes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1) && h.Said("You disliked") && h.Said("Why? !down big, ads, small, broken, slow or crash"));
         h.Quiet(); h.Talk(alice, "!down big");
         Check("!down big: that mark, now too big - no second mark", Likes[whyKey][aliceId] == TooBigVote && Likes[whyKey].Count == 1 && TooBig(whyOn) && TooBigVotes(whyKey) == 1 && h.Said("changed your mark") && h.Said("to too big"));
         h.Quiet(); h.Talk(alice, "!down big");

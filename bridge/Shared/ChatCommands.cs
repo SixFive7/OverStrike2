@@ -87,6 +87,7 @@ public static class ChatCommands
         .. Words("!down _ small", "", "!toosmall", "!tiny", "!cramped", "!smallmap", "!tinymap"),
         .. Words("!down _ broken", "", "!broken", "!bugged", "!buggy", "!glitched", "!glitchy"),
         .. Words("!down _ slow", "", "!laggy", "!stutter", "!lowfps", "!slowmap", "!runsbadly"),
+        .. Words("!down _ crash", "", "!crash", "!crashed", "!crashes", "!servercrash", "!crashedserver"),
         .. Words("!gravity _", "", "!grav"),
         .. Words("!gravity low", "", "!lowgrav", "!lowgravity"),
         .. Words("!gravity moon", "", "!moon", "!moongrav"),

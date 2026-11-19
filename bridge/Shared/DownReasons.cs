@@ -17,6 +17,11 @@ public static class DownReasons
     /// the stylesheet's .why-run).</summary>
     public const double PopupSeconds = 15, PopupGraceSeconds = 2;
 
+    /// <summary>The reason for a map that took the server down (the history tab, 2026-11-19: a match's card on the History view disliked after a crash): the last
+    /// of All and the popup's seventh button (os_why_7, HudVote.WhyButton), since content v4.15.0, which has that button. Declared before All, whose initializer
+    /// reads it.</summary>
+    public static readonly Reason Crash = new("crash", HudCatalog.CrashVote, "It crashed the server", "crashed the server");
+
     public static readonly Reason[] All =
     [
         new("meh", Plain, "I did not like the map", "down"),
@@ -25,14 +30,10 @@ public static class DownReasons
         new("small", HudCatalog.SmallVote, "Map too small", "too small"),
         new("broken", HudCatalog.BrokenVote, "Map is broken", "broken"),
         new("slow", HudCatalog.SlowVote, "Runs badly", "runs badly"),
+        Crash,
     ];
 
-    /// <summary>The reason for a map that took the server down (the history tab, 2026-11-19: a match's card on the History view disliked after a crash). Ready, and
-    /// not in All yet: every reason in All is a button of the popup (os_why_1 ... os_why_6 now, HudVote.WhyButton), so it joins All - the last, os_why_7 - with
-    /// the HUD content that has that button, in the same change.</summary>
-    public static readonly Reason Crash = new("crash", HudCatalog.CrashVote, "It crashed the server", "crashed the server");
-
-    /// <summary>The reasons chat can name beyond the plain one, as a player reads them: "big, ads, small, broken or slow".</summary>
+    /// <summary>The reasons chat can name beyond the plain one, as a player reads them: "big, ads, small, broken, slow or crash".</summary>
     public static string Words => string.Join(", ", All.Skip(1).SkipLast(1).Select(r => r.Word)) + " or " + All[^1].Word;
 
     public static Reason? Find(string word) => All.FirstOrDefault(r => r.Word == word);
