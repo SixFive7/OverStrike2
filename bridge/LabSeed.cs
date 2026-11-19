@@ -17,14 +17,15 @@ static partial class Program
     {
         if (args.Length < 1) { Console.Error.WriteLine("usage: bridge --lab-seed DIR [--zone ZONE]"); return 2; }
         var zone = args.Length >= 3 && args[1] == "--zone" ? Zone(args[2]) : TimeZoneInfo.Local;
-        var maps = File.Exists(MapsFile) ? JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? [] : [];
+        var mapsAt = new[] { MapsFile, Path.Combine("bridge", "maps.json"), "maps.json" }.FirstOrDefault(File.Exists); // the settings' list, else the committed one (a run from the repository)
+        var maps = mapsAt != null ? JsonSerializer.Deserialize(File.ReadAllText(mapsAt), Ctx.Default.ListMapInfo) ?? [] : [];
         var (entries, ballots, likes) = LabSeed(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone), maps);
         Directory.CreateDirectory(args[0]);
         File.WriteAllText(Path.Combine(args[0], "history.jsonl"), string.Concat(entries.Select(e => HudHistory.ToJsonLine(e) + "\n")));
         File.WriteAllText(Path.Combine(args[0], "ballots.jsonl"), string.Concat(ballots.Select(b => BallotLine(b) + "\n")));
         File.WriteAllText(Path.Combine(args[0], "votes.json"), JsonSerializer.Serialize(likes, Ctx.Default.DictionaryStringDictionaryStringInt32));
         Console.WriteLine($"lab seed: {entries.Count} matches over {entries.Select(e => e.From.Date).Distinct().Count()} evenings, {SeedPlayers.Length} made-up players, "
-            + $"{ballots.Count} ballots, {likes.Count} liked or disliked maps -> {args[0]}");
+            + $"{ballots.Count} ballots, {likes.Count} liked or disliked maps, the maps from {mapsAt ?? "Valve's own alone (no map list found)"} -> {args[0]}");
         return 0;
     }
 
