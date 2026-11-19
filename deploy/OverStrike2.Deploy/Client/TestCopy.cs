@@ -673,9 +673,10 @@ sealed class TestCopy
         var src = DataMount(d);
         var dst = CopyDir(src);
         var owner = Json.Str(d, "Config", "User") ?? "";
+        var seedPaths = string.Concat(seeded.Select(f => $" /dst/{f.Name}"));   // root writes the seed's files: owned as the copy is, or the candidate cannot append to them
         var script = "set -e; find /dst -mindepth 1 -delete; cp -a /src/. /dst/; " + (keepFlag ? "" : "rm -f /dst/maintenance; ")
                      + string.Concat(seeded.Select(f => $"echo {Convert.ToBase64String(f.Data)} | base64 -d > /dst/{f.Name}; "))
-                     + (Regex.IsMatch(owner, @"^\d+(:\d+)?$") ? $"chown {owner} /dst; " : "")
+                     + (Regex.IsMatch(owner, @"^\d+(:\d+)?$") ? $"chown {owner} /dst{seedPaths}; " : seeded.Count > 0 ? $"chown --reference=/src{seedPaths}; " : "")
                      + "echo files: $(find /dst -type f | wc -l), $(du -sh /dst | cut -f1); ls -ln /dst/state.json 2>/dev/null || echo 'no state.json'";
         var (code, output) = Helper($"{Bridge}-copy", [$"{src}:/src:ro", $"{dst}:/dst"], script);
         Log($"copy of the bridge's data -> <data>-candidate: exit {code}; " + string.Join(" | ", Py.SplitLines(output).TakeLast(2)));

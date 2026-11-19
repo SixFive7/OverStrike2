@@ -11,13 +11,19 @@ namespace OverStrike2.Deploy;
 /// file - runs as a throwaway stack on production's network, IPs and MACs, and everything comes back. Under the harness's server lock, with
 /// nobody on. Prints no secret.
 ///
-///     rehearse prep [--keep-flag]     the lock held; 0 humans; production's game server, bridge and sync aside (testcopy prep and bridge-prep,
+///     rehearse prep [--keep-flag] [--seed DIR]
+///                                     the lock held; 0 humans; production's game server, bridge and sync aside (testcopy prep and bridge-prep,
 ///                                     the sync stopped and renamed); its records backed up; the files staged
 ///     rehearse backup                 only the records: os2-server's state in the game's tree (update-watch), its listings, the Workshop manifest
-///     rehearse stage [--keep-flag]    only the files, in the rehearsal folder: os2-server, os2-sync and pre.sh (server build's), the mode cfgs,
+///     rehearse stage [--keep-flag] [--seed DIR]
+///                                     only the files, in the rehearsal folder: os2-server, os2-sync and pre.sh (server build's), the mode cfgs,
 ///                                     the plugin (plugin build's), a copy of the bridge's data - without the maintenance flag prep set, unless
 ///                                     --keep-flag: the candidate bridge then starts under it (no start roll, no match-end change, no crash
-///                                     count) until it goes; the sync's state copied and its work folder made, with an empty hand-over folder
+///                                     count) until it goes; the sync's state copied and its work folder made, with an empty hand-over folder.
+///                                     --seed DIR: the lab's seed (bridge --lab-seed DIR: history.jsonl, ballots.jsonl, votes.json - made-up
+///                                     players) over production's files in that copy, written by the stage's helper as root and owned as the
+///                                     copy is (testcopy bridge-run's --seed); a folder that holds none of them is refused before anything.
+///                                     Production's data folder is only read, the seed's files with the rest; clean deletes the copy
 ///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold]
 ///                                     the stack: the compose file (stack.repo/stack.file, or FILE) with production's folders replaced by the
 ///                                     rehearsal's, a fresh test secret, the bridge on &lt;bridge.image&gt;:T (candidate), the test labels, and the
@@ -227,17 +233,35 @@ sealed class Rehearse
                                      + "for f in /w/*; do case \"$(basename \"$f\")\" in rehearsal|handover|farm) ;; *) cp -a \"$f\" /w/rehearsal/;; esac; done; "
                                      + "mkdir -p /w/rehearsal/handover; chown --reference=/s /s/rehearsal; chown --reference=/w /w/rehearsal /w/rehearsal/handover; ";
 
+    /// <summary>Where stage's tar puts the lab's seed (--seed): a folder in the rehearsal folder, which stage's script copies into the bridge's copy and
+    /// deletes.</summary>
+    public const string SeedAt = ".seed";
+
+    /// <summary>The lab's seed (TestCopy.SeedFiles) into stage's tar, under <see cref="SeedAt"/>: the rehearsal folder's own, never production's data
+    /// folder. Its file names, for <see cref="StageScript"/>.</summary>
+    public static List<string> AddSeed(Dictionary<string, byte[]> files, IReadOnlyList<(string Name, byte[] Data)> seed)
+    {
+        foreach (var (name, data) in seed)
+            files[$"{SeedAt}/{name}"] = data;
+        return [.. seed.Select(f => f.Name)];
+    }
+
     /// <summary>stage's script in its helper (/r the rehearsal folder's parent, /b production's bridge data read-only, /pl production's plugins
-    /// read-only): production's bridge data copied in - the maintenance flag prep set on it deleted from the copy unless keepFlag - production's
-    /// other plugins beside the staged one, the owners set, then the sync's copies.</summary>
-    public static string StageScript(string name, bool plugins, bool keepFlag, string syncCopies) =>
+    /// read-only): production's bridge data copied in - the maintenance flag prep set on it deleted from the copy unless keepFlag, the lab's seed
+    /// (<paramref name="seed"/>, its files from the tar) over production's files there - production's other plugins beside the staged one, the
+    /// owners set, then the sync's copies.</summary>
+    public static string StageScript(string name, bool plugins, bool keepFlag, string syncCopies, IReadOnlyList<string>? seed = null) =>
         $"set -e; R=/r/{name}; mkdir -p $R/bridge $R/preview; find $R/bridge $R/preview -mindepth 1 -delete; chmod 777 $R/preview; cp -a /b/. $R/bridge/; "
         + (keepFlag ? "" : "rm -f $R/bridge/maintenance; ")
+        + (seed is { Count: > 0 } ? string.Concat(seed.Select(n => $"cp $R/{SeedAt}/{n} $R/bridge/{n}; ")) + $"rm -rf $R/{SeedAt}; " : "")
         + (plugins ? $"for f in /pl/*; do [ \"$(basename \"$f\")\" = {Plugin.Name} ] || cp -a \"$f\" $R/plugins/; done; " : "")
         + "chown -R --reference=/b $R/bridge; chown --reference=/r $R $R/overstrike2 $R/plugins $R/cfg; " + syncCopies
         + "echo bridge copy: $(find $R/bridge -type f | wc -l) files; ls -la $R/overstrike2 | cut -c1-90";
 
-    void Stage(bool keepFlag = false)
+    /// <summary>The lab's seed for prep and stage (--seed DIR): the folder it came from and its files, read before anything else is done.</summary>
+    public sealed record Seed(string From, List<(string Name, byte[] Data)> Files);
+
+    void Stage(bool keepFlag = false, Seed? seed = null)
     {
         h.NeedLock();
         var (game, bridge) = (Game(), BridgeInspect());
@@ -252,6 +276,7 @@ sealed class Rehearse
             files[$"cfg/{Path.GetFileName(cfg)}"] = File.ReadAllBytes(Repo.P(cfg.Split('/')));
         foreach (var f in Plugin.ShipList())
             files[$"plugins/{Plugin.Name}/{f}"] = File.ReadAllBytes(Path.Combine(pluginOut, f));
+        var seeded = seed is null ? [] : AddSeed(files, seed.Files);
         var sync = SyncInspect();
         var syncCopies = "";
         if (sync is not null)
@@ -272,11 +297,13 @@ sealed class Rehearse
             binds.Add($"{TestCopy.BindSource(sync, SettingPath(sync, "syncWork", SyncWorkAt))}:/w");
         }
         var name = dir[(dir.LastIndexOf('/') + 1)..];
-        var (code, output) = StageHelper(binds, files, name, game, StageScript(name, plugins is not null, keepFlag, syncCopies));
+        var (code, output) = StageHelper(binds, files, name, game, StageScript(name, plugins is not null, keepFlag, syncCopies, seeded));
         Log("stage:", code, $"(programs built at {Json.Str(record, "commit")})" + (keepFlag ? "; the maintenance flag kept in the bridge's copy: the candidate starts under it" : ""));
         Out.Print(output);
         if (code != 0)
             throw Out.Stop("REFUSED: staging failed");
+        if (seed is not null)
+            Log($"the rehearsal's copy of the bridge data: its {string.Join(", ", seeded)} are the lab's seed from {seed.From} (made-up players; production's own untouched)");
     }
 
     /// <summary>A helper that receives files as a tar into /r/&lt;name&gt; and runs a script after.</summary>
@@ -332,7 +359,7 @@ sealed class Rehearse
         return buf.ToArray();
     }
 
-    void Prep(bool keepFlag = false)
+    void Prep(bool keepFlag = false, Seed? seed = null)
     {
         h.NeedLock();
         var d = tc.Inspect(tc.Game);
@@ -349,7 +376,7 @@ sealed class Rehearse
         tc.CmdBridgePrep();
         SyncAside();
         Backup();
-        Stage(keepFlag);
+        Stage(keepFlag, seed);
     }
 
     // ------------------------------------------------------------------------------------------------------- the compose file
@@ -814,12 +841,21 @@ sealed class Rehearse
         }
     }
 
-    public const string Doc = "rehearse prep [--keep-flag] | backup | stage [--keep-flag] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold] | compose (the same options) | hold on|off|status | down | restore | clean | "
+    public const string Doc = "rehearse prep [--keep-flag] [--seed DIR] | backup | stage [--keep-flag] [--seed DIR] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold] | compose (the same options) | hold on|off|status | down | restore | clean | "
                               + "logs <cs2|bridge|sync> <seconds> [regex] | sh <cs2|bridge|sync> \"<cmd>\" [user] | rcon \"<cmd>\"... | ship <file> [name] | status";
 
-    /// <summary>prep's and stage's one option: --keep-flag, and nothing else.</summary>
-    static bool KeepFlag(List<string> args) =>
-        args.Skip(1).All(a => a == "--keep-flag") ? args.Contains("--keep-flag") : throw Out.Stop("usage: os2-deploy rehearse prep|stage [--keep-flag]");
+    /// <summary>prep's and stage's options: --keep-flag and --seed DIR, and nothing else.</summary>
+    public static (bool KeepFlag, string? Seed) StageOptions(IReadOnlyList<string> args)
+    {
+        var (keepFlag, seed) = (false, (string?)null);
+        for (var i = 1; i < args.Count; i++)
+        {
+            if (args[i] == "--keep-flag") keepFlag = true;
+            else if (args[i] == "--seed" && i + 1 < args.Count && seed is null) seed = args[++i];
+            else throw Out.Stop("usage: os2-deploy rehearse prep|stage [--keep-flag] [--seed DIR]");
+        }
+        return (keepFlag, seed);
+    }
 
     public static int Command(string[] argv)
     {
@@ -839,9 +875,16 @@ sealed class Rehearse
                               : throw Out.Stop("usage: os2-deploy " + Doc);
         switch (args[0])
         {
-            case "prep": r.Prep(KeepFlag(args)); break;
+            case "prep":
+            case "stage":
+                var (keepFlag, seedDir) = StageOptions(args);
+                var seed = seedDir is null ? null : new Seed(seedDir, TestCopy.SeedFiles(seedDir));   // a folder with no seed refused here: no lock, nothing aside
+                if (args[0] == "prep")
+                    r.Prep(keepFlag, seed);
+                else
+                    r.Stage(keepFlag, seed);
+                break;
             case "backup": r.Backup(); break;
-            case "stage": r.Stage(KeepFlag(args)); break;
             case "up":
             case "compose":
                 var via = Opt("--via", "env")!;

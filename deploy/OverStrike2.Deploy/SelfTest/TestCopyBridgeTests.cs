@@ -201,10 +201,11 @@ static class TestCopyBridgeTests
             containers.Remove("bridge");
             Quiet(() => tc.CmdBridgeRun(["candidate", "--seed", seedDir]));
             var seedScript = Json.Arr(created["bridge-copy"], "Cmd").Select(Json.PyStr).FirstOrDefault() ?? "";
-            check("bridge-run --seed: the seed's files written into the copy after production's are copied there, before the candidate starts - production's data read-only in the helper all the same",
+            check("bridge-run --seed: the seed's files written into the copy after production's are copied there, before the candidate starts, owned by the candidate's user (it appends to them) - production's data read-only in the helper all the same",
                   seedScript.Contains($"echo {Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"v\":1}\n"))} | base64 -d > /dst/history.jsonl; ", StringComparison.Ordinal)
                   && seedScript.Contains($"echo {Convert.ToBase64String(Encoding.UTF8.GetBytes("{}"))} | base64 -d > /dst/votes.json; ", StringComparison.Ordinal)
                   && !seedScript.Contains("ballots.jsonl", StringComparison.Ordinal) && seedScript.IndexOf("cp -a /src/. /dst/", StringComparison.Ordinal) < seedScript.IndexOf("base64 -d", StringComparison.Ordinal)
+                  && seedScript.IndexOf("base64 -d > /dst/votes.json; chown 1000:1000 /dst /dst/history.jsonl /dst/votes.json; ", StringComparison.Ordinal) > 0
                   && Json.Arr(created["bridge-copy"], "HostConfig", "Binds").Select(Json.PyStr).SequenceEqual([$"{Data}:/src:ro", $"{Data}-candidate:/dst"]));
             containers.Remove("bridge");
             File.Delete(Path.Combine(seedDir, "history.jsonl"));

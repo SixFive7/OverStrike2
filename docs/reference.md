@@ -853,8 +853,9 @@ gone from the layout. At 4:3 every word on both pages is 2 px larger, the smalle
 
 **The lab's seed**: `bridge --lab-seed DIR` writes a made-up `history.jsonl`, `ballots.jsonl` and `votes.json` into DIR - Test A to Test D and four more names,
 fifteen matches over the five evenings before the day it runs, on maps with pictures, every record of STATS with data - so the pages can be filmed and tested
-with no real player on them. `os2-deploy testcopy bridge-run <tag> --seed DIR` puts them into the candidate bridge's copy of the data
-([deploy/README.md](../deploy/README.md)); `testcopy bridge-rm` takes the copy away with them, and production's own files are never written.
+with no real player on them. `os2-deploy rehearse prep --seed DIR` (or `rehearse stage --seed DIR`) puts them into the rehearsal's copy of the bridge data,
+and `os2-deploy testcopy bridge-run <tag> --seed DIR` into the test copy's ([deploy/README.md](../deploy/README.md)); `rehearse clean` and `testcopy bridge-rm`
+take the copy away with them, and production's own files are never written.
 
 The dislike's dialog has a seventh reason, `crash` (It crashed the server), its button `os_why_7`; chat says it as `!down crash` or `!crash`.
 

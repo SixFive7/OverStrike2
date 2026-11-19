@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using YamlDotNet.RepresentationModel;
 
 namespace OverStrike2.Deploy;
@@ -235,6 +236,53 @@ services:
         Clean();
         UpWaits();
         Hold();
+        Seed();
+    }
+
+    /// <summary>prep and stage --seed DIR, the lab's seed on the rehearsal (testcopy bridge-run's --seed on the test copy): the options read; the seed's
+    /// files in stage's tar, in the rehearsal folder alone, copied over production's files in the bridge's copy once it is made and owned as the copy is;
+    /// a folder with no seed refused before anything - before the lock, so before production goes aside. Production's data folder is only read.</summary>
+    static void Seed()
+    {
+        var check = SelfTest.Check;
+        string[][] wrong = [["prep", "--seed"], ["stage", "--seed", "a", "--seed", "b"], ["prep", "--hold"], ["stage", "seed"]];
+        check("prep and stage: --keep-flag and --seed DIR in any order, --seed once, and nothing else",
+              Rehearse.StageOptions(["prep"]) == (false, null) && Rehearse.StageOptions(["stage", "--keep-flag"]) == (true, null)
+              && Rehearse.StageOptions(["prep", "--seed", "/tmp/seed", "--keep-flag"]) == (true, "/tmp/seed") && Rehearse.StageOptions(["stage", "--keep-flag", "--seed", "s"]) == (true, "s")
+              && wrong.All(a => SelfTest.Refusal(() => Rehearse.StageOptions(a)) is { } r && r.Contains("prep|stage [--keep-flag] [--seed DIR]", StringComparison.Ordinal)));
+        var files = new Dictionary<string, byte[]>(StringComparer.Ordinal) { ["overstrike2/os2-server"] = [1] };
+        var names = Rehearse.AddSeed(files, [("history.jsonl", Encoding.UTF8.GetBytes("{\"v\":1}\n")), ("votes.json", Encoding.UTF8.GetBytes("{}"))]);
+        var plain = Rehearse.StageScript("rehearsal", true, false, Rehearse.SyncCopies);
+        var seeded = Rehearse.StageScript("rehearsal", true, false, Rehearse.SyncCopies, names);
+        const string Copies = "cp $R/.seed/history.jsonl $R/bridge/history.jsonl; cp $R/.seed/votes.json $R/bridge/votes.json; rm -rf $R/.seed; ";
+        check("stage --seed: the seed's files in stage's tar under .seed/ in the rehearsal folder, copied over production's in the bridge's copy once it is made - the maintenance flag gone as without the seed - then .seed/ deleted and the copy's owner set on them too; the script otherwise as without it",
+              files.Keys.Order(StringComparer.Ordinal).SequenceEqual([".seed/history.jsonl", ".seed/votes.json", "overstrike2/os2-server"]) && names.SequenceEqual(["history.jsonl", "votes.json"])
+              && Encoding.UTF8.GetString(files[".seed/history.jsonl"]) == "{\"v\":1}\n"
+              && seeded.Contains("cp -a /b/. $R/bridge/; rm -f $R/bridge/maintenance; " + Copies, StringComparison.Ordinal)
+              && seeded.IndexOf(Copies, StringComparison.Ordinal) < seeded.IndexOf("chown -R --reference=/b $R/bridge;", StringComparison.Ordinal)
+              && seeded.Replace(Copies, "", StringComparison.Ordinal) == plain && Rehearse.StageScript("rehearsal", true, false, Rehearse.SyncCopies, []) == plain
+              && Rehearse.StageScript("rehearsal", true, true, Rehearse.SyncCopies, names).Contains("cp -a /b/. $R/bridge/; " + Copies, StringComparison.Ordinal));
+        var source = File.ReadAllText(Repo.P("deploy", "OverStrike2.Deploy", "Client", "Rehearse.cs"));
+        check("stage --seed never writes production's data folder: in the helper it is /b, read-only, and the seed adds no use of it - the seed's files go to the bridge's copy alone",
+              source.Contains("$\"{BridgeData(bridge)}:/b:ro\"", StringComparison.Ordinal) && source.Contains("archive?path=/r/{name}", StringComparison.Ordinal)
+              && Regex.Matches(seeded, @"/b\b").Count == Regex.Matches(plain, @"/b\b").Count
+              && Regex.Matches(seeded, @"cp \$R/\.seed/(\S+) (\S+);").Count == 2 && Regex.Matches(seeded, @"cp \$R/\.seed/(\S+) (\S+);").All(m => m.Groups[2].Value == "$R/bridge/" + m.Groups[1].Value));
+        var (tmp, config, oldState) = SimConfig.Make("rehearse-seed-sim-");
+        try
+        {
+            var none = Path.Combine(tmp, "no-seed");
+            Directory.CreateDirectory(none);
+            File.WriteAllText(Path.Combine(none, "state.json"), "{}");   // not the seed's: a seed is history.jsonl, ballots.jsonl or votes.json
+            var prep = SelfTest.Refusal(() => Rehearse.Command(["--config", config, "prep", "--seed", none]));
+            var stage = SelfTest.Refusal(() => Rehearse.Command(["--config", config, "stage", "--keep-flag", "--seed", none]));
+            check("prep --seed and stage --seed with a folder that holds no seed: refused first - not the lock's refusal, so before the lock and before anything of production's",
+                  prep is not null && prep.Contains("--lab-seed", StringComparison.Ordinal) && stage is not null && stage.Contains("--lab-seed", StringComparison.Ordinal)
+                  && SelfTest.Refusal(() => Rehearse.Command(["--config", config, "stage"])) is { } unlocked && unlocked.Contains("lock", StringComparison.Ordinal));
+        }
+        finally
+        {
+            SimConfig.Done(tmp, oldState);
+        }
     }
 
     static JsonObject Container(string image, bool test, params string[] binds) => new()
