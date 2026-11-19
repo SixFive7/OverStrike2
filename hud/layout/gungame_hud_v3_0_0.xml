@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.15.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.16.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -32,7 +32,8 @@
   Everything in the two stacks is hittest false, panel by panel and label by label: they can lie over the window's and the board's buttons, and a
   panel takes the mouse for itself otherwise.
 
-  Map thumbnails are classes on a picture panel: the cards' os_m1_thumb ... os_m10_thumb, the card's os_t_thumb and the countdown's os_k_thumb. Two per
+  Map thumbnails are classes on a picture panel: the cards' os_m1_thumb ... os_m12_thumb, the card's os_t_thumb, the countdown's os_k_thumb and, on HISTORY
+  and STATS (content v4.16.0), the four pictures over the pages (os-pics), whose ids every content in use has. Two per
   picture, th(n / 64) and tl(n % 64), n being the map's number in bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024
   class names per layout entity). Each pair is a rule in gungame_hud_thumbs.css that points at a JPEG in the addon (or at the game's own picture of an
   official map), and it sets the picture alone: how it fills its panel is that panel's own rule.
@@ -171,10 +172,6 @@
 
 				<!-- 2. The window: the full menu -->
 				<Panel class="os-dim" hittest="false" />
-				<!-- Beyond our box, at a match end with the window open, for a HUD pulled in from the screen's edges (CS2's HUD Edge Positions): the band left of the
-				     column covers CS2's end-screen chat, the dim runs on to the right. With the edges at full width both lie off the screen -->
-				<Panel class="os-edge-l" hittest="false" />
-				<Panel class="os-edge-r" hittest="false" />
 				<Panel class="os-win" hittest="true">
 					<Panel class="os-win-rule" />
 
@@ -197,7 +194,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.15.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.16.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -222,11 +219,9 @@
 						<Button id="os_tab_how" class="os-tab"><Label class="os-tab-text" text="How it works" /></Button>
 					</Panel>
 
-					<!-- The old sub-tab bar's other buttons, its caption and the Vote sub-tab's label with its seconds keep their ids and words here, out of sight -->
+					<!-- The old sub-tab bar's caption and the Vote sub-tab's label with its seconds keep their words here, out of sight; its buttons' ids are the
+					     pictures' over HISTORY and STATS since content v4.16.0 (os-pics) -->
 					<Panel class="os-subs">
-						<Button id="os_tab_server" class="os-stab"><Label class="os-stab-text" text="Server" /></Button>
-						<Button id="os_sub_fun" class="os-stab"><Label class="os-stab-text" text="Settings" /></Button>
-						<Button id="os_sub_help" class="os-stab"><Label class="os-stab-text" text="Help" /></Button>
 						<Label class="os-stab-text" text="{s:osvtab}" />
 						<Label class="os-subcap" text="{s:ossub}" />
 					</Panel>
@@ -316,7 +311,7 @@
 											<Label id="os_q_text" class="os-search-text" text="{s:text}" />
 											<Label class="os-search-typing" text="Type a map name, then press Enter" />
 										</Button>
-										<Button id="os_q_clear" class="os-search-clear"><Panel class="os-x os-x-a" /><Panel class="os-x os-x-b" /></Button>
+										<Button id="os_q_clr" class="os-search-clear"><Panel class="os-x os-x-a" /><Panel class="os-x os-x-b" /></Button>
 									</Panel>
 								</Panel>
 								<Panel class="os-mbar os-mbar-filters">
@@ -789,11 +784,11 @@
 								</Panel>
 							</Panel>
 
-							<!-- HISTORY (content v4.15.0): every match a human was in, newest first, four wide cards a page - the map's picture, when it ran and how long, how it
-							     ended, everyone who joined, how often the map has been played and a fun line; its likes now with the player's own Like and Dislike, and Vote for
-							     it, the browser's Play for that map. A line typed in chat while it shows searches the matches by map or player (hquery; Clear in the hint's
-							     place). The words are variables on os_screen (osh1n ... osh4a), the state classes on the cards (os_h1 ... os_h4) and on os_screen (h*); the buttons take clicks
-							     only, so CS2 keeps no name for them. -->
+							<!-- HISTORY (content v4.15.0; v4.16.0 without ids the server names): every match a human was in, newest first, four wide cards a page - the map's
+							     picture, when it ran and how long, how it ended, everyone who joined, how often the map has been played and a fun line; its likes now with the
+							     player's own Like and Dislike, and Vote for it, the browser's Play for that map. A line typed in chat while it shows searches the matches by map or
+							     player (hquery; Clear in the hint's place). The words are variables on os_screen (osh1n ... osh4a), a card's state classes on os_screen too
+							     (h1-used ... h4-mine) and the page's (h*); a card's picture is the layer's over the pages (os-pics); the buttons take clicks only. -->
 							<Panel class="os-page os-page-history">
 								<Panel class="os-mbar os-hbar">
 									<Label class="os-mbar-label" text="Mode" />
@@ -810,15 +805,9 @@
 									<Label class="os-hcount" text="{s:oshcount}" />
 								</Panel>
 								<Panel class="os-hlist">
-									<Panel id="os_h1" class="os-hcard">
+									<Panel class="os-hcard os-hcard-1">
 										<Panel class="os-hband" />
-										<Panel id="os_h1_thumb" class="os-hthumb">
-											<Panel class="os-hthumb-shade" />
-											<Label class="os-hmode os-hmode-armsrace" text="Arms Race" />
-											<Label class="os-hmode os-hmode-deathmatch" text="Deathmatch" />
-											<Label class="os-hmode os-hmode-wingman" text="Wingman" />
-											<Label class="os-htag os-htag-now" text="On now" />
-										</Panel>
+										<Panel class="os-hthumb" />
 										<Panel class="os-hbody">
 											<Panel class="os-hhead"><Label class="os-hname" text="{s:osh1n}" /><Label class="os-htag os-htag-official" text="Official" /><Label class="os-hsize" text="{s:osh1s}" /></Panel>
 											<Label class="os-hwhen" text="{s:osh1w}  ·  {s:osh1d}" />
@@ -836,15 +825,9 @@
 											<Label class="os-hmine" text="You played in it" />
 										</Panel>
 									</Panel>
-									<Panel id="os_h2" class="os-hcard">
+									<Panel class="os-hcard os-hcard-2">
 										<Panel class="os-hband" />
-										<Panel id="os_h2_thumb" class="os-hthumb">
-											<Panel class="os-hthumb-shade" />
-											<Label class="os-hmode os-hmode-armsrace" text="Arms Race" />
-											<Label class="os-hmode os-hmode-deathmatch" text="Deathmatch" />
-											<Label class="os-hmode os-hmode-wingman" text="Wingman" />
-											<Label class="os-htag os-htag-now" text="On now" />
-										</Panel>
+										<Panel class="os-hthumb" />
 										<Panel class="os-hbody">
 											<Panel class="os-hhead"><Label class="os-hname" text="{s:osh2n}" /><Label class="os-htag os-htag-official" text="Official" /><Label class="os-hsize" text="{s:osh2s}" /></Panel>
 											<Label class="os-hwhen" text="{s:osh2w}  ·  {s:osh2d}" />
@@ -862,15 +845,9 @@
 											<Label class="os-hmine" text="You played in it" />
 										</Panel>
 									</Panel>
-									<Panel id="os_h3" class="os-hcard">
+									<Panel class="os-hcard os-hcard-3">
 										<Panel class="os-hband" />
-										<Panel id="os_h3_thumb" class="os-hthumb">
-											<Panel class="os-hthumb-shade" />
-											<Label class="os-hmode os-hmode-armsrace" text="Arms Race" />
-											<Label class="os-hmode os-hmode-deathmatch" text="Deathmatch" />
-											<Label class="os-hmode os-hmode-wingman" text="Wingman" />
-											<Label class="os-htag os-htag-now" text="On now" />
-										</Panel>
+										<Panel class="os-hthumb" />
 										<Panel class="os-hbody">
 											<Panel class="os-hhead"><Label class="os-hname" text="{s:osh3n}" /><Label class="os-htag os-htag-official" text="Official" /><Label class="os-hsize" text="{s:osh3s}" /></Panel>
 											<Label class="os-hwhen" text="{s:osh3w}  ·  {s:osh3d}" />
@@ -888,15 +865,9 @@
 											<Label class="os-hmine" text="You played in it" />
 										</Panel>
 									</Panel>
-									<Panel id="os_h4" class="os-hcard">
+									<Panel class="os-hcard os-hcard-4">
 										<Panel class="os-hband" />
-										<Panel id="os_h4_thumb" class="os-hthumb">
-											<Panel class="os-hthumb-shade" />
-											<Label class="os-hmode os-hmode-armsrace" text="Arms Race" />
-											<Label class="os-hmode os-hmode-deathmatch" text="Deathmatch" />
-											<Label class="os-hmode os-hmode-wingman" text="Wingman" />
-											<Label class="os-htag os-htag-now" text="On now" />
-										</Panel>
+										<Panel class="os-hthumb" />
 										<Panel class="os-hbody">
 											<Panel class="os-hhead"><Label class="os-hname" text="{s:osh4n}" /><Label class="os-htag os-htag-official" text="Official" /><Label class="os-hsize" text="{s:osh4s}" /></Panel>
 											<Label class="os-hwhen" text="{s:osh4w}  ·  {s:osh4d}" />
@@ -925,11 +896,11 @@
 								</Panel>
 							</Panel>
 
-							<!-- STATS (content v4.15.0): the server's numbers - the head's line and the maps new this week, the viewing player's own line, and three columns of tiles:
-							     the maps played most (the first's picture, a bar each), the modes' shares and the crashes; the maps voted for most, liked most (the first's picture) and
-							     least; the players' records, the matches' and the fun ones. Every word a variable (osst*, ossr*, ossm*, ossf*, ossy*), on os_screen or os_global; a row
-							     that may have nothing yet (the players' 6 and 7, every fun record) shows by its class on os_screen (str6, str7, stf1 ... stf6); only the bars' and the
-							     pictures' panels are named, for the classes the server puts on them. -->
+							<!-- STATS (content v4.15.0; v4.16.0 without ids the server names): the server's numbers - the head's line and the maps new this week, the viewing
+							     player's own line, and three columns of tiles: the maps played most (the first's picture, a bar each), the modes' shares and the crashes; the maps
+							     liked most (the first's picture), voted for most and liked least; the players' records, the matches' and the fun ones. Every word a variable (osst*,
+							     ossr*, ossm*, ossf*, ossy*), on os_screen or os_global; a row that may have nothing yet shows by its class (str6, str7, stf1 ... stf6), a bar's step
+							     by four classes on os_global (stp2-1 ... stmwm-8: its bits), the two pictures in the layer over the pages (os-pics). -->
 							<Panel class="os-page os-page-stats">
 								<Panel class="os-mbar os-sthead">
 									<Label class="os-sthead-text" text="{s:osst}" />
@@ -950,18 +921,18 @@
 									<Panel class="os-stcol">
 										<Panel class="os-sttile">
 											<Label class="os-sttile-title" text="Most played" />
-											<Panel id="os_st_pic1" class="os-sthero"><Panel class="os-sthero-shade" /><Label class="os-sthero-name" text="{s:osstp1n}" /><Label class="os-sthero-value" text="{s:osstp1v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="1" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp1n}" /><Panel id="os_st_bar1" class="os-stbar"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp1v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="2" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp2n}" /><Panel id="os_st_bar2" class="os-stbar"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp2v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="3" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp3n}" /><Panel id="os_st_bar3" class="os-stbar"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp3v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="4" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp4n}" /><Panel id="os_st_bar4" class="os-stbar"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp4v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="5" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp5n}" /><Panel id="os_st_bar5" class="os-stbar"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp5v}" /></Panel>
+											<Panel class="os-sthero" />
+											<Panel class="os-strow"><Label class="os-strow-rank" text="1" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp1n}" /><Panel class="os-stbar os-stbar-p1"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp1v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="2" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp2n}" /><Panel class="os-stbar os-stbar-p2"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp2v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="3" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp3n}" /><Panel class="os-stbar os-stbar-p3"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp3v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="4" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp4n}" /><Panel class="os-stbar os-stbar-p4"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp4v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="5" /><Panel class="os-strow-main"><Label class="os-strow-name" text="{s:osstp5n}" /><Panel class="os-stbar os-stbar-p5"><Panel class="os-stbar-fill" /></Panel></Panel><Label class="os-strow-value" text="{s:osstp5v}" /></Panel>
 										</Panel>
 										<Panel class="os-sttile">
 											<Label class="os-sttile-title" text="Modes" />
-											<Panel class="os-strow"><Label class="os-strow-key" text="Arms Race" /><Panel id="os_st_mar" class="os-stbar os-stbar-ar"><Panel class="os-stbar-fill" /></Panel></Panel>
-											<Panel class="os-strow"><Label class="os-strow-key" text="Deathmatch" /><Panel id="os_st_mdm" class="os-stbar os-stbar-dm"><Panel class="os-stbar-fill" /></Panel></Panel>
-											<Panel class="os-strow"><Label class="os-strow-key" text="Wingman" /><Panel id="os_st_mwm" class="os-stbar os-stbar-wm"><Panel class="os-stbar-fill" /></Panel></Panel>
+											<Panel class="os-strow"><Label class="os-strow-key" text="Arms Race" /><Panel class="os-stbar os-stbar-ar"><Panel class="os-stbar-fill" /></Panel></Panel>
+											<Panel class="os-strow"><Label class="os-strow-key" text="Deathmatch" /><Panel class="os-stbar os-stbar-dm"><Panel class="os-stbar-fill" /></Panel></Panel>
+											<Panel class="os-strow"><Label class="os-strow-key" text="Wingman" /><Panel class="os-stbar os-stbar-wm"><Panel class="os-stbar-fill" /></Panel></Panel>
 											<Label class="os-stnote" text="{s:osstmd}" />
 										</Panel>
 										<Panel class="os-sttile">
@@ -973,21 +944,21 @@
 									</Panel>
 									<Panel class="os-stcol os-stcol-mid">
 										<Panel class="os-sttile">
+											<Label class="os-sttile-title" text="Most liked" />
+											<Panel class="os-sthero" />
+											<Panel class="os-strow"><Label class="os-strow-rank" text="1" /><Label class="os-strow-name" text="{s:osstl1n}" /><Label class="os-strow-value" text="{s:osstl1v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="2" /><Label class="os-strow-name" text="{s:osstl2n}" /><Label class="os-strow-value" text="{s:osstl2v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="3" /><Label class="os-strow-name" text="{s:osstl3n}" /><Label class="os-strow-value" text="{s:osstl3v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="4" /><Label class="os-strow-name" text="{s:osstl4n}" /><Label class="os-strow-value" text="{s:osstl4v}" /></Panel>
+											<Panel class="os-strow"><Label class="os-strow-rank" text="5" /><Label class="os-strow-name" text="{s:osstl5n}" /><Label class="os-strow-value" text="{s:osstl5v}" /></Panel>
+										</Panel>
+										<Panel class="os-sttile">
 											<Label class="os-sttile-title" text="Most voted for" />
 											<Panel class="os-strow"><Label class="os-strow-rank" text="1" /><Label class="os-strow-name" text="{s:osstv1n}" /><Label class="os-strow-value" text="{s:osstv1v}" /></Panel>
 											<Panel class="os-strow"><Label class="os-strow-rank" text="2" /><Label class="os-strow-name" text="{s:osstv2n}" /><Label class="os-strow-value" text="{s:osstv2v}" /></Panel>
 											<Panel class="os-strow"><Label class="os-strow-rank" text="3" /><Label class="os-strow-name" text="{s:osstv3n}" /><Label class="os-strow-value" text="{s:osstv3v}" /></Panel>
 											<Panel class="os-strow"><Label class="os-strow-rank" text="4" /><Label class="os-strow-name" text="{s:osstv4n}" /><Label class="os-strow-value" text="{s:osstv4v}" /></Panel>
 											<Panel class="os-strow"><Label class="os-strow-rank" text="5" /><Label class="os-strow-name" text="{s:osstv5n}" /><Label class="os-strow-value" text="{s:osstv5v}" /></Panel>
-										</Panel>
-										<Panel class="os-sttile">
-											<Label class="os-sttile-title" text="Most liked" />
-											<Panel id="os_st_pic2" class="os-sthero os-sthero-small"><Panel class="os-sthero-shade" /><Label class="os-sthero-name" text="{s:osstl1n}" /><Label class="os-sthero-value" text="{s:osstl1v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="1" /><Label class="os-strow-name" text="{s:osstl1n}" /><Label class="os-strow-value" text="{s:osstl1v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="2" /><Label class="os-strow-name" text="{s:osstl2n}" /><Label class="os-strow-value" text="{s:osstl2v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="3" /><Label class="os-strow-name" text="{s:osstl3n}" /><Label class="os-strow-value" text="{s:osstl3v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="4" /><Label class="os-strow-name" text="{s:osstl4n}" /><Label class="os-strow-value" text="{s:osstl4v}" /></Panel>
-											<Panel class="os-strow"><Label class="os-strow-rank" text="5" /><Label class="os-strow-name" text="{s:osstl5n}" /><Label class="os-strow-value" text="{s:osstl5v}" /></Panel>
 										</Panel>
 										<Panel class="os-sttile">
 											<Label class="os-sttile-title" text="Least liked" />
@@ -1653,6 +1624,46 @@
 									<Panel class="os-prow"><Label class="os-pname" text="{s:ospl16a}" /><Label class="os-pteam" text="{s:ospl16b}" /><Panel class="os-phud"><Label class="os-phud-ok" text="{s:ospl16c}" /><Label class="os-phud-old" text="{s:ospl16o}" /><Label class="os-phud-chk" text="{s:ospl16k}" /></Panel><Label class="os-pvote" text="{s:ospl16d}" /><Label class="os-pfor" text="{s:ospl16e}" /></Panel>
 								<Label class="os-plegend" text="A game shows the server its HUD with the HUD check's click: the window's X, after joining." />
 							</Panel>
+
+							<!-- The pictures of HISTORY and STATS (content v4.16.0): four panels over the pages, each where the page that shows wants it - on HISTORY card k's
+							     picture with the card's mode and On now (h1-* ... h4-* on os_screen), on STATS the most played map's and the most liked one's with their names and
+							     counts. Their ids are panels every content in use has - the old sub-tab bar's three buttons and the search's first Clear - so the server names no
+							     panel an older content lacks (CS2 keeps one list of the ids it was given per map, and every game looks up all of it); they get a map's picture
+							     classes only per viewer. Last of the pages, so drawn over them; they take no mouse. -->
+							<Panel class="os-pics" hittest="false">
+								<Panel id="os_tab_server" class="os-pic os-pic-1" hittest="false">
+									<Panel class="os-pic-shade" hittest="false" />
+									<Label class="os-hmode os-hmode-armsrace" hittest="false" text="Arms Race" />
+									<Label class="os-hmode os-hmode-deathmatch" hittest="false" text="Deathmatch" />
+									<Label class="os-hmode os-hmode-wingman" hittest="false" text="Wingman" />
+									<Label class="os-htag os-htag-now" hittest="false" text="On now" />
+									<Label class="os-sthero-name" hittest="false" text="{s:osstp1n}" />
+									<Label class="os-sthero-value" hittest="false" text="{s:osstp1v}" />
+								</Panel>
+								<Panel id="os_sub_fun" class="os-pic os-pic-2" hittest="false">
+									<Panel class="os-pic-shade" hittest="false" />
+									<Label class="os-hmode os-hmode-armsrace" hittest="false" text="Arms Race" />
+									<Label class="os-hmode os-hmode-deathmatch" hittest="false" text="Deathmatch" />
+									<Label class="os-hmode os-hmode-wingman" hittest="false" text="Wingman" />
+									<Label class="os-htag os-htag-now" hittest="false" text="On now" />
+									<Label class="os-sthero-name" hittest="false" text="{s:osstl1n}" />
+									<Label class="os-sthero-value" hittest="false" text="{s:osstl1v}" />
+								</Panel>
+								<Panel id="os_sub_help" class="os-pic os-pic-3" hittest="false">
+									<Panel class="os-pic-shade" hittest="false" />
+									<Label class="os-hmode os-hmode-armsrace" hittest="false" text="Arms Race" />
+									<Label class="os-hmode os-hmode-deathmatch" hittest="false" text="Deathmatch" />
+									<Label class="os-hmode os-hmode-wingman" hittest="false" text="Wingman" />
+									<Label class="os-htag os-htag-now" hittest="false" text="On now" />
+								</Panel>
+								<Panel id="os_q_clear" class="os-pic os-pic-4" hittest="false">
+									<Panel class="os-pic-shade" hittest="false" />
+									<Label class="os-hmode os-hmode-armsrace" hittest="false" text="Arms Race" />
+									<Label class="os-hmode os-hmode-deathmatch" hittest="false" text="Deathmatch" />
+									<Label class="os-hmode os-hmode-wingman" hittest="false" text="Wingman" />
+									<Label class="os-htag os-htag-now" hittest="false" text="On now" />
+								</Panel>
+							</Panel>
 						</Panel>
 
 						<!-- The live column: beside the pages that leave it room -->
@@ -1713,7 +1724,7 @@
 					<Panel class="os-win-foot">
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.15.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.16.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1776,7 +1787,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.15.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.16.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

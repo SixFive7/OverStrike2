@@ -229,7 +229,7 @@ static partial class Program
         var xml = Regex.Replace(File.ReadAllText(HudLayoutFile), "<!--.*?-->", "", RegexOptions.Singleline);
         var css = Regex.Replace(File.ReadAllText(HudStyleFile), @"/\*.*?\*/", "", RegexOptions.Singleline);
         var from = xml.IndexOf("class=\"os-page os-page-sync\"", StringComparison.Ordinal);
-        var to = xml.IndexOf("class=\"os-live\"", StringComparison.Ordinal);
+        var to = new[] { "class=\"os-pics\"", "class=\"os-live\"" }.Select(m => xml.IndexOf(m, StringComparison.Ordinal)).Where(i => i > from).DefaultIfEmpty(-1).Min(); // the pages' pictures (content v4.16.0), or the live column
         var syncPage = from > 0 && to > from ? xml[from..to] : "";
         var labelled = Regex.Matches(syncPage, @"\{s:(osd[a-z0-9]+)\}").Select(m => m.Groups[1].Value).ToHashSet();
         var everywhere = Regex.Matches(xml, @"\{s:(osd[a-z0-9]+)\}").Select(m => m.Groups[1].Value).ToHashSet();
