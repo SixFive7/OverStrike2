@@ -164,19 +164,22 @@ sealed partial class HudScreen
     }
 
     /// <summary>!play &lt;map&gt;: a number is a map's rank (its !map); a Workshop id no listed map has opens its card (the menu's download);
-    /// an official map's name is that map; words are a search - one clear best match is played, otherwise the browser opens on them.</summary>
+    /// an official map's name is that map; words are a search - one clear best match is played, otherwise the browser opens on them. The map plays in the
+    /// mode its card's Play would load it in (B7): the player's browser's mode filter when that mode has it, else the server's, else its first (O2, the
+    /// lab round on rel-220: with the browser's Deathmatch filter on, a typed !play played in the server's mode, Wingman).</summary>
     void Play(CCSPlayerController player, long account, string what, Action<string> say, Action<string> bridge)
     {
         var q = what.Trim();
         if (WorkshopCard.IdOf(q) is { } wid && catalog?.Maps.All(m => m.Id != wid) == true && q.Length > 6) { OpenWorkshop(player, wid); say(ChatReply.CardOpen); return; }
         if (catalog == null) { say(ChatReply.ListLoading); return; }
+        var filter = Player(player.Slot).Browser.Mode; // the browser's mode filter, as its own Play takes it
         var exact = catalog.Maps.FirstOrDefault(m => m.Arg.Equals(q, StringComparison.OrdinalIgnoreCase) || m.Id.ToString(CultureInfo.InvariantCulture) == q
             || m.Name.Equals(q, StringComparison.OrdinalIgnoreCase));
-        if (exact != null) { bridge($"!map {HudMenu.PlayArg(exact, "", mode.Id)}"); return; } // in the mode a card's Play would load it in (B7)
+        if (exact != null) { bridge($"!map {HudMenu.PlayArg(exact, filter, mode.Id)}"); return; }
         var browser = new HudBrowser();
         browser.Find(q);
         var hits = browser.Matches(catalog, account, search);
-        if (hits.Count == 1) { bridge($"!map {HudMenu.PlayArg(hits[0], "", mode.Id)}"); return; }
+        if (hits.Count == 1) { bridge($"!map {HudMenu.PlayArg(hits[0], filter, mode.Id)}"); return; }
         Menu(player, q);
         say(hits.Count == 0 ? ChatReply.NoMatch(q) : ChatReply.Matches(hits.Count));
     }

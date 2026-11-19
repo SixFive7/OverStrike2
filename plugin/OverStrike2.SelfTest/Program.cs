@@ -499,6 +499,13 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !hudClicks.Contains("HistoryButton", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
           && historyChat.Contains("|| HistoryOpen(player), VoteOpen);", StringComparison.Ordinal) && historyChat.Contains("Player(player.Slot).History.Find(words);", StringComparison.Ordinal),
         "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs; MAPS' old History button is gone, its click with it) - and a chat line typed while it shows searches it");
+    // O2 (the lab round on rel-220): a typed !play plays its map in the mode its card's Play would load it in - the browser's mode filter first
+    var playChat = Source("plugin", "OverStrike2", "HudScreenChat.cs");
+    Check(playChat.Contains("var filter = Player(player.Slot).Browser.Mode;", StringComparison.Ordinal)
+          && playChat.Contains("bridge($\"!map {HudMenu.PlayArg(exact, filter, mode.Id)}\");", StringComparison.Ordinal)
+          && playChat.Contains("bridge($\"!map {HudMenu.PlayArg(hits[0], filter, mode.Id)}\");", StringComparison.Ordinal)
+          && !playChat.Contains("PlayArg(exact, \"\"", StringComparison.Ordinal) && !playChat.Contains("PlayArg(hits[0], \"\"", StringComparison.Ordinal),
+        "HUD: a typed !play plays its map in the mode its card's Play would load it in - the browser's mode filter when that mode has it, else the server's, else its first (O2)");
     // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
     var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");
