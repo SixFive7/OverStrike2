@@ -45,8 +45,9 @@ public sealed class EarlyJoin
     /// with mp_warmup_start, held with EndWarmUpNever and ended with mp_warmup_end, which only Wingman's mode rules take (CS2's server.dll: the mp_warmup_end
     /// command asks the mode rules, and CCSGameModeRules_ArmsRace's and _Deathmatch's say no - "mp_warmup_end not supported for current game mode", the
     /// live lab's run of 2026-11-19 on 83ab552 too). Restart: no CS2 warm-up - the match itself is the waiting time, with the same rule, banner and most, and
-    /// one restart (os_restart) begins the real match; a match end during it (an Arms Race win, its length run out) is no match end: its next match is the
-    /// real one (the bridge's WarmUp.cs). Off: none, the match is on at once.</summary>
+    /// one restart (os_restart) begins the real match; it never lets its match end once somebody has spawned (EndBeforeSeconds), and a match end in it all the
+    /// same is no match end: its next match is the real one (the bridge's WarmUp.cs) - or, nobody having spawned yet, the waiting time still. Off: none, the
+    /// match is on at once.</summary>
     public const string Native = "native", Restart = "restart", Off = "off";
 
     /// <summary>CS2's own warm-up clock (mp_warmuptime) until somebody spawns: an empty map sits in its warm-up, never in a match nobody started - the bridge's
@@ -62,10 +63,21 @@ public sealed class EarlyJoin
     /// Race warm-up in the live lab of 2026-11-19 - not this, not mp_warmup_end, not CS2's own clock - which is why Arms Race restarts (Restart).</summary>
     public const int EndWarmUpNow = 0;
 
-    /// <summary>CS2 leaving its warm-up by itself this soon after the first spawn - not at its clock's end, not at the bridge's word - is begun again by the
-    /// plugin, once a map, its clock still running from that spawn; later, or a second time, it is the end and the match runs as CS2 has it. The bridge waits
-    /// a few looks for that before it calls the match on (WarmUp.cs).</summary>
+    /// <summary>CS2 leaving its warm-up by itself this soon after a human's first spawn on the map - not at its clock's end, not at the bridge's word - is begun
+    /// again by the plugin, its clock still running from the map's first spawn: in Wingman CS2 left it 0.0-0.7 s after every first spawn (the live lab on
+    /// 5794269, 2026-11-19), so a few times a map (EarlyJoinWatch's AgainAfterSpawnMost, 3); later, or past those, it is the end and the match runs as CS2 has
+    /// it. The bridge waits a few looks for that before it calls the match on (WarmUp.cs), from the newest spawn it saw.</summary>
     public const int EarlyLeaveSeconds = 10;
+
+    /// <summary>The restart kind's waiting time never lets its match end: a match end there leaves no way to keep the real match on its sides - ending the
+    /// match-end screen on the same map moves every human to Unassigned and kicks every bot, and the game ignores a restart while the screen is up (the live
+    /// lab's findings on 5.15.1, 2026-11-12; Arms Race's E7 on 5794269, 2026-11-19). So once somebody has spawned, the plugin ends the waiting time - its one
+    /// restart, the real match on its sides with a full clock - when its round's clock has this little left, or, in Arms Race, the moment a player holds
+    /// LastWeapon, one knife kill from the win (EarlyJoinWatch).</summary>
+    public const int EndBeforeSeconds = 10;
+
+    /// <summary>Arms Race's last weapon, the golden knife: a player who holds it wins the match with their next knife kill.</summary>
+    public const string LastWeapon = "weapon_knifegg";
 
     /// <summary>The plugin's server command (EarlyJoinWatch): os_warmup says where the warm-up stands (its first line WarmUpReply's), os_warmup start begins one,
     /// os_warmup end ends it - the real match starts - and os_warmup bridge is the bridge telling it whom its log stream has signing on (BridgeViewCommand).</summary>
@@ -133,19 +145,31 @@ public sealed class EarlyJoin
     public static string WarmUpReply(bool on, double? sinceFirstSpawn, int spawned, double? left = null) => string.Create(System.Globalization.CultureInfo.InvariantCulture,
         $"{WarmUpCommand}: {(on ? "on" : "off")} {(sinceFirstSpawn is { } s ? Math.Max(0, (int)s) : -1)} {Math.Max(0, spawned)} {(on && left is { } l ? Math.Max(0, l).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : "-1")}");
 
-    /// <summary>os_warmup's first line read back, or null when the reply has none: no answer, or a plugin without the command ("Unknown command"). A line without
-    /// the clock's field says no latest start.</summary>
+    /// <summary>os_warmup's first line read back, or null when the reply has none: no answer, an empty one, or one of other console output only - the game's
+    /// own lines can come with it (OnPreResetRound => CTMDBG ..., the live lab on 5794269), before it or even on its line, so the line is looked for wherever
+    /// "os_warmup: " starts a reading of it. A line without the clock's field says no latest start.</summary>
     public static WarmUpState? ReadWarmUp(string? reply)
     {
         if (reply == null) return null;
-        var line = reply.Replace("\r", "").Split('\n').FirstOrDefault(l => l.StartsWith(WarmUpCommand + ": ", StringComparison.Ordinal));
-        var f = line?[(WarmUpCommand.Length + 2)..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var key = WarmUpCommand + ": ";
+        foreach (var text in reply.Replace("\r", "").Split('\n'))
+            for (var at = text.IndexOf(key, StringComparison.Ordinal); at >= 0; at = text.IndexOf(key, at + key.Length, StringComparison.Ordinal))
+                if (ReadWarmUpFields(text[(at + key.Length)..].Split(' ', StringSplitOptions.RemoveEmptyEntries)) is { } state) return state;
+        return null;
+    }
+
+    static WarmUpState? ReadWarmUpFields(string[] f)
+    {
         if (f is not { Length: >= 3 } || f[0] is not ("on" or "off")) return null;
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         if (!int.TryParse(f[1], System.Globalization.NumberStyles.AllowLeadingSign, ci, out var since) || !int.TryParse(f[2], System.Globalization.NumberStyles.None, ci, out var spawned)) return null;
         double? left = f.Length >= 4 && double.TryParse(f[3], System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowDecimalPoint, ci, out var l) && l >= 0 ? l : null;
         return new(f[0] == "on", since >= 0 ? since : null, spawned, left);
     }
+
+    /// <summary>A reply that says the server has no such command - the game's "Unknown command 'os_warmup'!": the one answer that means a plugin without it.</summary>
+    public static bool UnknownCommand(string? reply, string command) =>
+        reply != null && reply.Replace("\r", "").Split('\n').Any(l => l.Contains("Unknown command", StringComparison.OrdinalIgnoreCase) && l.Contains(command, StringComparison.Ordinal));
 
     /// <summary>A human in the server's own client list (status's players table): the name, and the state as the server has it - "active" once in the game,
     /// "connecting" from the connect until then (CS2's first-download prompt, the download, the map's load, a map change's reconnect).</summary>

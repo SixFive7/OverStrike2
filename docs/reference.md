@@ -603,20 +603,33 @@ Anybody may change the length and press the two restarts, on the Game page or in
   renewed while nobody spawns) - and at the first human's spawn sets `mp_warmuptime` to end 120 s after it: from now, should a change restart CS2's count as
   CS:GO's did, or from the warm-up's start, as the next look sees; a clock more than a second off is set again, three times on a map at the most. It ends it
   with `mp_warmup_end`, which only Wingman's mode rules take: CS2's command asks the mode's rules, and Arms Race's and Deathmatch's answer "mp_warmup_end not
-  supported for current game mode" (CS2's server.dll; the live lab found nothing that ended a held Arms Race warm-up). Should CS2 leave it by itself before
-  anybody has spawned, the plugin begins it again, three times on a map at the most, and within 10 s of the first spawn (`EarlyJoin.EarlyLeaveSeconds`) once,
-  its clock still from that spawn - the bridge waits 5 s for that before it calls the match on; later, or a second time, an end is the end. The block keeps
+  supported for current game mode" (CS2's server.dll; the live lab found nothing that ended a held Arms Race warm-up). The plugin's log gives the clock from
+  when it counts: "CS2's clock set to 119 s from now" a second after the first spawn is the 120 s from that spawn. Should CS2 leave it by itself before
+  anybody has spawned, the plugin begins it again, three times on a map at the most; within 10 s of a human's first spawn (`EarlyJoin.EarlyLeaveSeconds`) three
+  times on a map too, its clock still from the map's first spawn - in Wingman CS2 left it 0.0-0.7 s after every first spawn (the live lab on 5794269) - and
+  the bridge waits 5 s for that before it calls the match on; later, or past those, an end is the end. The block keeps
   `mp_warmup_pausetimer` at 0. **Restart** (Arms Race, Deathmatch): no CS2 warm-up - the match itself is the waiting time, with the same rule, banner and most,
-  and its end is one restart (`os_restart 1`, the plugin's own, which the restart guard lets through): the ladder and the scores start over. A match end during
-  it - an Arms Race win, its length run out - is no match end: no vote, the plugin's warm-up ends, and the bridge cuts the match-end screen short
-  (`os_nextmatch`), so the next match on the map is the real one ("The match starts now - The warm-up's win does not count"). The plugin keeps its warm-up on
+  and its end is one restart (`os_restart 1`, the plugin's own, which the restart guard lets through): the ladder and the scores start over, everybody on their
+  side, a round running (Arms Race's game log says `Restart_Round_(1_second)`, no `Match_Start`). **It never lets its match end** once somebody has spawned:
+  a match end leaves no way to keep the real match on its sides - ending the match-end screen on the same map moves every human to Unassigned and kicks every
+  bot, and the game ignores a restart while the screen is up (the live lab on 5.15.1; Arms Race's E7 on 5794269 left the client at the team select with no
+  round) - so the plugin ends the waiting time, its one restart, when its round's clock has **10 s** left (`EarlyJoin.EndBeforeSeconds`), or in Arms Race the
+  moment a player holds the golden knife (`EarlyJoin.LastWeapon`), one knife kill from the win. A match end in it all the same (a win between two looks) is no
+  match end: no vote, the plugin's warm-up ends, and the bridge cuts the match-end screen short (`os_nextmatch`), so the next match on the map is the real one
+  ("The match starts now - The warm-up's win does not count"), everybody at CS2's team select as after Play this map again. The plugin keeps its warm-up on
   through the match-end screen until that word, so the bridge sees the match end before it sees the warm-up off; with no word it ends as the next match begins.
-  A vote already open, or a map change counting down, decides what comes next as at any match end, the warm-up ended all the same. CS2's own warm-up text
-  never shows there. **Either way** the plugin ends it at the bridge's word (`os_warmup end`) and itself at the latest start, and looks each second until the
+  A vote already open, or a map change counting down, decides what comes next as at any match end, the warm-up ended all the same. Before anybody has spawned
+  a match end is no match at all - an empty map's match run out (Deathmatch's every 10 minutes): the waiting time goes on into the next match, the plugin's
+  and the bridge's, with no line. CS2's own warm-up text never shows there. **Either way** the plugin ends it at the bridge's word (`os_warmup end`) and itself at the latest start, and looks each second until the
   end has come - the restart's round start, CS2's warm-up off - pressing again after 5 s (`EarlyJoin.EndStepSeconds`: the restart again, or the count down to 0 with
   `mp_warmup_end`), again after 10 s, and giving up with a log line after 20 s; the bridge says the match is on once a look finds it ended, asks again 10 s
   on, and asks itself should nothing have ended it 10 s past the latest start. Every start and end of CS2's warm-up shows in the plugin's log, the console's
-  `mp_warmup_start` and `mp_warmup_end` among them.
+  `mp_warmup_start` and `mp_warmup_end` among them. **The bridge's looks:** a reply to `os_warmup` it cannot read - empty, or the game's own console lines
+  (`OnPreResetRound => CTMDBG ...`) - is no answer, asked again a second later; it stops following the warm-up on a map only at the game's "Unknown command"
+  (a plugin without it), after 5 unread replies in a row (`WarmUpUnreadMost`) or 30 s with no answer, and never while the last reply it read said on - the
+  live lab on 5794269 lost Deathmatch's warm-up to one such reply, and Wingman's 11 s before its end. The line is looked for wherever it starts in the reply.
+  A map change the bridge has not heard of yet - the plugin's map has nobody spawned on it while the bridge followed a spawn - ends the warm-up it followed with
+  no line, and the new map's is followed.
   Catch-up counts nothing in CS2's warm-up, and a match length set during it is the match's after it (`From this match on`); in the restart kind's waiting
   time both act as in any match, catch-up starting over at the restart as the ladder does, and the length set staying for the real match. **Team
   damage:** in Arms Race and Wingman a teammate's hit hurts at least as an enemy's does while it runs (`EarlyJoin.TeamDamage`) - at its begin the plugin turns
@@ -788,7 +801,8 @@ dislike. The health page counts the marks per reason. The answer to a plain Disl
 Every match a human was in, kept for good in `history.jsonl` in the bridge's data folder: one JSON object a line, oldest first (`HudHistory.ToJsonLine`) - `start`
 and `end` in the server's local time with their offset; `map` (`id`, the Workshop id, 0 for an official map or one not known; `name`, the name the server showed;
 `log`, the name the game logged); `mode`; `endedBy` (`match end`, `map change`, `server start`, `server stop`, `restart`, `not known`); `score` (Wingman's final
-score, when it has one); `players` (each human's `account`, the `name` they had then, their `seconds` in it, when they were `first` in it, and their frags where
+score, when it has one); `players` (each human's `account`, the `name` the server showed them by then - their chat lines' and clicks', which the lab's test name
+on a copy reaches and the game's connect line never does - their `seconds` in it, when they were `first` in it, and their frags where
 they were recorded: `k` kills, bots too, `d` deaths, their own suicides among them, `a` assists, `hs` head shots, `knife`, `taser`, `noscope`, `wall` (the game's
 `penetrated`) and `air` kills, `chickens`, `suicides`, `far` the longest kill in metres, `streak` the best run of kills without a death, `frags: 0` for one who had
 none); `missing` (what the record does not know: `start`, `end`, `map id`, `players`, `times`); `source` (`live` or `backfill`); `most`, the most humans in it at
@@ -801,7 +815,8 @@ off, or the restart's round start) - the map's own start where it had none (a pl
 the vote plays it again - to the first of: its end screen (CS2's `Game Over`, which also gives its mode and Wingman's score), a map change, a player's Restart
 match after its first minute, the server going down, or a hole in the record (the bridge down: a short one leaves the match on, its players and times not
 known in full; a long one ends it where the record stopped). A map that ends during its warm-up - a change, a restart, everybody gone - is no match, nor is a
-match end during it, the restart kind's waiting time won or run out (the bridge saw the warm-up on): the next match on the map, from that end, is the real one.
+match end during it, the restart kind's waiting time won or run out (the bridge saw the warm-up on): the next match on the map, from that end, is the real one -
+unless nobody had spawned, or nobody was in (an empty map's match run out): then the waiting time goes on, and the real match counts from the warm-up's end.
 A match end the record finds in the warm-up when the bridge saw none on - its end gone by unseen - is kept, from the map's start (`missing: start`). Its
 humans are everybody who entered the game during it - whoever joined during the warm-up from its end on - and everybody still in from the match before it, each
 with their time in it. Their frags come from the game's kill lines, which the rest of the bridge does not read and which are never logged (`LogFrag`): a kill

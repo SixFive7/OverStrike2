@@ -20,6 +20,8 @@ static partial class Program
     static int WarmUpLooks;
     static DateTime? WarmUpOffSince;
     static bool WarmUpTickDue;
+    static int WarmUpUnread;              // replies to os_warmup in a row it could not read (WarmUpUnreadMost)
+    static DateTime? WarmUpNewestSpawn;   // the look that saw the spawned count rise last: a human's first spawn, which CS2 may leave its warm-up soon after
 
     /// <summary>The bridge asked the plugin to end the warm-up (EndWarmUp): when it last asked, why in the log's words and in the line's, who was still coming, and
     /// how often it has asked. The line for everybody goes out once a look finds CS2's warm-up off.</summary>
@@ -46,10 +48,15 @@ static partial class Program
     /// hears of a client only once it has every addon (ComingState).</summary>
     const int PromptGuessSeconds = 5;
 
-    /// <summary>Off within EarlyJoin.EarlyLeaveSeconds of the first spawn (WarmUpOffSince: the look that found it so) - CS2 leaving its warm-up by itself, which
-    /// the plugin begins again once - the bridge looks this long more before it calls the match on: the plugin's look comes a second after the leave, and CS2
-    /// is back in its warm-up a frame later.</summary>
+    /// <summary>Off within EarlyJoin.EarlyLeaveSeconds of a human's first spawn (WarmUpOffSince: the look that found it so; the map's first, or the newest the
+    /// bridge saw) - CS2 leaving its warm-up by itself, which the plugin begins again - the bridge looks this long more before it calls the match on: the
+    /// plugin's look comes a second after the leave, and CS2 is back in its warm-up a frame later.</summary>
     const int WarmUpOffMost = 5;
+
+    /// <summary>Replies to os_warmup in a row the bridge cannot read - empty, or the game's own console lines only - before it stops following the warm-up on the
+    /// map, and never while the last one it read said on: such a reply is no answer, asked again a second later. Only the game's "Unknown command" - a plugin
+    /// without os_warmup - stops it at once (the live lab on 5794269, 2026-11-19: an empty reply, and one full of other output, stopped it mid-warm-up).</summary>
+    const int WarmUpUnreadMost = 5;
 
     /// <summary>A map's start (OnMapStart): a new warm-up to look for.</summary>
     static void WarmUpAtMapStart()
@@ -60,7 +67,8 @@ static partial class Program
     }
 
     /// <summary>The warm-up over, or the server going down: nothing to follow.</summary>
-    static void WarmUpOver() => (WarmUpSince, WarmUpFirstSpawn, WarmUpEnd, WarmUpAllInSince, WarmUpComing, WarmUpSpawned, WarmUpOnNow, WarmUpLooks, WarmUpOffSince, WarmUpEnding) = (null, null, null, null, [], 0, false, 0, null, null);
+    static void WarmUpOver() => (WarmUpSince, WarmUpFirstSpawn, WarmUpEnd, WarmUpAllInSince, WarmUpComing, WarmUpSpawned, WarmUpOnNow, WarmUpLooks, WarmUpOffSince, WarmUpEnding, WarmUpUnread, WarmUpNewestSpawn)
+        = (null, null, null, null, [], 0, false, 0, null, null, 0, null);
 
     static void WarmUpTickSoon()
     {
@@ -80,8 +88,13 @@ static partial class Program
     /// over RCON, and the live state should not change each second for nothing.</summary>
     static DateTime Steady(DateTime? before, DateTime now) => before is { } b && Math.Abs((now - b).TotalSeconds) < 1.5 ? b : now;
 
+    /// <summary>A reply the bridge cannot read, for its log: on one line, clipped.</summary>
+    static string UnreadExcerpt(string reply) => reply.Trim().Length == 0 ? "(empty)" : $"\"{Clip(reply.Trim().Replace("\r", "").Replace('\n', ' '), 160)}\"";
+
     /// <summary>A look a second: where the plugin's warm-up stands, who is coming, and whether it ends now - everybody in (two humans at least) and settled; CS2's
-    /// own end not come WarmUpLateSeconds past its moment; or a warm-up nobody can say a first spawn of. Off again after somebody spawned: over (WarmUpGone).</summary>
+    /// own end not come WarmUpLateSeconds past its moment; or a warm-up nobody can say a first spawn of. Off again after somebody spawned: over (WarmUpGone) -
+    /// unless the plugin's map has nobody spawned on it any more (a map change the bridge has not heard of yet: over, with no line). A reply it cannot read is no
+    /// answer (WarmUpUnreadMost).</summary>
     static void WarmUpTick()
     {
         WarmUpTickDue = false;
@@ -90,21 +103,35 @@ static partial class Program
         if (LoadPending || PresentIds(now).Count == 0 && SigningOnNames(now).Count == 0) { WarmUpTickSoon(); return; } // a map loading answers RCON late or not at all; nobody on: nothing to follow it for
         var reply = Send(EarlyJoin.WarmUpCommand);
         var state = EarlyJoin.ReadWarmUp(reply);
-        if (state == null && reply != null) // an answer that is none of os_warmup's: a plugin without it - no warm-up, and no more asking on this map
+        if (state == null && EarlyJoin.UnknownCommand(reply, EarlyJoin.WarmUpCommand)) // the game's "Unknown command": a plugin without os_warmup - no warm-up, and no more asking on this map
         {
             Log($"warm-up: the plugin does not answer {EarlyJoin.WarmUpCommand} - no warm-up on this map");
             WarmUpOver();
             MatchHistory.NoWarmUp(); // History.cs: the match counts from the map's start
             return;
         }
-        if (state == null) // no answer: asked again, and given up after as many looks as a warm-up has to begin (an answer that finds it on gives them back)
-        {
-            if (--WarmUpLooks > 0) { WarmUpTickSoon(); return; }
-            Log($"warm-up: no answer to {EarlyJoin.WarmUpCommand} for {WarmUpFindSeconds} s - not followed on this map");
+        if (state == null) // no answer, an empty one, or one it cannot read: asked again a second later - given up after WarmUpUnreadMost unread replies, or as many
+        {                  // looks as a warm-up has to begin with no answer, and never while the last answer it read said on (an answer that finds it on gives them back)
+            if (reply != null && ++WarmUpUnread == 1) Log($"warm-up: a reply to {EarlyJoin.WarmUpCommand} it cannot read - asked again: {UnreadExcerpt(reply)}");
+            if (WarmUpOnNow || (reply != null ? WarmUpUnread < WarmUpUnreadMost : --WarmUpLooks > 0)) { WarmUpTickSoon(); return; }
+            Log(reply != null ? $"warm-up: {WarmUpUnread} replies to {EarlyJoin.WarmUpCommand} in a row it cannot read (the last: {UnreadExcerpt(reply)}) - not followed on this map"
+                : $"warm-up: no answer to {EarlyJoin.WarmUpCommand} for {WarmUpFindSeconds} s - not followed on this map");
             WarmUpOver();
             MatchHistory.NoWarmUp();
             return;
         }
+        if (WarmUpUnread > 0) { Log($"warm-up: {EarlyJoin.WarmUpCommand} read again, after {WarmUpUnread} reply(ies) it could not read"); WarmUpUnread = 0; }
+        if (!state.On && WarmUpSince != null && WarmUpFirstSpawn != null && state.SinceFirstSpawn == null)
+        {
+            // off, and the plugin knows no spawn on its map while the bridge followed one: the map changed under it before its start reached the bridge (or the
+            // plugin was loaded again) - the waiting time it followed is over with no line, and the new map's own warm-up is looked for
+            Log("warm-up: the plugin's map has nobody spawned on it - the map changed, or the plugin was loaded again: the warm-up followed is over, with no line");
+            WarmUpOver();
+            WarmUpLooks = WarmUpFindSeconds;
+            WarmUpTickSoon();
+            return;
+        }
+        if (WarmUpSince != null && state.Spawned > WarmUpSpawned) WarmUpNewestSpawn = now; // a human's first spawn on the map since the last look
         if (WarmUpEnding is { } ending) // the bridge asked for its end: said once a look finds it off, asked again while it is not
         {
             if (!state.On)
@@ -136,10 +163,12 @@ static partial class Program
             var first = state.SinceFirstSpawn is { } spawnedAgo ? now.AddSeconds(-spawnedAgo) : WarmUpFirstSpawn;
             if (WarmUpSince != null && first is { } spawned)
             {
-                // soon after the first spawn CS2 may have left it by itself, which the plugin begins again once (its look comes a second or two after the leave):
-                // a few looks more; later, an end is the end - CS2's own clock, the plugin's safety, an operator's
+                // soon after a human's first spawn - the map's first, or the newest the bridge saw - CS2 may have left it by itself, which the plugin begins again
+                // (its look comes a second or two after the leave): a few looks more; later, an end is the end - CS2's own clock, the plugin's, an operator's
+                WarmUpSpawned = state.Spawned;
                 WarmUpOffSince ??= now;
-                if ((WarmUpOffSince.Value - spawned).TotalSeconds < EarlyJoin.EarlyLeaveSeconds + 2 && (now - WarmUpOffSince.Value).TotalSeconds < WarmUpOffMost) { WarmUpTickSoon(); return; }
+                var newest = WarmUpNewestSpawn is { } n && n > spawned ? n : spawned;
+                if ((WarmUpOffSince.Value - newest).TotalSeconds < EarlyJoin.EarlyLeaveSeconds + 2 && (now - WarmUpOffSince.Value).TotalSeconds < WarmUpOffMost) { WarmUpTickSoon(); return; }
                 WarmUpFirstSpawn ??= spawned;
                 WarmUpGone(now);
                 return;
@@ -224,7 +253,7 @@ static partial class Program
     {
         var coming = WarmUpComing.Select(c => c.Name).ToList();
         var atMost = WarmUpLatest() is { } latest && now >= latest.AddSeconds(-2);
-        Log($"warm-up: {(atMost ? $"it ended at the most, {EarlyJoin.WarmUpMostSeconds} s since the first spawn" : "the game left it by itself")}, {(now - WarmUpSince!.Value).TotalSeconds:0} s on{(coming.Count > 0 ? $", still coming: {string.Join(", ", coming)}" : "")} - the match is on");
+        Log($"warm-up: {(atMost ? $"it ended at the most, {EarlyJoin.WarmUpMostSeconds} s since the first spawn" : "it ended without the bridge's word (the plugin's own end, CS2's, an operator's)")}, {(now - WarmUpSince!.Value).TotalSeconds:0} s on{(coming.Count > 0 ? $", still coming: {string.Join(", ", coming)}" : "")} - the match is on");
         WarmUpOver();
         MatchHistory.WarmUpEnded(HistoryNow()); // History.cs: the real match is on, for everybody in
         Post(Messages.News, EarlyJoin.StartLine(atMost ? $"{EarlyJoin.WarmUpMostSeconds} s are up" : "The warm-up is over", coming));
@@ -234,10 +263,20 @@ static partial class Program
     /// the real match: no vote. The plugin's warm-up ends (os_warmup end: its next match is the real one) and the match-end screen ends at once (os_nextmatch, as
     /// Play this map again does), so the next match on the same map, from nothing, is the real one. True when it was such an end (OnMatchEnd). A vote that is open
     /// or a map change counting down decides what comes next, as at any match end - Play this map again's next match is the real one too: the warm-up ends all
-    /// the same, with no line, and OnMatchEnd goes on. A map loading: that was the old map's match, and the new map's warm-up is a new one.</summary>
+    /// the same, with no line, and OnMatchEnd goes on. A map loading: that was the old map's match, and the new map's warm-up is a new one. Before anybody has
+    /// spawned no match was played: the waiting time goes on into the next match, the plugin's too (EarlyJoinWatch), followed on, with no line. The plugin ends
+    /// the waiting time before its match can end once somebody has spawned (EarlyJoin.EndBeforeSeconds): this is the net under that.</summary>
     static bool WarmUpWonAtMatchEnd(DateTime now)
     {
         if (WarmUpSince == null || !WarmUpOnNow || LoadPending) return false;
+        if (WarmUpFirstSpawn == null)
+        {
+            if (Pending != null || Ballot is { Open: true }) { Log("warm-up: the match ended during it, before anybody spawned, with a vote open or a map change counting down - that decides; the warm-up goes on"); return false; }
+            var (cut, _) = CutMatchEnd(AgainSeconds, "the match ended during the warm-up, before anybody spawned: the warm-up goes on");
+            Log($"warm-up: the match ended during it, {(now - WarmUpSince.Value).TotalSeconds:0} s on, before anybody spawned - no vote; the warm-up goes on into the next match, "
+                + $"which starts {(cut == NextMatch.Result.Set ? "at once" : "as the screen runs out")}");
+            return true;
+        }
         var coming = WarmUpComing.Select(c => c.Name).ToList();
         var reply = Send($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}");
         var answer = reply?.Replace('\n', ' ') ?? "(rcon failed)";

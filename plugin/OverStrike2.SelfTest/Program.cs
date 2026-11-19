@@ -389,12 +389,18 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && warm.Contains("log.LogInformation(\"Over Strike 2 warm-up: ended ({Why}), {Waited:0.0} s after it was asked for - the match starts\", asked.Why, waited);", StringComparison.Ordinal),
         "warm-up: its end by the method and seen to come - the restart's os_restart 1 (the guard lets it through) by the next round start, CS2's own mp_warmup_end by its warm-up off; not come 5 s later the restart again, or the count with mp_warmup_end, 10 s the same, 20 s given up and logged; a match end during the waiting time leaves its next match the real one");
     Check(warm.Contains("if (method == EarlyJoin.Restart) // the match itself is the waiting time", StringComparison.Ordinal)
-          && warm.Contains("if (firstSpawnTime is { } from && Server.CurrentTime >= from + EarlyJoin.WarmUpMostSeconds) End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\");", StringComparison.Ordinal)
+          && warm.Contains("if (firstSpawnTime is not { } from) return;\n                if (Server.CurrentTime >= from + EarlyJoin.WarmUpMostSeconds) { End($\"{EarlyJoin.WarmUpMostSeconds} s since the first spawn\"); return; }\n                if (MatchEndNear(rules) is { } near) End(near);", StringComparison.Ordinal)
+          && warm.Contains("if (MatchLength.OneRound(modeId()) && rules.RoundTime > 0 && left <= EarlyJoin.EndBeforeSeconds) return", StringComparison.Ordinal)
+          && warm.Contains("if (CatchUp.Weapons.Name(w.Value?.DesignerName) == CatchUp.Weapons.Name(EarlyJoin.LastWeapon)) return", StringComparison.Ordinal)
+          && EarlyJoin.EndBeforeSeconds >= 5 && EarlyJoin.LastWeapon == "weapon_knifegg"
           && warm.Contains("if (rules.GamePhase == MatchPhase.Ended)\n                {\n                    if (!matchOver)", StringComparison.Ordinal)
-          && warm.Contains("matchOver = true;\n                    return;\n                }\n                if (matchOver)\n                {\n                    (ours, waiting, ended) = (false, false, \"the match ended during the waiting time\");", StringComparison.Ordinal)
+          && warm.Contains("matchOver = true;\n                    return;\n                }\n                if (matchOver)\n                {\n                    matchOver = false;\n                    if (firstSpawnTime == null)", StringComparison.Ordinal)
+          && warm.Contains("(ours, waiting, ended) = (false, false, \"the match ended during the waiting time\");", StringComparison.Ordinal)
           && warm.Contains("if (!ours || method != EarlyJoin.Native) return HookResult.Continue;", StringComparison.Ordinal),
-        "warm-up: the restart kind's waiting time ends at the most from the first spawn with its restart; a match end during it (an Arms Race win) is its end - on for the bridge "
-        + "through the match-end screen, so its look never finds it off before the match end, and ended by its word with no restart, or here once the next match began; CS2's clock is the native kind's alone");
+        "warm-up: the restart kind's waiting time ends at the most from the first spawn with its restart, and before its match can end once somebody has spawned - its round's "
+        + $"clock {EarlyJoin.EndBeforeSeconds} s from its end, or a player on Arms Race's last weapon: a match end leaves no way to keep the real match on its sides (the live lab's E7 on 5794269); "
+        + "one that comes all the same is on for the bridge through the match-end screen and ended by its word, or here once the next match began - the waiting time still if nobody "
+        + "had spawned (an empty map's match run out); CS2's clock is the native kind's alone");
     Check(warm.Contains("Watch(rules);", StringComparison.Ordinal) && warm.Contains("CS2's warm-up began - not at this plugin's word", StringComparison.Ordinal)
           && warm.Contains("CS2's warm-up ended - not at this plugin's word", StringComparison.Ordinal)
           && warm.Contains("plugin.AddCommandListener(name, (caller, info) =>", StringComparison.Ordinal)
@@ -414,10 +420,13 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && warm.Contains("Begin($\"CS2 left it before anybody spawned - again, {again} of {AgainMost}\");", StringComparison.Ordinal),
         "warm-up: CS2 leaving it before anybody spawned begins it again, three times on a map at the most; after a spawn an end is the end - nothing restarts the match");
     Check(warm.Contains("if (!atMost && soon < EarlyJoin.EarlyLeaveSeconds && againAfterSpawn < AgainAfterSpawnMost)", StringComparison.Ordinal)
-          && warm.Contains("const int AgainAfterSpawnMost = 1;", StringComparison.Ordinal)
-          && warm.Contains("SetClock(rulesNow, from + EarlyJoin.WarmUpMostSeconds, \"begun again after the first spawn\")", StringComparison.Ordinal)
-          && warm.Contains("CS2 left it by itself again, {soon:0.0} s after the first spawn - the match runs as CS2 has it", StringComparison.Ordinal),
-        "warm-up: CS2 leaving it by itself within EarlyLeaveSeconds of the first spawn (the live lab's first spawn, mp_endwarmup_player_count 0) begins it again once, its clock still from that spawn; a second time it is the end, logged");
+          && warm.Contains("const int AgainAfterSpawnMost = 3;", StringComparison.Ordinal)
+          && warm.Contains("var soon = (DateTime.UtcNow - (newestSpawn is { } n && n > spawned ? n : spawned)).TotalSeconds;", StringComparison.Ordinal)
+          && warm.Contains("if (!plan.Spawned(account, DateTime.UtcNow)) return HookResult.Continue;\n            newestSpawn = DateTime.UtcNow;", StringComparison.Ordinal)
+          && warm.Contains("SetClock(rulesNow, from + EarlyJoin.WarmUpMostSeconds, \"begun again after a spawn\")", StringComparison.Ordinal)
+          && warm.Contains("CS2 left it by itself again, {soon:0.0} s after a spawn, begun again {AgainAfterSpawnMost} times already - the match runs as CS2 has it", StringComparison.Ordinal),
+        "warm-up: CS2 leaving it by itself within EarlyLeaveSeconds of a human's first spawn - the map's first or a later one's; in Wingman it left 0.0-0.7 s after every first spawn (the live lab on 5794269) - "
+        + "begins it again, three times on a map, its clock still from the map's first spawn; past those it is the end, logged");
     Check(host.Contains("earlyJoin = new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, setup.WarmUpMethod);", StringComparison.Ordinal)
           && host.IndexOf("settings?.Unload();", StringComparison.Ordinal) is var settingsGo and >= 0 && host.IndexOf("earlyJoin?.Unload();", StringComparison.Ordinal) > settingsGo
           && warm.Contains("(ours, begunAt, lastSet) = (true, DateTime.UtcNow, null);\n            RaiseTeamDamage();", StringComparison.Ordinal)

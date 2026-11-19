@@ -124,6 +124,26 @@ static partial class Program
         wu.WarmUpEnded(T(19, 7));
         wu.MatchEnded(T(19, 8), "gungameprogressive mg_x ar_wait score 0:0 after 1 min", inWarmUp: true);
         Check("...and the bridge's word decides should the record have the match on already: a match end in the warm-up is no match", warm.Count == 4 && wu.Running);
+        wu.MapStarted(T(19, 10), "dm_idle", 3000000017, "Idle", "deathmatch");
+        wu.MatchEnded(T(19, 20), "deathmatch mg_x dm_idle score 0:0 after 10 min"); // an empty map's match run out in its waiting time (the restart kind's)
+        var idleWarming = warm.Count == 4 && wu.Warming;
+        wu.Entered(T(19, 25), 1001, "Alice");
+        wu.MatchEnded(T(19, 26), "deathmatch mg_x dm_idle score 0:0 after 10 min", inWarmUp: true, warmUpGoesOn: true); // ...and with Alice at the team menu, nobody spawned
+        var stillWarming = warm.Count == 4 && wu.Warming;
+        wu.WarmUpEnded(T(19, 28));
+        wu.MatchEnded(T(19, 38), "deathmatch mg_x dm_idle score 0:0 after 10 min");
+        Check("...an empty map's match run out during its waiting time, or one ended before anybody spawned, is no match, and the waiting time goes on into the next match: "
+            + "the real one counts from the warm-up's end",
+            idleWarming && stillWarming && warm.Count == 5 && warm[4] is { MapName: "Idle", Mode: "deathmatch" } && warm[4].Start == T(19, 28)
+            && warm[4].Players.Single() is { Account: 1001, Seconds: 600 });
+        wu.MapStarted(T(19, 40), "de_named", 3000000018, "Named", "wingman");
+        wu.Entered(T(19, 40, 5), 1009, "Steam name at the connect");
+        wu.Shown(1009, "Alice"); // the name the server shows (a chat line, a click): on a copy, the lab's test name (OsDocName)
+        wu.WarmUpEnded(T(19, 41));
+        wu.MatchEnded(T(19, 51), "scrimcomp2v2 mg_x de_named score 9:2 after 10 min");
+        Check("...each player under the name the server shows for them (their chat, their clicks), not the one the game's connect line gave: a copy's test name, never a real one "
+            + "(the live lab on 5794269 kept the client's Steam name)",
+            warm.Count == 6 && warm[5].Players.Single() is { Account: 1009, Name: "Alice" });
 
         // ---- the frags: the game's kill lines ----
         const string KillDay = "11/20/2026"; // a log line's prefix is built from its parts (no date beside a time in this file)
@@ -344,6 +364,22 @@ static partial class Program
             Check($"...the restart kind's waiting time won (an Arms Race win during it): no entry, the line says the win does not count, and the next match on the map is the real one - from that end ({realFrom:HH:mm:ss}), the waiting time's knife kill no frag",
                 waiting && noEntry && h.Said(EarlyJoin.WonInWarmUp) && History.Entries.Count == 1 && real is { LogName: "ar_waitlive", EndedBy: HudHistory.ByMatchEnd, Winner: 0 } && real.Start == realFrom
                 && real.Players.All(p => p.First == realFrom) && real.Players.First(p => p.Account == 1002).Frags is { Kills: 1 } && real.Players.First(p => p.Account == 1001).Frags is { Kills: 0, Knife: 0, Deaths: 1 });
+
+            // the name the server shows a player by - a chat line's, a click's - is the one the entry keeps: on a copy the lab's test name, which the connect line never has
+            h.Fresh();
+            File.Delete(HistoryPath);
+            LoadHistory();
+            warmOn = true;
+            h.Line("Loading map \"de_namelive\"");
+            h.Join(("Steamy", "[U:1:1003]"));
+            h.Join(("Bob", "[U:1:1002]"));
+            h.Line("\"Doc Name<2><[U:1:1003]><CT>\" say \"gg\"");
+            h.Run(EarlyJoin.SettleSeconds + 5);
+            h.Run(300);
+            h.MatchEnd();
+            Check("...each player under the name the server shows them by (a chat line, a click: on a copy the lab's test name, OsDocName's), never the connect line's",
+                History.Entries.FirstOrDefault() is { LogName: "de_namelive" } named && named.Players.First(p => p.Account == 1003).Name == "Doc Name"
+                && named.Players.First(p => p.Account == 1002).Name == "Bob");
         }
         finally { h.Dispose(); }
 

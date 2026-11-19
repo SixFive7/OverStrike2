@@ -76,6 +76,11 @@ sealed partial class MatchTracker
 
     readonly Dictionary<long, (string Name, DateTimeOffset Since)> present = new();
     Match? cur;
+
+    /// <summary>The names the server shows for its players, as the game's own word gives them - their chat lines and the plugin's clicks - by account: the names
+    /// an entry keeps (Shown). The game's "connected" and "entered the game" lines keep the name a game was given at its connect, which a test name the server
+    /// goes by (the lab's OsDocName on a copy) never reaches; production's are the same names.</summary>
+    readonly Dictionary<long, string> shown = new();
     DateTimeOffset lastStart = DateTimeOffset.MinValue;
     string lastLog = "";
     (long Account, DateTimeOffset At) lastKnife = (0, DateTimeOffset.MinValue);
@@ -97,7 +102,16 @@ sealed partial class MatchTracker
         lastStart = DateTimeOffset.MinValue;
         lastLog = "";
         lastKnife = (0, DateTimeOffset.MinValue);
+        shown.Clear();
     }
+
+    /// <summary>The server shows this player under this name (a chat line, a click): the name every entry they are in keeps from now on.</summary>
+    public void Shown(long account, string name)
+    {
+        if (account > 0 && name.Trim() != "") shown[account] = name;
+    }
+
+    string NameOf(long account, string logged) => shown.TryGetValue(account, out var name) ? name : logged;
 
     /// <summary>The Workshop id of the map that is on, as far as the record knows: 0 for an official map, or one it was not told.</summary>
     public long MapId => cur?.MapId ?? 0;
@@ -166,11 +180,15 @@ sealed partial class MatchTracker
     /// <summary>A match ended (CS2's "Game Over: scrimcomp2v2 mg_ar_shoots de_assembly score 2:9 after 11 min"): its entry, with its mode and Wingman's
     /// score, and in Arms Race its winner - the human whose knife kill came with the end; its end screen is the next match's start on that map, should the
     /// vote play it again. <paramref name="inWarmUp"/>: the bridge saw the warm-up on as the match ended - the restart kind's waiting time, where the match
-    /// itself runs (Arms Race, Deathmatch), won or run out: no match, and the next match on the map, from this end, is the real one (WarmUp.cs).</summary>
-    public void MatchEnded(DateTimeOffset at, string gameOver, bool inWarmUp = false)
+    /// itself runs (Arms Race, Deathmatch), won or run out: no match, and the next match on the map, from this end, is the real one (WarmUp.cs) - unless
+    /// <paramref name="warmUpGoesOn"/>: nobody had spawned, and the waiting time goes on into the next match, as it does on an empty map (nobody in) whose
+    /// match runs out during it: the warm-up's end starts the real match, as ever.</summary>
+    public void MatchEnded(DateTimeOffset at, string gameOver, bool inWarmUp = false, bool warmUpGoesOn = false)
     {
         var (mode, logName, score) = ReadGameOver(gameOver);
+        var idle = UsesWarmUp && cur is { Warming: true } && present.Count == 0; // an empty map in its warm-up, its match run out: nobody's, and the warm-up goes on
         if (inWarmUp && cur != null) cur.Warming = true; // the waiting time's win counts for nothing, whatever the record thought of it
+        else if (idle) { }
         else if (cur is { Warming: true } unseen) // CS2 ends no match during its own warm-up, and the bridge saw none on: its end went by unseen - the match counts from the map's start, its start not known
         {
             NoWarmUp();
@@ -182,6 +200,7 @@ sealed partial class MatchTracker
         var was = cur;
         Close(at, HudHistory.ByMatchEnd, score);
         cur = Next(was, at, afterEnd: true, logName, mode);
+        if (warmUpGoesOn || idle) cur.Warming = true; // the next match is the waiting time still
     }
 
     /// <summary>The match restarted (the bridge's os_restart). A fairness restart (before the warm-up took its place) was the same match, the joiner in it; a
@@ -339,7 +358,7 @@ sealed partial class MatchTracker
     HudHistory.Entry Snapshot(Match m, DateTimeOffset at, string by, string score = "")
     {
         var frags = RecordsFrags || m.FragsSeen;
-        var players = m.Roster.Select(r => new HudHistory.Player(r.Key, r.Value.Name, (int)Math.Round(r.Value.Seconds), r.Value.First,
+        var players = m.Roster.Select(r => new HudHistory.Player(r.Key, NameOf(r.Key, r.Value.Name), (int)Math.Round(r.Value.Seconds), r.Value.First,
                 frags ? m.Frags.TryGetValue(r.Key, out var f) ? f.Done() : new HudHistory.Frags() : null))
             .OrderBy(p => p.First).ThenBy(p => p.Account).ToList();
         var inIt = m.Roster.Keys.ToHashSet();
@@ -463,8 +482,9 @@ static partial class Program
     static void HistoryFrag(LogFrag f) => Frag(MatchHistory, HistoryNow(), f);
 
     /// <summary>A line of the game's log, for the history: who entered, acted and left, the maps' starts, the matches' ends, the quit. <paramref name="inWarmUp"/>:
-    /// a match end the bridge saw during the warm-up (LogStream.cs looks before OnMatchEnd ends it).</summary>
-    static void HistoryIngest(LogEvent e, bool inWarmUp = false)
+    /// a match end the bridge saw during the warm-up (LogStream.cs looks before OnMatchEnd ends it); <paramref name="warmUpGoesOn"/>: before anybody spawned,
+    /// so the waiting time goes on into the next match.</summary>
+    static void HistoryIngest(LogEvent e, bool inWarmUp = false, bool warmUpGoesOn = false)
     {
         var at = HistoryNow();
         switch (e.Kind)
@@ -473,7 +493,7 @@ static partial class Program
             case Kind.Chat: MatchHistory.Seen(at, AccountId(e.SteamId), e.Name); break;
             case Kind.Disconnected: MatchHistory.Left(at, AccountId(e.SteamId)); break;
             case Kind.MapStart: MatchHistory.MapStarted(at, S.LogName ?? e.Text, S.Map?.Id ?? 0, S.Map?.Name ?? "", S.Mode, LastStartWasServerStart); break;
-            case Kind.MatchEnd: MatchHistory.MatchEnded(at, e.Text, inWarmUp); break;
+            case Kind.MatchEnd: MatchHistory.MatchEnded(at, e.Text, inWarmUp, warmUpGoesOn); break;
             case Kind.Shutdown: MatchHistory.ServerDown(at); break;
         }
     }

@@ -529,8 +529,9 @@ static partial class Program
             h.Run(2.1);
             Check($"...nor begun again within {WarmUpOffMost} s: then the match is on for the bridge too, and the line says so",
                 stillWaited && WarmUpSince == null && Banner() == null && h.Said("The match starts now - The warm-up is over - Bo and Cy join it on arrival"));
-            // the restart kind (Arms Race, Deathmatch: their mode rules refuse mp_warmup_end): the match itself is the waiting time, so it can end during it - an
-            // Arms Race win, its length run out. No vote: the plugin's warm-up ends, and the match-end screen ends at once - the next match on the map is the real one
+            // the restart kind (Arms Race, Deathmatch: their mode rules refuse mp_warmup_end): the match itself is the waiting time. The plugin ends it before its
+            // match can end (EarlyJoin.EndBeforeSeconds); should one end all the same - a win between two looks - no vote: the plugin's warm-up ends, and the
+            // match-end screen ends at once - the next match on the map is the real one, its players at CS2's team select as after Play this map again
             Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 10);
             h.Sent.Clear();
             HudActive = () => true;
@@ -556,6 +557,63 @@ static partial class Program
             h.Run(1.1);
             Check("...but off before anybody has spawned, the bridge waits for the plugin to begin it again, and follows it on: no line, the banner back",
                 followedThrough && WarmUpSince != null && Banner() is { Warm: true } && !h.Said("The match starts now - The warm-up is over"));
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1)], 6);
+            h.Sent.Clear();
+            HudActive = () => true;
+            h.MatchEnd(); // the restart kind's waiting time, before anybody has spawned: an empty map's match run out, a human still at the team menu
+            HudActive = () => false;
+            Check("...and a match end in the waiting time before anybody has spawned was no match: no vote, the screen cut, the warm-up followed on into the next match - no end "
+                + "asked of the plugin, which goes on waiting too, and no line",
+                Ballot == null && !h.Sent.Contains($"{EarlyJoin.WarmUpCommand} {EarlyJoin.EndWord}") && h.Sent.Contains(NextMatch.Line(AgainSeconds)) && WarmUpSince != null
+                && !h.Said("The match starts now"));
+
+            // ---- the live lab on 5794269: replies the bridge cannot read, a map change it has not heard of yet, CS2 leaving its warm-up after a later spawn ----
+            Check("Warm-up: os_warmup's line read wherever it starts - the game's own output before it, on its line or on lines before it; an empty reply, or one of other lines "
+                + "only, none; only the game's Unknown command for os_warmup says a plugin without it",
+                EarlyJoin.ReadWarmUp("CTMDBG 1 os_warmup: on 12 1 -1\nos_warmup: on (ours, restart, begun again 0 time(s))") is { On: true, SinceFirstSpawn: 12, Spawned: 1, Left: null }
+                && EarlyJoin.ReadWarmUp("OnPreResetRound => CTMDBG\r\nos_warmup: off -1 0 -1\r\n") is { On: false, SinceFirstSpawn: null, Spawned: 0 }
+                && EarlyJoin.ReadWarmUp("") == null && EarlyJoin.ReadWarmUp("OnPreResetRound => CTMDBG") == null
+                && EarlyJoin.ReadWarmUp("os_warmup: on (ours, native, begun again 1 time(s))") == null
+                && EarlyJoin.UnknownCommand("Unknown command 'os_warmup'!", EarlyJoin.WarmUpCommand) && !EarlyJoin.UnknownCommand("", EarlyJoin.WarmUpCommand)
+                && !EarlyJoin.UnknownCommand("Unknown command 'sv_foo'!", EarlyJoin.WarmUpCommand));
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 20);
+            var plainReply = warmUpNow!;
+            warmUpNow = () => ""; // an empty reply
+            h.Run(3.1);
+            warmUpNow = () => "OnPreResetRound => CTMDBG 1 2 3"; // the game's own console lines, and no os_warmup line
+            h.Run(WarmUpUnreadMost + 1.1);
+            var followedOn = WarmUpSince != null && WarmUpUnread > WarmUpUnreadMost && Banner() is { Warm: true };
+            warmUpNow = () => "OnPreResetRound => CTMDBG 4 5 6\n" + plainReply(); // ...and the reply amid them again
+            h.Run(1.1);
+            Check($"Warm-up: a reply the bridge cannot read - empty, or the game's console lines only (Deathmatch's and Wingman's in the live lab on 5794269) - is no answer: asked "
+                + $"again each second, and never given up while the last one it read said on - past {WarmUpUnreadMost} in a row the banner still on, no line; read again amid other lines",
+                followedOn && WarmUpSince != null && WarmUpUnread == 0 && WarmUpOnNow && !h.Said("The match starts now"));
+            Fresh();
+            warmUpNow = () => "";
+            h.Line("Loading map \"ar_mute\""); h.Line("Started:  \"\"");
+            h.Join(three[0]);
+            h.Sent.Clear();
+            h.Run(WarmUpUnreadMost + 3.1);
+            Check($"...but none it could read since the map's start: {WarmUpUnreadMost} in a row, and no warm-up is followed on that map",
+                h.Sent.Count(c => c == EarlyJoin.WarmUpCommand) == WarmUpUnreadMost && WarmUpSince == null && WarmUpLooks == 0);
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0)], 20);
+            warmUpNow = () => EarlyJoin.WarmUpReply(false, null, 0); // the plugin on the next map, which the bridge has not heard of yet: nobody spawned on it, its warm-up not begun
+            h.Run(1.1);
+            var quietChange = WarmUpSince == null && Banner() == null && !h.Said("The match starts now") && WarmUpLooks > 0;
+            warmUpNow = () => EarlyJoin.WarmUpReply(true, null, 0); // ...and begun
+            h.Run(1.1);
+            Check("Warm-up: a map change the bridge has not heard of yet - the plugin's map has nobody spawned on it - ends the warm-up it followed with no line (the live lab's "
+                + "Arms Race on 5794269 said \"The match starts now - The warm-up is over\"), and the new map's is followed",
+                quietChange && WarmUpSince != null && WarmUpFirstSpawn == null && Banner() is { Warm: true });
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (40, "spawn", 1)], 41);
+            warmOn = false; // CS2 left it a second after Bo's first spawn, 35 s after the map's first
+            h.Run(2.1);
+            var laterLeave = WarmUpSince != null && !h.Said("The match starts now");
+            warmOn = true; // the plugin's guard began it again
+            h.Run(1.1);
+            Check($"Warm-up: CS2 leaving it within {EarlyJoin.EarlyLeaveSeconds} s of a later human's first spawn (in Wingman it left after every first spawn, the live lab on 5794269) "
+                + "is no end for the bridge either while the plugin begins it again: no line, followed on",
+                laterLeave && WarmUpSince != null && Banner() is { Warm: true } && !h.Said("The match starts now"));
 
             // ---- who is coming, by the server's own list and the log stream: the live lab's run AX - a join needing a map it lacked, CS2's prompt to confirm a first
             // Workshop download left unanswered. The server logged the connect and nothing after it; os_joining said nobody (the game hears of a client only once it

@@ -38,7 +38,7 @@ static partial class Program
         ResetCrashWatch(); BeforeQuit = null; enteredOnThisMap.Clear(); timedOutOnThisMap.Clear();
         NobodySince = null; ResetDone = false; ResetProbeAt = default;
         ModeBeforeChange = null; ModeProbing = false; ModeProbeAt = default; ModeVerifyDue = false; ModeReloads = 0; ModeResetRetryAt = default;
-        RestartDue = null; RematchDue = null; WarmUpSince = null; WarmUpFirstSpawn = null; WarmUpEnd = null; WarmUpAllInSince = null; WarmUpComing = []; WarmUpSpawned = 0; WarmUpOnNow = false; WarmUpLooks = 0; WarmUpOffSince = null; WarmUpEnding = null; WarmUpTickDue = false; SignOnsTold = []; StatusTold = null; SignOnsTell = false; StatusJoining = null; StatusWatchDue = false; UpdatedNotice = ""; UpdatedNoticeUntil = default;
+        RestartDue = null; RematchDue = null; WarmUpSince = null; WarmUpFirstSpawn = null; WarmUpEnd = null; WarmUpAllInSince = null; WarmUpComing = []; WarmUpSpawned = 0; WarmUpOnNow = false; WarmUpLooks = 0; WarmUpOffSince = null; WarmUpEnding = null; WarmUpTickDue = false; WarmUpUnread = 0; WarmUpNewestSpawn = null; SignOnsTold = []; StatusTold = null; SignOnsTell = false; StatusJoining = null; StatusWatchDue = false; UpdatedNotice = ""; UpdatedNoticeUntil = default;
         RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; RematchConfirmBy = ""; RematchConfirmUntil = default; RematchWaitUntil = default; PicksDue.Clear();
         // the stock and the watcher's report, the data files' watch, the Sync page, the plugin's polls, the messages
         StockSize = BridgeConfig.Values.DiscoveryStock; ReadyIds = new(); CoveredIds = new(); ReadyAt = default; ExportedIds = new(); QueuesWritten = ""; StockTickAt = default; Background = null;

@@ -60,11 +60,12 @@ static partial class Program
         }
     }
 
-    /// <summary>A chat line or a click proves its sender is on the server.</summary>
+    /// <summary>A chat line or a click proves its sender is on the server - under the name the server shows for them, which the history keeps (History.cs).</summary>
     static void Present(string id, string name)
     {
         var p = PlayerOf(id);
         p.Name = name; p.GoneSince = null; p.ReloadSince = null;
+        MatchHistory.Shown(AccountId(id), name);
     }
 
     /// <summary>A map start or a server restart: everyone in game is now reloading. The log usually said so already; this is the safety net.</summary>
