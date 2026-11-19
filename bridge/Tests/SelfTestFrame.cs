@@ -197,59 +197,108 @@ static partial class Program
             + "which has none and would log \"Unable to find panel\" for each, nor to a game whose content is not known yet (287 b)",
             ChatSent(2) && !ChatSent(1) && !ChatSent(3) && !olderScreen.C(HudView.Screen, "chaton", 1) && olderScreen.C(HudView.Screen, "chaton", 2));
 
-        // ---- P6 (the lab round on rel-220's ce3e9af): content v4.15.0's own panels - the HISTORY and STATS pages', their tabs, the seventh reason - go only to a
-        // game whose click named v4.15.0 or a newer content: never into everybody's state, never to v4.14.0's, nor to a game not seen yet or not known, whatever
-        // page its window shows. The panels are those content v4.15.0 added to v4.14.0's layout, the published one ----
+        // ---- the known issue of release 220, fixed in content v4.16.0: the server addresses no panel id an older content lacks - CS2's game looks up every id the
+        // HUD's entity has been given on the map, at its full update, and one on an older content logged each it lacks. HISTORY and STATS go to a game whose check
+        // named v4.16.0 or newer alone (rule 6): their cards' states and the bars are classes on os_screen and os_global, their pictures go to four picture panels
+        // every content has, per viewer and never to everybody (rule 3), and replaced as the viewer moves between the pages or leaves them (rule 4). Nothing ever goes
+        // to os_h* or os_st_*, nor to the v4.15.0 panels a v4.14.0 game lacks (the two tabs, the seventh reason, HISTORY's chips and pager, which take clicks only) ----
         string[] newIn415 =
         [
             .. Enumerable.Range(1, 4).SelectMany(k => new[] { HudHistoryPage.Card(k), HudHistoryPage.Thumb(k), $"{HudHistoryPage.Card(k)}_up", $"{HudHistoryPage.Card(k)}_down", $"{HudHistoryPage.Card(k)}_play" }),
             "os_hf_all", "os_hf_ar", "os_hf_dm", "os_hf_wm", "os_hf_mine", "os_hf_order", "os_hf_clear", "os_hpg_first", "os_hpg_prev", "os_hpg_next", "os_hpg_last",
-            .. HudStats.BarPanels, .. HudStats.PicturePanels, HudBrowser.HistoryTab, HudStats.Tab, HudVote.WhyButton(7),
+            "os_st_bar1", "os_st_bar2", "os_st_bar3", "os_st_bar4", "os_st_bar5", "os_st_mar", "os_st_mdm", "os_st_mwm", "os_st_pic1", "os_st_pic2",
+            HudBrowser.HistoryTab, HudStats.Tab, HudVote.WhyButton(7),
         ];
         var pageStats = new HudStats { Version = 3, Vars = [("osst", "15 matches")], Classes = { ["stf1"] = true } };
-        pageStats.Bars["os_st_bar1"] = 10;
-        pageStats.Bars["os_st_mar"] = 4;
-        pageStats.Pictures["os_st_pic1"] = live.Key;
+        pageStats.Steps["stp2"] = 10;
+        pageStats.Steps["stmar"] = 5;
+        pageStats.Pictures[HudStats.PlayedPicture] = live.Key;
         var pageHistory = new HudHistory { Version = 2 };
         pageHistory.Entries.Add(new HudHistory.Entry(new DateTimeOffset(t0.AddHours(-1)), new DateTimeOffset(t0.AddMinutes(-45)), 3084291312, "aim_x", "aim_x", Modes.ArmsRaceId,
             HudHistory.ByMatchEnd, "", [new HudHistory.Player(1001, "Alice", 900, new DateTimeOffset(t0.AddHours(-1)))], [], "live"));
         var pageSlots = new HudSlots();
         var pagePlayers = new Dictionary<int, HudPlayer>();
-        foreach (var n in new[] { 1, 2, 3, 4, 5, 6 }) pageSlots.Joined(n, first: false, alive: true, t0);
-        foreach (var (n, page) in new[] { (1, HudSlots.Page.Stats), (2, HudSlots.Page.History), (3, HudSlots.Page.Stats), (4, HudSlots.Page.History), (5, HudSlots.Page.Stats), (6, HudSlots.Page.Start) })
+        foreach (var n in new[] { 1, 2, 3, 4, 5, 6, 7 }) pageSlots.Joined(n, first: false, alive: true, t0);
+        foreach (var (n, page) in new[] { (1, HudSlots.Page.Stats), (2, HudSlots.Page.History), (3, HudSlots.Page.Stats), (4, HudSlots.Page.History), (5, HudSlots.Page.Stats),
+                     (6, HudSlots.Page.History), (7, HudSlots.Page.Start) })
             pageSlots.Show(n, page, t0.AddSeconds(6));
-        var pageScreen = new RecordedScreen();
-        for (var i = 0; i < 2; i++) // a second frame: what changed since the first one too
+        RecordedScreen PageFrame(int sec, HudSlots slotsNow, params HudFrame.Human[] humans)
+        {
+            var screenNow = new RecordedScreen();
             frame.Draw(new HudFrame.World(live, new VoteState(), null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, HudVersion.Level, false, true, _ => null, null,
-                    t0.AddSeconds(7 + i), HudState.Ms(t0.AddSeconds(7 + i)), History: pageHistory, Stats: pageStats),
-                [new(1, 1001, "Alice", "CT", HudVersion.Content, false, 0, null), new(2, 1002, "Bob", "T", HudVersion.Content, false, 0, null),
-                 new(3, 1003, "Cas", "CT", "v4.14.0", false, 0, null), new(4, 1004, "Dan", "T", "", false, 0, null), new(5, 1005, "Eve", "CT", HudVersion.Unknown, false, 0, null),
-                 new(6, 1006, "Fay", "T", "v4.14.0", false, 0, null)],
-                pageSlots, n => pagePlayers.TryGetValue(n, out var pp) ? pp : pagePlayers[n] = new HudPlayer(), new FunClicks(), pageScreen);
-        var reachedOld = new[] { HudFrame.Everybody, 3, 4, 5, 6 }.SelectMany(n => pageScreen.IdsOf(n).Intersect(newIn415).Select(id => $"{(n < 0 ? "everybody" : $"slot {n}")}: {id}")).ToList();
-        var layoutHas = !File.Exists("../hud/reference/gungame_hud_v4.15.0.xml") || newIn415.All(id => File.ReadAllText("../hud/reference/gungame_hud_v4.15.0.xml").Contains($"id=\"{id}\"", StringComparison.Ordinal)); // content v4.15.0's, its own layout
-        Check($"Frame: content v4.15.0's own panels ({newIn415.Length}: HISTORY's, STATS', their tabs, the seventh reason) go only to a game that named it - STATS' bars and pictures "
-            + "to each viewer's slot, never into everybody's state; none to v4.14.0's games, nor to one not seen yet or not known, on any page (P6)"
-            + (reachedOld.Count > 0 ? ": " + string.Join(", ", reachedOld) : ""),
-            reachedOld.Count == 0 && layoutHas && pageScreen.C("os_st_bar1", "w10", 1) && pageScreen.Pictured.ContainsKey((1, "os_st_pic1")) && pageScreen.C(HudHistoryPage.Card(1), "used", 2)
-            && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.Thumb(1))) && pageScreen.V(HudView.Global, "osst") == "15 matches" && pageScreen.C(HudView.Global, "stf1"));
+                    t0.AddSeconds(sec), HudState.Ms(t0.AddSeconds(sec)), History: pageHistory, Stats: pageStats),
+                [.. humans], slotsNow, n => pagePlayers.TryGetValue(n, out var pp) ? pp : pagePlayers[n] = new HudPlayer(), new FunClicks(), screenNow);
+            return screenNow;
+        }
+        HudFrame.Human[] six =
+        [
+            new(1, 1001, "Alice", "CT", HudVersion.Content, false, 0, null), new(2, 1002, "Bob", "T", HudVersion.Content, false, 0, null),
+            new(3, 1003, "Cas", "CT", "v4.14.0", false, 0, null), new(4, 1004, "Dan", "T", "", false, 0, null), new(5, 1005, "Eve", "CT", HudVersion.Unknown, false, 0, null),
+            new(6, 1006, "Fay", "T", "v4.15.0", false, 0, null), new(7, 1007, "Gus", "CT", HudVersion.Content, false, 0, null),
+        ];
+        var pageScreen = PageFrame(7, pageSlots, six);
+        PageFrame(8, pageSlots, six); // a second frame: what changed since the first one too
+        var everySlot = new[] { HudFrame.Everybody, 1, 2, 3, 4, 5, 6, 7 };
+        var toOldPanels = everySlot.SelectMany(n => pageScreen.IdsOf(n).Intersect(newIn415).Select(id => $"{(n < 0 ? "everybody" : $"slot {n}")}: {id}")).ToList();
+        var olderGot = new[] { 3, 4, 5, 6 }.SelectMany(n => pageScreen.IdsOf(n).Where(id => HudHistoryPage.PicturePanels.Contains(id) && pageScreen.Pictured.TryGetValue((n, id), out var on) && on.Length > 0)
+            .Select(id => $"slot {n}: a picture on {id}")).ToList();
+        bool PageWords(int slot) => pageScreen.V(HudView.Screen, "osh1n", slot) != "" || pageScreen.V(HudView.Screen, "ossy1", slot) != ""
+            || HudHistoryPage.CardStates.Any(st => pageScreen.Sent(HudView.Screen, HudHistoryPage.CardClass(1, st), slot));
+        Check($"Frame: nothing goes to a panel content v4.14.0 lacks - none to os_h*, os_st_*, the two tabs, the seventh reason, HISTORY's chips and pager, for anybody "
+            + $"(rule 6){(toOldPanels.Count > 0 ? ": " + string.Join(", ", toOldPanels) : "")}",
+            toOldPanels.Count == 0 && (!File.Exists(HudLayoutFile) || HudHistoryPage.PicturePanels.All(id => File.ReadAllText(HudLayoutFile).Contains($"id=\"{id}\"", StringComparison.Ordinal))));
+        Check($"Frame: HISTORY and STATS go to a game whose check named {HudVersion.OfLevel(HudBrowser.HistoryLevel)} or newer alone - their words, card states and pictures to its "
+            + "own slot - and none to v4.15.0's, v4.14.0's, one not seen yet or not known, on those very pages (rule 6)"
+            + (olderGot.Count > 0 ? ": " + string.Join(", ", olderGot) : ""),
+            PageWords(1) && PageWords(2) && !PageWords(3) && !PageWords(4) && !PageWords(5) && !PageWords(6) && olderGot.Count == 0
+            && pageScreen.C(HudView.Screen, HudHistoryPage.CardClass(1, "used"), 2) && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.PicturePanel(1))));
+        Check("Frame: STATS' words, classes and bars on os_global, which every content has - a step's four bits (row 2's 10: stp2-2 and stp2-8; Arms Race's 5: stmar-1 and "
+            + "stmar-4) - while somebody views the page; no picture class ever goes to everybody, and none to the picture panels for a game below the pages' content (rule 3)",
+            pageScreen.V(HudView.Global, "osst") == "15 matches" && pageScreen.C(HudView.Global, "stf1") && pageScreen.C(HudView.Global, "stp2-2") && pageScreen.C(HudView.Global, "stp2-8")
+            && !pageScreen.C(HudView.Global, "stp2-1") && pageScreen.C(HudView.Global, "stmar-1") && pageScreen.C(HudView.Global, "stmar-4") && !pageScreen.C(HudView.Global, "stmar-2")
+            && !HudHistoryPage.PicturePanels.Any(id => pageScreen.Pictured.ContainsKey((HudFrame.Everybody, id))) && olderGot.Count == 0
+            && new[] { 3, 4, 5, 6 }.All(n => HudHistoryPage.PicturePanels.All(id => !pageScreen.Pictured.ContainsKey((n, id)))));
+        // rule 4: one viewer moving HISTORY -> STATS -> MAPS -> STATS: the four picture panels take the page's pictures, an unused one none, and leaving clears them
+        var moveSlots = new HudSlots();
+        moveSlots.Joined(7, first: false, alive: true, t0);
+        HudFrame.Human gus = new(7, 1007, "Gus", "CT", HudVersion.Content, false, 0, null);
+        moveSlots.Show(7, HudSlots.Page.History, t0.AddSeconds(10));
+        var onHistory = PageFrame(11, moveSlots, gus);
+        moveSlots.Show(7, HudSlots.Page.Stats, t0.AddSeconds(12));
+        var onStats = PageFrame(13, moveSlots, gus);
+        moveSlots.Show(7, HudSlots.Page.Maps, t0.AddSeconds(14));
+        var onMaps = PageFrame(15, moveSlots, gus);
+        string[] Pic(RecordedScreen sc, int k) => sc.Pictured.TryGetValue((7, HudHistoryPage.PicturePanel(k)), out var on) ? on : ["(not sent)"];
+        Check($"Frame: a viewer moving between HISTORY and STATS, or leaving them, gets the four picture panels' classes replaced with the new page's - HISTORY a card's on "
+            + $"each, STATS the most played and most liked on panels 1 and 2 and none on 3 and 4, any other page none on all four (rule 4)",
+            Pic(onHistory, 2).Length == 0 && Pic(onHistory, 3).Length == 0 && Pic(onHistory, 4).Length == 0
+            && Pic(onStats, 3).Length == 0 && Pic(onStats, 4).Length == 0 && onStats.Pictured.ContainsKey((7, HudHistoryPage.PicturePanel(1))) && onStats.Pictured.ContainsKey((7, HudHistoryPage.PicturePanel(2)))
+            && Enumerable.Range(1, 4).All(k => Pic(onMaps, k).Length == 0));
+        // item 7: an outdated game's banner and its window's foot say why it needs the server's content - osver on its own os_screen; an up-to-date one keeps os_global's
+        var why = PageFrame(16, pageSlots, six);
+        Check($"Frame: an outdated game's osver, on its own os_screen, says the server's content and why it needs it (\"{why.V(HudView.Screen, HudVersion.Var, 3)}\") - v4.14.0's and "
+            + "v4.15.0's alike - while an up-to-date game, one not seen yet and one not known keep the plain version from os_global",
+            why.V(HudView.Screen, HudVersion.Var, 3) == $"{HudVersion.Content} - HISTORY and STATS need it" && why.V(HudView.Screen, HudVersion.Var, 6) == $"{HudVersion.Content} - HISTORY and STATS need it"
+            && why.V(HudView.Screen, HudVersion.Var, 1) == "" && why.V(HudView.Screen, HudVersion.Var, 4) == "" && why.V(HudView.Screen, HudVersion.Var, 5) == ""
+            && why.V(HudView.Global, HudVersion.Var) == HudVersion.Content && HudVersion.OutdatedLine(HudVersion.Content).Length <= 60);
 
         // ---- content v4.16.0 (the owner's 309 a and 310): the server names no panel a content in use lacks - CS2 keeps one list of every panel id named on a map,
         // and every game looks all of it up at its full update - so every panel these frames named, for everybody and for each player, is one v4.14.0 (PanelFloor)
-        // and every later content has; and the pages' pictures (Pictures416, panels the older contents have) go per viewer only, to a game at v4.16.0 or later ----
+        // and every later content has; and the pages' pictures (HudHistoryPage.PicturePanels, panels the older contents have) go per viewer only, to a game at v4.16.0 or later ----
         if (File.Exists(HudLayoutFile))
         {
             static HashSet<string> LayoutIds(string text) => System.Text.RegularExpressions.Regex.Matches(text, @"\bid=""([^""]+)""").Select(m => m.Groups[1].Value).ToHashSet();
             var floorLayouts = HudVersion.Contents.Where(c => c.Level >= HudVersion.LevelOf(PanelFloor) && c.Version != HudVersion.Content).Select(c => $"../hud/reference/gungame_hud_{c.Version}.xml")
                 .Where(File.Exists).Select(f => LayoutIds(File.ReadAllText(f))).Append(LayoutIds(File.ReadAllText(HudLayoutFile))).ToList();
             var floorIds = floorLayouts.Skip(1).Aggregate(new HashSet<string>(floorLayouts[0]), (all, one) => { all.IntersectWith(one); return all; });
-            var named = screen.Ids.Concat(pageScreen.Ids).Concat(olderScreen.Ids).Concat(levels.Ids).Where(id => !Retired416.Contains(id)).ToHashSet(); // Retired416: until srv-524 lands
+            var named = screen.Ids.Concat(pageScreen.Ids).Concat(olderScreen.Ids).Concat(levels.Ids).Concat(onHistory.Ids).Concat(onStats.Ids).Concat(onMaps.Ids).Concat(why.Ids).ToHashSet();
             var beyond = named.Where(id => !floorIds.Contains(id)).Order(StringComparer.Ordinal).ToList();
             Check($"Frame (content v4.16.0): every panel these frames named ({named.Count}) is one {PanelFloor} and every later content has ({floorLayouts.Count} layouts), so no game on a content in use logs \"Unable to find panel\" for it, whoever was shown what on the map{(beyond.Count > 0 ? ": not " + string.Join(" ", beyond) : "")}",
                 floorLayouts.Count == HudVersion.Contents.Count(c => c.Level >= HudVersion.LevelOf(PanelFloor)) && beyond.Count == 0 && named.Count > 100);
-            var picturedOld = pageScreen.Pictured.Keys.Where(k => Pictures416.Contains(k.Panel) && (k.Slot == HudFrame.Everybody || k.Slot is 3 or 4 or 5 or 6)).Select(k => $"{k.Slot}: {k.Panel}").ToList();
-            Check($"Frame (content v4.16.0): HISTORY's and STATS' pictures, on panels the older contents have ({string.Join(" ", Pictures416)}), go to a viewer's own slot - never into everybody's state, never to a game before v4.16.0 or not known{(picturedOld.Count > 0 ? ": " + string.Join(", ", picturedOld) : "")}",
-                picturedOld.Count == 0);
+            var picturedOld = pageScreen.Pictured.Keys.Where(k => HudHistoryPage.PicturePanels.Contains(k.Panel) && (k.Slot == HudFrame.Everybody || k.Slot is 3 or 4 or 5 or 6)).Select(k => $"{k.Slot}: {k.Panel}").ToList();
+            Check($"Frame (content v4.16.0): HISTORY's and STATS' pictures, on panels the older contents have ({string.Join(" ", HudHistoryPage.PicturePanels)}), go to a viewer's own slot - never into everybody's state, never to a game before v4.16.0 or not known{(picturedOld.Count > 0 ? ": " + string.Join(", ", picturedOld) : "")}",
+                picturedOld.Count == 0 && pageScreen.Pictured.ContainsKey((1, HudHistoryPage.PicturePanel(1))) && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.PicturePanel(1)))
+                && pageScreen.Pictured.ContainsKey((2, HudHistoryPage.PicturePanel(4))));
         }
 
         // ---- a slot's record: a new player starts from nothing of the last one's ----

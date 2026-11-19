@@ -12,13 +12,12 @@ static partial class Program
     /// viewer's os_screen - h&lt;k&gt;- and one of these - and a bar's step four bits on os_global; the pictures lie on four panels every content from v4.14.0 on has
     /// (HudHistoryPage.PicturePanel(1 ... 4) on the pages' server half, srv-524): the old sub-tab bar's three buttons and the search's first Clear.</summary>
     static readonly string[] HStates = ["used", "liked", "disliked", "official", "ar", "dm", "wm", "inc", "now", "queued", "mine"];
-    static readonly string[] Pictures416 = ["os_tab_server", "os_sub_fun", "os_sub_help", "os_q_clear"];
     static readonly (string Id, string Class, bool On)[] Classes416 = [.. Enumerable.Range(1, 4).SelectMany(k => HStates.Select(st => (HudView.Screen, $"h{k}-{st}", true))),
         .. new[] { "stp2", "stp3", "stp4", "stp5", "stmar", "stmdm", "stmwm" }.SelectMany(b => new[] { 1, 2, 4, 8 }.Select(bit => (HudView.Global, $"{b}-{bit}", true)))];
 
-    /// <summary>Until v4.16.0's server half (srv-524) lands, this branch's server still sends HISTORY's and STATS' state to the panels content v4.15.0 had for
-    /// them, which v4.16.0 retires: the checks set those sends aside and take the contract's names (Classes416) in their place. Empty once srv-524 is in.</summary>
-    static readonly string[] Retired416 = [.. Enumerable.Range(1, 4).SelectMany(k => new[] { $"os_h{k}", $"os_h{k}_thumb" }), .. Enumerable.Range(1, 5).Select(k => $"os_st_bar{k}"),
+    /// <summary>The 18 panels content v4.16.0 retires, which content v4.15.0 had for HISTORY's and STATS' state - the cards and their pictures, the bars and the two
+    /// pictures: the pages' server half (srv-524) sends nothing to them, and the layout keeps every other panel of v4.15.0.</summary>
+    static readonly string[] RetiredPanels416 = [.. Enumerable.Range(1, 4).SelectMany(k => new[] { $"os_h{k}", $"os_h{k}_thumb" }), .. Enumerable.Range(1, 5).Select(k => $"os_st_bar{k}"),
         "os_st_mar", "os_st_mdm", "os_st_mwm", "os_st_pic1", "os_st_pic2"];
 
     /// <summary>The oldest content whose panels the server keeps to: every panel id the frame names is one this content and every later one has (CS2 keeps one list
@@ -276,8 +275,11 @@ static partial class Program
                 .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"os_cu_{k}", "used", true), ($"os_cu_{k}", "good", true), ($"os_cu_{k}", "bad", false) }))
                 .Concat(HudMenu.RecentWords(["dust"]).Classes).Concat(HudMenu.PopularWords(["aim"]).Classes).Append((HudView.Screen, "qhelp", true))
                 .Concat(chatSent.Classes).Concat([(HudView.TabGame, "off", true), (HudDash.Tab, "off", true), (HudVote.IdleBar, "snap", true)]) // the frame's own (content v4.14.0)
-                .Concat(historyView.Classes).Concat(new HudStats().Global().Classes).Where(c => !Retired416.Contains(c.Item1)) // HISTORY's and STATS' - but to the panels v4.16.0 retires
-                .Concat(Classes416).ToList(); // ...and the contract's names in their place: a card's state on os_screen, a bar's bits on os_global (content v4.16.0)
+                .Concat(historyView.Classes).Concat(new HudStats().Global().Classes).ToList(); // HISTORY's and STATS': a card's state on os_screen, a bar's bits on os_global (content v4.16.0)
+            Check("Content v4.16.0's pages: the server half sends the contract's names - every card state h<k>-<state> on os_screen and every bar's bits on os_global "
+                + "(Classes416) - and HISTORY's and STATS' classes go to os_screen and os_global alone, no panel of their own",
+                Classes416.All(c => sentClasses.Any(x => x.Id == c.Id && x.Class == c.Class)) && historyView.Classes.All(c => c.Item1 == HudView.Screen)
+                && new HudStats().Global().Classes.All(c => c.Id == HudView.Global));
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run", "chaton", "hb", "meos",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             // the buttons this content has, every one the plugin listens to
@@ -294,8 +296,8 @@ static partial class Program
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"os_m{k}_play", $"os_m{k}_up", $"os_m{k}_down" }))
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
-                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton]).Concat(HudHistoryPage.Buttons).Append("os_q_clr") // the search's Clear under v4.16.0's id (the contract's item 5)
-                .Where(b => !Pictures416.Contains(b)).ToList(); // the old sub-tab bar's and the first Clear's ids: older contents' buttons, still listened to, and this one's pictures // the HISTORY and STATS tabs are HudView.Tabs'
+                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton]).Concat(HudHistoryPage.Buttons).Append(HudBrowser.ClearButtonNew) // the search's Clear under v4.16.0's id (the contract's item 5)
+                .Where(b => !HudHistoryPage.PicturePanels.Contains(b)).ToList(); // the old sub-tab bar's and the first Clear's ids: older contents' buttons, still listened to, and this one's pictures // the HISTORY and STATS tabs are HudView.Tabs'
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the twelve cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -358,7 +360,7 @@ static partial class Program
                 // The panels v4.16.0 retires: v4.15.0's version button, whose place this content's own takes, and the 18 HISTORY's and STATS' state went to - the cards,
                 // their pictures, the bars and the two pictures - which the server named and a v4.14.0 game lacks. Every other panel keeps its id: the old sub-tab bar's
                 // three buttons and the search's first Clear are the pages' pictures now.
-                var expectedRetired = new HashSet<string>(Retired416) { HudVersion.Button(replaced) };
+                var expectedRetired = new HashSet<string>(RetiredPanels416) { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page); the cards' numbers, the chat column and the history go to this content's games and to no game known to hold one before them (HudVote.NumbersLevel, HudBrowser.HistoryLevel, HudChat.Level)",
@@ -923,20 +925,20 @@ static partial class Program
             // The pictures' layer (content v4.16.0): four panels over the pages, the last of them so drawn over them; their ids are panels v4.14.0 and v4.15.0 have
             // (the old sub-tab bar's three buttons, out of sight in both, and the search's first Clear), so no game misses them whoever was named them on the map. Each
             // lies where the page that shows wants it - over card k's slot on HISTORY, over the two heroes' slots on STATS - computed here from the sizes above.
-            var picPanels = Pictures416.Select((id, i) => Subtree(picsXml, $"<Panel id=\"{id}\" class=\"os-pic os-pic-{i + 1}\" hittest=\"false\">")).ToList();
+            var picPanels = HudHistoryPage.PicturePanels.Select((id, i) => Subtree(picsXml, $"<Panel id=\"{id}\" class=\"os-pic os-pic-{i + 1}\" hittest=\"false\">")).ToList();
             var olderLayouts = new[] { "v4.14.0", "v4.15.0" }.Select(v => File.ReadAllText($"../hud/reference/gungame_hud_{v}.xml")).ToList();
             var pageTop = PxOf(".os-page", "padding"); // a page's padding: 16 px at the top (its first value), 34 px at the sides (checked)
             var histY = pageTop + hBarAndMargin;
             var stY = pageTop + PxOf(".os-mbar", "height") + PxOf(".os-mbar", "margin-bottom") + PxOf(".os-styou", "height") + PxOf(".os-styou", "margin-bottom") + 1 + 8 + PxOf(".os-sttile-title", "height");
             var (col1X, col2X) = (34 + 1 + 12, 34 + PxOf(".os-stcol", "width") + PxOf(".os-stcol", "margin-right") + 1 + 12);
-            Check($"The pictures of HISTORY and STATS (content v4.16.0): four panels over the pages ({string.Join(" ", Pictures416)}), ids v4.14.0 and v4.15.0 have - no game misses them; each with a card's mode and On now, the first two with STATS' hero's name and count; on HISTORY over card k's slot ({34 + 1 + 4}, {histY} + {hCard + PxOf(".os-hcard", "margin-bottom")} x (k - 1)), on STATS over the heroes' ({col1X} and {col2X}, {stY}); a map's picture by its two classes, a backdrop without; they take no mouse, and no rule of ours names their ids",
+            Check($"The pictures of HISTORY and STATS (content v4.16.0): four panels over the pages ({string.Join(" ", HudHistoryPage.PicturePanels)}), ids v4.14.0 and v4.15.0 have - no game misses them; each with a card's mode and On now, the first two with STATS' hero's name and count; on HISTORY over card k's slot ({34 + 1 + 4}, {histY} + {hCard + PxOf(".os-hcard", "margin-bottom")} x (k - 1)), on STATS over the heroes' ({col1X} and {col2X}, {stY}); a map's picture by its two classes, a backdrop without; they take no mouse, and no rule of ours names their ids",
                 picsXml.Length > 0 && Regex.IsMatch(noComments, @"<Panel class=""os-pics"" hittest=""false"">.*?</Panel>\s*</Panel>\s*</Panel>\s*<Panel class=""os-live"">", RegexOptions.Singleline)
                 && picPanels.All(p => p.Length > 0 && new[] { "armsrace", "deathmatch", "wingman" }.All(m => p.Contains($"<Label class=\"os-hmode os-hmode-{m}\" hittest=\"false\"", StringComparison.Ordinal))
                     && p.Contains("<Label class=\"os-htag os-htag-now\" hittest=\"false\" text=\"On now\" />", StringComparison.Ordinal) && p.Contains("<Panel class=\"os-pic-shade\" hittest=\"false\" />", StringComparison.Ordinal))
                 && picPanels[0].Contains("text=\"{s:osstp1n}\"", StringComparison.Ordinal) && picPanels[0].Contains("text=\"{s:osstp1v}\"", StringComparison.Ordinal)
                 && picPanels[1].Contains("text=\"{s:osstl1n}\"", StringComparison.Ordinal) && picPanels[1].Contains("text=\"{s:osstl1v}\"", StringComparison.Ordinal)
-                && Ids(picsXml).SetEquals(Pictures416) && olderLayouts.All(o => Pictures416.All(id => o.Contains($"id=\"{id}\"", StringComparison.Ordinal)))
-                && olderLayouts.All(o => Pictures416.Take(3).All(id => Subtree(Regex.Replace(o, "<!--.*?-->", "", RegexOptions.Singleline), "<Panel class=\"os-subs\">").Contains($"id=\"{id}\"", StringComparison.Ordinal)))
+                && Ids(picsXml).SetEquals(HudHistoryPage.PicturePanels) && olderLayouts.All(o => HudHistoryPage.PicturePanels.All(id => o.Contains($"id=\"{id}\"", StringComparison.Ordinal)))
+                && olderLayouts.All(o => HudHistoryPage.PicturePanels.Take(3).All(id => Subtree(Regex.Replace(o, "<!--.*?-->", "", RegexOptions.Singleline), "<Panel class=\"os-subs\">").Contains($"id=\"{id}\"", StringComparison.Ordinal)))
                 && !Regex.IsMatch(rules, @"#os_(tab_server|sub_fun|sub_help|q_clear)(?![\w-])") && HasRule(".os-page", "padding: 16px 34px 12px 34px;")
                 && HasRule(".os-pics", "visibility: collapse;") && HasRule(".os-screen.page-history .os-pics", "visibility: visible;") && HasRule(".os-screen.page-stats .os-pics", "visibility: visible;")
                 && HasRule(".os-pic", "background-size: cover;") && !Regex.IsMatch(rules, @"(?m)^\.os-pic\s*\{[^}]*background-image")
@@ -1264,7 +1266,7 @@ static partial class Program
             var classNames = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value)).ToHashSet();
             var styleClasses = classNames.Where(c => !Regex.IsMatch(c, @"^latest-\d+$")).Concat(thumbClasses).Concat(HudVersion.Classes().Select(c => c.Class)).ToHashSet(); // the old count
             var engineIds = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat(ids.Where(id => id.EndsWith("_thumb", StringComparison.Ordinal))) // the pictures: the cards', now playing's and the countdown's
-                .Where(id => !Retired416.Contains(id)).Concat(Pictures416).Concat([HudView.Global, HudView.Screen]).ToHashSet(); // and the pages' four pictures (content v4.16.0)
+                .Concat(HudHistoryPage.PicturePanels).Concat([HudView.Global, HudView.Screen]).ToHashSet(); // and the pages' four pictures (content v4.16.0)
             var sentNames = sentClasses.Select(c => c.Class).Concat(screenClasses).ToHashSet();
             var engineClasses = classNames.Where(c => !c.StartsWith("os-", StringComparison.Ordinal) && !c.StartsWith("AspectRatio", StringComparison.Ordinal)
                     && !c.StartsWith("HUD_", StringComparison.Ordinal) && !Regex.IsMatch(c, @"^latest-\d+$"))

@@ -66,8 +66,16 @@ public static class HudVersion
     public const int LatestLast = 99;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The dialog variable on os_global that the layouts' labels inherit for the server's HUD version.</summary>
+    /// <summary>The dialog variable on os_global that the layouts' labels inherit for the server's HUD version - and on an outdated game's own os_screen the
+    /// version with why it is needed (OutdatedLine), which overrides os_global's for that game alone.</summary>
     public const string Var = "osver";
+
+    /// <summary>Why a game needs the server's content, as the outdated banner and the window's foot say it after the version: "v4.16.0 - HISTORY and STATS need
+    /// it" (content v4.16.0's reason; a later content's reason changes these words alone).</summary>
+    public const string OutdatedWhy = "HISTORY and STATS need it";
+
+    /// <summary>osver for an outdated game: the server's version and why it needs it.</summary>
+    public static string OutdatedLine(string serverVersion) => $"{serverVersion} - {OutdatedWhy}";
 
     /// <summary>The version class on os_global for everybody: the newest content the server knows (latest-N). The plugin turns the latest class it sent before off
     /// itself when the level moves.</summary>

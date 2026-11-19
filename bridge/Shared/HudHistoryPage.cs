@@ -26,6 +26,22 @@ public sealed class HudHistoryPage
 
     public static string Card(int k) => $"os_h{k.ToString(CultureInfo.InvariantCulture)}";
     public static string Thumb(int k) => $"{Card(k)}_thumb";
+
+    /// <summary>The panels that carry the pictures, per viewer: HISTORY's four cards' (k = 1-4) and STATS' two (1 the most played, 2 the most liked) - panels
+    /// every content from v4.14.0 has, which content v4.16.0 draws the pictures from, so no game is ever told a panel id its content lacks: CS2's game looks up
+    /// every id the HUD's entity has been given on the map, at its full update, and one on an older content logged each it lacks (the known issue of release
+    /// 220). In v4.14.0 and v4.15.0 os_q_clear is the visible Clear button: a picture class goes only to a viewer whose content has the pages
+    /// (HudBrowser.HasHistory), never to everybody.</summary>
+    public static readonly string[] PicturePanels = ["os_tab_server", "os_sub_fun", "os_sub_help", "os_q_clear"];
+
+    /// <summary>Picture panel k, 1-4.</summary>
+    public static string PicturePanel(int k) => PicturePanels[k - 1];
+
+    /// <summary>A card's state, a class on the viewer's os_screen (content v4.16.0): "h2-used".</summary>
+    public static string CardClass(int k, string state) => $"h{k.ToString(CultureInfo.InvariantCulture)}-{state}";
+
+    /// <summary>A card's states: used, liked, disliked, official, its mode (ar, dm, wm), inc (a match known in part), now, queued, mine.</summary>
+    public static readonly string[] CardStates = ["used", "liked", "disliked", "official", "ar", "dm", "wm", "inc", "now", "queued", "mine"];
     static string Var(int k, char word) => $"osh{k.ToString(CultureInfo.InvariantCulture)}{word}";
 
     /// <summary>Every button of the page, each taking clicks only: the cards' Like, Dislike and Vote for it, the chips, Mine, the order, Clear and the pager.</summary>
@@ -135,8 +151,9 @@ public sealed class HudHistoryPage
 
     // ---- the page, for this player ----
 
-    /// <summary>The page's words (variables on os_screen), its classes - the cards' and os_screen's - and the cards' pictures, for this player. past null: the
-    /// history is still on its way (the count says so).</summary>
+    /// <summary>The page's words (variables on os_screen), its classes - all on os_screen, the cards' states (CardClass) and the page's - and the cards' pictures
+    /// for the picture panels (PicturePanel), for this player: no panel of the page's own (content v4.16.0). past null: the history is still on its way (the
+    /// count says so).</summary>
     public (List<(string Name, string Text)> Vars, List<(string Id, string Class, bool On)> Classes, List<(string Panel, string[] Classes)> Pictures)
         View(HudHistory? past, HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, VoteState? vote = null, string serverMode = "")
     {
@@ -162,7 +179,6 @@ public sealed class HudHistoryPage
         classes.Add((HudView.Screen, "hnone", past != null && matches.Count == 0));
         for (var k = 1; k <= Cards; k++)
         {
-            var id = Card(k);
             var e = k <= page.Count ? page[k - 1] : null;
             var m = e == null ? null : MapOf(e, catalog);
             var key = e == null ? "" : m?.Key ?? e.Key;
@@ -177,16 +193,20 @@ public sealed class HudHistoryPage
             vars.Add((Var(k, 'v'), m == null ? "" : HudMenu.Likes(m)));
             vars.Add((Var(k, 's'), SizeOf(m)));
             vars.Add((Var(k, 'a'), e == null ? "" : m == null ? "Not on the list" : HudMenu.PlayText(m, s, b, now, vote, account, serverMode)));
-            classes.Add((id, "used", e != null));
-            classes.Add((id, "liked", mine > 0));
-            classes.Add((id, "disliked", mine < 0));
-            classes.Add((id, "official", m?.Official == true));
-            classes.AddRange(HudVote.CardModeClasses(id, e == null ? null : e.Mode != "" ? e.Mode : m?.FirstMode));
-            classes.Add((id, "hinc", e?.Incomplete == true));
-            classes.Add((id, "now", e != null && key == s.Key && s.Key != ""));
-            classes.Add((id, "queued", e != null && vote is { Open: true, Round: > 0 } && vote.Options.Any(o => o.Key == key && o.Source is VoteSource.Picked or VoteSource.Rolled)));
-            classes.Add((id, "mine", e != null && e.Players.Any(p => p.Account == account)));
-            pictures.Add((Thumb(k), m == null ? [] : HudThumbs.Classes(m)));
+            var cardMode = e == null ? null : e.Mode != "" ? e.Mode : m?.FirstMode;
+            void State(string state, bool on) => classes.Add((HudView.Screen, CardClass(k, state), on)); // the card's state on os_screen: no panel of the card's own (v4.16.0)
+            State("used", e != null);
+            State("liked", mine > 0);
+            State("disliked", mine < 0);
+            State("official", m?.Official == true);
+            State("ar", cardMode == Modes.ArmsRaceId);
+            State("dm", cardMode == Modes.DeathmatchId);
+            State("wm", cardMode == Modes.WingmanId);
+            State("inc", e?.Incomplete == true);
+            State("now", e != null && key == s.Key && s.Key != "");
+            State("queued", e != null && vote is { Open: true, Round: > 0 } && vote.Options.Any(o => o.Key == key && o.Source is VoteSource.Picked or VoteSource.Rolled));
+            State("mine", e != null && e.Players.Any(p => p.Account == account));
+            pictures.Add((PicturePanel(k), m == null ? [] : HudThumbs.Classes(m)));
         }
         return (vars, classes, pictures);
     }
