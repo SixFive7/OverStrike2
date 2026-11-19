@@ -511,6 +511,8 @@ public sealed class Settings
             s => s.Hud.Check, (s, v) => s.Hud.Check = v),
         Bool("hud.itemPage", P, true, "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
             s => s.Hud.ItemPage, (s, v) => s.Hud.ItemPage = v),
+        Bool("hud.mount", S, true, "Hand the HUD item to every client: the game server mounts hud.addon (MultiAddonManager's mm_extra_addons, written before every engine start). Off only for the live lab's copy, whose client runs a loose HUD build (os2-deploy rehearse up --no-item): the list is then empty, so no map change brings the item back; production never turns it off.",
+            s => s.Hud.Mount, (s, v) => s.Hud.Mount = v),
 
         // plugin: the game server's own layer
         Bool("plugin.enabled", S, true, "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
@@ -664,6 +666,7 @@ public sealed class HudSection
     public string Tab { get; set; } = "down";
     public string Check { get; set; } = "warn";
     public bool ItemPage { get; set; } = true;
+    public bool Mount { get; set; } = true;
 }
 
 public sealed class PluginSection

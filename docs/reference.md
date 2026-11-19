@@ -637,7 +637,9 @@ Anybody may change the length and press the two restarts, on the Game page or in
   its clock from the next spawn, and `os_warmup` says so (no first spawn), which the bridge follows with no line. An end the plugin could not confirm with
   somebody on a side (no round start, CS2 kept its warm-up: 20 s, given up) is marked `failed`, and the bridge says none - no "ended", no line, the match counted
   from the map's start; after three asks with no end it asks no more until a human spawns again, its banner up, nothing said. A joiner the server's list lost
-  before they were in is no longer present for anything (votes included).
+  before they were in is no longer present for anything (votes included). **Everybody who spawned has left** during the waiting time - a lone player on an
+  empty map - and it starts over, in both kinds: its clock from the next human's spawn, Wingman's CS2 clock back to the idle hour (before release 221 CS2's
+  clock ended it at 120 s all the same, and the next player joined a running match); the bridge follows with no line.
   Catch-up counts nothing in CS2's warm-up, and a match length set during it is the match's after it (`From this match on`); in the restart kind's waiting
   time both act as in any match, catch-up starting over at the restart as the ladder does, and the length set staying for the real match. **Team
   damage:** in Arms Race and Wingman a teammate's hit hurts at least as an enemy's does while it runs (`EarlyJoin.TeamDamage`) - at its begin the plugin turns
@@ -657,8 +659,11 @@ Anybody may change the length and press the two restarts, on the Game page or in
   longer present, should nothing have read the list meanwhile (one on the way back stays); the bridge reads that list every 2 s while anyone
   signs on, and each second of a warm-up. `os_warmup` says where it stands - on or off, the first spawn, the seconds left on CS2's clock, who is coming, each
   with who names them (`os_warmup bridge`: the bridge's two views as hex, whenever they change); `os_warmup end` is the bridge's and the console's, `os_warmup
-  start` the console's (a warm-up now, its clock from now once anybody has spawned). A plugin loaded during a map begins nothing on that map, and with a plugin
-  without `os_warmup` the bridge asks once a map and follows none.
+  start` the console's (a warm-up now, its clock from now once anybody has spawned). **A plugin loaded during a map** (`css_plugins reload`) has lost what
+  the one before it knew: with players on it cannot tell who has spawned, says so (`blind` on `os_warmup`'s first line), and the bridge, which followed their
+  spawns, has the warm-up end at once, cleanly - the plugin carries it out, CS2's warm-up end or the restart kind's one restart - and says it as ever ("The
+  match starts now - The warm-up is over"; the live lab's W8 on ce3e9af saw the bridge drop it instead, and CS2's own clock end it unsaid). With nobody on
+  it begins a warm-up as at the map's start. With a plugin without `os_warmup` the bridge asks once a map and follows none.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms - 0.5 s or more after the click before it, as for Restart the match - then the
   same 10 s countdown with the player's name - in its button too, where a click by anybody cancels it (`!cancel restart`, the news line says who, and its cooldown goes
   with it; the watcher's restarts are not the players' to cancel) - and the bridge quits the game process

@@ -679,6 +679,51 @@ static partial class Program
                 + "not begun; asked again once a human spawns",
                 spent && !WarmUpAsksSpent && MatchHistory.Warming);
 
+            // ---- release 221: the plugin loaded again during a warm-up (the live lab's W8 on ce3e9af: the bridge took its map for a new one and dropped the
+            // warm-up, and CS2's own clock ended it unsaid), and Wingman's lone player who spawns and leaves ----
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 20);
+            warmUpNow = () => EarlyJoin.WarmUpReply(warmOn, null, 0, null, EarlyJoin.BlindMark); // loaded again, players on: it cannot tell who has spawned
+            warmEndNow = () => { if (warmOn) (warmOn, warmEndedAt, warmEndedBy) = (false, h.Clock, "bridge"); return warmUpNow!(); }; // ...and carries the end out
+            h.Run(1.1);
+            var askedAtOnce = h.Sent.Count(c => c == EndAsk) == 1;
+            h.Run(1.1);
+            Check("Warm-up: the plugin loaded again during it, with players on (os_warmup's blind mark): the bridge, which followed their spawns, has it end at once, cleanly - "
+                + "asked once, said once it came: \"The match starts now - The warm-up is over\"",
+                askedAtOnce && WarmUpSince == null && h.Said("The match starts now - The warm-up is over") && MatchHistory.Running && h.Sent.Count(c => c == EndAsk) == 1);
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1), (5, "spawn", 0), (6, "spawn", 1)], 20);
+            var adopted = false;
+            warmUpNow = () => EarlyJoin.WarmUpReply(adopted, null, 0, null, EarlyJoin.BlindMark); // the restart kind's: no CS2 warm-up, so off - until the end is asked for
+            warmEndNow = () => { adopted = true; return warmUpNow!(); };
+            h.Run(1.1);
+            var notMapChange = h.Sent.Contains(EndAsk) && !h.Said("The match starts now");
+            adopted = false; // its one restart came: off for good
+            h.Run(1.1);
+            Check("...and in the restart kind, whose loaded-again plugin says off from the start, the same: no map change read into it - the end asked for, the plugin's one "
+                + "restart, then the line",
+                notMapChange && WarmUpSince == null && h.Said("The match starts now - The warm-up is over"));
+            Warm(three, true, [(0, "conn", 0), (0, "conn", 1), (2, "enter", 0), (3, "enter", 1)], 6);
+            warmUpNow = () => EarlyJoin.WarmUpReply(true, null, 0, null, EarlyJoin.BlindMark);
+            h.Run(5);
+            Check("...but loaded again before anybody spawned, the bridge asks for no end: nothing was lost, and the warm-up is followed on",
+                !h.Sent.Contains(EndAsk) && WarmUpSince != null && !h.Said("The match starts now"));
+            (string Name, string Id)[] lone = [("Lou", "[U:1:2301]"), ("Max", "[U:1:2302]")];
+            HudView.CountdownWords? afterLeave = null;
+            Warm(lone, false, [(0, "conn", 0), (2, "enter", 0), (5, "spawn", 0), (30, "leave", 0)], 32);
+            fakePlan.StartOver(); // the plugin: everybody who spawned has left - the waiting time starts over (Wingman's CS2 clock back to the idle one)
+            h.Run(2.1);
+            h.Line($"\"{lone[1].Name}<3><{lone[1].Id}><>\" connected, address \"192.0.2.9:27005\""); // the next player, on an empty map
+            h.Line($"\"{lone[1].Name}<3><{lone[1].Id}><>\" entered the game");
+            fakePlan.Entered(AccountId(lone[1].Id), h.Clock);
+            h.Run(3);
+            afterLeave = Banner();
+            var lonelyNoLine = WarmUpSince != null && WarmUpFirstSpawn == null && !h.Said("The match starts now");
+            fakePlan.Spawned(AccountId(lone[1].Id), h.Clock); // the next player's spawn, 37 s on
+            h.Run(1.1);
+            Check("Warm-up: a lone player who spawns and leaves an empty map - the plugin's waiting time starts over (Wingman's too: CS2's clock back to the idle one), and the "
+                + "bridge's: no line, no seconds while nobody is in; the next player's spawn starts both clocks, 120 s from it",
+                lonelyNoLine && afterLeave is not { Seconds: > 0 } && WarmUpFirstSpawn is { } maxSpawn && (h.Clock - maxSpawn).TotalSeconds < 2.5
+                && Banner() is { Warm: true, Seconds: >= 117 } && !h.Said("The match starts now"));
+
             // ---- who is coming, by the server's own list and the log stream: the live lab's run AX - a join needing a map it lacked, CS2's prompt to confirm a first
             // Workshop download left unanswered. The server logged the connect and nothing after it; os_joining said nobody (the game hears of a client only once it
             // has every addon); CS2 dropped it at 120 s and wrote no "disconnected" line. The server's own list has such a joiner connecting until the drop ----

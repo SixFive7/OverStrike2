@@ -24,7 +24,7 @@ namespace OverStrike2.Deploy;
 ///                                     players) over production's files in that copy, written by the stage's helper as root and owned as the
 ///                                     copy is (testcopy bridge-run's --seed); a folder that holds none of them is refused before anything.
 ///                                     Production's data folder is only read, the seed's files with the rest; clean deletes the copy
-///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold]
+///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--no-item] [--hold]
 ///                                     the stack: the compose file (stack.repo/stack.file, or FILE) with production's folders replaced by the
 ///                                     rehearsal's, a fresh test secret, the bridge on &lt;bridge.image&gt;:T (candidate), the test labels, and the
 ///                                     settings: restarts.daily, hud.itemPage off, production's maps folder left alone - maps.layout off,
@@ -35,7 +35,11 @@ namespace OverStrike2.Deploy;
 ///                                     would make them) - and the sync isolated - paths.syncState and paths.syncWork on copies, sync.testPort,
 ///                                     sync.handover and sync.publish off, no mail. For a rehearsal held for the live lab's client: --insecure
 ///                                     adds -insecure to the game server's CS2_ADDITIONAL_ARGS (a client with an unpublished HUD build joins no
-///                                     VAC-secured server), --test-bots sets plugin.testBots (RCON's bot_add keeps its bots); both off by default.
+///                                     VAC-secured server), --test-bots sets plugin.testBots (RCON's bot_add keeps its bots); --no-item sets hud.mount
+///                                     off, so the copy's install writes an empty item list into MultiAddonManager's cfg before the engine starts (for
+///                                     a client with a loose HUD build: MultiAddonManager restores the list it read at boot at every map change, so an
+///                                     RCON mm_extra_addons "" lasted to the next change only); all three off by default - production's install keeps
+///                                     writing the item.
 ///                                     --hold: the hold on (below) before the stack starts, so not even its first start rolls
 ///     rehearse compose [...]          read-only: what up would create, written to the harness's state folder, its changes named
 ///     rehearse hold on|off|status     the hold, for the live lab: the bridge's maintenance flag in the rehearsal folder's copy of its data (never
@@ -399,7 +403,7 @@ sealed class Rehearse
     public static (string Compose, string Settings) ComposeText(string text, Dictionary<string, string> replace, string secret, string network, string bridgeImage,
                                                                Dictionary<string, string> labels, string daily, int testPort, bool viaFile, string settingsFile,
                                                                bool downloads = false, string previewDir = "/unused/preview", bool insecure = false,
-                                                               bool testBots = false)
+                                                               bool testBots = false, bool noItem = false)
     {
         var stream = new YamlStream();
         stream.Load(new StringReader(text));
@@ -444,6 +448,8 @@ sealed class Rehearse
             Section(settings, "maps")["backgroundDownloads"] = false;
         Section(settings, "restarts")["daily"] = daily;
         Section(settings, "hud")["itemPage"] = false;
+        if (noItem)   // the live lab's client runs a loose HUD build: the copy hands the item to nobody, from its boot on (os2-server install, hud.mount)
+            Section(settings, "hud")["mount"] = false;
         var sync = Section(settings, "sync");
         sync["publish"] = false;
         sync["handover"] = false;
@@ -592,7 +598,7 @@ sealed class Rehearse
 
     /// <summary>What up creates: (compose text, settings text, the rehearsal's folder). Both texts hold secrets and are never printed.</summary>
     (string Compose, string Settings, string Dir) Build(JsonObject game, JsonObject bridge, string daily, string via, string tag, string? composePath, bool downloads,
-                                                        bool insecure = false, bool testBots = false)
+                                                        bool insecure = false, bool testBots = false, bool noItem = false)
     {
         var path = composePath ?? Path.Combine([h.Cfg.Str("stack.repo", required: true), .. h.Cfg.Str("stack.file", required: true).Replace('\\', '/').Split('/')]);
         if (!File.Exists(secretFile))
@@ -605,15 +611,15 @@ sealed class Rehearse
         var dir = Dir(bridge);
         var (compose, settings) = ComposeText(File.ReadAllText(path, Encoding.UTF8), Replacements(game, bridge), secret, network, $"{tc.BridgeRepo}:{tag}",
                                               new Dictionary<string, string>(tc.ExtraLabels), daily, ConfigExtensions.Int(h.Cfg.Get("rehearse.test_port", 27216L), 27216),
-                                              via == "file", dir + "/settings/overstrike2.jsonc", downloads, dir + "/preview", insecure, testBots);
+                                              via == "file", dir + "/settings/overstrike2.jsonc", downloads, dir + "/preview", insecure, testBots, noItem);
         return (compose, settings, dir);
     }
 
     /// <summary>A dry run of up: the compose file it would create, written to the harness's state folder, and what it changes, named.</summary>
-    void ComposeDry(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false, bool hold = false)
+    void ComposeDry(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false, bool hold = false, bool noItem = false)
     {
         var (game, bridge) = Production();
-        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads, insecure, testBots);
+        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads, insecure, testBots, noItem);
         var file = Path.Combine(tc.State, "rehearsal-compose.yml");
         File.WriteAllText(file, compose);
         Log($"the compose file up would create: {file} (secrets inside: never printed)");
@@ -625,18 +631,19 @@ sealed class Rehearse
             + $"maps.backgroundDownloads {(Json.At(s, "maps", "backgroundDownloads") is { } bd ? Json.Dumps(bd) : "as production has it (core's default, on)")}, "
             + $"plugin.testBots {Json.PyStr(Json.At(s, "plugin", "testBots") ?? JsonValue.Create(false))}, the game server {(insecure ? "INSECURE (-insecure)" : "as production, VAC on")}, "
             + $"restarts.daily {Json.Str(s, "restarts", "daily")}, hud.itemPage {Json.PyStr(Json.At(s, "hud", "itemPage"))}, "
+            + $"hud.mount {(Json.At(s, "hud", "mount") is { } mount ? Json.PyStr(mount) + " - the item handed out to nobody" : "as production has it (core's default, on)")}, "
             + $"sync.publish {Json.PyStr(Json.At(s, "sync", "publish"))}, sync.handover {Json.PyStr(Json.At(s, "sync", "handover"))}, sync.testPort {Json.PyStr(Json.At(s, "sync", "testPort"))}, "
             + $"sync.mail.smtpHost {Py.Repr(Json.Str(s, "sync", "mail", "smtpHost"))}, paths.syncState {Json.Str(s, "paths", "syncState")}, paths.syncWork {Json.Str(s, "paths", "syncWork")}");
         Log($"  the stack {StackName} on {tc.BridgeRepo}:{tag}, in {dir}" + (hold ? "; the hold on before it starts (the maintenance flag in its copy of the bridge data)" : ""));
     }
 
-    internal void Up(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false, bool hold = false)
+    internal void Up(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false, bool hold = false, bool noItem = false)
     {
         h.NeedLock();
         if (tc.Inspect(tc.Aside) is null || tc.Inspect(tc.BridgeAside) is null)
             throw Out.Stop("REFUSED: production is not aside - prep first");
         var (game, bridge) = (Game(), BridgeInspect());
-        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads, insecure, testBots);
+        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads, insecure, testBots, noItem);
         if (via == "file")
         {
             var (code, output) = StageHelper([$"{dir[..dir.LastIndexOf('/')]}:/r"], new() { ["settings/overstrike2.jsonc"] = Encoding.UTF8.GetBytes(settings) },
@@ -841,7 +848,7 @@ sealed class Rehearse
         }
     }
 
-    public const string Doc = "rehearse prep [--keep-flag] [--seed DIR] | backup | stage [--keep-flag] [--seed DIR] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold] | compose (the same options) | hold on|off|status | down | restore | clean | "
+    public const string Doc = "rehearse prep [--keep-flag] [--seed DIR] | backup | stage [--keep-flag] [--seed DIR] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--no-item] [--hold] | compose (the same options) | hold on|off|status | down | restore | clean | "
                               + "logs <cs2|bridge|sync> <seconds> [regex] | sh <cs2|bridge|sync> \"<cmd>\" [user] | rcon \"<cmd>\"... | ship <file> [name] | status";
 
     /// <summary>prep's and stage's options: --keep-flag and --seed DIR, and nothing else.</summary>
@@ -892,10 +899,10 @@ sealed class Rehearse
                     throw Out.Stop("usage: --via env|file");
                 if (args[0] == "up")
                     r.Up(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null), args.Contains("--downloads"), args.Contains("--insecure"),
-                         args.Contains("--test-bots"), args.Contains("--hold"));
+                         args.Contains("--test-bots"), args.Contains("--hold"), args.Contains("--no-item"));
                 else
                     r.ComposeDry(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null), args.Contains("--downloads"), args.Contains("--insecure"),
-                                 args.Contains("--test-bots"), args.Contains("--hold"));
+                                 args.Contains("--test-bots"), args.Contains("--hold"), args.Contains("--no-item"));
                 break;
             case "hold": r.Hold(args.Count == 2 && args[1] is "on" or "off" or "status" ? args[1] : throw Out.Stop("usage: os2-deploy rehearse hold on|off|status")); break;
             case "down": r.Down(); break;

@@ -127,7 +127,15 @@ static partial class Program
             return;
         }
         if (WarmUpUnread > 0) { Log($"warm-up: {EarlyJoin.WarmUpCommand} read again, after {WarmUpUnread} reply(ies) it could not read"); WarmUpUnread = 0; }
-        if (!state.On && WarmUpSince != null && WarmUpFirstSpawn != null && state.SinceFirstSpawn == null)
+        if (state.Blind && WarmUpSince != null && WarmUpFirstSpawn != null && WarmUpEnding == null && !WarmUpAsksSpent)
+        {
+            // the plugin was loaded again during the warm-up, with players on: it cannot tell who has spawned, nor keep the clock (EarlyJoinWatch.LoadedDuringTheMap).
+            // The bridge followed a spawn: the warm-up ends now, cleanly - CS2's own end, or the restart kind's one restart - and is said as ever once it came
+            // (the live lab's W8 on ce3e9af: the bridge took the plugin's map for a new one, dropped the warm-up, and CS2's own clock ended it unsaid)
+            EndWarmUp(now, "the plugin was loaded again during the warm-up - it cannot tell who has spawned, so the warm-up ends now", "The warm-up is over");
+            return;
+        }
+        if (!state.On && !state.Blind && WarmUpSince != null && WarmUpFirstSpawn != null && state.SinceFirstSpawn == null)
         {
             // off, and the plugin knows no spawn on its map while the bridge followed one: the map changed under it before its start reached the bridge (or the
             // plugin was loaded again) - the waiting time it followed is over with no line, and the new map's own warm-up is looked for
@@ -139,9 +147,9 @@ static partial class Program
         }
         if (state.On && !state.Blind && WarmUpFirstSpawn != null && state.SinceFirstSpawn == null)
         {
-            // on, and the plugin knows no spawn on its map while the bridge followed one: its waiting time starts over - nobody on a side to restart for, its
+            // on, and the plugin knows no spawn on its map while the bridge followed one: its waiting time starts over - everybody who spawned has left, or nobody on a side to restart for; its
             // clock from the next spawn (EarlyJoinWatch.StartOver). Both clocks from that spawn again; nothing said
-            Log("warm-up: the plugin's waiting time starts over - nobody on a side for its end; its clock from the next spawn, the bridge's too");
+            Log("warm-up: the plugin's waiting time starts over - everybody who spawned has left, or nobody was on a side for its end; its clock from the next spawn, the bridge's too");
             (WarmUpFirstSpawn, WarmUpEnd, WarmUpEnding, WarmUpAllInSince, WarmUpNewestSpawn, WarmUpOffSince, WarmUpAsksSpent, WarmUpSpawned) = (null, null, null, null, null, null, false, 0);
         }
         if (WarmUpSince != null && state.Spawned > WarmUpSpawned) (WarmUpNewestSpawn, WarmUpAsksSpent) = (now, false); // a human's first spawn on the map since the last look

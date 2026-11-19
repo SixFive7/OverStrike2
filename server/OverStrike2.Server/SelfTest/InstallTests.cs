@@ -181,6 +181,11 @@ static class InstallTests
               && File.ReadAllText(cfg).Contains("mm_client_extra_addons \"\"") && File.ReadAllText(cfg).Contains("mm_addon_mount_download 0")
               && File.ReadAllText(cfg).Contains("mm_cache_clients_with_addons 1") && File.ReadAllText(cfg).Contains("mm_addon_connection_timeout 0")
               && !File.ReadAllText(cfg).Contains('\r'));
+        var lab = new Install(config with { HudMount = false }, log, downloads, _ => null, SystemClock.Instance, Scenario.Paris);
+        Check("hud: hud.mount off (the live lab's copy, rehearse up --no-item) - MultiAddonManager loaded with an empty list, so no map change brings the item back; it says so",
+              lab.Hud() && File.Exists(vdf) && File.ReadAllText(cfg).Contains("mm_extra_addons \"\"") && !File.ReadAllText(cfg).Contains("3823993566")
+              && lines[^1].Contains("handed out to nobody"));
+        Check("hud: production's install writes the item again (hud.mount on, its default)", install.Hud() && File.ReadAllText(cfg).Contains("mm_extra_addons \"3823993566\""));
 
         var dst = Path.Combine(csgo, "addons", "counterstrikesharp", "plugins");
         Put(Path.Combine(plugins, "OverStrike2", "OverStrike2.dll"), "os2");

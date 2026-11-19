@@ -130,6 +130,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `hud.tab` | off \| down | `down` | bridge | The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. |
 | `hud.check` | off \| warn \| enforce | `warn` | bridge | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. |
 | `hud.itemPage` | boolean | `true` | plugin | Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy). |
+| `hud.mount` | boolean | `true` | server | Hand the HUD item to every client: the game server mounts hud.addon (MultiAddonManager's mm_extra_addons, written before every engine start). Off only for the live lab's copy, whose client runs a loose HUD build (os2-deploy rehearse up --no-item): the list is then empty, so no map change brings the item back; production never turns it off. |
 
 ### `plugin`
 

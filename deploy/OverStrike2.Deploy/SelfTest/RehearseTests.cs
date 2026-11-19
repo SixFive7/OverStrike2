@@ -120,6 +120,11 @@ services:
         var s = Json.Parse(Scalar(root, "services", "sync", "environment", Check.Content) ?? "{}");
         check("the settings: maps.delete as production has it (the preview says what a start would do with it), the daily restart given, no HUD item page visits",
               Json.At(s, "maps", "delete") is null && Json.Str(s, "restarts", "daily") == "05:30" && Json.AsBool(Json.At(s, "hud", "itemPage")) == false);
+        var (_, noItemText) = Rehearse.ComposeText(Compose, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "05:30", 27216, false, "/unused",
+                                                   previewDir: "/srv/os2/rehearsal/preview", noItem: true);
+        var ni = Json.Parse(noItemText);
+        check("--no-item: hud.mount off, so the copy's install writes an empty item list before the engine starts; without it the key is left out - production's own, on",
+              Json.AsBool(Json.At(ni, "hud", "mount")) == false && Json.At(s, "hud", "mount") is null && Json.Str(ni, "hud", "addon") == Json.Str(s, "hud", "addon"));
         check("the preview: maps.preview on, paths.preview the rehearsal's own folder in the game server - keep-preview.json and the would-delete list land there, not in production's update-watch",
               Json.At(s, "maps", "preview") is JsonValue pv && pv.TryGetValue<bool>(out var previewOn) && previewOn && Json.Str(s, "paths", "preview") == Rehearse.PreviewAt
               && Rehearse.PreviewAt.StartsWith('/') && !Rehearse.PreviewAt.StartsWith("/home/steam/cs2-dedicated", StringComparison.Ordinal));
