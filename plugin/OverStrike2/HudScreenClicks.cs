@@ -16,13 +16,18 @@ sealed partial class HudScreen
         // Any click at all proves this player's game shows the HUD (the check, HudCheck.cs). While they were being checked, the window's X is the version
         // button, whose id names the content (HudVersion.Button), and the live column's action button says "Click to play" too: either click is the check
         // and closes the window - the action button's must not roll a map as !next would. A click from a content before v4.8.0 names its button gg_, which
-        // no button of ours is: it proves the HUD, which content not said, and asks for nothing.
+        // no button of ours is: it proves the HUD, which content not said, and asks for nothing. From content v4.17.0 on, every control a player can reach before
+        // their first click has a version twin (316 c, HudVersion.OfTwin): its click proves the content as the version button's does - vcheck goes, a game of
+        // HudVersion.Unknown is known from then on - and then counts as its control's own; the catcher on the pages without a control only proves
+        // (HudFrame.ReadClick, which also makes a twin's click and its control's own one click).
         var who = Account(player);
         var wasChecked = gate.Checking(player.Slot);
-        var proved = HudVersion.OfButton(buttonId);
-        var version = proved ?? HudVersion.Unknown;
+        var click = HudFrame.ReadClick(Player(player.Slot), buttonId, now);
+        var version = click.Proved ?? HudVersion.Unknown;
         if (!Verified(who) || (version != HudVersion.Unknown && VersionOf(who) != version)) Verify(player, who, wasChecked, version);
-        if ((wasChecked && buttonId == HudView.ButtonAct) || proved != null) { slots.Click(player.Slot, HudView.ButtonClose, now); Server.NextFrame(Frame); return; }
+        if ((wasChecked && click.Id == HudView.ButtonAct) || click.Closes) { slots.Click(player.Slot, HudView.ButtonClose, now); Server.NextFrame(Frame); return; }
+        if (!click.Acts) { Server.NextFrame(Frame); return; } // the catcher, or the second half of a twin and its control pressed as one: the proof alone
+        buttonId = click.Id; // a twin's click is its control's own from here on
         if (HudVote.WhyClick(buttonId) is { } reason)
         {
             // The popup's reason, under whichever cursor this player has: the window's or TAB's. The bridge knows which vote it is about.

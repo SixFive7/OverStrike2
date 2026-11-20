@@ -114,40 +114,62 @@ static partial class Program
             JudgeSpawn(1);
             Check("...and so does a new process the crash watch finds (its spawn counter back to 1)", Unloadable.Count == 0);
 
-            // ---- the official maps the HUD does not show on (Modes.HudLess): out of every pool, the dice and the ballot, still listed, every pick refused with why ----
+            // ---- the official maps the HUD does not show on (Modes.HudLess): out of every pool, the dice and the ballot, still listed; every pick plays the map's
+            // Workshop copy, saying so (the owner's 317 b) ----
             h.Fresh();
-            HudLess = new(Modes.HudLess, StringComparer.OrdinalIgnoreCase);
+            HudLess = new(Modes.HudLess.Select(c => c.Map), StringComparer.OrdinalIgnoreCase);
+            // the three copies as our lists hold them: Wingman's with their spawns, Deathmatch's too
+            File.WriteAllText(Path.Combine(h.Dir, Modes.Wingman.MapsFile), "[" + string.Join(", ", Modes.HudLess.Select((c, i) =>
+                $"{{\"rank\": {40 + i}, \"id\": {c.Copy}, \"name\": \"{c.Name}\", \"sizeMb\": 700, \"spawnsT\": 9, \"spawnsCt\": 9}}")) + "]");
+            File.WriteAllText(Path.Combine(h.Dir, Modes.Deathmatch.MapsFile), "[" + string.Join(", ", Modes.HudLess.Select((c, i) =>
+                $"{{\"rank\": {60 + i}, \"id\": {c.Copy}, \"name\": \"{c.Name}\", \"sizeMb\": 700}}")) + "]");
+            ReloadModeMaps(Modes.Wingman, force: true);
+            ReloadModeMaps(Modes.Deathmatch, force: true);
             CatalogVersion++;
-            var off = wm.Where(Modes.HudLess.Contains).ToList();
+            var off = wm.Where(n => Modes.HudLess.Any(c => c.Map == n)).ToList();
+            long CopyOf(string map) => Modes.HudLess.Single(c => c.Map == map).Copy;
+            string OffWords(IEnumerable<string> maps) => string.Join(" ", maps.Select(n => $"{n} (plays as {CopyOf(n)})"));
             static string OffLine(string map) => $"{map} is off for now - The HUD does not show on it. Pick another.";
             var wmRolls = Enumerable.Range(0, 3000).Select(_ => RandomPick(Modes.Wingman)?.Name).ToList();
-            Check($"The maps the HUD does not show on are all Wingman's ({string.Join(" ", off)}): out of its pool and its dice, the rest of Valve's pool in; still in the catalog as "
-                  + $"Wingman's official maps, so a pick reaches the bridge; GET /health says so ({PoolDifferences()[2]})",
-                off.Count == Modes.HudLess.Length && off.Count == 3 && Same(Names(Modes.Wingman), wm.Except(off)) && wmRolls.All(n => n != null && !off.Contains(n))
-                && wm.Except(off).All(wmRolls.Contains) && off.All(n => Catalog().Maps.SingleOrDefault(m => m.Key == n) is { Official: true, RankWm: 0 })
-                && PoolDifferences()[2] == $"wingman {wm.Length} from Modes.cs, off - the HUD does not show on them: {string.Join(" ", off)}" && HealthText().Contains(PoolDifferences()[2]));
+            Check($"The maps the HUD does not show on are all Wingman's ({string.Join(" ", off)}), each with its Workshop copy: out of the pool and the dice, the rest of Valve's "
+                  + $"pool in, the copies rolled as any Workshop map; still in the catalog as Wingman's official maps, so a pick reaches the bridge; GET /health says so ({PoolDifferences()[2]})",
+                off.Count == Modes.HudLess.Length && off.Count == 3 && Modes.HudLess.All(c => c.Copy > 0 && c.Name != "") && Same(Names(Modes.Wingman), wm.Except(off))
+                && wmRolls.All(n => n != null && !off.Contains(n)) && wm.Except(off).All(wmRolls.Contains) && Modes.HudLess.All(c => wmRolls.Contains(c.Name))
+                && off.All(n => Catalog().Maps.SingleOrDefault(m => m.Key == n) is { Official: true, RankWm: 0 })
+                && PoolDifferences()[2].EndsWith($", off - the HUD does not show on them: {OffWords(off)}", StringComparison.Ordinal) && HealthText().Contains(PoolDifferences()[2]));
             h.Join(alice);
+            h.Join(("Bob", "[U:1:4102]")); // two on: a pick's vote stays open with one vote cast
             h.Quiet();
             var asked = new List<string>();
-            foreach (var (map, text, click) in new[] { ("de_eldorado", "!map de_eldorado", true), ("de_eldorado", "!map de_eldorado wingman", true), ("de_poseidon", "!map de_poseidon deathmatch", true),
-                         ("de_debris", "!map de_debris", false) }) // a click's Play: in the server's mode, a card's in Wingman, a card under Deathmatch's filter; and typed in chat
-            {
-                ClearNotices();
+            foreach (var (map, text, click, mode) in new[] { ("de_eldorado", "!map de_eldorado", true, Modes.WingmanId), ("de_eldorado", "!map de_eldorado wingman", true, Modes.WingmanId),
+                         ("de_poseidon", "!map de_poseidon deathmatch", true, Modes.DeathmatchId), ("de_debris", "!map de_debris", false, Modes.WingmanId) })
+            { // a click's Play in the server's mode, a card's in Wingman (HISTORY's Vote for it too), a card under Deathmatch's filter; and typed in chat
+                ClearNotices(); Ballot = null; Pending = null; LoadPending = false; S.Map = null; VoteWaitUntil = default;
                 if (click) HudAct($"{alice.Item2}\t{alice.Item1}\t{text}"); else h.Talk(alice, text);
-                if (!(h.Said(OffLine(map)) && Ballot == null && !LoadPending && Pending == null)) asked.Add($"{text}: {string.Join(" | ", Told)}");
+                var name = Modes.HudLess.Single(c => c.Map == map).Name;
+                var card = Ballot?.Options.FirstOrDefault(o => o.Source == VoteSource.Picked);
+                if (!(h.Said($"{name} plays as its Workshop copy - The HUD needs it") && card?.Map is { Official: false } m && m.Id == CopyOf(map) && ModeOf(m).Id == mode
+                      && Ballot!.Options.All(o => o.Map is not { Official: true } om || !off.Contains(om.Name)) && !Told.Any(t => t.Contains("is off for now", StringComparison.Ordinal))))
+                    asked.Add($"{text}: {string.Join(" | ", Told)}; card {card?.Map}");
             }
-            Check($"A pick of one - a card's Play in any mode, under any mode's filter, or typed - is refused, saying which and why; no vote, no change{(asked.Count > 0 ? $" ({string.Join("; ", asked)})" : "")}",
-                asked.Count == 0);
-            ClearNotices();
+            Check($"A pick of one - a card's Play in any mode, under any mode's filter, or typed - plays its Workshop copy: the vote opens with the copy's card, in the mode asked for "
+                  + $"where a list has it there, and the player is told why{(asked.Count > 0 ? $" ({string.Join("; ", asked)})" : "")}", asked.Count == 0);
+            ClearNotices(); Ballot = null; Pending = null; LoadPending = false; S.Map = null; VoteWaitUntil = default;
             S.History.Add(new MapInfo(0, 0, "de_eldorado", 0, true, Modes.WingmanId));
             h.Talk(alice, "!previous");
             var offMap = new MapInfo(0, 0, "de_poseidon", 0, true, Modes.WingmanId);
-            Check("...and so is Previous to one; a ballot's card of one is unplayable (its win rolls the dice instead) and never rolled, nor kept for the disk",
-                h.Said(OffLine("de_eldorado")) && Ballot == null && !LoadPending && Unplayable(offMap) == HudLessRefusal(offMap) && !CanRoll(offMap) && Bad(offMap)
-                && Unplayable(new MapInfo(0, 0, "de_nuke", 0, true, Modes.WingmanId)) == null);
+            Check("...and so does Previous to one; a ballot card of one wins as its copy (PlayableTarget); the official maps themselves are never rolled, nor kept for the disk",
+                h.Said("El Dorado plays as its Workshop copy - The HUD needs it") && Ballot?.Options.Any(o => o.Source == VoteSource.Picked && o.Map?.Id == CopyOf("de_eldorado")) == true
+                && PlayableTarget(offMap) is { Official: false, Mode: Modes.WingmanId } won && won.Id == CopyOf("de_poseidon") && !CanRoll(offMap) && Bad(offMap)
+                && PlayableTarget(new MapInfo(0, 0, "de_nuke", 0, true, Modes.WingmanId)) is { Name: "de_nuke", Official: true } && Unplayable(new MapInfo(0, 0, "de_nuke", 0, true, Modes.WingmanId)) == null);
+            ModeMaps.Clear(); // no copy listed: the pick still goes to it, unlisted, in the official map's mode
+            Check("...a copy no list holds still plays, unlisted, in the official map's mode",
+                HudCopyOf(offMap) is { Official: false, Rank: 0, Mode: Modes.WingmanId, Name: "Poseidon" } unlisted && unlisted.Id == CopyOf("de_poseidon"));
+            ReloadModeMaps(Modes.Wingman, force: true);
+            ReloadModeMaps(Modes.Deathmatch, force: true);
             TakePools(Report("1.41.9.9", ar, dm, [], wm, all));
             Check($"...and the game's own report changes none of it: its Wingman pool played without them, the comparison says so ({PoolDifferences()[2]})",
-                Same(Names(Modes.Wingman), wm.Except(off)) && PoolDifferences()[2] == $"wingman {wm.Length} = Modes.cs, off - the HUD does not show on them: {string.Join(" ", off)}"
+                Same(Names(Modes.Wingman), wm.Except(off)) && PoolDifferences()[2] == $"wingman {wm.Length} = Modes.cs, off - the HUD does not show on them: {OffWords(off)}"
                 && Find("de_eldorado") is [{ Official: true, Mode: Modes.WingmanId }] && Find("de_eldorado_not") is []);
 
             // ---- the game's report names the maps it ships as community addons (its addons line, os2-server from release 221a): each of them is off too ----
@@ -161,7 +183,7 @@ static partial class Program
                 !Names(Modes.Deathmatch).Contains("de_shipped") && !Names(Modes.Wingman).Contains("de_eldorado") && Names(Modes.Wingman).Contains("de_debris")
                 && Catalog().Maps.Any(m => m.Key == "de_shipped" && m.Official) && h.Said(OffLine("de_shipped")) && Ballot == null
                 && PoolDifferences()[1].EndsWith(", off - the HUD does not show on them: de_shipped", StringComparison.Ordinal)
-                && PoolDifferences()[2].EndsWith(", off - the HUD does not show on them: de_eldorado", StringComparison.Ordinal));
+                && PoolDifferences()[2].EndsWith(", off - the HUD does not show on them: de_eldorado (plays as 3408790618)", StringComparison.Ordinal));
             TakePools(Report("1.41.9.9", ar, dm.Append("de_shipped"), [], wm, all.Append("de_shipped")));
             Check("...and a report without the line - an os2-server before release 221a - keeps none out",
                 Names(Modes.Deathmatch).Contains("de_shipped") && Same(Names(Modes.Wingman), wm) && OffForHud("de_shipped") == false);

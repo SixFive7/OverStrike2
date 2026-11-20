@@ -22,12 +22,10 @@ static partial class Program
 
     /// <summary>Content v4.17.0 (the owner's 316 c): the controls a player can reach before the first click that names the content - the tabs, Start's Like,
     /// Dislike and its action, the board's four, the ballot's cards, Random, Scores and Back to the vote - each with a click-only twin over itself whose id is its
-    /// own and the content's (Twin), shown while the server waits for that click (vcheck); and the catcher over any other page.</summary>
+    /// own and the content's (HudVersion.Twin), shown while the server waits for that click (vcheck); and the catcher over any other page.</summary>
     static readonly string[] Twinned = ["os_tab_start", "os_v_back", "os_tab_maps", "os_v_browse", "os_tab_history", "os_tab_stats", "os_tab_fun", "os_tab_bots", "os_sub_players",
         "os_tab_game", "os_tab_sync", "os_tab_help", "os_tab_how", "os_btn_up", "os_btn_down", "os_btn_act", "os_b_vup", "os_b_vdown", "os_b_next", "os_b_open",
         .. Enumerable.Range(1, 12).Select(k => $"os_m{k}_play"), "os_v_random", "os_v_scores", "os_v_tovote"];
-    static string Twin(string id) => $"{id}__{HudVersion.Content}";
-    static string Catcher => Twin("os_vcatch");
 
     /// <summary>The oldest content whose panels the server keeps to: every panel id the frame names is one this content and every later one has (CS2 keeps one list
     /// of every id named on a map, and every game looks all of it up at its full update). Contents before it already miss the chat column's and the 11th and
@@ -306,7 +304,7 @@ static partial class Program
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
                 .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton]).Concat(HudHistoryPage.Buttons).Append(HudBrowser.ClearButtonNew) // the search's Clear under v4.16.0's id (the contract's item 5)
-                .Where(b => !HudHistoryPage.PicturePanels.Contains(b)).Concat(Twinned.Select(Twin)).Append(Catcher).ToList(); // ...and v4.17.0's twins and catcher, which the plugin reads by their form (316 c) // the old sub-tab bar's and the first Clear's ids: older contents' buttons, still listened to, and this one's pictures // the HISTORY and STATS tabs are HudView.Tabs'
+                .Where(b => !HudHistoryPage.PicturePanels.Contains(b)).Concat(Twinned.Select(HudVersion.Twin)).Append(HudVersion.Twin(HudVersion.Catcher)).ToList(); // ...and v4.17.0's twins and catcher, which the plugin reads by their form (316 c) // the old sub-tab bar's and the first Clear's ids: older contents' buttons, still listened to, and this one's pictures // the HISTORY and STATS tabs are HudView.Tabs'
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the twelve cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -376,7 +374,7 @@ static partial class Program
                 // ...its own version button, the 35 twins and the catcher (316 c): click-only, never named by the server, the plugin reading their ids.
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
-                var expectedAdded = new HashSet<string>(Twinned.Select(Twin)) { HudVersion.Button(HudVersion.Content), Catcher };
+                var expectedAdded = new HashSet<string>(Twinned.Select(HudVersion.Twin)) { HudVersion.Button(HudVersion.Content), HudVersion.Twin(HudVersion.Catcher) };
                 Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, a twin in each of the {Twinned.Length} controls a first click can reach and the catcher - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 var noTakeBack = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
@@ -964,10 +962,10 @@ static partial class Program
             // (vcheck); any other page has the catcher over its body then. No other twin, every twin's id its control's and this content's, none named by the server.
             var twinsInLayout = Regex.Matches(noComments, @"<Button id=""([^""]+)"" class=""os-vtwin"" />").Select(m => m.Groups[1].Value).ToList();
             var twinParent = Twinned.Where(id => Subtree(noComments, noComments[noComments.IndexOf($"<Button id=\"{id}\"", StringComparison.Ordinal)..].Split('>')[0] + ">") is var t
-                && !Regex.IsMatch(t, $@"<Button id=""{Regex.Escape(Twin(id))}"" class=""os-vtwin"" />\s*</Button>$")).ToList();
+                && !Regex.IsMatch(t, $@"<Button id=""{Regex.Escape(HudVersion.Twin(id))}"" class=""os-vtwin"" />\s*</Button>$")).ToList();
             string[] twinWrapped = ["os_btn_up", "os_btn_down", "os_btn_act", "os_b_vup", "os_b_vdown", "os_b_next", "os_b_open", "os_v_scores", "os_v_tovote"];
-            Check($"316 c (content v4.17.0): the first click names the content - a click-only twin as the last child of each of the {Twinned.Length} controls a first click can reach (the tabs, Like, Dislike, the action, the board's four, the ballot's cards, Random, Scores, Back to the vote), its id the control's and this content's ({Twin("os_tab_maps")}), over the whole control while the server waits (vcheck) - the content and padding of {twinWrapped.Length} of them and the tabs' in a wrapper - and the catcher ({Catcher}) over any other page then; no twin else, and none the server names{(twinParent.Count > 0 ? ": not over " + string.Join(" ", twinParent) : "")}",
-                twinsInLayout.ToHashSet().SetEquals(Twinned.Select(Twin)) && twinsInLayout.Count == Twinned.Length && twinParent.Count == 0
+            Check($"316 c (content v4.17.0): the first click names the content - a click-only twin as the last child of each of the {Twinned.Length} controls a first click can reach (the tabs, Like, Dislike, the action, the board's four, the ballot's cards, Random, Scores, Back to the vote), its id the control's and this content's ({HudVersion.Twin("os_tab_maps")}), over the whole control while the server waits (vcheck) - the content and padding of {twinWrapped.Length} of them and the tabs' in a wrapper - and the catcher ({HudVersion.Twin(HudVersion.Catcher)}) over any other page then; no twin else, and none the server names{(twinParent.Count > 0 ? ": not over " + string.Join(" ", twinParent) : "")}",
+                twinsInLayout.ToHashSet().SetEquals(Twinned.Select(HudVersion.Twin)) && twinsInLayout.Count == Twinned.Length && twinParent.Count == 0
                 && twinWrapped.All(id => Regex.IsMatch(noComments, $@"<Button id=""{id}""[^>]*>\s*<Panel class=""os-btn-in"">"))
                 && HasRule(".os-vtwin", "visibility: collapse;") && HasRule(".os-vtwin", "width: 100%;") && HasRule(".os-vtwin", "height: 100%;") && HasRule(".os-screen.vcheck .os-vtwin", "visibility: visible;")
                 && new[] { ".os-tab", ".os-vote", ".os-act", ".os-board-open", "#os_v_scores", "#os_v_tovote" }.All(b => Regex.Matches(rules, $@"(?m)^{Regex.Escape(b)}\s*\{{[^}}]*padding:\s*([^;]+);").Cast<Match>().Last().Groups[1].Value == "0px")
@@ -975,7 +973,7 @@ static partial class Program
                 && HasRule(".os-board-open .os-btn-in", "padding: 0px 12px;") && HasRule("#os_v_scores .os-btn-in", "padding: 0px 16px;") && HasRule("#os_v_tovote .os-btn-in", "padding: 0px 22px;")
                 && HasRule(".os-vote .os-btn-in", "flow-children: right;") && HasRule(".os-act .os-btn-in", "flow-children: down;") && HasRule(".os-board-open .os-btn-in", "flow-children: right;")
                 && HasRule("#os_v_back .os-btn-in Panel", "width: 8px;") && !Regex.IsMatch(rules, @"(?m)^#os_v_back Panel\s*\{")
-                && noComments.Contains($"<Button id=\"{Catcher}\" class=\"os-vcatch\">", StringComparison.Ordinal) && noComments.Contains("text=\"Click to start\"", StringComparison.Ordinal)
+                && noComments.Contains($"<Button id=\"{HudVersion.Twin(HudVersion.Catcher)}\" class=\"os-vcatch\">", StringComparison.Ordinal) && noComments.Contains("text=\"Click to start\"", StringComparison.Ordinal)
                 && HasRule(".os-vcatch", "visibility: collapse;") && HasRule(".os-screen.vcheck .os-vcatch", "visibility: visible;") && HasRule(".os-screen.vcheck.page-start .os-vcatch", "visibility: collapse;")
                 && HasRule(".os-screen.vcheck.voting.page-maps .os-vcatch", "visibility: collapse;") && HasRule(".os-screen.vcheck.voting.vbrowse.page-maps .os-vcatch", "visibility: visible;")
                 && noComments.Contains($"<Button id=\"{HudVersion.Button(HudVersion.Content)}\" class=\"os-close os-hudver\">", StringComparison.Ordinal));

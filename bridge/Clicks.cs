@@ -24,12 +24,16 @@ static partial class Program
         var f = body.Trim().Split('\t');
         if (f.Length != 3 || !SteamId3Rx().IsMatch(f[0]) || !(Hud.IsAction(f[2]) || MapVote.IsAction(f[2]))) { Log($"hud: refused '{Hud.Clean(body, 80)}'"); return false; }
         var name = Hud.Clean(f[1], 64) is { Length: > 0 } n ? n : "?";
-        Log($"hud: {name} {f[0]} clicked {f[2]}");
+        Log($"hud: {name} {f[0]} clicked {ClickWords(f[2])}");
         Present(f[0], name);
         if (f[2].StartsWith("!hudok ", StringComparison.Ordinal)) { HudVerify(f[0], name, f[2][7..]); return true; } // never a chat command: only a click says it
         Command(name, f[0], f[2]);
         return true;
     }
+
+    /// <summary>A click as the log says it: the command, but the HUD check's click on a button that names no content as just that - HudVersion.Unknown is
+    /// v3.0.0 on the wire, which reads like content v3.0.0 and is none.</summary>
+    static string ClickWords(string command) => command == HudCheck.Command(HudVersion.Unknown) ? "!hudok - content not known" : command;
 
     /// <summary>The HUD check's verifications, in memory and per connection: SteamID -> the HUD its game showed (HudVersion.IsWord). A real join
     /// and a real departure forget the player (OnJoin, Depart): a reconnecting player may have a new HUD. The live state carries the players on the
@@ -47,7 +51,7 @@ static partial class Program
         if (had != null && (had == version || version == HudVersion.Unknown)) return;
         HudSeen[steamId] = version;
         var known = version != HudVersion.Unknown;
-        Log($"hud check: {name} {steamId} verified{(known ? $", HUD {version}" : "")}");
+        Log($"hud check: {name} {steamId} verified{(known ? $", HUD {version}" : ", content not known")}");
         if (!known) return;
         Post(Messages.Joined, $"{M.N(Clip(name, 32))} joined with {(version == HudVersion.Older ? "an older HUD" : $"HUD {M.V(version)}")}");
     }

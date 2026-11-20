@@ -3,7 +3,8 @@ using System.Text.RegularExpressions;
 
 static partial class Program
 {
-    /// <summary>!map: the map a click names (Find), refused when it is no playable map (Unplayable) or its mode does not suit the players on (B6: no
+    /// <summary>!map: the map a click names (Find) - an official map the HUD does not show on its Workshop copy (HudCopyOf), saying so - refused when it is no
+    /// playable map (Unplayable) or its mode does not suit the players on (B6: no
     /// a Wingman map with spawn points for fewer than are on), asked about once more when it is risky (ConfirmGate, per player) - then selected: a vote with it on the ballot and
     /// this player's vote on it, or onto the vote that is open (VoteRound.cs).</summary>
     static void PickMap(string by, string steamId, string query, string inMode = "")
@@ -11,6 +12,7 @@ static partial class Program
         var now = Now();
         if (Find(query) is not [var map]) { Tell(steamId, M.Refused($"No map is '{M.A(Clip(query, 40))}'")); return; }
         if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
+        if (HudCopyOf(map, inMode) is { } copy) { Tell(steamId, HudCopyNote(map)); Log($"pick: {by} {steamId} picks {Label(map)} - its Workshop copy {Label(copy)} plays (the HUD needs it)"); map = copy; }
         if (Unplayable(map) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
         if (PicksDue.TryGetValue(Key(map), out var due)) { Tell(steamId, M.Refused($"{M.A(Clip(Label(map), 40))} goes to the vote in {LeftWords(due.At, now)} - Click its countdown to cancel")); return; }
@@ -27,6 +29,7 @@ static partial class Program
         var on = Pending?.Map ?? S.Map;
         var prev = Enumerable.Reverse(S.History).FirstOrDefault(m => on == null || Key(m) != Key(on));
         if (prev == null) { Tell(steamId, M.Refused("There is no previous map on record yet")); return; }
+        if (HudCopyOf(prev) is { } copy) { Tell(steamId, HudCopyNote(prev)); Log($"pick: {by} {steamId} asks for Previous, {Label(prev)} - its Workshop copy {Label(copy)} plays (the HUD needs it)"); prev = copy; }
         if (Unplayable(prev) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(prev) is { } full) { Tell(steamId, full); return; }
         if (PicksDue.TryGetValue(Key(prev), out var due)) { Tell(steamId, M.Refused($"{M.A(Clip(Label(prev), 40))} goes to the vote in {LeftWords(due.At, now)} - Click its countdown to cancel")); return; }

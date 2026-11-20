@@ -693,12 +693,24 @@ pool is only compared. Deathmatch also plays one of ours, `de_ancient` - Ancient
 are installed (`Modes.Mode.Extras`), its picture the game's own screenshot as every official map's. Valve's names of the official maps are search words in the map browser: "cobblestone" finds `de_cbble` as well as the
 Workshop's ports, "office" finds `cs_office`. A `changelevel` the server answers with `invalid map name` fails at once - nothing is awaited, the mode goes
 back - and the map leaves every pool until the server process is a new one; before, it held every vote for the ten minutes a load may take, and the dice
-could roll it again. The official maps the HUD does not show on are off for now (`Modes.HudLess`: `de_debris`, `de_eldorado` and `de_poseidon`, all
-Wingman's). CS2 ships them in `csgo_community_addons` and mounts each as a community addon, and on `de_eldorado` the HUD vanished for every player on
-2026-11-19 while the server had mounted the item and spawned the HUD as on any map. Every other map the game's report names as shipped there (its
-`addons` line, from os2-server of release 221a) is off the same way. They are out of every pool, the dice and the ballot, and `GET /health`'s
-`pools:` line names them. They stay in the menu, so a pick of one - a card's Play, a HISTORY card's Vote for it, a typed name, Previous - reaches the bridge,
-which refuses it: "de_eldorado is off for now - The HUD does not show on it. Pick another." A map loads in its own mode: the bridge tells the plugin
+could roll it again.
+
+The official maps the HUD does not show on are off (`Modes.HudLess`: `de_debris`, `de_eldorado` and `de_poseidon`, all Wingman's). CS2 ships them in
+`csgo_community_addons` and mounts each as a community addon. On `de_eldorado` the HUD vanished for every player on 2026-11-19, while the server had mounted
+the item and spawned the HUD as on any map. The cause is MultiAddonManager's: at a change in place it cuts the clients' addons to the map itself, and
+`mm_cache_clients_with_addons 1` keeps it from sending the HUD again. Every other map the game's report names as shipped there (its `addons` line, from
+os2-server of release 221a) is off the same way. They are out of every pool, the dice and the ballot, and `GET /health`'s `pools:` line names them, each with
+its copy. They stay in the menu, so a pick of one reaches the bridge: a card's Play, a HISTORY card's Vote for it, a typed name, Previous, or a ballot card's
+win. Since release 222 such a pick plays the map's Workshop copy, which our lists hold and the sync's test load passed:
+- `de_eldorado` plays 3408790618, "El Dorado";
+- `de_debris` plays 3539217452, "Debris";
+- `de_poseidon` plays 3522144043, "Poseidon".
+
+A Workshop map makes every client reconnect in full, and the HUD comes with it. The copy loads in the mode asked for where a list has it there, else in the
+official map's own. The player is told why: "El Dorado plays as its Workshop copy - The HUD needs it". A map of the report with no copy is refused: "<map> is
+off for now - The HUD does not show on it. Pick another."
+
+A map loads in its own mode: the bridge tells the plugin
 with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command, and an operator switches the same way, `os_mode`
 first. A `changelevel` from a Workshop map to an official one brings back the mode CS2 saved on the way to the Workshop maps (`host_workshop_map` and a
 change from an official map bring back nothing), so such a map can come up in the old mode: it is then loaded once more in its own, by the bridge a few
@@ -1114,11 +1126,20 @@ to be older (its HUD check named an older content) `osver` on its own `os_screen
 
 **The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click, and it comes from [the welcome](#in-game-hud): until the
 server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds
-(SERVER, Players) and closes the window. Since content v4.17.0 the first click names the content wherever it lands: while the server waits for it
-(`vcheck`), every control a player can reach first - the tabs, Start's Like, Dislike and its action, the board's four, the ballot's cards, Random, Scores and Back
-to the vote - holds a click-only twin over itself, its id the control's own and the content's (`os_tab_maps__v4.17.0`), so the click does what the control
-does and names the content with it; a page reached without a click (a chat command, TAB + E, a Workshop link) shows "Click to start" over its body
-(`os_vcatch__v4.17.0`), one click that names the content and does nothing else. In an older content any other button proves the HUD without saying which. A player not
+(SERVER, Players) and closes the window. Any other button proves the HUD without saying which.
+
+From content v4.17.0 on, the first click names the content whichever control it lands on. Every control a player can reach before their first click has a
+version twin, 35 in all: the tabs, Start's Like, Dislike and its action, the board's buttons, the ballot's cards, Random, SCORES and Back to the vote.
+- A twin is a transparent, click-only button nested in its control, shown only while `vcheck` is on. Its id is the control's, two underscores and the content:
+  `os_tab_history__v4.17.0` (`HudVersion.Twin`, `OfTwin`).
+- Its click proves the content as the version button's does: `vcheck` goes, the chat column is fed, the pages follow the gate, and a game the server knew only
+  as "content not known" is known from then on. The click then counts as its control's own (`HudFrame.ReadClick`).
+- If one press reaches both the twin and its control within 250 ms, the second click only proves (`HudFrame.TwinPairMs`).
+- The pages a player reaches without a click (a chat command, TAB + E, a Workshop link) show "Click to start" over their body while `vcheck` is on: one
+  catcher, `os_vcatch__v4.17.0`, whose click only proves.
+- A twinned control whose content flowed or kept padding holds it in a wrapper (`os-btn-in`), so its twin covers it whole.
+
+The bridge's log says a click that proved no content as `clicked !hudok - content not known`. A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
 `hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. With `warn` and with the check off, the end of the 90 s also closes that player's window - the
 welcome too, which otherwise waits for its X - so the [spawn cloak](#in-game-hud) cannot hide a game that cannot draw the window for longer than that (`HudGate.ClosesWindow`); a player who has not
