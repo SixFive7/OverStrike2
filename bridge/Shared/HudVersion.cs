@@ -41,6 +41,7 @@ public static class HudVersion
         ("v4.14.0", 56), // one row of tabs; every page beside the chat; our own chat column, taller and always there; the download in the window; the browser's cards as the vote's
         ("v4.15.0", 57), // the HISTORY and STATS pages of their own (HudBrowser.HistoryLevel); a seventh reason, the crash; the warm-up banner's own look; the band beyond our box; de_cbble's and de_ancient's pictures
         ("v4.16.0", 58), // HISTORY and STATS with no panel id the server names that an older content lacks: their state in classes, their pictures over the pages; the band gone
+        ("v4.17.0", 59), // the first click names the content: a click-only twin in every control a player can reach first, a catcher over any other page (the owner's 316 c)
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older

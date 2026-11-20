@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.16.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.17.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -31,6 +31,10 @@
        Last in the root, so it draws above the window.
   Everything in the two stacks is hittest false, panel by panel and label by label: they can lie over the window's and the board's buttons, and a
   panel takes the mouse for itself otherwise.
+
+  The first click after a join names this content (content v4.17.0): while the server waits for it (vcheck) every control a player can reach first holds a
+  click-only twin over itself, its id the control's own and this content's (os_tab_maps__v4.17.0), and any other page a catcher (os_vcatch__v4.17.0);
+  the window's X is the version button as ever.
 
   Map thumbnails are classes on a picture panel: the cards' os_m1_thumb ... os_m12_thumb, the card's os_t_thumb, the countdown's os_k_thumb and, on HISTORY
   and STATS (content v4.16.0), the four pictures over the pages (os-pics), whose ids every content in use has. Two per
@@ -133,29 +137,41 @@
 					<Label id="os_b_by" class="os-by" text="{s:text}" />
 					<Panel class="os-vote-buttons">
 						<Button id="os_b_vup" class="os-vote os-vote-up">
-							<Panel class="os-chev" />
-							<Label class="os-vote-word" text="Like" />
-							<Label id="os_b_up" class="os-vote-num" text="{s:text}" />
+							<Panel class="os-btn-in">
+								<Panel class="os-chev" />
+								<Label class="os-vote-word" text="Like" />
+								<Label id="os_b_up" class="os-vote-num" text="{s:text}" />
+							</Panel>
+							<Button id="os_b_vup__v4.17.0" class="os-vtwin" />
 						</Button>
 						<Button id="os_b_vdown" class="os-vote os-vote-down">
-							<Panel class="os-chev os-chev-down" />
-							<Label class="os-vote-word" text="Dislike" />
-							<Label id="os_b_down" class="os-vote-num" text="{s:text}" />
+							<Panel class="os-btn-in">
+								<Panel class="os-chev os-chev-down" />
+								<Label class="os-vote-word" text="Dislike" />
+								<Label id="os_b_down" class="os-vote-num" text="{s:text}" />
+							</Panel>
+							<Button id="os_b_vdown__v4.17.0" class="os-vtwin" />
 						</Button>
 					</Panel>
 					<Label id="os_b_you" class="os-you" text="{s:text}" />
 					<Label id="os_b_status" class="os-status" text="{s:text}" />
 					<Button id="os_b_next" class="os-act">
-						<Label id="os_b_next_text" class="os-act-text" text="{s:text}" />
-						<Label id="os_b_next_sub" class="os-act-sub" text="{s:text}" />
+						<Panel class="os-btn-in">
+							<Label id="os_b_next_text" class="os-act-text" text="{s:text}" />
+							<Label id="os_b_next_sub" class="os-act-sub" text="{s:text}" />
+						</Panel>
+						<Button id="os_b_next__v4.17.0" class="os-vtwin" />
 					</Button>
 
 					<Label class="os-label" text="The vote" />
 					<Label id="os_b_queue" text="{s:text}" />
 
 					<Button id="os_b_open" class="os-board-open">
-						<Label class="os-board-open-text" text="Open full menu" />
-						<Label class="os-board-open-key" text="TAB + E" />
+						<Panel class="os-btn-in">
+							<Label class="os-board-open-text" text="Open full menu" />
+							<Label class="os-board-open-key" text="TAB + E" />
+						</Panel>
+						<Button id="os_b_open__v4.17.0" class="os-vtwin" />
 					</Button>
 					<Panel class="os-board-foot">
 						<Label id="os_b_cmds" text="{s:text}" />
@@ -194,7 +210,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.16.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.17.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -203,20 +219,20 @@
 					<!-- One row of tabs (content v4.14.0), every page a tab: Vote only while a vote is on, with its live dot, and Maps then the map browser that adds to it
 					     (the vote's own buttons, os_v_back and os_v_browse); a tab that has nothing to use right now is greyed (off). -->
 					<Panel class="os-tabs">
-						<Button id="os_tab_start" class="os-tab"><Label class="os-tab-text" text="Start" /></Button>
-						<Button id="os_v_back" class="os-tab"><Panel /><Label class="os-tab-text" text="Vote" /></Button>
-						<Button id="os_tab_maps" class="os-tab"><Label class="os-tab-text" text="Maps" /></Button>
-						<Button id="os_v_browse" class="os-tab"><Label class="os-tab-text" text="Maps" /></Button>
+						<Button id="os_tab_start" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Start" /></Panel><Button id="os_tab_start__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_v_back" class="os-tab"><Panel class="os-btn-in"><Panel /><Label class="os-tab-text" text="Vote" /></Panel><Button id="os_v_back__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_maps" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Maps" /></Panel><Button id="os_tab_maps__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_v_browse" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Maps" /></Panel><Button id="os_v_browse__v4.17.0" class="os-vtwin" /></Button>
 						<!-- HISTORY and STATS (content v4.15.0): pages of their own, current while they show (page-history, page-stats) -->
-						<Button id="os_tab_history" class="os-tab"><Label class="os-tab-text" text="History" /></Button>
-						<Button id="os_tab_stats" class="os-tab"><Label class="os-tab-text" text="Stats" /></Button>
-						<Button id="os_tab_fun" class="os-tab"><Label class="os-tab-text" text="Fun" /></Button>
-						<Button id="os_tab_bots" class="os-tab"><Label class="os-tab-text" text="Bots" /></Button>
-						<Button id="os_sub_players" class="os-tab"><Label class="os-tab-text" text="Players" /></Button>
-						<Button id="os_tab_game" class="os-tab"><Label class="os-tab-text" text="Game" /></Button>
-						<Button id="os_tab_sync" class="os-tab"><Label class="os-tab-text" text="Sync" /></Button>
-						<Button id="os_tab_help" class="os-tab"><Label class="os-tab-text" text="Help" /></Button>
-						<Button id="os_tab_how" class="os-tab"><Label class="os-tab-text" text="How it works" /></Button>
+						<Button id="os_tab_history" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="History" /></Panel><Button id="os_tab_history__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_stats" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Stats" /></Panel><Button id="os_tab_stats__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_fun" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Fun" /></Panel><Button id="os_tab_fun__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_bots" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Bots" /></Panel><Button id="os_tab_bots__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_sub_players" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Players" /></Panel><Button id="os_sub_players__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_game" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Game" /></Panel><Button id="os_tab_game__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_sync" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Sync" /></Panel><Button id="os_tab_sync__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_help" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="Help" /></Panel><Button id="os_tab_help__v4.17.0" class="os-vtwin" /></Button>
+						<Button id="os_tab_how" class="os-tab"><Panel class="os-btn-in"><Label class="os-tab-text" text="How it works" /></Panel><Button id="os_tab_how__v4.17.0" class="os-vtwin" /></Button>
 					</Panel>
 
 					<!-- The old sub-tab bar's caption and the Vote sub-tab's label with its seconds keep their words here, out of sight; its buttons' ids are the
@@ -271,9 +287,9 @@
 								     (the cards' numbers are the vote's own). The tab says Vote; the clock's word says the state. The numbers and their words show only when the server sends
 								     them (vnum); a winner still to download says Downloading and no countdown (vfetch). The strip of where the votes go keeps its ids, hidden: the cards say it. -->
 								<Panel class="os-vhead">
-									<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
+									<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /><Button id="os_v_random__v4.17.0" class="os-vtwin" /></Button>
 									<!-- A look at the scores at a match end, where TAB never reaches the server: once this player has voted, or the vote is decided (vscoresok) -->
-									<Button id="os_v_scores" class="os-vbtn"><Label class="os-vbtn-text" text="Scores" /></Button>
+									<Button id="os_v_scores" class="os-vbtn"><Panel class="os-btn-in"><Label class="os-vbtn-text" text="Scores" /></Panel><Button id="os_v_scores__v4.17.0" class="os-vtwin" /></Button>
 									<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
 									<Label class="os-vwait" text="{s:osvwait}" />
 									<Panel class="os-clocks">
@@ -387,6 +403,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh1}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m1_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m1_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m1_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -421,6 +438,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh2}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m2_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m2_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m2_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -455,6 +473,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh3}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m3_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m3_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m3_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -489,6 +508,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh4}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m4_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m4_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m4_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -525,6 +545,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh5}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m5_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m5_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m5_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -559,6 +580,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh6}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m6_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m6_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m6_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -593,6 +615,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh7}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m7_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m7_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m7_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -627,6 +650,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh8}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m8_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m8_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m8_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -663,6 +687,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh9}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m9_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m9_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m9_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -697,6 +722,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh10}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m10_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m10_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m10_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -731,6 +757,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh11}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m11_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m11_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m11_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -765,6 +792,7 @@
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh12}" /></Panel>
 													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
+													<Button id="os_m12_play__v4.17.0" class="os-vtwin" />
 												</Button>
 												<Label id="os_m12_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m12_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -1664,6 +1692,15 @@
 									<Label class="os-htag os-htag-now" hittest="false" text="On now" />
 								</Panel>
 							</Panel>
+							<!-- The first click on a page reached without one (content v4.17.0) - a chat command, TAB + E, a Workshop link - while the server waits for this game's
+							     first click (vcheck): over the page's body, its id naming this content, one click to start, then the page as ever. Not on Start or the ballot, whose
+							     buttons name the content themselves (their twins, os-vtwin). -->
+							<Button id="os_vcatch__v4.17.0" class="os-vcatch">
+								<Panel class="os-vcatch-card" hittest="false">
+									<Label class="os-vcatch-head" hittest="false" text="Click to start" />
+									<Label class="os-vcatch-line" hittest="false" text="One click shows the server your HUD" />
+								</Panel>
+							</Button>
 						</Panel>
 
 						<!-- The live column: beside the pages that leave it room -->
@@ -1676,20 +1713,29 @@
 							<Label id="os_w_by" class="os-by" text="{s:text}" />
 							<Panel class="os-vote-buttons">
 								<Button id="os_btn_up" class="os-vote os-vote-up">
-									<Panel class="os-chev" />
-									<Label class="os-vote-word" text="Like" />
-									<Label id="os_w_up" class="os-vote-num" text="{s:text}" />
+									<Panel class="os-btn-in">
+										<Panel class="os-chev" />
+										<Label class="os-vote-word" text="Like" />
+										<Label id="os_w_up" class="os-vote-num" text="{s:text}" />
+									</Panel>
+									<Button id="os_btn_up__v4.17.0" class="os-vtwin" />
 								</Button>
 								<Button id="os_btn_down" class="os-vote os-vote-down">
-									<Panel class="os-chev os-chev-down" />
-									<Label class="os-vote-word" text="Dislike" />
-									<Label id="os_w_down" class="os-vote-num" text="{s:text}" />
+									<Panel class="os-btn-in">
+										<Panel class="os-chev os-chev-down" />
+										<Label class="os-vote-word" text="Dislike" />
+										<Label id="os_w_down" class="os-vote-num" text="{s:text}" />
+									</Panel>
+									<Button id="os_btn_down__v4.17.0" class="os-vtwin" />
 								</Button>
 							</Panel>
 							<Label id="os_w_status" class="os-status" text="{s:text}" />
 							<Button id="os_btn_act" class="os-act">
-								<Label id="os_btn_act_text" class="os-act-text" text="{s:text}" />
-								<Label id="os_btn_act_sub" class="os-act-sub" text="{s:text}" />
+								<Panel class="os-btn-in">
+									<Label id="os_btn_act_text" class="os-act-text" text="{s:text}" />
+									<Label id="os_btn_act_sub" class="os-act-sub" text="{s:text}" />
+								</Panel>
+								<Button id="os_btn_act__v4.17.0" class="os-vtwin" />
 							</Button>
 
 							<Label class="os-label" text="The vote" />
@@ -1724,7 +1770,7 @@
 					<Panel class="os-win-foot">
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.16.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.17.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1735,7 +1781,10 @@
 				<!-- The look at the scores at a match end (vscores, the server's): the window, the column and the dim step aside for CS2's end screen, and this pill at the
 				     top centre brings them back - as do the vote's decision and the match-end screen's end; no timer (292 a). Its click is the server's -->
 				<Button id="os_v_tovote">
-					<Label text="Back to the vote" />
+					<Panel class="os-btn-in">
+						<Label text="Back to the vote" />
+					</Panel>
+					<Button id="os_v_tovote__v4.17.0" class="os-vtwin" />
 				</Button>
 
 				<!-- After the window, so it draws above the dim layer and the window. Why the dislike - the reasons of a Dislike, for its player (why on os_screen), at the
@@ -1787,7 +1836,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.16.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.17.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

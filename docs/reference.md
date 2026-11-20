@@ -887,7 +887,8 @@ still clears for v4.14.0 and v4.15.0.
   states, in the match's mode where the map plays in it). Its words, on `os_screen`: `osh<k>n` the map's name as the browser's card says it, `osh<k>w` when
   (`Fri 20 Nov  ·  21:00 - 21:11`), `osh<k>d` how long (`11 min`, `under a minute`), `osh<k>e` how it ended (`Match end`, `Map change`, `Server restart` for the
   server's own planned quit, `The server went down` when it came back without one, `Match restarted`, `Not known`; Wingman's score after it, and `from the logs,
-  partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`), `osh<k>c` how often
+  partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`; two lines at most, which
+  clip since content v4.17.0 - no ellipsis - so a long list ends in the server's own `and 3 more`), `osh<k>c` how often
   its map was played in any mode (`Played once`, `Played twice`, `Played 14 times`), `osh<k>f` the fun line (`First played Fri 3 Oct  ·  Most at once: 9`, and
   `  ·  Won by Alice` in Arms Race or `  ·  Most kills: Bob` where recorded), `osh<k>v` its likes now (`+3  -1`), `osh<k>s` its size (`763 MB`, `In the game` for
   an official map), `osh<k>a` Vote for it's words (`Not on the list` for a map no list has now); all empty on a card with no match. Card k's state is a class on the
@@ -1113,7 +1114,11 @@ to be older (its HUD check named an older content) `osver` on its own `os_screen
 
 **The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click, and it comes from [the welcome](#in-game-hud): until the
 server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds
-(SERVER, Players) and closes the window. Any other button proves the HUD without saying which. A player not
+(SERVER, Players) and closes the window. Since content v4.17.0 the first click names the content wherever it lands: while the server waits for it
+(`vcheck`), every control a player can reach first - the tabs, Start's Like, Dislike and its action, the board's four, the ballot's cards, Random, Scores and Back
+to the vote - holds a click-only twin over itself, its id the control's own and the content's (`os_tab_maps__v4.17.0`), so the click does what the control
+does and names the content with it; a page reached without a click (a chat command, TAB + E, a Workshop link) shows "Click to start" over its body
+(`os_vcatch__v4.17.0`), one click that names the content and does nothing else. In an older content any other button proves the HUD without saying which. A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
 `hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. With `warn` and with the check off, the end of the 90 s also closes that player's window - the
 welcome too, which otherwise waits for its X - so the [spawn cloak](#in-game-hud) cannot hide a game that cannot draw the window for longer than that (`HudGate.ClosesWindow`); a player who has not
