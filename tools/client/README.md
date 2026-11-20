@@ -57,6 +57,22 @@ The account of whoever runs the harness must never be put at risk of a VAC ban. 
   (`os2-deploy testcopy`), never production. The game itself also refuses a secure server in insecure mode.
 - **Never used:** `-allow_third_party_software` (lowers Trust Factor), `-tools`, edits to `gameinfo.gi`, loose maps, capture or
   overlay tools that hook into cs2.exe (RivaTuner, Afterburner, OBS, Bandicam, ...), memory tools.
+- **The loose files exist only while our own game runs, and never while the user's starts.** They are the one thing of a session in
+  a folder every launch reads (`game\csgo\panorama\images`, `layout`, `styles`; nothing else of CS2 reads them from anywhere else: with
+  `-addon <name>` alone, without `-tools`, CS2 mounts nothing - tested 2026-11-20: the boot's search paths and every loop's `addons()`
+  stayed empty). So:
+  - `start` refuses while Steam is launching CS2 (`Test-Cs2SteamLaunching`: Steam's running app is 730, or a launch line - Play's
+    `GameAction [AppID 730`, an `applaunch` or `rungameid` command line, a CS2 process added that is not ours - in the last 180 s of
+    Steam's `logs\console_log.txt`), as it refuses while any `cs2.exe` runs.
+  - The build is copied into a **stage** beside the game's folder on the same volume (`<CS2>\cs2harness-stage`), which no search path of
+    the game reaches; its folders go into `game\csgo\panorama` with one rename each, after a last look at the processes and Steam's log,
+    right before the launch (`Enable-Cs2HudLocal`). `start` keeps the watchdog's watch itself until the watchdog reports.
+  - The watchdog looks for the user's CS2 **every 100 ms** - another `cs2.exe`, or a launch line in Steam's log, which comes seconds
+    before that game's process exists - and the moment it sees one it **renames the build's folders out first** (milliseconds; the
+    9242-file build takes ~0.1 s, where deleting the files one by one took 3 s), then asks ours to quit. Every other end does the same:
+    `stop` and the lease take the files out before the quit is asked, a kill right after it. Should a rename fail because our game holds a
+    file open, what is left goes file by file; anything still there makes the watchdog end our game at once and try again.
+  - `cs2client.ps1 drill` proves all of this without CS2 and without touching the game's folder (below).
 
 **The self-check** (`Test-Cs2Integrity`, run by every `start`; `cs2client.ps1 check` alone) refuses the launch when any of these holds:
 
@@ -77,9 +93,10 @@ Valve's own.
 
 ## Rules (read before the first run)
 
-1. **Only one CS2 per Steam account.** `start` refuses while any `cs2.exe` runs (the user's, or anyone's) and never touches a CS2 it
-   did not start. If the user starts CS2 while a session runs, the watchdog quits ours within about 2 s (see "The watchdog"). Never
-   use `steam.exe -applaunch 730` while a harness session runs: the watchdog takes it as the user and quits.
+1. **Only one CS2 per Steam account.** `start` refuses while any `cs2.exe` runs (the user's, or anyone's) or while Steam is launching
+   CS2, and never touches a CS2 it did not start. If the user starts CS2 while a session runs, the watchdog sees Steam's first launch line
+   within about 0.1 s, takes the loose HUD files out of the game's folder at once and quits ours (see "The watchdog"). Never use
+   `steam.exe -applaunch 730` while a harness session runs: the watchdog takes it as the user and quits.
 2. **Before every run that joins production:**
    - the server lock must be free, or held by you for this test. `start -Connect` refuses while it is held (exit 2, the lock's text
      printed) unless you pass `-AllowServerLock` (only when **you** hold it). A test copy of production answers on the same address
@@ -105,7 +122,8 @@ Valve's own.
 | `status` | The session, the window, the lease, the guard's audio and focus figures, the server lock. |
 | `quiet` | Proof of quiet right now: input desktop, the user's foreground, what the hidden desktop sees as foreground, cs2 windows on the user's desktop (must be 0), cs2's priority, cs2's audio sessions with their peak meters. |
 | `stop [-Reason "..."]` | WM_CLOSE (a normal quit: CS2 disconnects, saves and exits in about 0.5 s), then the clean-up: console log moved to the run folder, boot cfg and loose HUD files removed, settings restored, client lock freed. Prints what it restored and the guard totals. A quit that lands while a map is loading (`SwitchToLoop game` until its `Signon traffic`) hangs after `Source2Shutdown`, so `stop` first lets a load in progress finish (up to 30 s); if WM_CLOSE still has not ended our cs2 after 30 s it is terminated (our pid, start time checked; nothing is lost: a killed CS2 saves nothing and the files are restored anyway). |
-| `check [-Insecure]` | The VAC-safety self-check alone (above). Exit 2 when it would refuse. |
+| `check [-Insecure]` | The VAC-safety self-check alone (above), and whether Steam is launching CS2 now (a `start` would then refuse). Exit 2 when it would refuse. |
+| `drill [-HudAddon name [-IncludeThumbs]]` | A dry proof of the loose-file guards, run in a folder of its own under TEMP with the harness's own functions - no CS2, nothing of the game's folder or Steam's log touched: the build's file list (empty files, the build's names and count) staged and moved into a stand-in `game\csgo\panorama` beside stand-ins of Valve's fonts and videos; a launch of CS2 appended to a stand-in Steam log; the watchdog's look on it, the renames out, each timed; the start's refusal on the same log; then the self-check's scan of the real game folder. Ends `DRILL PASSED` (exit 0) or `DRILL FAILED` (exit 2). |
 | `start ... -Insecure [-Console]` | An insecure session: `-insecure` on the client. It joins only a server whose A2S says VAC off (`-Connect` is refused otherwise, production included); without `-Console` it also gets `-novconsole`, so nothing listens. `-Console` opens netcon (random port, random password, kept in `session.json`) and VConsole (random port) for `cmd`. `-HudLocal` (and `-HudAddon`) implies `-Insecure`. |
 | `cmd -Cmd "<console command>" [-WaitMs 1500]` | Insecure sessions started with `-Console` only: runs the command on the client and prints its console output (netcon). |
 | `server` | The server lock, the running containers publishing the server's port and the game container (Docker API, read-only), and RCON `status`. |
@@ -155,8 +173,10 @@ so the files must be in place **before** CS2 starts - the harness installs them 
    `-IncludeThumbs`: without the item it has no map pictures but the build's.
 5. **Start with the build**: `cs2client.ps1 start -Connect default -HudLocal -AllowServerLock -Purpose "verify HUD <release>"`.
    `-HudLocal` makes it an insecure session; the start checks A2S and refuses unless the server at that address is not VAC-secured.
-   It copies every compiled file (`*_c`) under `game\csgo_addons\gungame_hud\panorama\` - layout, stylesheets, textures - into
-   `game\csgo\panorama\...`, recording each file and directory in the state folder's `hud-local.json`. The map thumbnails are left out,
+   It copies every compiled file (`*_c`) under `game\csgo_addons\gungame_hud\panorama\` - layout, stylesheets, textures - into the
+   stage (`<CS2>\cs2harness-stage\panorama\...`, outside every search path of the game), and right before the launch moves its top
+   folders into `game\csgo\panorama\` with one rename each (`images`, `layout`, `styles`; it refuses if any is there already), recording
+   them first in the state folder's `hud-local.json`. The map thumbnails are left out,
    as `build.ps1 -Local` leaves them out (they come from the published addon); `-IncludeThumbs` copies them too (thousands of files).
    `-HudSource <dir>` takes another built addon folder, `-HudAddon <name>` one under `game\csgo_addons\`. Add `-Console` for the client
    console (`cmd`).
@@ -171,8 +191,9 @@ so the files must be in place **before** CS2 starts - the harness installs them 
    `os_hud press <account> <its id>` closes it as a player would (the id is `HudVersion.Button`'s, in the layout beside
    `os_btn_close`), and `os_hud release` ends it at once. `os_notice <seconds> <text>` puts a line on everybody's top line, in chat and
    on the board's Lately list.
-8. **Stop the client**: `cs2client.ps1 stop`. Check `loose HUD files: removed N loose HUD file(s) ...`; `cs2client.ps1 check` must say
-   OK afterwards (it finds any loose file left).
+8. **Stop the client**: `cs2client.ps1 stop`. Check `cs2: loose HUD files first: N loose HUD file(s) out of the game's folder (...)` -
+   they go before the quit is asked - and `loose HUD files: ...; stage removed`; `cs2client.ps1 check` must say OK afterwards (it finds any
+   loose file left).
 9. **Production back**: `os2-deploy testcopy rm`, then `testcopy restore` (production renamed back and started; waits for A2S with VAC ON;
    checks its network endpoint against the inspect saved at prep, and that its start copied its own plugins folder into the game's tree,
    file for file - the copy ran its plugin from the same tree; removes the maintenance flag only when all that holds, and then a staged
@@ -294,14 +315,17 @@ matched the backup afterwards, and Steam's record showed the user's values.
 
 `watchdog.ps1`, started detached by `start` (no window, no console, nothing inherited), runs as long as the session's cs2:
 
-- **every ~100 ms**: cs2's audio peak meters - above 0.0005 kills our cs2 at once.
+- **every ~100 ms**: cs2's audio peak meters - above 0.0005 kills our cs2 at once. **The user's CS2**: another `cs2.exe`, or a CS2 launch
+  in Steam's `logs\console_log.txt` (`Find-Cs2SteamLaunch`: Play's `GameAction [AppID 730`, an `applaunch`/`rungameid` command line, a CS2
+  game process added that is not ours) - the loose HUD files are renamed out of the game's folder at once (`watchdog.log`: `the loose HUD
+  files first: ...`), then ours quits (WM_CLOSE, terminated after 20 s); theirs is never touched. If a file could not be moved (our game
+  holding it open), ours is killed at once and the rest removed right after.
 - **every second**: the user's foreground and their desktop's windows - cs2 in front, or a cs2 window on their desktop, kills it at once;
-  so does a new hook attempt in Discord's `discord_hook.log`.
-- **every 2 s**: another `cs2.exe` (the user's), a CS2 launch in Steam's `logs\console_log.txt` (`GameAction [AppID 730`), or "logged in
-  elsewhere" in the game's log: ours quits (WM_CLOSE, terminated after 20 s), theirs is never touched. The **lease**: no harness verb for
-  `-LeaseMinutes` (15) quits ours; every verb renews it. `-MaxMinutes` (60) is the hard limit.
-- **when cs2 has exited**, however: the clean-up (`Invoke-Cs2PostExit`): log copied, boot cfg and loose HUD files removed, settings
-  restored, `result.json`, client lock freed.
+  so does a new hook attempt in Discord's `discord_hook.log` (the loose HUD files go right after the kill).
+- **every 2 s**: "logged in elsewhere" in the game's log: ours quits. The **lease**: no harness verb for `-LeaseMinutes` (15) quits ours;
+  every verb renews it. `-MaxMinutes` (60) is the hard limit. Every quit takes the loose HUD files out before it is asked (`Stop-Cs2Process`).
+- **when cs2 has exited**, however: the clean-up (`Invoke-Cs2PostExit`): log copied, boot cfg and loose HUD files removed (if anything is
+  still there), the stage deleted, settings restored, `result.json`, client lock freed.
 
 Its log is `<run>\watchdog.log`; `guard.json` holds its running figures.
 

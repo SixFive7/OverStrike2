@@ -6,7 +6,8 @@ CS2 client test harness - the user's own CS2 client with no window on their scre
   start    [-Connect default|<ip:port>] [-Cmd "<console commands; separated by ;>"] [-Purpose "<what>"] [-WaitFor menu|ingame|window|none]
            [-HudLocal [-HudSource <dir> | -HudAddon <name>] [-IncludeThumbs]] [-Insecure [-Console]] [-Resolution 1920x1080|native] [-LeaseMinutes 15]
            [-MaxMinutes 60] [-AllowServerLock]          -HudLocal implies -Insecure; an insecure session joins only a server without VAC
-  check    [-Insecure]   the VAC-safety self-check alone (start always runs it)
+  check    [-Insecure]   the VAC-safety self-check alone (start always runs it), and whether Steam is launching CS2 (a start then refuses)
+  drill    [-HudAddon <name> [-IncludeThumbs]]   a dry proof of the loose-file guards in a folder under TEMP: no CS2, the game folder untouched
   cmd      -Cmd "<console command>" [-WaitMs 1500]   insecure sessions started with -Console only: run it, print its output
   wait     [-WaitFor menu|ingame] | -Pattern <regex> [-FromLine <n>] [-TimeoutSec 60]
   shot     [-Name <file>] [-MaxWidth 1920 (0 = full size)] [-OutDir <dir>]
@@ -77,7 +78,14 @@ try {
             $r = Test-Cs2Integrity (Get-Cs2Env) @('-steam') -Insecure:$Insecure
             "Steam build $($r.BuildId); $(if ($Insecure) { 'as an insecure session' } else { 'as a secure (plain) session' })"
             foreach ($w in $r.Warnings) { "warning: $w" }
+            $launching = Test-Cs2SteamLaunching (Get-Cs2Env)
+            "Steam: $(if ($launching) { "$launching - a start would be refused" } else { 'not launching CS2' })"
             if ($r.Violations.Count) { 'REFUSED:'; $r.Violations | ForEach-Object { "  - $_" }; exit 2 } else { 'OK: nothing that could put the account at risk' }
+        }
+        'drill' {
+            $lines = @(Invoke-Cs2Drill -HudAddon $HudAddon -IncludeThumbs:$IncludeThumbs)
+            $lines
+            if ($lines[-1] -ne 'DRILL PASSED') { exit 2 }
         }
         'log' { Get-Cs2Log $Tail $Pattern $FromLine }
         'status' { Get-Cs2ClientStatus }
