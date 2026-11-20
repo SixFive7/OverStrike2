@@ -193,6 +193,54 @@ function Get-SteamState {
     }
 }
 
+# The user's own CS2 being launched, as Steam's console log says it before the process exists and while it starts: its "GameAction
+# [AppID 730, ...] : LaunchApp ..." steps (Play, a steam:// link, a shortcut), an applaunch or rungameid command line, or a CS2 game process
+# added that is not this harness's own (ours carries -con_logfile cs2harness_console.log). The watchdog reads it every 100 ms, a start
+# before it launches anything (Test-Cs2SteamLaunching).
+$script:SteamLaunchPattern = '(?m)^.*(GameAction \[AppID 730\b|ExecCommandLine:.*(applaunch\s+730\b|rungameid/730\b|run/730\b)|Game process added : AppID 730\b(?!.*cs2harness_console\.log)).*$'
+
+# The first launch line in a piece of Steam's console log, or $null.
+function Find-Cs2SteamLaunch([string]$Text) {
+    if ($Text -and $Text -match $script:SteamLaunchPattern) { return $Matches[0].Trim() }
+    $null
+}
+
+# New text appended to a log since $Pos (a file shared with its writer: opened for reading only, never locked). Returns the text and moves $Pos.
+function Read-Cs2NewText([string]$Path, [ref]$Pos, [int]$Max = 4MB) {
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    $len = (Get-Item -LiteralPath $Path).Length
+    if ($len -lt $Pos.Value) { $Pos.Value = 0 }
+    if ($len -eq $Pos.Value) { return '' }
+    $start = [Math]::Max($Pos.Value, $len - $Max)
+    $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete)
+    try {
+        [void]$fs.Seek($start, [IO.SeekOrigin]::Begin)
+        $buf = New-Object byte[] ($len - $start)
+        $n = $fs.Read($buf, 0, $buf.Length)
+    }
+    finally { $fs.Close() }
+    $Pos.Value = $start + $n
+    [Text.Encoding]::UTF8.GetString($buf, 0, $n)
+}
+
+# Whether Steam is launching (or running) CS2 now - a start's preflight, and its last look right before the launch: Steam's own running
+# app, or a launch line stamped within the last $WithinSec seconds of its console log (the lines carry the local time). The reason, or $null.
+function Test-Cs2SteamLaunching($Env, [int]$WithinSec = 180, $SteamState = $null) {
+    $st = if ($SteamState) { $SteamState } else { Get-SteamState }
+    if ($st.RunningAppId -eq 730) { return 'Steam reports CS2 (app 730) as its running game' }
+    if (-not $Env.SteamConsoleLog -or -not (Test-Path -LiteralPath $Env.SteamConsoleLog)) { return $null }
+    $pos = [long][Math]::Max(0, (Get-Item -LiteralPath $Env.SteamConsoleLog).Length - 1MB)
+    $text = Read-Cs2NewText $Env.SteamConsoleLog ([ref]$pos)
+    $since = (Get-Date).AddSeconds(-$WithinSec)
+    foreach ($m in [regex]::Matches($text, $script:SteamLaunchPattern)) {
+        if ($m.Value -match '^\s*\[(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\]') {
+            $t = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
+            if ($t -ge $since) { return "Steam was asked to launch CS2 at $($t.ToString('HH:mm:ss')): $($m.Value.Trim())" }
+        }
+    }
+    $null
+}
+
 # ---------------------------------------------------------------------------------------------------------------- session state
 
 function Get-SessionPath { Join-Path $script:StateDir 'session.json' }
@@ -471,9 +519,17 @@ function Invoke-Cs2Console([string]$Command, [int]$WaitMs = 1500) {
 
 function Get-HudLocalMarker { Join-Path $script:StateDir 'hud-local.json' }
 
-# Copies a compiled HUD build into the client's own game\csgo\panorama\..., where the game reads loose compiled files before the
-# Workshop addon's - the same files build.ps1 -Local copies (layout, stylesheets, textures; not the map thumbnails, which stay in the
-# published addon unless -IncludeThumbs). Every file and directory it creates is recorded, so the session's end removes exactly them.
+# The stage: where a session's loose HUD files wait, beside the game's folder on the same volume and outside every search path the game
+# has (game\csgo, game\core and their VPKs - Filesystem's list at boot): nothing in it is ever read by any launch. Renames move the build's
+# folders into game\csgo\panorama at once, right before the launch, and back out at once when the session is to end.
+function Get-Cs2HudStage($Env) { Join-Path $Env.Cs2Root 'cs2harness-stage' }
+
+# A loose HUD build for one insecure session. The game reads loose compiled Panorama files under game\csgo\panorama\... before the Workshop
+# addon's copy of the same path, and that is the only place this CS2 reads them from: -addon <name> mounts nothing without -tools (tested
+# 2026-11-20 - the boot's search paths and every loop's addons() stayed empty), and -tools is never used. So the build's compiled files
+# (*_c: layout, stylesheets, textures; the map thumbnails only with -IncludeThumbs) are copied into the stage first, while nothing of them is
+# in the game's folder; Enable-Cs2HudLocal then puts them in place with one rename per top folder (layout, styles, images - none of which a
+# stock CS2 has in game\csgo\panorama, where only Valve's fonts and videos are). Refuses when any of those folders is there already.
 function Install-Cs2HudLocal($Env, [string]$Source, [switch]$IncludeThumbs) {
     if (-not $Source) { $Source = $Env.HudBuildDir }
     $panorama = Join-Path $Source 'panorama'
@@ -481,36 +537,87 @@ function Install-Cs2HudLocal($Env, [string]$Source, [switch]$IncludeThumbs) {
     if (Test-Path -LiteralPath (Get-HudLocalMarker)) { throw "a previous loose HUD install is still recorded ($(Get-HudLocalMarker)); run 'cs2client.ps1 cleanup' first" }
     $files = @(Get-ChildItem -LiteralPath $panorama -Recurse -File | Where-Object { $_.Name -like '*_c' -and ($IncludeThumbs -or $_.FullName -notmatch '\\thumbs\\') })
     if ($files.Count -eq 0) { throw "no compiled files (*_c) under $panorama" }
-    $targets = foreach ($f in $files) { [pscustomobject]@{ From = $f.FullName; To = Join-Path $Env.GameDir $f.FullName.Substring($Source.Length).TrimStart('\') } }
-    $clash = @($targets | Where-Object { Test-Path -LiteralPath $_.To })
-    if ($clash.Count) { throw "loose files are already in the game folder (someone else's -Local test?), refusing to overwrite: $(($clash | Select-Object -First 3 | ForEach-Object To) -join ', ')" }
-    $createdDirs = @()
-    foreach ($t in $targets) {
-        $d = Split-Path -Parent $t.To
-        $chain = @()
-        while ($d -and -not (Test-Path -LiteralPath $d)) { $chain += $d; $d = Split-Path -Parent $d }
-        [array]::Reverse($chain)
-        foreach ($c in $chain) { New-Item -ItemType Directory -Path $c | Out-Null; $createdDirs += $c }
+    $rels = @(foreach ($f in $files) { $f.FullName.Substring($panorama.Length).TrimStart('\') })
+    if ($rels | Where-Object { $_ -notmatch '\\' }) { throw "compiled files directly in the build's panorama folder ($(($rels | Where-Object { $_ -notmatch '\\' } | Select-Object -First 3) -join ', ')): they cannot be moved in by folder" }
+    $tops = @($rels | ForEach-Object { ($_ -split '\\')[0] } | Sort-Object -Unique)
+    $gamePanorama = Join-Path $Env.GameDir 'panorama'
+    $there = @($tops | Where-Object { Test-Path -LiteralPath (Join-Path $gamePanorama $_) })
+    if ($there.Count) { throw "game\csgo\panorama already has $(($there | ForEach-Object { "$_\" }) -join ', ') (loose files of an earlier test?) - refusing; 'cs2client.ps1 check' lists them" }
+    $stage = Get-Cs2HudStage $Env
+    Clear-Cs2HudStage $Env | Out-Null
+    $staged = Join-Path $stage 'panorama'
+    for ($i = 0; $i -lt $files.Count; $i++) {
+        $to = Join-Path $staged $rels[$i]
+        $d = Split-Path -Parent $to
+        if (-not [IO.Directory]::Exists($d)) { [void][IO.Directory]::CreateDirectory($d) }
+        [IO.File]::Copy($files[$i].FullName, $to)
     }
-    $installed = @()
-    try {
-        foreach ($t in $targets) { Copy-Item -LiteralPath $t.From -Destination $t.To; $installed += $t.To }
-    }
-    finally { Write-Json (Get-HudLocalMarker) @{ source = $Source; files = $installed; dirs = $createdDirs; since = (Get-Date).ToString('s') } }
-    [pscustomobject]@{ Source = $Source; Files = $installed; Dirs = $createdDirs }
+    [pscustomobject]@{ Source = $Source; Stage = $stage; Staged = $staged; GamePanorama = $gamePanorama; Tops = $tops
+        Moved = @($tops | ForEach-Object { Join-Path $gamePanorama $_ }); Files = @($rels | ForEach-Object { Join-Path $gamePanorama $_ }) }
 }
 
+# The renames that put a staged build in place (game\csgo\panorama\<layout, styles, images>), recorded before they happen so a crash in
+# between leaves nothing unrecorded. The last thing before the launch.
+function Get-HudMovedMarker { Join-Path $script:StateDir 'hud-local-moved.json' }
+
+function Enable-Cs2HudLocal($Hud) {
+    # Two records. hud-local.json lists every file and folder, as Install-Cs2HudLocal did before 2026-11-20, so that an older harness
+    # (another worktree's) finding it removes exactly them. hud-local-moved.json names only the moved folders: the removal reads it before
+    # anything else, and must not wait on parsing thousands of paths.
+    $dirs = @($Hud.Files | ForEach-Object { Split-Path -Parent $_ } | Sort-Object -Unique)
+    $dirs = @(foreach ($d in $dirs) { while ($d.Length -gt $Hud.GamePanorama.Length) { $d; $d = Split-Path -Parent $d } }) | Sort-Object -Unique
+    Write-Json (Get-HudLocalMarker) @{ source = $Hud.Source; files = @($Hud.Files); dirs = @($dirs); moved = @($Hud.Moved); stage = $Hud.Stage; since = (Get-Date).ToString('s') }
+    Write-Json (Get-HudMovedMarker) @{ moved = @($Hud.Moved); stage = $Hud.Stage; count = @($Hud.Files).Count }
+    if (-not [IO.Directory]::Exists($Hud.GamePanorama)) { [void][IO.Directory]::CreateDirectory($Hud.GamePanorama) }
+    foreach ($t in $Hud.Tops) { [IO.Directory]::Move((Join-Path $Hud.Staged $t), (Join-Path $Hud.GamePanorama $t)) }
+}
+
+# Takes the loose HUD files out of the game's folder. Called the moment a session is to end - the watchdog's yield, the stop verb, a kill,
+# before the quit is even asked (VAC safety: nothing of it may outlive the decision) - and again at the clean-up after the exit; idempotent.
+# One rename per top folder moves the build back into the stage, out of every search path at once (tens of milliseconds, where deleting the
+# 9242 files one by one took 3 s); the stage itself is deleted later (Clear-Cs2HudStage), when nothing hurries. Should a rename fail - a file
+# our own game holds open - what is left goes file by file; anything still there is reported (the watchdog then ends our game at once and
+# tries again). An install recorded file by file (before 2026-11-20) is removed file by file.
 function Remove-Cs2HudLocal {
     $marker = Get-HudLocalMarker
+    $fastMarker = Get-HudMovedMarker
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $fast = Read-Json $fastMarker
+    if (-not $fast -and -not (Test-Path -LiteralPath $marker)) { return 'no loose HUD files recorded' }
+    $how = @()
+    $out = $null
+    if ($fast) {
+        $q = Join-Path ([string]$fast.stage) "removed-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')"
+        foreach ($d in @($fast.moved)) {
+            if (-not $d -or -not [IO.Directory]::Exists($d)) { continue }
+            try { [void][IO.Directory]::CreateDirectory($q); [IO.Directory]::Move($d, (Join-Path $q (Split-Path -Leaf $d))); $how += "$(Split-Path -Leaf $d)\ renamed out" }
+            catch { $how += "$(Split-Path -Leaf $d)\ could not be renamed ($($_.Exception.Message.Trim()))" }
+        }
+        $out = $sw.ElapsedMilliseconds
+        if (-not @($fast.moved | Where-Object { $_ -and [IO.Directory]::Exists($_) }).Count) {
+            # every folder is out, and every file was under them: done, without reading the long list
+            Remove-Item -LiteralPath $marker, $fastMarker -Force -ErrorAction SilentlyContinue
+            return "$($fast.count) loose HUD file(s) out of the game's folder ($($how -join ', '): out after $out ms; $($sw.ElapsedMilliseconds) ms in all)"
+        }
+    }
+    # what the renames could not move, or an install recorded file by file: the long list, file by file
     $m = Read-Json $marker
-    if (-not $m) { return 'no loose HUD files recorded' }
-    $removed = 0; $left = @()
-    foreach ($f in @($m.files)) { if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue; if (Test-Path -LiteralPath $f) { $left += $f } else { $removed++ } } }
-    $dirs = @($m.dirs) | Sort-Object { $_.Length } -Descending
-    foreach ($d in $dirs) { if ((Test-Path -LiteralPath $d) -and -not (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1)) { Remove-Item -LiteralPath $d -Force } }
-    if ($left.Count) { return "LOOSE HUD FILES LEFT: $($left -join ', ')" }
-    Remove-Item -LiteralPath $marker -Force
-    "removed $removed loose HUD file(s) and $(@($dirs | Where-Object { -not (Test-Path -LiteralPath $_) }).Count) director(y/ies) the install created"
+    $files = @($m.files) + @(foreach ($d in @($m.moved)) { if ($d -and [IO.Directory]::Exists($d)) { [IO.Directory]::EnumerateFiles($d, '*', [IO.SearchOption]::AllDirectories) } })
+    $left = [Collections.Generic.List[string]]::new()
+    foreach ($f in $files) { if ($f -and [IO.File]::Exists($f)) { try { [IO.File]::Delete($f) } catch { }; if ([IO.File]::Exists($f)) { $left.Add($f) } } }
+    $dirs = @(@($m.dirs) + @(foreach ($d in @($m.moved)) { if ($d -and [IO.Directory]::Exists($d)) { @([IO.Directory]::EnumerateDirectories($d, '*', [IO.SearchOption]::AllDirectories)) + $d } })) | Where-Object { $_ } | Sort-Object { $_.Length } -Descending
+    foreach ($d in $dirs) { try { if ([IO.Directory]::Exists($d) -and -not [IO.Directory]::EnumerateFileSystemEntries($d).GetEnumerator().MoveNext()) { [IO.Directory]::Delete($d) } } catch { } }
+    if ($left.Count) { return "LOOSE HUD FILES LEFT ($($left.Count)): $(($left | Select-Object -First 5) -join ', ')$(if ($how) { " ($($how -join ', '))" })" }
+    Remove-Item -LiteralPath $marker, $fastMarker -Force -ErrorAction SilentlyContinue
+    "$(@($m.files).Count) loose HUD file(s) out of the game's folder ($(if ($how) { "$($how -join ', '), then " })file by file; $($sw.ElapsedMilliseconds) ms in all)"
+}
+
+# Deletes the stage (a staged build never moved in, the folders moved back out): outside the game's search paths, so only tidiness waits on it.
+function Clear-Cs2HudStage($Env) {
+    $stage = Get-Cs2HudStage $Env
+    if (-not (Test-Path -LiteralPath $stage)) { return 'no stage' }
+    Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $stage) { "the stage $stage could not be removed entirely" } else { 'stage removed' }
 }
 
 # ---------------------------------------------------------------------------------------------------------------- start
@@ -543,6 +650,9 @@ function Start-Cs2Client {
     if (-not $steam.Running -or $steam.ActiveUser -eq 0) { throw 'Steam is not running and logged in - CS2 cannot start without it' }
     $running = @(Get-Cs2Processes)
     if ($running.Count) { throw "cs2.exe is already running (pid $($running.Pid -join ', ')) - the user's or another session's; refusing (never touch a CS2 the harness did not start)" }
+    # Nor while Steam is launching one: between Play and the user's cs2.exe Steam takes seconds (install scripts, cloud, the process), and
+    # no loose file may exist when that game starts (VAC safety).
+    if ($launching = Test-Cs2SteamLaunching $Env) { throw "$launching - refusing: the user's own CS2 may be starting" }
     if ($HudAddon) {
         if ($HudSource) { throw '-HudAddon and -HudSource both name the build: give one' }
         if ($HudAddon -notmatch '^[\w.-]+$') { throw "-HudAddon takes an addon folder's name, not '$HudAddon'" }
@@ -601,6 +711,9 @@ function Start-Cs2Client {
         New-Item -ItemType Directory -Force -Path $runDir | Out-Null
         $n = Save-Cs2Settings $Env (Join-Path $runDir 'backup')
 
+        # The watchdog reads Steam's console log from here on: from before the loose files exist, so a launch of the user's CS2 logged while
+        # they are put in place is seen by its first look.
+        $steamLogPos = if (Test-Path -LiteralPath $Env.SteamConsoleLog) { (Get-Item -LiteralPath $Env.SteamConsoleLog).Length } else { 0 }
         $hud = $null
         if ($HudLocal) { $hud = Install-Cs2HudLocal $Env $HudSource -IncludeThumbs:$IncludeThumbs }
 
@@ -609,7 +722,14 @@ function Start-Cs2Client {
         Write-Utf8 (Join-Path $Env.CfgDir $script:BootCfg) (($boot -join "`r`n") + "`r`n")
 
         $cmdLine = '"' + $Env.Exe + '" ' + ($gameArgs -join ' ')
-        $steamLogPos = if (Test-Path -LiteralPath $Env.SteamConsoleLog) { (Get-Item -LiteralPath $Env.SteamConsoleLog).Length } else { 0 }
+
+        # The last look before the launch: nothing of the user's CS2 began while the files went in (the catch below removes them again).
+        $other = @(Get-Cs2Processes)
+        if ($other.Count) { throw "a cs2.exe started while this session was being set up (pid $($other.Pid -join ', ')) - the user's game; the loose files are removed again" }
+        $spos = [long]$steamLogPos
+        if ($launch = Find-Cs2SteamLaunch (Read-Cs2NewText $Env.SteamConsoleLog ([ref]$spos))) { throw "Steam was asked to launch CS2 while this session was being set up: $launch - the loose files are removed again" }
+        # Only now does the staged build go in place: one rename, then the launch.
+        if ($hud) { Enable-Cs2HudLocal $hud }
 
         $envVars = [Collections.Generic.Dictionary[string, string]]::new()
         $envVars['SteamAppId'] = '730'; $envVars['SteamGameId'] = '730'
@@ -633,9 +753,17 @@ function Start-Cs2Client {
         $wd = '"' + $pw + '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + (Join-Path $script:Here 'watchdog.ps1') + '" -StateDir "' + $script:StateDir + '"'
         $session.watchdogPid = [int][Cs2Harness.Native]::StartDetached($pw, $wd, $runDir)
         Write-Cs2Session ([pscustomobject]$session)
-        # CS2 never runs unguarded: the watchdog must report (guard.json, after it has tied cs2 to itself) within 20 s.
+        # CS2 never runs unguarded: the watchdog must report (guard.json, after it has tied cs2 to itself) within 20 s. Until it does, this
+        # start keeps the watchdog's watch for the user's CS2 itself, every 100 ms (the loose files are in place now).
         $deadline = (Get-Date).AddSeconds(20)
-        while (-not (Test-Path -LiteralPath (Join-Path $runDir 'guard.json')) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
+        while (-not (Test-Path -LiteralPath (Join-Path $runDir 'guard.json')) -and (Get-Date) -lt $deadline) {
+            if ($hud) {
+                $other = @(Get-Cs2Processes | Where-Object { $_.Pid -ne $cs2Pid })
+                $launch = if ($other.Count) { "a cs2.exe (pid $($other.Pid -join ', '))" } else { Find-Cs2SteamLaunch (Read-Cs2NewText $Env.SteamConsoleLog ([ref]$spos)) }
+                if ($launch) { $gone = Remove-Cs2HudLocal; throw "the user's CS2 is starting ($launch) - the loose files first: $gone; ours is stopped" }
+            }
+            Start-Sleep -Milliseconds 100
+        }
         if (-not (Test-Path -LiteralPath (Join-Path $runDir 'guard.json'))) { throw "the watchdog (pid $($session.watchdogPid)) did not come up within 20 s - see $runDir\watchdog.log; cs2 is stopped" }
     }
     catch {
@@ -643,7 +771,7 @@ function Start-Cs2Client {
         $s = Read-Cs2Session
         if ($s -and $s.state -eq 'running' -and (Test-ProcessAlive $s.cs2Pid 'cs2')) { Stop-Process -Id $s.cs2Pid -Force -ErrorAction SilentlyContinue }
         Remove-Item -LiteralPath (Join-Path (Get-Cs2Env).CfgDir $script:BootCfg) -Force -ErrorAction SilentlyContinue
-        if ($HudLocal) { Remove-Cs2HudLocal | Out-Null }
+        if ($HudLocal) { Remove-Cs2HudLocal | Out-Null; Clear-Cs2HudStage (Get-Cs2Env) | Out-Null }
         if ($s -and $s.runDir -and (Test-Path -LiteralPath (Join-Path $s.runDir 'backup\manifest.json'))) { Restore-Cs2Settings (Get-Cs2Env) (Join-Path $s.runDir 'backup') | Out-Null }
         if ($s) { $s.state = 'done'; Write-Cs2Session $s }
         Exit-Cs2ClientLock
@@ -879,7 +1007,10 @@ function Get-Cs2ClientStatus([switch]$Brief) {
 
 function Stop-Cs2Process($s, [string]$Reason, [int]$GraceSec = 30) {
     Import-Cs2Native
-    if (-not (Test-ProcessAlive $s.cs2Pid 'cs2' $s.cs2StartedUnix)) { return 'not running' }
+    # The loose HUD files go first, before the quit is asked: a quit can take many seconds (a map load let finish below, Source2Shutdown, the
+    # 20-30 s grace), and nothing of the HUD under test may outlive the decision to end the session (README.md, "VAC safety").
+    $loose = if ((Test-Path -LiteralPath (Get-HudLocalMarker)) -or (Test-Path -LiteralPath (Get-HudMovedMarker))) { "loose HUD files first: $(Remove-Cs2HudLocal); " } else { '' }
+    if (-not (Test-ProcessAlive $s.cs2Pid 'cs2' $s.cs2StartedUnix)) { return "${loose}not running" }
     if (-not (Test-Path -LiteralPath (Join-Path $s.runDir 'stop.json'))) { Write-Json (Join-Path $s.runDir 'stop.json') @{ reason = $Reason; at = (Get-Date).ToString('s'); by = $PID } }
     # A quit that lands while a map is loading (SwitchToLoop game ... until its Signon traffic) hangs after Source2Shutdown
     # (measured twice); one before or after that load ends in about a second. So a load in progress is let finish first.
@@ -896,9 +1027,9 @@ function Stop-Cs2Process($s, [string]$Reason, [int]$GraceSec = 30) {
     while ((Get-Date) -lt $deadline -and (Test-ProcessAlive $s.cs2Pid 'cs2' $s.cs2StartedUnix)) { Start-Sleep -Milliseconds 250 }
     if (Test-ProcessAlive $s.cs2Pid 'cs2' $s.cs2StartedUnix) {
         Stop-Process -Id $s.cs2Pid -Force -ErrorAction SilentlyContinue   # OUR process (pid and start time checked)
-        return "$how did not end it within $GraceSec s - terminated"
+        return "$loose$how did not end it within $GraceSec s - terminated"
     }
-    "$how - quit cleanly"
+    "$loose$how - quit cleanly"
 }
 
 # The end of every session, whoever ends it (the stop verb, the watchdog, or the next start finding a dead session). Idempotent.
@@ -918,7 +1049,8 @@ function Invoke-Cs2PostExit($s, [string]$Why) {
             if ((Test-Path -LiteralPath $copy) -and (Get-Item -LiteralPath $copy).Length -ge (Get-Item -LiteralPath $Env.LogPath).Length) { Remove-Item -LiteralPath $Env.LogPath -Force -ErrorAction SilentlyContinue }
         }
         Remove-Item -LiteralPath (Join-Path $Env.CfgDir $script:BootCfg) -Force -ErrorAction SilentlyContinue
-        $hud = if (Test-Path -LiteralPath (Get-HudLocalMarker)) { Remove-Cs2HudLocal } else { 'none installed' }
+        $hud = if ((Test-Path -LiteralPath (Get-HudLocalMarker)) -or (Test-Path -LiteralPath (Get-HudMovedMarker))) { Remove-Cs2HudLocal } elseif ($s.hudLocal) { 'removed before the quit (watchdog.log, stop)' } else { 'none installed' }
+        if ($s.hudLocal) { $hud = "$hud; $(Clear-Cs2HudStage $Env)" }
         $settings = @(Restore-Cs2Settings $Env (Join-Path $s.runDir 'backup'))
         $guard = Read-Json (Join-Path $s.runDir 'guard.json')
         $result = [ordered]@{ session = $s.id; purpose = $s.purpose; reason = $reason; ended = (Get-Date).ToString('s'); hudLocal = $hud; guard = $guard; settings = $settings
@@ -960,9 +1092,90 @@ function Stop-Cs2Client([string]$Reason = 'stop requested', [int]$GraceSec = 30)
 function Invoke-Cs2Leftovers($Env) {
     $s = Read-Cs2Session
     if ($s -and $s.state -ne 'done' -and -not (Test-Cs2SessionLive $s)) { Invoke-Cs2PostExit $s 'found dead at the next start'; "session $($s.id) cleaned up" }
-    if (Test-Path -LiteralPath (Get-HudLocalMarker)) { Remove-Cs2HudLocal }
+    if ((Test-Path -LiteralPath (Get-HudLocalMarker)) -or (Test-Path -LiteralPath (Get-HudMovedMarker))) { Remove-Cs2HudLocal }
+    if (Test-Path -LiteralPath (Get-Cs2HudStage $Env)) { Clear-Cs2HudStage $Env }
     $boot = Join-Path $Env.CfgDir $script:BootCfg
     if (Test-Path -LiteralPath $boot) { Remove-Item -LiteralPath $boot -Force; "removed a stale $script:BootCfg" }
+}
+
+# ---------------------------------------------------------------------------------------------------------------- the drill
+
+# A dry proof of the guards around the loose HUD files, run entirely in a folder of its own under TEMP - never the game's folder, never Steam's
+# log, no CS2 started - with the harness's own functions on a stand-in CS2 folder: the build's file list (empty files under the build's own
+# names and count - the real build's when one is named, else a made-up 9242), staged and enabled as a start does it (Install-Cs2HudLocal,
+# Enable-Cs2HudLocal), a launch of CS2 appended to a stand-in Steam log, what the watchdog runs every 100 ms on it (Find-Cs2SteamLaunch) and
+# then the removal (Remove-Cs2HudLocal), each timed; the start's refusal on the same log (Test-Cs2SteamLaunching); then the real game
+# folder's scan for loose files (the self-check's).
+function Invoke-Cs2Drill([string]$HudAddon = '', [switch]$IncludeThumbs) {
+    $real = Get-Cs2Env
+    $root = Join-Path ([IO.Path]::GetTempPath()) "cs2harness-drill-$PID"
+    $saved = $script:StateDir
+    $out = [Collections.Generic.List[string]]::new()
+    $ok = $false
+    try {
+        $fake = [pscustomobject]@{ Cs2Root = $root; GameDir = (Join-Path $root 'game\csgo'); SteamConsoleLog = (Join-Path $root 'steam\logs\console_log.txt'); HudBuildDir = '' }
+        $build = Join-Path $root 'game\csgo_addons\drillbuild'
+        New-Item -ItemType Directory -Force -Path $fake.GameDir, (Join-Path $root 'state'), (Split-Path -Parent $fake.SteamConsoleLog), $build | Out-Null
+        # a stock game\csgo\panorama, as Steam installs it: Valve's fonts and videos, which the drill must leave exactly as they are
+        $stock = Join-Path $fake.GameDir 'panorama\fonts\fonts.conf'
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $stock), (Join-Path $fake.GameDir 'panorama\videos') | Out-Null
+        [IO.File]::WriteAllText($stock, 'stock')
+        $rels = @()
+        if ($HudAddon) {
+            $src = Join-Path $real.Cs2Root "game\csgo_addons\$HudAddon"
+            $rels = @(Get-ChildItem -LiteralPath (Join-Path $src 'panorama') -Recurse -File -ErrorAction Stop | Where-Object { $_.Name -like '*_c' } | ForEach-Object { $_.FullName.Substring($src.Length).TrimStart('\') })
+        }
+        if (-not $rels) { $rels = @(1..9242 | ForEach-Object { "panorama\images\drill\d$($_ % 40)\f$_.vtex_c" }) }
+        foreach ($r in $rels) {
+            $to = Join-Path $build $r
+            if (-not $to.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { throw "drill path outside its folder: $to" }
+            $d = Split-Path -Parent $to
+            if (-not [IO.Directory]::Exists($d)) { [void][IO.Directory]::CreateDirectory($d) }
+            [IO.File]::WriteAllBytes($to, [byte[]]@())
+        }
+        Set-Cs2StateDir (Join-Path $root 'state')
+        $hud = Install-Cs2HudLocal $fake $build -IncludeThumbs:$IncludeThumbs
+        $out.Add("staged: $(@($hud.Files).Count) file(s) of $(if ($HudAddon) { "build $HudAddon's list$(if ($IncludeThumbs) { ' with its thumbnails' })" } else { 'a made-up list' }) in the stand-in stage; in the stand-in game folder before the renames: $(if (@($hud.Moved | Where-Object { Test-Path -LiteralPath $_ }).Count) { 'SOMETHING' } else { 'nothing' }) (its top folders: $($hud.Tops -join ', '))")
+
+        # Steam's log as it was, the start's last look on it, the one rename into game\csgo\panorama.
+        [IO.File]::WriteAllText($fake.SteamConsoleLog, "[$((Get-Date).AddMinutes(-5).ToString('yyyy-MM-dd HH:mm:ss'))] Game process removed: AppID 730 `"cs2.exe -con_logfile cs2harness_console.log`"`r`n")
+        $pos = [long](Get-Item -LiteralPath $fake.SteamConsoleLog).Length
+        $quiet = Find-Cs2SteamLaunch (Read-Cs2NewText $fake.SteamConsoleLog ([ref]$pos))
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        Enable-Cs2HudLocal $hud
+        $tIn = $sw.Elapsed.TotalMilliseconds
+        $inPlace = @($hud.Files | Where-Object { [IO.File]::Exists($_) }).Count
+        $out.Add(("before the Play the watchdog's look finds {0}; enabled: {1} file(s) in the stand-in game\csgo\panorama, the rename took {2:0.0} ms" -f $(if ($quiet) { $quiet } else { 'nothing' }), $inPlace, $tIn))
+
+        # The user's Play: Steam's first line of a launch, seconds before that game's process exists.
+        $sw.Restart()
+        [IO.File]::AppendAllText($fake.SteamConsoleLog, "[$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))] GameAction [AppID 730, ActionID 99] : LaunchApp changed task to ProcessingInstallScript with `"`"`r`n")
+        $launch = Find-Cs2SteamLaunch (Read-Cs2NewText $fake.SteamConsoleLog ([ref]$pos))
+        $tSeen = $sw.Elapsed.TotalMilliseconds
+        $removal = Remove-Cs2HudLocal
+        $tGone = $sw.Elapsed.TotalMilliseconds
+        $left = @($hud.Files | Where-Object { [IO.File]::Exists($_) }).Count
+        $out.Add("the Play's line, as the watchdog reads it: $launch")
+        $out.Add(("seen {0:0.0} ms after it was written (the watchdog looks every 100 ms: up to 100 ms more); {1}; out of the game folder {2:0.0} ms after the line; files left there: {3}; its folders left: {4}; marker left: {5}; Valve's stock panorama files untouched: {6}" -f $tSeen, $removal, $tGone, $left, @($hud.Moved | Where-Object { Test-Path -LiteralPath $_ }).Count, (Test-Path -LiteralPath (Get-HudLocalMarker)), ((Test-Path -LiteralPath $stock) -and (Test-Path -LiteralPath (Join-Path $fake.GameDir 'panorama\videos')))))
+        $out.Add("the stage afterwards (outside the game's search paths): $(Clear-Cs2HudStage $fake)")
+        $refusal = Test-Cs2SteamLaunching $fake -SteamState ([pscustomobject]@{ RunningAppId = 0 })
+        $out.Add("a start now would be refused: $(if ($refusal) { $refusal } else { 'NO - not refused' })")
+        $ok = [bool]$launch -and $left -eq 0 -and -not @($hud.Moved | Where-Object { Test-Path -LiteralPath $_ }).Count -and -not (Test-Path -LiteralPath (Get-HudLocalMarker)) -and -not (Test-Path -LiteralPath (Get-HudMovedMarker)) -and
+            [bool]$refusal -and -not $quiet -and $inPlace -eq @($hud.Files).Count -and (Test-Path -LiteralPath $stock)
+    }
+    finally {
+        Set-Cs2StateDir $saved
+        Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    $out.Add("the drill's folder removed: $(-not (Test-Path -LiteralPath $root))")
+    Import-Cs2Native
+    $check = Test-Cs2Integrity $real @('-steam')
+    $loose = @($check.Violations | Where-Object { $_ -like 'loose game file*' })
+    $out.Add("the real game folder: $(if ($loose.Count) { "$($loose.Count) loose file(s): $($loose | Select-Object -First 3)" } else { 'no loose game file (the self-check''s own scan of game\csgo)' }); game\csgo\panorama holds $(((Get-ChildItem -LiteralPath (Join-Path $real.GameDir 'panorama') -Directory -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')) (Valve's own: fonts, videos); the harness's stage: $(if (Test-Path -LiteralPath (Get-Cs2HudStage $real)) { 'exists' } else { 'absent' })")
+    $now = Test-Cs2SteamLaunching $real
+    $out.Add("Steam now: $(if ($now) { $now } else { 'not launching CS2' })")
+    $out.Add($(if ($ok -and -not $loose.Count) { 'DRILL PASSED' } else { 'DRILL FAILED' }))
+    $out
 }
 
 Export-ModuleMember -Function *-Cs2*, Get-UnixNow, Format-Unix, Read-Json, Write-Json, Test-ProcessAlive, Get-SteamState, Invoke-Cs2Leftovers, Get-HudLocalMarker

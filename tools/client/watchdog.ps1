@@ -1,12 +1,13 @@
 # Guards one CS2 client session for its whole life (README.md, "The watchdog"). Started detached by Start-Cs2Client: no window, no
 # console, nothing inherited from the caller. Ends when the session's cs2 has exited and the clean-up has run.
 #
-#   every 100 ms   the cs2 process's audio sessions: any peak above 0.0005 -> kill OUR cs2 at once (AUDIBLE)
+#   every 100 ms   the cs2 process's audio sessions: any peak above 0.0005 -> kill OUR cs2 at once (AUDIBLE);
+#                  another cs2.exe (the user's), a launch of CS2 in Steam's console log (Find-Cs2SteamLaunch) -> the loose HUD files
+#                  removed at once, then yield: quit ours (WM_CLOSE, then terminate after 20 s), never touching the other one
 #   every second   the user's foreground and their desktop's windows: a cs2 window there, or cs2 in front -> kill at once; a hook
-#                  attempt in Discord's discord_hook.log -> kill at once
-#   every 2 s      another cs2.exe (the user's), a launch of app 730 in Steam's console log, "logged in elsewhere" in the game's
-#                  log -> yield: quit ours (WM_CLOSE, then terminate after 20 s), never touching the other one;
-#                  the lease (no harness command for N minutes) or the hard limit -> quit ours
+#                  attempt in Discord's discord_hook.log -> kill at once (the loose HUD files removed right after)
+#   every 2 s      "logged in elsewhere" in the game's log -> yield; the lease (no harness command for N minutes) or the hard
+#                  limit -> quit ours (Stop-Cs2Process removes the loose HUD files before it asks)
 #   on exit        Invoke-Cs2PostExit: console log copied, boot cfg and loose HUD files removed, settings restored, client lock freed
 param([Parameter(Mandatory)][string]$StateDir)
 
@@ -47,6 +48,7 @@ function Kill-Ours([string]$why) {
     Write-Json (Join-Path $s.runDir 'stop.json') @{ reason = "watchdog: $why"; at = (Get-Date).ToString('s'); by = $PID }
     Stop-Process -Id $cs2Pid -Force -ErrorAction SilentlyContinue
     $script:killed = $true
+    W "  loose HUD files: $(Remove-Cs2HudLocal)"
 }
 
 function Yield-Ours([string]$why) {
@@ -97,6 +99,27 @@ while ($true) {
     catch { if ($tick % 100 -eq 0) { W "audio read failed: $($_.Exception.Message)" } }
     if ($killed) { Start-Sleep -Milliseconds 500; continue }
 
+    # The user's own CS2, every tick (VAC safety, README.md): another cs2.exe, or Steam asked to launch one - seen in Steam's log seconds
+    # before that game's process exists. The loose HUD files go at once, before the quit is even asked; then ours yields.
+    if (-not $reason) {
+        $other = @(Get-Process cs2 -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $cs2Pid })
+        $launch = if ($other.Count) { $null } else { Find-Cs2SteamLaunch (Read-Cs2NewText $Env.SteamConsoleLog ([ref]$steamPos)) }
+        if ($other.Count -or $launch) {
+            $why = if ($other.Count) { "another cs2.exe started (pid $($other.Id -join ', ')) - the user's game; it is left alone" } else { "Steam was asked to launch CS2: $launch" }
+            $gone = Remove-Cs2HudLocal
+            W "$why - the loose HUD files first: $gone"
+            if ($gone -like 'LOOSE HUD FILES LEFT*') {
+                # our game holds some of them open: it ends now rather than after a graceful quit, and the rest goes the moment it is gone
+                Kill-Ours "$why - loose HUD files still in place"
+                Start-Sleep -Milliseconds 300
+                W "  loose HUD files after the kill: $(Remove-Cs2HudLocal)"
+                continue
+            }
+            Yield-Ours $why
+            continue
+        }
+    }
+
     if ($tick % 10 -eq 0) {
         # Focus and visibility, as the user sees them.
         $fg = [Cs2Harness.Native]::ForegroundPid()
@@ -114,12 +137,7 @@ while ($true) {
         try { $gp = Get-Process -Id $cs2Pid -ErrorAction Stop; if ($gp.PriorityClass -ne 'BelowNormal') { $old = $gp.PriorityClass; $gp.PriorityClass = 'BelowNormal'; W "priority $old -> BelowNormal" } } catch { }
         $cur = Read-Cs2Session
         if (-not $cur -or $cur.id -ne $sessionId -or $cur.state -eq 'done') { W 'session ended elsewhere'; exit 0 }
-        $other = @(Get-Process cs2 -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $cs2Pid })
-        if ($other.Count) { Yield-Ours "another cs2.exe started (pid $($other.Id -join ', ')) - the user's game; it is left alone" }
-        elseif (($t = Read-NewText $Env.SteamConsoleLog ([ref]$steamPos)) -and $t -match '(?m)^.*(GameAction \[AppID 730\b|ExecCommandLine:.*(applaunch\s+730\b|rungameid/730\b|run/730\b)).*$') {
-            Yield-Ours "Steam was asked to launch CS2: $($Matches[0].Trim())"
-        }
-        elseif (($g = Read-NewText $Env.LogPath ([ref]$gamePos)) -and $g -match '(?mi)^.*(logged in elsewhere|LoggedInElsewhere|STEAM_LOGON|STEAM_INUSE|NoSteamLogin).*$') {
+        if (($g = Read-NewText $Env.LogPath ([ref]$gamePos)) -and $g -match '(?mi)^.*(logged in elsewhere|LoggedInElsewhere|STEAM_LOGON|STEAM_INUSE|NoSteamLogin).*$') {
             Yield-Ours "the account is in use elsewhere: $($Matches[0].Trim())"
         }
         else {
