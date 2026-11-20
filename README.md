@@ -15,7 +15,7 @@ Players install nothing - the server hands their game the menu when they join.</
 <p align="center"><a href="docs/media/demo.mp4"><img src="docs/media/demo-loop.webp" width="100%" alt="Over Strike 2 in a real game client: a vote with picture cards, every vote counting live, History, Stats, a warm-up, the map browser, and the scores at a match end"></a></p>
 
 <p align="center">
-  <a href="docs/media/demo.mp4"><b>&#9658;&nbsp; Watch the full demo</b></a> &nbsp;(79 s, MP4, 9 MB)&nbsp; &nbsp;&middot;&nbsp;
+  <a href="docs/media/demo.mp4"><b>&#9658;&nbsp; Watch the full demo</b></a> &nbsp;(81 s, MP4, 9 MB)&nbsp; &nbsp;&middot;&nbsp;
   <a href="docs/install.md"><b>Run your own</b></a> &nbsp;&middot;&nbsp;
   <a href="#the-hud-page-by-page"><b>Every page of the HUD</b></a>
 </p>
