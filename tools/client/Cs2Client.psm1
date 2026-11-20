@@ -558,9 +558,16 @@ function Install-Cs2HudLocal($Env, [string]$Source, [switch]$IncludeThumbs) {
 
 # The renames that put a staged build in place (game\csgo\panorama\<layout, styles, images>), recorded before they happen so a crash in
 # between leaves nothing unrecorded. The last thing before the launch.
+function Get-HudMovedMarker { Join-Path $script:StateDir 'hud-local-moved.json' }
+
 function Enable-Cs2HudLocal($Hud) {
-    # the marker stays small (the folders, not the files): the removal reads it before anything else, and must not wait on parsing thousands of paths
-    Write-Json (Get-HudLocalMarker) @{ source = $Hud.Source; moved = @($Hud.Moved); stage = $Hud.Stage; count = @($Hud.Files).Count; since = (Get-Date).ToString('s') }
+    # Two records. hud-local.json lists every file and folder, as Install-Cs2HudLocal did before 2026-11-20, so that an older harness
+    # (another worktree's) finding it removes exactly them. hud-local-moved.json names only the moved folders: the removal reads it before
+    # anything else, and must not wait on parsing thousands of paths.
+    $dirs = @($Hud.Files | ForEach-Object { Split-Path -Parent $_ } | Sort-Object -Unique)
+    $dirs = @(foreach ($d in $dirs) { while ($d.Length -gt $Hud.GamePanorama.Length) { $d; $d = Split-Path -Parent $d } }) | Sort-Object -Unique
+    Write-Json (Get-HudLocalMarker) @{ source = $Hud.Source; files = @($Hud.Files); dirs = @($dirs); moved = @($Hud.Moved); stage = $Hud.Stage; since = (Get-Date).ToString('s') }
+    Write-Json (Get-HudMovedMarker) @{ moved = @($Hud.Moved); stage = $Hud.Stage; count = @($Hud.Files).Count }
     if (-not [IO.Directory]::Exists($Hud.GamePanorama)) { [void][IO.Directory]::CreateDirectory($Hud.GamePanorama) }
     foreach ($t in $Hud.Tops) { [IO.Directory]::Move((Join-Path $Hud.Staged $t), (Join-Path $Hud.GamePanorama $t)) }
 }
@@ -573,27 +580,36 @@ function Enable-Cs2HudLocal($Hud) {
 # tries again). An install recorded file by file (before 2026-11-20) is removed file by file.
 function Remove-Cs2HudLocal {
     $marker = Get-HudLocalMarker
-    $m = Read-Json $marker
-    if (-not $m) { return 'no loose HUD files recorded' }
+    $fastMarker = Get-HudMovedMarker
     $sw = [Diagnostics.Stopwatch]::StartNew()
+    $fast = Read-Json $fastMarker
+    if (-not $fast -and -not (Test-Path -LiteralPath $marker)) { return 'no loose HUD files recorded' }
     $how = @()
-    $q = Join-Path ([string]$m.stage) "removed-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')"
-    foreach ($d in @($m.moved)) {
-        if (-not $d -or -not [IO.Directory]::Exists($d)) { continue }
-        try { [void][IO.Directory]::CreateDirectory($q); [IO.Directory]::Move($d, (Join-Path $q (Split-Path -Leaf $d))); $how += "$(Split-Path -Leaf $d)\ renamed out" }
-        catch { $how += "$(Split-Path -Leaf $d)\ could not be renamed ($($_.Exception.Message.Trim()))" }
+    $out = $null
+    if ($fast) {
+        $q = Join-Path ([string]$fast.stage) "removed-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')"
+        foreach ($d in @($fast.moved)) {
+            if (-not $d -or -not [IO.Directory]::Exists($d)) { continue }
+            try { [void][IO.Directory]::CreateDirectory($q); [IO.Directory]::Move($d, (Join-Path $q (Split-Path -Leaf $d))); $how += "$(Split-Path -Leaf $d)\ renamed out" }
+            catch { $how += "$(Split-Path -Leaf $d)\ could not be renamed ($($_.Exception.Message.Trim()))" }
+        }
+        $out = $sw.ElapsedMilliseconds
+        if (-not @($fast.moved | Where-Object { $_ -and [IO.Directory]::Exists($_) }).Count) {
+            # every folder is out, and every file was under them: done, without reading the long list
+            Remove-Item -LiteralPath $marker, $fastMarker -Force -ErrorAction SilentlyContinue
+            return "$($fast.count) loose HUD file(s) out of the game's folder ($($how -join ', '): out after $out ms; $($sw.ElapsedMilliseconds) ms in all)"
+        }
     }
-    $out = $sw.ElapsedMilliseconds
-    # what the renames could not move (or an older install's own list): file by file
+    # what the renames could not move, or an install recorded file by file: the long list, file by file
+    $m = Read-Json $marker
     $files = @($m.files) + @(foreach ($d in @($m.moved)) { if ($d -and [IO.Directory]::Exists($d)) { [IO.Directory]::EnumerateFiles($d, '*', [IO.SearchOption]::AllDirectories) } })
     $left = [Collections.Generic.List[string]]::new()
     foreach ($f in $files) { if ($f -and [IO.File]::Exists($f)) { try { [IO.File]::Delete($f) } catch { }; if ([IO.File]::Exists($f)) { $left.Add($f) } } }
     $dirs = @(@($m.dirs) + @(foreach ($d in @($m.moved)) { if ($d -and [IO.Directory]::Exists($d)) { @([IO.Directory]::EnumerateDirectories($d, '*', [IO.SearchOption]::AllDirectories)) + $d } })) | Where-Object { $_ } | Sort-Object { $_.Length } -Descending
     foreach ($d in $dirs) { try { if ([IO.Directory]::Exists($d) -and -not [IO.Directory]::EnumerateFileSystemEntries($d).GetEnumerator().MoveNext()) { [IO.Directory]::Delete($d) } } catch { } }
-    if ($left.Count) { return "LOOSE HUD FILES LEFT ($($left.Count)): $(($left | Select-Object -First 5) -join ', ')" }
-    Remove-Item -LiteralPath $marker -Force
-    $n = if ($m.count) { $m.count } else { @($m.files).Count }
-    "$n loose HUD file(s) out of the game's folder ($(if ($how) { "$($how -join ', '): out after $out ms" } else { 'file by file' }); $($sw.ElapsedMilliseconds) ms in all)"
+    if ($left.Count) { return "LOOSE HUD FILES LEFT ($($left.Count)): $(($left | Select-Object -First 5) -join ', ')$(if ($how) { " ($($how -join ', '))" })" }
+    Remove-Item -LiteralPath $marker, $fastMarker -Force -ErrorAction SilentlyContinue
+    "$(@($m.files).Count) loose HUD file(s) out of the game's folder ($(if ($how) { "$($how -join ', '), then " })file by file; $($sw.ElapsedMilliseconds) ms in all)"
 }
 
 # Deletes the stage (a staged build never moved in, the folders moved back out): outside the game's search paths, so only tidiness waits on it.
@@ -993,7 +1009,7 @@ function Stop-Cs2Process($s, [string]$Reason, [int]$GraceSec = 30) {
     Import-Cs2Native
     # The loose HUD files go first, before the quit is asked: a quit can take many seconds (a map load let finish below, Source2Shutdown, the
     # 20-30 s grace), and nothing of the HUD under test may outlive the decision to end the session (README.md, "VAC safety").
-    $loose = if (Test-Path -LiteralPath (Get-HudLocalMarker)) { "loose HUD files first: $(Remove-Cs2HudLocal); " } else { '' }
+    $loose = if ((Test-Path -LiteralPath (Get-HudLocalMarker)) -or (Test-Path -LiteralPath (Get-HudMovedMarker))) { "loose HUD files first: $(Remove-Cs2HudLocal); " } else { '' }
     if (-not (Test-ProcessAlive $s.cs2Pid 'cs2' $s.cs2StartedUnix)) { return "${loose}not running" }
     if (-not (Test-Path -LiteralPath (Join-Path $s.runDir 'stop.json'))) { Write-Json (Join-Path $s.runDir 'stop.json') @{ reason = $Reason; at = (Get-Date).ToString('s'); by = $PID } }
     # A quit that lands while a map is loading (SwitchToLoop game ... until its Signon traffic) hangs after Source2Shutdown
@@ -1033,7 +1049,7 @@ function Invoke-Cs2PostExit($s, [string]$Why) {
             if ((Test-Path -LiteralPath $copy) -and (Get-Item -LiteralPath $copy).Length -ge (Get-Item -LiteralPath $Env.LogPath).Length) { Remove-Item -LiteralPath $Env.LogPath -Force -ErrorAction SilentlyContinue }
         }
         Remove-Item -LiteralPath (Join-Path $Env.CfgDir $script:BootCfg) -Force -ErrorAction SilentlyContinue
-        $hud = if (Test-Path -LiteralPath (Get-HudLocalMarker)) { Remove-Cs2HudLocal } elseif ($s.hudLocal) { 'removed before the quit (watchdog.log, stop)' } else { 'none installed' }
+        $hud = if ((Test-Path -LiteralPath (Get-HudLocalMarker)) -or (Test-Path -LiteralPath (Get-HudMovedMarker))) { Remove-Cs2HudLocal } elseif ($s.hudLocal) { 'removed before the quit (watchdog.log, stop)' } else { 'none installed' }
         if ($s.hudLocal) { $hud = "$hud; $(Clear-Cs2HudStage $Env)" }
         $settings = @(Restore-Cs2Settings $Env (Join-Path $s.runDir 'backup'))
         $guard = Read-Json (Join-Path $s.runDir 'guard.json')
@@ -1076,7 +1092,7 @@ function Stop-Cs2Client([string]$Reason = 'stop requested', [int]$GraceSec = 30)
 function Invoke-Cs2Leftovers($Env) {
     $s = Read-Cs2Session
     if ($s -and $s.state -ne 'done' -and -not (Test-Cs2SessionLive $s)) { Invoke-Cs2PostExit $s 'found dead at the next start'; "session $($s.id) cleaned up" }
-    if (Test-Path -LiteralPath (Get-HudLocalMarker)) { Remove-Cs2HudLocal }
+    if ((Test-Path -LiteralPath (Get-HudLocalMarker)) -or (Test-Path -LiteralPath (Get-HudMovedMarker))) { Remove-Cs2HudLocal }
     if (Test-Path -LiteralPath (Get-Cs2HudStage $Env)) { Clear-Cs2HudStage $Env }
     $boot = Join-Path $Env.CfgDir $script:BootCfg
     if (Test-Path -LiteralPath $boot) { Remove-Item -LiteralPath $boot -Force; "removed a stale $script:BootCfg" }
@@ -1144,7 +1160,7 @@ function Invoke-Cs2Drill([string]$HudAddon = '', [switch]$IncludeThumbs) {
         $out.Add("the stage afterwards (outside the game's search paths): $(Clear-Cs2HudStage $fake)")
         $refusal = Test-Cs2SteamLaunching $fake -SteamState ([pscustomobject]@{ RunningAppId = 0 })
         $out.Add("a start now would be refused: $(if ($refusal) { $refusal } else { 'NO - not refused' })")
-        $ok = [bool]$launch -and $left -eq 0 -and -not @($hud.Moved | Where-Object { Test-Path -LiteralPath $_ }).Count -and -not (Test-Path -LiteralPath (Get-HudLocalMarker)) -and
+        $ok = [bool]$launch -and $left -eq 0 -and -not @($hud.Moved | Where-Object { Test-Path -LiteralPath $_ }).Count -and -not (Test-Path -LiteralPath (Get-HudLocalMarker)) -and -not (Test-Path -LiteralPath (Get-HudMovedMarker)) -and
             [bool]$refusal -and -not $quiet -and $inPlace -eq @($hud.Files).Count -and (Test-Path -LiteralPath $stock)
     }
     finally {
