@@ -551,7 +551,7 @@ static partial class Program
             if (!b.NextMatch || !b.Options.Contains(o)) Ballot = null; // the map plays on: the window closes and everybody unfreezes at once, the result in chat and on the board
             return;
         }
-        var target = o.Source == VoteSource.Random ? null : o.Map is { } m && Unplayable(m) == null ? m : null;
+        var target = o.Source == VoteSource.Random ? null : o.Map is { } m ? PlayableTarget(m) : null; // MapStanding.cs: an official map the HUD does not show on plays its copy
         target ??= RandomNext(b.FillMode); // Random - or a card whose map has become unplayable since: the dice over the maps on the disk (Stock.cs)
         if (target == null) { Log("vote: nothing eligible to load - the map stays"); Ballot = null; return; }
         var change = new Change(target, "the vote");

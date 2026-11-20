@@ -62,10 +62,13 @@ public static class Modes
 
     /// <summary>Official maps the HUD does not show on (2026-11-19, release 221): CS2 ships them in csgo_community_addons and mounts each as a community
     /// addon - the changelevel loads addons(&lt;map&gt;,&lt;the HUD's item&gt;) - and on de_eldorado the HUD vanished for every player, while the server had mounted
-    /// the item and spawned the HUD as on any other map. The bridge keeps them out of every pool, the catalog, the dice and the ballot, and refuses a pick of
-    /// one with why (bridge/OfficialPools.cs), until the HUD is proven on such a map. All three are in Wingman's pool (CS2 1.41.9.9); the game's report adds
-    /// any other map it finds there.</summary>
-    public static readonly string[] HudLess = ["de_debris", "de_eldorado", "de_poseidon"];
+    /// the item and spawned the HUD as on any other map. The bridge keeps them out of every pool, the dice and the ballot (bridge/OfficialPools.cs). Since
+    /// release 222 a pick of one plays its Workshop copy instead, which our lists hold and the sync's test load passed (the owner's 317 b): a Workshop map
+    /// makes every client reconnect in full, and the HUD comes with it. The cause is MultiAddonManager's: at a change in place it cuts the clients' addons to
+    /// the map itself, and mm_cache_clients_with_addons 1 keeps it from sending the HUD again. All three are in Wingman's pool (CS2 1.41.9.9). The game's
+    /// report adds any other map it finds there, and a pick of such a one, with no copy here, is refused with why.</summary>
+    public static readonly (string Map, long Copy, string Name)[] HudLess =
+        [("de_debris", 3539217452, "Debris"), ("de_eldorado", 3408790618, "El Dorado"), ("de_poseidon", 3522144043, "Poseidon")];
 
     /// <summary>Every mode, in menu order; the first is the default.</summary>
     public static readonly Mode[] All = [ArmsRace, Deathmatch, Wingman];

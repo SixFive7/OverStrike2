@@ -21,9 +21,10 @@ static partial class Program
     static HashSet<string> GameInstalled = new(StringComparer.OrdinalIgnoreCase); // the report's installed maps (empty: nothing known)
     static readonly HashSet<string> Unloadable = new(StringComparer.OrdinalIgnoreCase); // official maps the server refused this process ("invalid map name")
 
-    /// <summary>Official maps kept out because the HUD does not show on them (Modes.HudLess): out of every pool, the catalog, the dice and the ballot
-    /// (OfficialsOf), and a pick of one - typed, a card, Previous, a vote's winner - is refused with HudLessRefusal's words (Unplayable).</summary>
-    static HashSet<string> HudLess = new(Modes.HudLess, StringComparer.OrdinalIgnoreCase);
+    /// <summary>Official maps kept out because the HUD does not show on them (Modes.HudLess): out of every pool, the dice and the ballot (OfficialsOf). A pick of
+    /// one - typed, a card, HISTORY's Vote for it, Previous, a vote's winner - plays its Workshop copy (HudCopyOf), and one with no copy is refused with
+    /// HudLessRefusal's words (Unplayable).</summary>
+    static HashSet<string> HudLess = new(Modes.HudLess.Select(h => h.Map), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Whether the HUD does not show on this official map: one of HudLess, or one the game's report says it ships as a community addon (its addons
     /// line, GamePools.AddonsIn - the way CS2 ships the three of Modes.HudLess).</summary>
@@ -32,8 +33,25 @@ static partial class Program
     /// <summary>Whether this is an official map the HUD does not show on (OffForHud).</summary>
     static bool IsHudLess(MapInfo m) => m.Official && OffForHud(m.Name);
 
-    /// <summary>The refusal of a map the HUD does not show on: which, and why.</summary>
+    /// <summary>The refusal of a map the HUD does not show on that has no Workshop copy here (the game's report's addons beyond Modes.HudLess): which, and why.</summary>
     static string HudLessRefusal(MapInfo m) => M.Refused($"{M.A(Clip(m.Name, 40))} is off for now - The HUD does not show on it. Pick another.");
+
+    /// <summary>The Workshop copy an official map the HUD does not show on plays as (Modes.HudLess: the owner's 317 b), or null - not such a map, or one with no
+    /// copy in the table. The copy as a list holds it: in the mode asked for, else in the official map's own (Wingman's for all three), else in any; else
+    /// unlisted, in the official map's mode. Every pick goes through it: PickMap (a card's Play, a typed name, HISTORY's Vote for it), Previous and a vote's
+    /// winner (PlayableTarget).</summary>
+    static MapInfo? HudCopyOf(MapInfo m, string inMode = "")
+    {
+        if (!IsHudLess(m) || Modes.HudLess.FirstOrDefault(h => h.Map.Equals(m.Name, StringComparison.OrdinalIgnoreCase)) is not { Copy: > 0 } h) return null;
+        var listed = Maps.Where(x => x.Id == h.Copy).Concat(Modes.All.Where(md => !md.ArmsRace).SelectMany(ModeWorkshop).Where(x => x.Id == h.Copy)).ToList();
+        var asked = inMode != "" ? Modes.Find(inMode) : null;
+        return listed.FirstOrDefault(x => asked != null && ModeOf(x).Id == asked.Id) ?? listed.FirstOrDefault(x => ModeOf(x).Id == ModeOf(m).Id)
+            ?? listed.FirstOrDefault() ?? new MapInfo(0, h.Copy, h.Name, 0, false, m.Mode);
+    }
+
+    /// <summary>What a pick that went to the copy tells its player: which map, and why its copy plays (the owner's 317 b).</summary>
+    static string HudCopyNote(MapInfo official) =>
+        M.Done($"{M.A(Modes.HudLess.FirstOrDefault(h => h.Map.Equals(official.Name, StringComparison.OrdinalIgnoreCase)).Name ?? official.Name)} plays as its Workshop copy - The HUD needs it");
 
     /// <summary>A mode's official maps that HudLess keeps out of its pool (OfficialsOf), as they would be in it: still in the catalog (LiveState.cs), so a card's
     /// Play, a HISTORY card's Vote for it and a typed name reach the bridge, whose refusal says why.</summary>
@@ -125,7 +143,7 @@ static partial class Program
             if (extras.Count > 0) line += $", ours too: {string.Join(" ", extras)}";
             var dropped = mode.ArmsRace ? [] : mode.Extras.Where(e => !InstalledNow(e)).ToList();
             if (dropped.Count > 0) line += $", ours not installed: {string.Join(" ", dropped)}";
-            var off = HudLessOf(mode).Select(m => m.Name).ToList();
+            var off = HudLessOf(mode).Select(m => HudCopyOf(m) is { } copy ? $"{m.Name} (plays as {copy.Id})" : m.Name).ToList();
             if (off.Count > 0) line += $", off - the HUD does not show on them: {string.Join(" ", off)}";
             lines.Add(line);
         }

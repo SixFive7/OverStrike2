@@ -14,6 +14,10 @@ static partial class Program
     /// <summary>Unplayable, as a yes or no, by the map's key: a Workshop map's key is its id, which the three lists go by; an official map's its name.</summary>
     static bool IsUnplayable(MapInfo m, string key) => m.Official ? OffForHud(m.Name) : Blocked.ContainsKey(key) || Removed.ContainsKey(key) || NonMaps.ContainsKey(key);
 
+    /// <summary>The map a ballot card's win loads: its own; an official map the HUD does not show on, its Workshop copy (HudCopyOf, the owner's 317 b); or null
+    /// when it has become unplayable since - the dice roll then.</summary>
+    static MapInfo? PlayableTarget(MapInfo m) => HudCopyOf(m) is { } copy ? Unplayable(copy) == null ? copy : null : Unplayable(m) == null ? m : null;
+
     /// <summary>Something on record against the map with this key: a player-crash mark, the broken list, a crash of the server.</summary>
     static bool Risky(string key) => S.PlayerCrashes.ContainsKey(key) || Broken.ContainsKey(key) || S.Crashes.GetValueOrDefault(key) > 0;
 
