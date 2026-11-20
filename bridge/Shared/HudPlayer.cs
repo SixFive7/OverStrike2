@@ -26,6 +26,10 @@ public sealed class HudPlayer
     /// own within HudFrame.TwinPairMs are one click (content v4.17.0).</summary>
     public (string Id, bool Twin, DateTime At) LastClick = ("", false, DateTime.MinValue);
 
+    /// <summary>HISTORY's picture panels as this player's frames last asked for them (HudFrame.OnePerFrame): a page turn's new pictures come one a frame. Empty off
+    /// HISTORY, so the page starts afresh each time it is opened.</summary>
+    public Dictionary<string, string[]> HistoryPictures { get; } = new();
+
     /// <summary>A bar's snap, by its panel (HudFrame.Snapped, content v4.14.0): the step it shows, and where the snap stands - 0 none, 1 snapped, 2 the new step taken.</summary>
     public Dictionary<string, (string Shown, int Stage)> Snap { get; } = new();
 

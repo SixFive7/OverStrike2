@@ -238,6 +238,16 @@ static partial class Program
             && HudHistory.Joined(first with { Players = Enumerable.Range(1, 6).Select(i => new HudHistory.Player(i, $"P{i}", 100 - i, first.Start)).ToList() }) == "6 players: P1, P2, P3, P4, P5 and P6"
             && HudHistory.Who(first with { Players = Enumerable.Range(1, 6).Select(i => new HudHistory.Player(i, $"P{i}", 100 - i, first.Start)).ToList() }) == "P1, P2, P3, P4 and 2 more"
             && HudHistory.When(last! with { End = T(1, 20).AddDays(1) }).EndsWith("01:01 - Sat 01:20", StringComparison.Ordinal));
+        // hud-422's suggestion: content v4.17.0 clips who joined where the card ends, so a long list ends in our own words, "and N more", within JoinedMax
+        var crowd = first with { Players = Enumerable.Range(1, 16).Select(i => new HudHistory.Player(i, $"Long name of player {i:00}", 200 - i, first.Start)).ToList() };
+        var crowdLine = HudHistory.Joined(crowd);
+        var shownNames = crowdLine["16 players: ".Length..crowdLine.LastIndexOf(" and ", StringComparison.Ordinal)].Split(", ").Length;
+        var oneMore = $"16 players: {string.Join(", ", Enumerable.Range(1, shownNames + 1).Select(i => $"Long name of player {i:00}"))} and {16 - shownNames - 1} more";
+        var fits = first with { Players = Enumerable.Range(1, 5).Select(i => new HudHistory.Player(i, $"Long name of player {i:00}", 200 - i, first.Start)).ToList() };
+        Check($"...a long list of who joined stops at {HudHistory.JoinedMax} characters: names until the next would pass it, then \"and N more\" ({crowdLine.Length}: \"{crowdLine}\"); one that fits is whole",
+            crowdLine.Length <= HudHistory.JoinedMax && crowdLine.StartsWith("16 players: Long name of player 01, ", StringComparison.Ordinal)
+            && crowdLine.EndsWith($" and {16 - shownNames} more", StringComparison.Ordinal) && shownNames >= 3 && oneMore.Length > HudHistory.JoinedMax
+            && HudHistory.Joined(fits).EndsWith("Long name of player 04 and Long name of player 05", StringComparison.Ordinal) && HudHistory.Joined(fits).Length <= HudHistory.JoinedMax);
         var stateLine = new HudState { HistoryVersion = 42, StatsVersion = 43 };
         Check("...the live state names the block's version and the STATS page's, and a state without them names none",
             HudState.Decode(stateLine.Encode()) is { HistoryVersion: 42, StatsVersion: 43 } && HudState.Decode(new HudState().Encode()) is { HistoryVersion: 0, StatsVersion: 0 });

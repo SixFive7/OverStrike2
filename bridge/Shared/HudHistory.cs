@@ -222,13 +222,22 @@ public sealed class HudHistory
         return string.Join("  ·  ", parts);
     }
 
-    /// <summary>Everybody who joined it, the longest in it first: "6 players: Alice, Bob, Cara, Dan, Eve and Fay" (the card wraps it, and cuts it at two lines).</summary>
+    /// <summary>The longest Joined may be: about two lines of the card's words. Content v4.17.0 clips the line where the card ends (hud-422: a multi-line ellipsis
+    /// cost HISTORY's frames), so a longer list ends in our own words instead - "and 9 more".</summary>
+    public const int JoinedMax = 150;
+
+    /// <summary>Everybody who joined it, the longest in it first: "6 players: Alice, Bob, Cara, Dan, Eve and Fay" (the card wraps it at two lines). A list longer than
+    /// JoinedMax takes names until the next would pass it, then "and N more": "14 players: Alice, Bob, ... and 9 more".</summary>
     public static string Joined(Entry e)
     {
         var names = Names(e);
         if (names.Count == 0) return "";
-        var list = names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1];
-        return $"{names.Count} player{(names.Count == 1 ? "" : "s")}: {list}";
+        var head = $"{names.Count} player{(names.Count == 1 ? "" : "s")}: ";
+        var all = head + (names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1]);
+        if (all.Length <= JoinedMax) return all;
+        var shown = 0;
+        while (shown < names.Count - 1 && (head + string.Join(", ", names.Take(shown + 1)) + $" and {names.Count - shown - 1} more").Length <= JoinedMax) shown++;
+        return shown == 0 ? $"{names.Count} players" : head + string.Join(", ", names.Take(shown)) + $" and {names.Count - shown} more";
     }
 
     /// <summary>Who was in it, longest in it first: "Alice, Bob, Cara and 2 more" - at most shown names, then a count (the bridge's log line).</summary>

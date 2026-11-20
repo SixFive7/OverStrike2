@@ -893,14 +893,15 @@ still clears for v4.14.0 and v4.15.0.
 
 - **HISTORY** (`HudHistoryPage`, the plugin's own, from its copy of the history): four wide cards a page, newest first (142 px high, no ids). A card
   has the map's picture (since content v4.16.0 in a layer over the pages: picture k on the panel `os_tab_server`, `os_sub_fun`, `os_sub_help` or `os_q_clear` -
-  the old sub-tab bar's buttons and the search's first Clear, ids every content in use has - by the map's picture classes, per viewer) with its mode and On now, its name, Official and size, when it ran and how long,
+  the old sub-tab bar's buttons and the search's first Clear, ids every content in use has - by the map's picture classes, per viewer; on a page turn the new
+  pictures come one a frame, a card waiting for its picture showing none, since release 222: four at once cost an 83.5 ms frame, `HudFrame.OnePerFrame`) with its mode and On now, its name, Official and size, when it ran and how long,
   how it ended, who joined, how often the map has been played and a fun line; at its right the map's likes with the player's own Like and Dislike
   (`os_h<k>_up`, `os_h<k>_down`: the dislike's dialog, the crash among its reasons) and Vote for it (`os_h<k>_play`: the browser's Play for that map, with all its
   states, in the match's mode where the map plays in it). Its words, on `os_screen`: `osh<k>n` the map's name as the browser's card says it, `osh<k>w` when
   (`Fri 20 Nov  ·  21:00 - 21:11`), `osh<k>d` how long (`11 min`, `under a minute`), `osh<k>e` how it ended (`Match end`, `Map change`, `Server restart` for the
   server's own planned quit, `The server went down` when it came back without one, `Match restarted`, `Not known`; Wingman's score after it, and `from the logs,
   partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`; two lines at most, which
-  clip since content v4.17.0 - no ellipsis - so a long list ends in the server's own `and 3 more`), `osh<k>c` how often
+  clip since content v4.17.0 - no ellipsis - so a long list ends in the server's own `and 3 more`, the line at most 150 characters, `HudHistory.JoinedMax`), `osh<k>c` how often
   its map was played in any mode (`Played once`, `Played twice`, `Played 14 times`), `osh<k>f` the fun line (`First played Fri 3 Oct  ·  Most at once: 9`, and
   `  ·  Won by Alice` in Arms Race or `  ·  Most kills: Bob` where recorded), `osh<k>v` its likes now (`+3  -1`), `osh<k>s` its size (`763 MB`, `In the game` for
   an official map), `osh<k>a` Vote for it's words (`Not on the list` for a map no list has now); all empty on a card with no match. Card k's state is a class on the

@@ -165,6 +165,7 @@ public sealed class HudFrame
         foreach (var page in Enum.GetValues<HudSlots.Page>()) screen.Class(HudView.Screen, "page-" + page.ToString().ToLowerInvariant(), view.Window && view.Page == page, slot);
         if (HudBrowser.HasHistory(h.Version) && !(view.Window && view.Page is HudSlots.Page.History or HudSlots.Page.Stats))
             screen.Pictures(slot, NoPictures); // off HISTORY and STATS: their pictures leave the picture panels (a game below their content never gets one)
+        if (!(view.Window && view.Page == HudSlots.Page.History)) p.HistoryPictures.Clear(); // HISTORY starts afresh when it opens again (OnePerFrame)
         if (view.Window)
         {
             Menu(w, h, p, view.Page, perPage, screen);
@@ -209,7 +210,7 @@ public sealed class HudFrame
             var (historyVars, historyClasses, historyPictures) = p.History.View(w.History, w.Catalog, w.State, p.Browser, h.Account, now, vote, w.Mode.Id);
             foreach (var (name, words) in historyVars) screen.Var(HudView.Screen, name, words, slot);
             foreach (var (id, cls, on) in historyClasses) screen.Class(id, cls, on, slot);
-            screen.Pictures(slot, historyPictures); // the four cards' pictures on the four picture panels, a card with none none
+            screen.Pictures(slot, OnePerFrame(p, historyPictures)); // the four cards' pictures on the four picture panels, a card with none none - a new one a frame
             return;
         }
         var ballot = page == HudSlots.Page.Maps && OnBallot(p, vote);
@@ -322,6 +323,24 @@ public sealed class HudFrame
     {
         p.VoteView = (vote.Round, 0, false);
         p.Added = (vote.Round, button, now);
+    }
+
+    /// <summary>HISTORY's four pictures, at most one new one a frame: hud-422 measured an 83.5 ms frame on a page turn, most likely four new pictures loading at once.
+    /// Every panel goes out each frame - the screen sends only what changed, and a new HUD entity gets them all - as it should be now: a picture that stays, stays; one
+    /// that goes, goes at once; of the new ones the first in the panels' order comes now, and the rest show none until their frame, never the page before's.</summary>
+    public static List<(string Panel, string[] Classes)> OnePerFrame(HudPlayer p, List<(string Panel, string[] Classes)> wanted)
+    {
+        var now = new List<(string Panel, string[] Classes)>();
+        var added = false;
+        foreach (var (panel, want) in wanted)
+        {
+            var had = p.HistoryPictures.GetValueOrDefault(panel) ?? [];
+            string[] send = had.SequenceEqual(want) || want.Length == 0 ? want : added ? [] : want;
+            if (send.Length > 0 && !had.SequenceEqual(send)) added = true;
+            p.HistoryPictures[panel] = send;
+            now.Add((panel, send));
+        }
+        return now;
     }
 
     /// <summary>How far apart a version twin's click and its control's own may come and still be one click: the twin lies in the control, so one press may reach

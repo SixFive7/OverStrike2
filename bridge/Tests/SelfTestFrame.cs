@@ -317,6 +317,19 @@ static partial class Program
             Pic(onHistory, 2).Length == 0 && Pic(onHistory, 3).Length == 0 && Pic(onHistory, 4).Length == 0
             && Pic(onStats, 3).Length == 0 && Pic(onStats, 4).Length == 0 && onStats.Pictured.ContainsKey((7, HudHistoryPage.PicturePanel(1))) && onStats.Pictured.ContainsKey((7, HudHistoryPage.PicturePanel(2)))
             && Enumerable.Range(1, 4).All(k => Pic(onMaps, k).Length == 0));
+        // hud-422's suggestion: a page turn on HISTORY changed all four pictures in one frame (an 83.5 ms frame); now a new picture comes one a frame, the others none meanwhile
+        var stag = new HudPlayer();
+        string Pp(int k) => HudHistoryPage.PicturePanel(k);
+        List<(string Panel, string[] Classes)> Four(params string[][] pics) => [.. pics.Select((c, i) => (Pp(i + 1), c))];
+        string Shown(List<(string Panel, string[] Classes)> sent) => string.Join(" ", sent.Select(x => x.Classes.Length == 0 ? "-" : x.Classes[0]));
+        var page1 = Four(["ta"], ["tb"], ["tc"], ["td"]);
+        var turns = new[] { page1, page1, page1, page1, page1 }.Select(w => Shown(HudFrame.OnePerFrame(stag, w))).ToList();
+        var turnedBack = new[] { Four(["te"], [], [], []), Four(["te"], [], [], []) }.Select(w => Shown(HudFrame.OnePerFrame(stag, w))).ToList();
+        var some = new[] { Four(["te"], ["tf"], ["tg"], []), Four(["te"], ["tf"], ["tg"], []), Four(["th"], ["tf"], ["tg"], []) }.Select(w => Shown(HudFrame.OnePerFrame(stag, w))).ToList();
+        Check($"Frame: HISTORY's pictures come one new one a frame - the rest none until theirs, never the page before's - while one that stays stays and one that goes goes at once "
+              + $"({string.Join(" | ", turns.Concat(turnedBack).Concat(some))})",
+            turns.SequenceEqual(["ta - - -", "ta tb - -", "ta tb tc -", "ta tb tc td", "ta tb tc td"]) && turnedBack.SequenceEqual(["te - - -", "te - - -"])
+            && some.SequenceEqual(["te tf - -", "te tf tg -", "th tf tg -"]));
         // item 7: an outdated game's banner and its window's foot say why it needs the server's content - osver on its own os_screen; an up-to-date one keeps os_global's
         var why = PageFrame(16, pageSlots, six);
         Check($"Frame: an outdated game's osver, on its own os_screen, says the server's content and why it needs it (\"{why.V(HudView.Screen, HudVersion.Var, 3)}\") - v4.14.0's and "
