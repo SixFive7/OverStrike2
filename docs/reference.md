@@ -899,7 +899,8 @@ still clears for v4.14.0 and v4.15.0.
   states, in the match's mode where the map plays in it). Its words, on `os_screen`: `osh<k>n` the map's name as the browser's card says it, `osh<k>w` when
   (`Fri 20 Nov  ·  21:00 - 21:11`), `osh<k>d` how long (`11 min`, `under a minute`), `osh<k>e` how it ended (`Match end`, `Map change`, `Server restart` for the
   server's own planned quit, `The server went down` when it came back without one, `Match restarted`, `Not known`; Wingman's score after it, and `from the logs,
-  partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`), `osh<k>c` how often
+  partly` for a match known in part), `osh<k>p` everybody who joined, the longest in it first (`6 players: Alice, Bob, Cara, Dan, Eve and Fay`; two lines at most, which
+  clip since content v4.17.0 - no ellipsis - so a long list ends in the server's own `and 3 more`), `osh<k>c` how often
   its map was played in any mode (`Played once`, `Played twice`, `Played 14 times`), `osh<k>f` the fun line (`First played Fri 3 Oct  ·  Most at once: 9`, and
   `  ·  Won by Alice` in Arms Race or `  ·  Most kills: Bob` where recorded), `osh<k>v` its likes now (`+3  -1`), `osh<k>s` its size (`763 MB`, `In the game` for
   an official map), `osh<k>a` Vote for it's words (`Not on the list` for a map no list has now); all empty on a card with no match. Card k's state is a class on the
@@ -1128,13 +1129,15 @@ server knows which content a game holds, the window's X is the version button, i
 (SERVER, Players) and closes the window. Any other button proves the HUD without saying which.
 
 From content v4.17.0 on, the first click names the content whichever control it lands on. Every control a player can reach before their first click has a
-version twin, 34 in all: the tabs, Start's Like and Dislike, the board's buttons, the ballot's cards, Random, SCORES and Back to the vote.
+version twin, 35 in all: the tabs, Start's Like, Dislike and its action, the board's buttons, the ballot's cards, Random, SCORES and Back to the vote.
 - A twin is a transparent, click-only button nested in its control, shown only while `vcheck` is on. Its id is the control's, two underscores and the content:
   `os_tab_history__v4.17.0` (`HudVersion.Twin`, `OfTwin`).
 - Its click proves the content as the version button's does: `vcheck` goes, the chat column is fed, the pages follow the gate, and a game the server knew only
   as "content not known" is known from then on. The click then counts as its control's own (`HudFrame.ReadClick`).
 - If one press reaches both the twin and its control within 250 ms, the second click only proves (`HudFrame.TwinPairMs`).
-- The pages a player reaches without a click have one catcher, `os_vcatch__v4.17.0`, whose click only proves.
+- The pages a player reaches without a click (a chat command, TAB + E, a Workshop link) show "Click to start" over their body while `vcheck` is on: one
+  catcher, `os_vcatch__v4.17.0`, whose click only proves.
+- A twinned control whose content flowed or kept padding holds it in a wrapper (`os-btn-in`), so its twin covers it whole.
 
 The bridge's log says a click that proved no content as `clicked !hudok - content not known`. A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With

@@ -830,13 +830,8 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 59 up it is newer than this one (v4.16.0), and the banner stays while it is.
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 60 up it is newer than this one (v4.17.0), and the banner stays while it is.
    Its words are this content's own, but for the server's version (osver), which the server may follow with why (on the viewer's os_screen). */
-.os-global.latest-59 .os-outdated
-{
-	visibility: visible;
-}
-
 .os-global.latest-60 .os-outdated
 {
 	visibility: visible;
@@ -7738,7 +7733,7 @@ Label
 	100% { opacity: 1; }
 }
 
-#os_v_back Panel
+#os_v_back .os-btn-in Panel
 {
 	width: 8px;
 	height: 8px;
@@ -11786,4 +11781,186 @@ Label
 {
 	font-size: 32px;
 	color: #0D2414;
+}
+
+/* -- The first click names this content (content v4.17.0, the owner's 316 c). The server learns a game's content only from a click whose id names it: the window's
+   X while it waits (vcheck, the version button), and since v4.17.0 every control a player can reach before that click - the tabs, Start's Like, Dislike and its
+   action, the board's four, the ballot's cards, Random, Scores and Back to the vote. Each holds a click-only twin over itself (os-vtwin), its id the control's own
+   and this content's (os_tab_maps__v4.17.0): the first click does what it always does, and names the content with it. A page reached without a click (a chat
+   command, TAB + E, a Workshop link) has the catcher over its body instead (os-vcatch): one click to start. Twins and catcher show only while the server
+   waits, and the server names neither, so CS2 keeps no name for them. A twinned button keeps its content's padding and flow in a wrapper (os-btn-in), so its
+   twin covers the whole button; a twin is the button's own child, so the button's hover look holds while the pointer is on it. -- */
+.os-vtwin
+{
+	visibility: collapse;
+	width: 100%;
+	height: 100%;
+	background-color: #00000000;
+}
+
+.os-screen.vcheck .os-vtwin
+{
+	visibility: visible;
+}
+
+.os-btn-in
+{
+	height: 100%;
+}
+
+.os-tab
+{
+	padding: 0px;
+}
+
+.os-tab .os-btn-in
+{
+	flow-children: right;
+	padding: 0px 17px;
+}
+
+#os_v_back
+{
+	flow-children: none;
+}
+
+.os-vote
+{
+	flow-children: none;
+	padding: 0px;
+}
+
+.os-vote .os-btn-in
+{
+	width: 100%;
+	flow-children: right;
+	padding: 0px 14px;
+}
+
+.os-act
+{
+	flow-children: none;
+	padding: 0px;
+}
+
+.os-act .os-btn-in
+{
+	width: 100%;
+	flow-children: down;
+	padding: 8px 14px 0px 14px;
+}
+
+.os-board-open
+{
+	flow-children: none;
+	padding: 0px;
+}
+
+.os-board-open .os-btn-in
+{
+	width: 100%;
+	flow-children: right;
+	padding: 0px 12px;
+}
+
+#os_v_scores
+{
+	padding: 0px;
+}
+
+#os_v_scores .os-btn-in
+{
+	padding: 0px 16px;
+}
+
+#os_v_tovote
+{
+	padding: 0px;
+}
+
+#os_v_tovote .os-btn-in
+{
+	padding: 0px 22px;
+}
+
+/* The catcher: over the body of a page the player reached without a click, while the server waits for one - not Start, not the ballot (voting on MAPS but for
+   its map browser), whose controls carry the content themselves. */
+.os-vcatch
+{
+	visibility: collapse;
+	width: 100%;
+	height: 100%;
+	background-color: #05070AB3;
+}
+
+.os-screen.vcheck .os-vcatch
+{
+	visibility: visible;
+}
+
+.os-screen.vcheck.page-start .os-vcatch
+{
+	visibility: collapse;
+}
+
+.os-screen.vcheck.voting.page-maps .os-vcatch
+{
+	visibility: collapse;
+}
+
+.os-screen.vcheck.voting.vbrowse.page-maps .os-vcatch
+{
+	visibility: visible;
+}
+
+.os-vcatch-card
+{
+	horizontal-align: center;
+	vertical-align: center;
+	flow-children: down;
+	padding: 18px 30px;
+	border-radius: 6px;
+	border: 2px solid os-gold;
+	background-color: #0A0D11F2;
+	box-shadow: #000000b3 0px 12px 36px 0px;
+}
+
+.os-vcatch:hover .os-vcatch-card
+{
+	border: 2px solid os-gold-hi;
+}
+
+.os-vcatch-head
+{
+	horizontal-align: center;
+	font-size: 22px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: os-gold-hi;
+}
+
+.os-vcatch-line
+{
+	horizontal-align: center;
+	margin-top: 4px;
+	font-size: 14px;
+	color: os-text;
+}
+
+.AspectRatio4x3 .os-win .os-vcatch-head
+{
+	font-size: 24px;
+}
+
+.AspectRatio4x3 .os-win .os-vcatch-line
+{
+	font-size: 16px;
+}
+
+/* HISTORY's who-joined lines without the multi-line ellipsis (the lab's Q8 on content v4.16.0: HISTORY idle 2.8 ms a frame over Start, the one page that had
+   one): two lines cut at their foot, the server's list short enough to end in its own words ("... and 3 more"). */
+.os-hwho
+{
+	text-overflow: clip;
 }

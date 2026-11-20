@@ -20,6 +20,13 @@ static partial class Program
     static readonly string[] RetiredPanels416 = [.. Enumerable.Range(1, 4).SelectMany(k => new[] { $"os_h{k}", $"os_h{k}_thumb" }), .. Enumerable.Range(1, 5).Select(k => $"os_st_bar{k}"),
         "os_st_mar", "os_st_mdm", "os_st_mwm", "os_st_pic1", "os_st_pic2"];
 
+    /// <summary>Content v4.17.0 (the owner's 316 c): the controls a player can reach before the first click that names the content - the tabs, Start's Like,
+    /// Dislike and its action, the board's four, the ballot's cards, Random, Scores and Back to the vote - each with a click-only twin over itself whose id is its
+    /// own and the content's (HudVersion.Twin), shown while the server waits for that click (vcheck); and the catcher over any other page.</summary>
+    static readonly string[] Twinned = ["os_tab_start", "os_v_back", "os_tab_maps", "os_v_browse", "os_tab_history", "os_tab_stats", "os_tab_fun", "os_tab_bots", "os_sub_players",
+        "os_tab_game", "os_tab_sync", "os_tab_help", "os_tab_how", "os_btn_up", "os_btn_down", "os_btn_act", "os_b_vup", "os_b_vdown", "os_b_next", "os_b_open",
+        .. Enumerable.Range(1, 12).Select(k => $"os_m{k}_play"), "os_v_random", "os_v_scores", "os_v_tovote"];
+
     /// <summary>The oldest content whose panels the server keeps to: every panel id the frame names is one this content and every later one has (CS2 keeps one list
     /// of every id named on a map, and every game looks all of it up at its full update). Contents before it already miss the chat column's and the 11th and
     /// 12th cards' (since release 218).</summary>
@@ -297,7 +304,7 @@ static partial class Program
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
                 .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).Concat([HudScores.Button, HudScores.BackButton]).Concat(HudHistoryPage.Buttons).Append(HudBrowser.ClearButtonNew) // the search's Clear under v4.16.0's id (the contract's item 5)
-                .Where(b => !HudHistoryPage.PicturePanels.Contains(b)).ToList(); // the old sub-tab bar's and the first Clear's ids: older contents' buttons, still listened to, and this one's pictures // the HISTORY and STATS tabs are HudView.Tabs'
+                .Where(b => !HudHistoryPage.PicturePanels.Contains(b)).Concat(Twinned.Select(HudVersion.Twin)).Append(HudVersion.Twin(HudVersion.Catcher)).ToList(); // ...and v4.17.0's twins and catcher, which the plugin reads by their form (316 c) // the old sub-tab bar's and the first Clear's ids: older contents' buttons, still listened to, and this one's pictures // the HISTORY and STATS tabs are HudView.Tabs'
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the twelve cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -357,20 +364,18 @@ static partial class Program
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panels v4.16.0 retires: v4.15.0's version button, whose place this content's own takes, and the 18 HISTORY's and STATS' state went to - the cards,
-                // their pictures, the bars and the two pictures - which the server named and a v4.14.0 game lacks. Every other panel keeps its id: the old sub-tab bar's
-                // three buttons and the search's first Clear are the pages' pictures now.
-                var expectedRetired = new HashSet<string>(RetiredPanels416) { HudVersion.Button(replaced) };
+                // The panel v4.17.0 retires: v4.16.0's version button, whose place this content's own takes. Every other panel keeps its id.
+                var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page); the cards' numbers, the chat column and the history go to this content's games and to no game known to hold one before them (HudVote.NumbersLevel, HudBrowser.HistoryLevel, HudChat.Level)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text")
                     && !HudVersion.IsBefore(HudVersion.Content, HudVote.NumbersLevel) && !HudVersion.IsBefore(HudVersion.Content, HudChat.Level) && !HudVersion.IsBefore(HudVersion.Content, HudBrowser.HistoryLevel));
-                // ...its own version button, and the search's Clear under a new id (click-only, never named by the server), its first one the fourth picture's.
+                // ...its own version button, the 35 twins and the catcher (316 c): click-only, never named by the server, the plugin reading their ids.
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
-                var expectedAdded = new HashSet<string> { HudVersion.Button(HudVersion.Content), "os_q_clr" };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the search's Clear under a new id - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                var expectedAdded = new HashSet<string>(Twinned.Select(HudVersion.Twin)) { HudVersion.Button(HudVersion.Content), HudVersion.Twin(HudVersion.Catcher) };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button, a twin in each of the {Twinned.Length} controls a first click can reach and the catcher - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 var noTakeBack = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
                 Check($"Content {HudVersion.Content}: a vote is never taken back - no CLICK TO TAKE BACK on your own card's badge, and no hover that swaps the badge's words",
@@ -439,7 +444,7 @@ static partial class Program
                     && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-mmode\s*\{[^}]*margin:\s*8px 0px 0px 8px;")); // the badges and the step aside only with the numbers (vnum)
                 Check($"Content {HudVersion.Content}: the ballot's header is the page bar every page has - Random (and SCORES beside it at a match end, B), who has not voted (then what came of the vote) and the one clock: the limit's, the decision's once everybody has voted (vall), the change's once decided (vdone) - with how to vote under it, by a click or with !vote and the number; no title, no state chip, no count of its own (the tab says Vote, the clock's word the state); the strip hidden",
                     !Regex.IsMatch(noCommentsXml + rules0, @"os-vote-title|os-vchip|os-vcount|os-vhead-main|os-vhead-top|os-vhead-row")
-                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhead"">\s*<Button id=""os_v_random"" class=""os-vbtn os-vrandom"">.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Label class=""os-vbtn-text"" text=""Scores"" /></Button>\s*<Panel class=""os-vstrip"">.*?</Panel></Panel>\s*<Label class=""os-vwait"" text=""\{s:" + HudVote.WaitVar + @"\}"" />\s*<Panel class=""os-clocks"">", RegexOptions.Singleline)
+                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhead"">\s*<Button id=""os_v_random"" class=""os-vbtn os-vrandom"">.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Panel class=""os-btn-in""><Label class=""os-vbtn-text"" text=""Scores"" /></Panel><Button id=""os_v_scores__v[0-9.]+"" class=""os-vtwin"" /></Button>\s*<Panel class=""os-vstrip"">.*?</Panel></Panel>\s*<Label class=""os-vwait"" text=""\{s:" + HudVote.WaitVar + @"\}"" />\s*<Panel class=""os-clocks"">", RegexOptions.Singleline)
                     && Regex.IsMatch(rules0, @"(?m)^\.os-vhead\s*\{[^}]*height:\s*34px;[^}]*flow-children:\s*right;[^}]*margin-bottom:\s*8px;") && Regex.IsMatch(rules0, @"(?m)^\.os-mbar\s*\{[^}]*height:\s*34px;[^}]*margin-bottom:\s*8px;")
                     && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-vhowbar"">\s*<Label class=""os-vhow os-vhow-num"" text=""Click a card to vote[^""]*!vote[^""]*number[^""]*!play[^""]*"" />\s*<Label class=""os-vhow os-vhow-plain"" text=""Click a card to vote[^""!]*!play[^""]*"" />\s*<Label class=""os-vpeek-hint"" text=""Hold TAB to see the scores"" />\s*<Label class=""os-vpeek-hint os-vpeek-end"" text=""Click SCORES to see the scores"" />\s*</Panel>")
                     && Regex.IsMatch(rules0, @"(?m)^\.os-vhowbar\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules0, @"(?m)^\.os-screen\.voting \.os-vhowbar\s*\{\s*visibility:\s*visible;")
@@ -690,9 +695,9 @@ static partial class Program
             var pillAt = noComments.IndexOf("<Button id=\"os_v_tovote\">", StringComparison.Ordinal);
             Check("The look at a match end's scores (content v4.14.0, B): SCORES right after Random, in its style, shown only while the server lets this player look (vscoresok); the pill that brings the vote back at the top centre, outside the window and drawn after it, shown only during the look (vscores), with no seconds - the look has no timer (292 a); the how-to names TAB mid-match and the button at a match end (meos)",
                 HudScores.Button == "os_v_scores" && HudScores.BackButton == "os_v_tovote" && !noComments.Contains("osvscs", StringComparison.Ordinal) && !noCommentsCss.Contains("osvscs", StringComparison.Ordinal)
-                && randomAt > 0 && Regex.IsMatch(noComments[randomAt..], @"^<Button id=""os_v_random""[^>]*>.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Label class=""os-vbtn-text"" text=""Scores"" /></Button>")
+                && randomAt > 0 && Regex.IsMatch(noComments[randomAt..], @"^<Button id=""os_v_random""[^>]*>.*?</Button>\s*<Button id=""os_v_scores"" class=""os-vbtn""><Panel class=""os-btn-in""><Label class=""os-vbtn-text"" text=""Scores"" /></Panel><Button id=""os_v_scores__v[0-9.]+"" class=""os-vtwin"" /></Button>")
                 && pillAt > noComments.IndexOf("class=\"os-win-foot\"", StringComparison.Ordinal) && pillAt < noComments.IndexOf("class=\"os-topstack\"", StringComparison.Ordinal)
-                && Regex.IsMatch(noComments[pillAt..], @"^<Button id=""os_v_tovote"">\s*<Label text=""Back to the vote"" />\s*</Button>")
+                && Regex.IsMatch(noComments[pillAt..], @"^<Button id=""os_v_tovote"">\s*<Panel class=""os-btn-in"">\s*<Label text=""Back to the vote"" />\s*</Panel>\s*<Button id=""os_v_tovote__v[0-9.]+"" class=""os-vtwin"" />\s*</Button>")
                 && Regex.IsMatch(noCommentsCss, @"(?m)^#os_v_tovote\s*\{\s*visibility:\s*collapse;\s*horizontal-align:\s*center;\s*vertical-align:\s*top;\s*margin-top:\s*24px;")
                 && Regex.Matches(noCommentsCss, @"(?m)^([^{\n]*#os_v_tovote)\s*\{[^}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([".os-screen.win.vscores #os_v_tovote"])
                 && Regex.Matches(noCommentsCss, @"(?m)^([^{\n]*#os_v_scores)\s*\{[^}]*visibility:\s*visible").Cast<Match>().Select(m => m.Groups[1].Value.Trim()).SequenceEqual([".os-screen.vscoresok #os_v_scores"])
@@ -932,7 +937,7 @@ static partial class Program
             var stY = pageTop + PxOf(".os-mbar", "height") + PxOf(".os-mbar", "margin-bottom") + PxOf(".os-styou", "height") + PxOf(".os-styou", "margin-bottom") + 1 + 8 + PxOf(".os-sttile-title", "height");
             var (col1X, col2X) = (34 + 1 + 12, 34 + PxOf(".os-stcol", "width") + PxOf(".os-stcol", "margin-right") + 1 + 12);
             Check($"The pictures of HISTORY and STATS (content v4.16.0): four panels over the pages ({string.Join(" ", HudHistoryPage.PicturePanels)}), ids v4.14.0 and v4.15.0 have - no game misses them; each with a card's mode and On now, the first two with STATS' hero's name and count; on HISTORY over card k's slot ({34 + 1 + 4}, {histY} + {hCard + PxOf(".os-hcard", "margin-bottom")} x (k - 1)), on STATS over the heroes' ({col1X} and {col2X}, {stY}); a map's picture by its two classes, a backdrop without; they take no mouse, and no rule of ours names their ids",
-                picsXml.Length > 0 && Regex.IsMatch(noComments, @"<Panel class=""os-pics"" hittest=""false"">.*?</Panel>\s*</Panel>\s*</Panel>\s*<Panel class=""os-live"">", RegexOptions.Singleline)
+                picsXml.Length > 0 && Regex.IsMatch(noComments, @"<Panel class=""os-pics"" hittest=""false"">.*?</Panel>\s*</Panel>\s*<Button id=""os_vcatch__v[0-9.]+"" class=""os-vcatch"">.*?</Button>\s*</Panel>\s*<Panel class=""os-live"">", RegexOptions.Singleline) // the catcher after it (v4.17.0)
                 && picPanels.All(p => p.Length > 0 && new[] { "armsrace", "deathmatch", "wingman" }.All(m => p.Contains($"<Label class=\"os-hmode os-hmode-{m}\" hittest=\"false\"", StringComparison.Ordinal))
                     && p.Contains("<Label class=\"os-htag os-htag-now\" hittest=\"false\" text=\"On now\" />", StringComparison.Ordinal) && p.Contains("<Panel class=\"os-pic-shade\" hittest=\"false\" />", StringComparison.Ordinal))
                 && picPanels[0].Contains("text=\"{s:osstp1n}\"", StringComparison.Ordinal) && picPanels[0].Contains("text=\"{s:osstp1v}\"", StringComparison.Ordinal)
@@ -949,9 +954,35 @@ static partial class Program
                 && PxOf(".os-screen.page-stats .os-pic-1", "height") == PxOf(".os-sthero", "height") && PxOf(".os-screen.page-stats .os-pic-2", "height") == PxOf(".os-sthero", "height")
                 && missingPx.Count == 0);
 
-            var rowWords = Regex.Matches(tabRowXml, @"<Button id=""([^""]+)"" class=""os-tab"">(?:<Panel />)?<Label class=""os-tab-text"" text=""([^""]+)"" />").Select(m => (Id: m.Groups[1].Value, Word: m.Groups[2].Value.ToUpperInvariant())).ToList();
+            var rowWords = Regex.Matches(tabRowXml, @"<Button id=""([^""]+)"" class=""os-tab""><Panel class=""os-btn-in"">(?:<Panel />)?<Label class=""os-tab-text"" text=""([^""]+)"" /></Panel><Button id=""\1__v[0-9.]+"" class=""os-vtwin"" /></Button>").Select(m => (Id: m.Groups[1].Value, Word: m.Groups[2].Value.ToUpperInvariant())).ToList();
             var tabs43 = rowWords.Where(t => t.Id != HudView.TabMaps).Sum(t => TabCaps(t.Word, PxOf43(".os-tab-text", "font-size"), 2.5) + 2 * 17) + 2 * 18 + 30; // during a vote: Vote with its dot, and the vote's Maps
             Check($"The top row with HISTORY and STATS (content v4.15.0): during a vote, its fullest, at 4:3 about {tabs43:0} of the window's 1240", rowWords.Count == 13 && tabs43 <= 1240 && missingPx.Count == 0);
+            // 316 c (content v4.17.0): the first click names the content. Each control a player can reach before it holds one click-only twin, its last child, over the
+            // whole of it - a button whose content flowed or kept padding has them in a wrapper (os-btn-in) now, its own padding nothing - shown while the server waits
+            // (vcheck); any other page has the catcher over its body then. No other twin, every twin's id its control's and this content's, none named by the server.
+            var twinsInLayout = Regex.Matches(noComments, @"<Button id=""([^""]+)"" class=""os-vtwin"" />").Select(m => m.Groups[1].Value).ToList();
+            var twinParent = Twinned.Where(id => Subtree(noComments, noComments[noComments.IndexOf($"<Button id=\"{id}\"", StringComparison.Ordinal)..].Split('>')[0] + ">") is var t
+                && !Regex.IsMatch(t, $@"<Button id=""{Regex.Escape(HudVersion.Twin(id))}"" class=""os-vtwin"" />\s*</Button>$")).ToList();
+            string[] twinWrapped = ["os_btn_up", "os_btn_down", "os_btn_act", "os_b_vup", "os_b_vdown", "os_b_next", "os_b_open", "os_v_scores", "os_v_tovote"];
+            Check($"316 c (content v4.17.0): the first click names the content - a click-only twin as the last child of each of the {Twinned.Length} controls a first click can reach (the tabs, Like, Dislike, the action, the board's four, the ballot's cards, Random, Scores, Back to the vote), its id the control's and this content's ({HudVersion.Twin("os_tab_maps")}), over the whole control while the server waits (vcheck) - the content and padding of {twinWrapped.Length} of them and the tabs' in a wrapper - and the catcher ({HudVersion.Twin(HudVersion.Catcher)}) over any other page then; no twin else, and none the server names{(twinParent.Count > 0 ? ": not over " + string.Join(" ", twinParent) : "")}",
+                twinsInLayout.ToHashSet().SetEquals(Twinned.Select(HudVersion.Twin)) && twinsInLayout.Count == Twinned.Length && twinParent.Count == 0
+                && twinWrapped.All(id => Regex.IsMatch(noComments, $@"<Button id=""{id}""[^>]*>\s*<Panel class=""os-btn-in"">"))
+                && HasRule(".os-vtwin", "visibility: collapse;") && HasRule(".os-vtwin", "width: 100%;") && HasRule(".os-vtwin", "height: 100%;") && HasRule(".os-screen.vcheck .os-vtwin", "visibility: visible;")
+                && new[] { ".os-tab", ".os-vote", ".os-act", ".os-board-open", "#os_v_scores", "#os_v_tovote" }.All(b => Regex.Matches(rules, $@"(?m)^{Regex.Escape(b)}\s*\{{[^}}]*padding:\s*([^;]+);").Cast<Match>().Last().Groups[1].Value == "0px")
+                && HasRule(".os-tab .os-btn-in", "padding: 0px 17px;") && HasRule(".os-vote .os-btn-in", "padding: 0px 14px;") && HasRule(".os-act .os-btn-in", "padding: 8px 14px 0px 14px;")
+                && HasRule(".os-board-open .os-btn-in", "padding: 0px 12px;") && HasRule("#os_v_scores .os-btn-in", "padding: 0px 16px;") && HasRule("#os_v_tovote .os-btn-in", "padding: 0px 22px;")
+                && HasRule(".os-vote .os-btn-in", "flow-children: right;") && HasRule(".os-act .os-btn-in", "flow-children: down;") && HasRule(".os-board-open .os-btn-in", "flow-children: right;")
+                && HasRule("#os_v_back .os-btn-in Panel", "width: 8px;") && !Regex.IsMatch(rules, @"(?m)^#os_v_back Panel\s*\{")
+                && noComments.Contains($"<Button id=\"{HudVersion.Twin(HudVersion.Catcher)}\" class=\"os-vcatch\">", StringComparison.Ordinal) && noComments.Contains("text=\"Click to start\"", StringComparison.Ordinal)
+                && HasRule(".os-vcatch", "visibility: collapse;") && HasRule(".os-screen.vcheck .os-vcatch", "visibility: visible;") && HasRule(".os-screen.vcheck.page-start .os-vcatch", "visibility: collapse;")
+                && HasRule(".os-screen.vcheck.voting.page-maps .os-vcatch", "visibility: collapse;") && HasRule(".os-screen.vcheck.voting.vbrowse.page-maps .os-vcatch", "visibility: visible;")
+                && noComments.Contains($"<Button id=\"{HudVersion.Button(HudVersion.Content)}\" class=\"os-close os-hudver\">", StringComparison.Ordinal));
+            // Q8 on content v4.16.0 (the lab, release 221): HISTORY idle drew 2.8 ms a frame over Start - its who-joined lines were the one multi-line ellipsis in the
+            // stylesheet. They clip now: two lines, the server's list ending in its own words.
+            Check("HISTORY's who-joined lines (content v4.17.0): two lines that clip at their foot, no multi-line ellipsis - the one the stylesheet had (Q8 on release 221)",
+                Regex.Matches(rules, @"(?m)^\.os-hwho\s*\{([^}]*)\}").Cast<Match>().Last().Groups[1].Value.Contains("text-overflow: clip;", StringComparison.Ordinal)
+                && !Regex.Matches(rules, @"([^{}]+)\{([^}]*)\}").Cast<Match>().Any(m => m.Groups[2].Value.Contains("ellipsis", StringComparison.Ordinal) && !m.Groups[2].Value.Contains("nowrap", StringComparison.Ordinal)
+                    && !m.Groups[1].Value.Trim().EndsWith(".os-hwho", StringComparison.Ordinal)));
             // The warm-up (content v4.15.0): the countdown banner's own look while it waits for everybody - warm on os_global with the warm-up's countdown alone (a
             // map change or a restart counting down takes the banner first: HudView.CountdownOf) - green where a change has gold, its logo breathing, and its words
             // whole in its 680 px: the longest line the server sends, and a title of 34 characters.
