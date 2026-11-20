@@ -1125,7 +1125,18 @@ to be older (its HUD check named an older content) `osver` on its own `os_screen
 
 **The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click, and it comes from [the welcome](#in-game-hud): until the
 server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds
-(SERVER, Players) and closes the window. Any other button proves the HUD without saying which. A player not
+(SERVER, Players) and closes the window. Any other button proves the HUD without saying which.
+
+From content v4.17.0 on, the first click names the content whichever control it lands on. Every control a player can reach before their first click has a
+version twin, 34 in all: the tabs, Start's Like and Dislike, the board's buttons, the ballot's cards, Random, SCORES and Back to the vote.
+- A twin is a transparent, click-only button nested in its control, shown only while `vcheck` is on. Its id is the control's, two underscores and the content:
+  `os_tab_history__v4.17.0` (`HudVersion.Twin`, `OfTwin`).
+- Its click proves the content as the version button's does: `vcheck` goes, the chat column is fed, the pages follow the gate, and a game the server knew only
+  as "content not known" is known from then on. The click then counts as its control's own (`HudFrame.ReadClick`).
+- If one press reaches both the twin and its control within 250 ms, the second click only proves (`HudFrame.TwinPairMs`).
+- The pages a player reaches without a click have one catcher, `os_vcatch__v4.17.0`, whose click only proves.
+
+The bridge's log says a click that proved no content as `clicked !hudok - content not known`. A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
 `hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. With `warn` and with the check off, the end of the 90 s also closes that player's window - the
 welcome too, which otherwise waits for its X - so the [spawn cloak](#in-game-hud) cannot hide a game that cannot draw the window for longer than that (`HudGate.ClosesWindow`); a player who has not

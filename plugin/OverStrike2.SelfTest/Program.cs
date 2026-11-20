@@ -505,6 +505,17 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !hudClicks.Contains("HistoryButton", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
           && historyChat.Contains("|| HistoryOpen(player), VoteOpen);", StringComparison.Ordinal) && historyChat.Contains("Player(player.Slot).History.Find(words);", StringComparison.Ordinal),
         "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs; MAPS' old History button is gone, its click with it) - and a chat line typed while it shows searches it");
+    // 316 c (content v4.17.0's version twins): every click is read first - the content it proves verifies the game before anything else, the version button
+    // closes, the catcher and a twin's second half only prove, and a twin's click goes on as its control's own
+    var readAt = hudClicks.IndexOf("var click = HudFrame.ReadClick(Player(player.Slot), buttonId, now);", StringComparison.Ordinal);
+    var verifyAt = hudClicks.IndexOf("if (!Verified(who) || (version != HudVersion.Unknown && VersionOf(who) != version)) Verify(player, who, wasChecked, version);", StringComparison.Ordinal);
+    var closeAt = hudClicks.IndexOf("if ((wasChecked && click.Id == HudView.ButtonAct) || click.Closes) { slots.Click(player.Slot, HudView.ButtonClose, now);", StringComparison.Ordinal);
+    var proofAt = hudClicks.IndexOf("if (!click.Acts) { Server.NextFrame(Frame); return; }", StringComparison.Ordinal);
+    var baseAt = hudClicks.IndexOf("buttonId = click.Id;", StringComparison.Ordinal);
+    var whyAt = hudClicks.IndexOf("if (HudVote.WhyClick(buttonId) is { } reason)", StringComparison.Ordinal);
+    Check(readAt > 0 && hudClicks.Contains("var version = click.Proved ?? HudVersion.Unknown;", StringComparison.Ordinal) && readAt < verifyAt && verifyAt < closeAt && closeAt < proofAt
+          && proofAt < baseAt && baseAt < whyAt && !hudClicks.Contains("HudVersion.OfButton(buttonId)", StringComparison.Ordinal),
+        "HUD: a click is read before anything else (HudFrame.ReadClick, 316 c) - the content it proves verifies the game, the version button closes the window, the catcher and the second half of a twin and its control only prove, and a version twin's click then counts as its control's own");
     // O2 (the lab round on rel-220): a typed !play plays its map in the mode its card's Play would load it in - the browser's mode filter first
     var playChat = Source("plugin", "OverStrike2", "HudScreenChat.cs");
     Check(playChat.Contains("var filter = Player(player.Slot).Browser.Mode;", StringComparison.Ordinal)

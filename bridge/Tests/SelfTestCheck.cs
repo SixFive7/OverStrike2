@@ -23,6 +23,34 @@ static partial class Program
         Check("HUD check: the version button's id names its content, os_hudver_v4.7.0; any other button names none, and a malformed one or the old form os_hudver_v4_7_0 is no version button",
             HudVersion.Button(HudVersion.Content).StartsWith(HudVersion.ButtonPrefix, StringComparison.Ordinal) && HudVersion.OfButton(HudVersion.Button(HudVersion.Content)) == HudVersion.Content
             && HudVersion.OfButton("os_hudver_v4.7.0") == "v4.7.0" && HudVersion.OfButton("os_hudver_v4_7_0") == null && HudVersion.OfButton("os_hudver_v4_7.0") == null && HudVersion.OfButton("os_hudver_x") == null && HudVersion.OfButton(HudView.ButtonAct) == null && HudVersion.OfButton("os_tab_maps") == null);
+        // ---- the version twins (316 c, content v4.17.0): the first click names the content whichever control it lands on ----
+        var v417 = "v4.17.0";
+        Check("HUD check: a version twin's id is its control's, two underscores and the content - os_tab_history__v4.17.0 - and reads back as both; the catcher's too; "
+              + "an id without the mark, with an empty control, or with no version word after its last mark is no twin",
+            HudVersion.Twin("os_tab_history", v417) == "os_tab_history__v4.17.0" && HudVersion.Twin("os_m1_play") == $"os_m1_play__{HudVersion.Content}"
+            && HudVersion.OfTwin("os_tab_history__v4.17.0") == ("os_tab_history", v417) && HudVersion.OfTwin(HudVersion.Twin("os_v_back")) == ("os_v_back", HudVersion.Content)
+            && HudVersion.OfTwin(HudVersion.Twin(HudVersion.Catcher, v417)) == (HudVersion.Catcher, v417) && HudVersion.OfTwin("os_tab_history") == null
+            && HudVersion.OfTwin("__v4.17.0") == null && HudVersion.OfTwin("os_tab_history__v4_17_0") == null && HudVersion.OfTwin("os_tab_history__v4.17") == null
+            && HudVersion.OfTwin("os_tab_history__") == null && HudVersion.OfTwin("os_a__b__v4.17.0") == ("os_a__b", v417) && HudVersion.OfButton(HudVersion.Twin("os_tab_history")) == null
+            && HudVersion.OfTwin(HudVersion.Button(v417)) == null);
+        var tw = new HudPlayer();
+        var tt = t0;
+        HudFrame.Click Press(string id, double ms) { tt = tt.AddMilliseconds(ms); return HudFrame.ReadClick(tw, id, tt); }
+        var first = Press(HudVersion.Twin("os_tab_history", v417), 0);       // a twin: proves v4.17.0, then is the tab's click
+        var parentAfter = Press("os_tab_history", 40);                         // ...the same press reaching the tab under it: dropped
+        var parentLater = Press("os_tab_history", 300);                        // a click of its own, later: the tab's
+        var parentFirst = Press("os_v_back", 1000);                            // the control first...
+        var twinAfter = Press(HudVersion.Twin("os_v_back", v417), 60);         // ...then its twin: the proof alone, nothing done twice
+        var otherTwin = Press(HudVersion.Twin("os_tab_fun", v417), 20);        // another control's twin at once: its own click
+        var caught = Press(HudVersion.Twin(HudVersion.Catcher, v417), 10);     // the catcher: the proof alone
+        var shown = Press(HudVersion.Button(v417), 10);                        // the X's version button: proves and closes, as ever
+        Check("HUD check: a twin's click proves its content and counts as its control's own; the control's own click within 250 ms after it is that same press and is dropped, "
+              + "a later one counts; a twin after its control's own proves only; the catcher proves only; the version button proves and closes",
+            first == new HudFrame.Click("os_tab_history", v417, false, true) && parentAfter == new HudFrame.Click("os_tab_history", null, false, false)
+            && parentLater == new HudFrame.Click("os_tab_history", null, false, true) && parentFirst == new HudFrame.Click("os_v_back", null, false, true)
+            && twinAfter == new HudFrame.Click("os_v_back", v417, false, false) && otherTwin == new HudFrame.Click("os_tab_fun", v417, false, true)
+            && caught == new HudFrame.Click(HudVersion.Catcher, v417, false, false) && shown == new HudFrame.Click(HudVersion.Button(v417), v417, true, false)
+            && HudFrame.ReadClick(new HudPlayer(), "os_tab_history", tt) == new HudFrame.Click("os_tab_history", null, false, true)); // another player's: their own
         Check("HUD check: what !hudok carries - a content, older, or unknown (which content not known), each version in the one form - and nothing else, the old form v4_5_0 neither",
             new[] { HudVersion.Content, "v4.5.0", HudVersion.Older, HudVersion.Unknown }.All(v => Hud.IsAction(HudCheck.Command(v))) && !Hud.IsAction(HudCheck.Command("v4_5_0")) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x")
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));

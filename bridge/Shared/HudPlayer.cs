@@ -22,6 +22,10 @@ public sealed class HudPlayer
     /// HudVote.DoubleClickSeconds is the second click of a double click (HudFrame.SecondClick). Round 0: none.</summary>
     public (long Round, string Button, DateTime At) Added;
 
+    /// <summary>This player's last click as HudFrame.ReadClick read it: the control, whether it came by its version twin, and when - a twin's click and its control's
+    /// own within HudFrame.TwinPairMs are one click (content v4.17.0).</summary>
+    public (string Id, bool Twin, DateTime At) LastClick = ("", false, DateTime.MinValue);
+
     /// <summary>A bar's snap, by its panel (HudFrame.Snapped, content v4.14.0): the step it shows, and where the snap stands - 0 none, 1 snapped, 2 the new step taken.</summary>
     public Dictionary<string, (string Shown, int Stage)> Snap { get; } = new();
 

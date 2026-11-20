@@ -324,6 +324,31 @@ public sealed class HudFrame
         p.Added = (vote.Round, button, now);
     }
 
+    /// <summary>How far apart a version twin's click and its control's own may come and still be one click: the twin lies in the control, so one press may reach
+    /// both (content v4.17.0; the lab's Q1 says whether it does).</summary>
+    public const double TwinPairMs = 250;
+
+    /// <summary>A click as its id says it: the control it stands for, the content it proves (the X's version button's, or a twin's), whether it closes the window
+    /// (the version button alone), and whether it does anything beyond the proof.</summary>
+    public readonly record struct Click(string Id, string? Proved, bool Closes, bool Acts);
+
+    /// <summary>Reads a click's id (316 c, content v4.17.0's version twins). A twin's click (HudVersion.OfTwin) proves its content and then counts as its
+    /// control's own - unless that control's own click came from this player within TwinPairMs before it, which already did what it does; then it only proves.
+    /// The control's own click within TwinPairMs after its twin's is that same press, and is dropped. The catcher (HudVersion.Catcher) only proves. The X's version
+    /// button proves and closes, as ever.</summary>
+    public static Click ReadClick(HudPlayer p, string buttonId, DateTime now)
+    {
+        if (HudVersion.OfButton(buttonId) is { } shown) return new(buttonId, shown, true, false);
+        var twin = HudVersion.OfTwin(buttonId);
+        if (twin is { } caught && caught.Base == HudVersion.Catcher) return new(caught.Base, caught.Version, false, false);
+        var id = twin?.Base ?? buttonId;
+        var isTwin = twin != null;
+        var (lastId, lastTwin, at) = p.LastClick;
+        var pair = lastId == id && lastTwin != isTwin && now >= at && (now - at).TotalMilliseconds < TwinPairMs;
+        p.LastClick = (id, isTwin, now);
+        return new(id, twin?.Version, false, !pair);
+    }
+
     /// <summary>Whether a click on the ballot is the second click of a double click on the map browser's Play that added a map a moment ago: the same button, within
     /// HudVote.DoubleClickSeconds of the click before it - each such click is noted, so a burst counts once, like HudBrowser.DoubleClick. The Add turned that card
     /// into the ballot's card in its place, before the bridge's answer put the map there - so the click would count for whatever stood there, and take the

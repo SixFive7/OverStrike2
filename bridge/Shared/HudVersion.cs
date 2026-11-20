@@ -153,4 +153,30 @@ public static class HudVersion
     /// <summary>The content a version button proves, or null for any other button.</summary>
     public static string? OfButton(string buttonId) =>
         buttonId.StartsWith(ButtonPrefix, StringComparison.Ordinal) && buttonId[ButtonPrefix.Length..] is var content && Is(content) ? content : null;
+
+    // ---- the version twins: content v4.17.0's first click names its content, whichever control it lands on (316 c) ----
+
+    /// <summary>What a twin's id puts between its control's id and the content it names: os_tab_history__v4.17.0.</summary>
+    public const string TwinMark = "__";
+
+    /// <summary>The catcher's id before its mark (os_vcatch__v4.17.0): on the pages a player reaches without a click, the one control there is. Its click only proves
+    /// the content.</summary>
+    public const string Catcher = "os_vcatch";
+
+    /// <summary>A control's version twin in this content: a transparent, click-only button nested in it, shown only while vcheck is on (content v4.17.0 on), whose id
+    /// is the control's, the mark and the content. Its click proves the content, as the version button's does, and then counts as the control's own.</summary>
+    public static string Twin(string id) => Twin(id, Content);
+
+    /// <summary>A control's twin in a given content.</summary>
+    public static string Twin(string id, string content) => id + TwinMark + content;
+
+    /// <summary>The control and the content a twin's id names, or null for any other id: the part after the last mark a version word (IsWord), the part before it
+    /// not empty.</summary>
+    public static (string Base, string Version)? OfTwin(string id)
+    {
+        var at = id.LastIndexOf(TwinMark, StringComparison.Ordinal);
+        if (at <= 0) return null;
+        var content = id[(at + TwinMark.Length)..];
+        return IsWord(content) ? (id[..at], content) : null;
+    }
 }
