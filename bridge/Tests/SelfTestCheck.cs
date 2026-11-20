@@ -287,6 +287,9 @@ static partial class Program
             Check("HUD check: a real join asks again - the returning player may have a new HUD - and nothing of it is written to state.json",
                 !HudState.Decode(BuildHud(clock).Encode())!.Verified.ContainsKey(5002) && !File.ReadAllText(Path.Combine(dir, "state.json")).Contains("hud", StringComparison.OrdinalIgnoreCase));
             Check("HUD check: refused click lines change nothing", !HudAct("[U:1:5004]\tDan\t!hudok v9") && !HudSeen.ContainsKey("[U:1:5004]"));
+            Check("HUD check: the log says a click on a button that names no content as content not known, never as v3.0.0; every other click as its command",
+                ClickWords(HudCheck.Command(HudVersion.Unknown)) == "!hudok - content not known" && ClickWords(HudCheck.Command(HudVersion.Content)) == HudCheck.Command(HudVersion.Content)
+                && ClickWords("!up") == "!up");
         }
         finally
         {
