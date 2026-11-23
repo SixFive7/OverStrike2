@@ -47,6 +47,10 @@ static class BridgePostTests
     public static void Run()
     {
         var check = SelfTest.Check;
+        check("fakes: the four fake players and HUDtest are core's LabFakes, which the bridge's records leave out - Test A to Test D, the docshots table's account too",
+            BridgePost.Fakes.SequenceEqual([("Test A", "[U:1:42424251]"), ("Test B", "[U:1:42424252]"), ("Test C", "[U:1:42424253]"), ("Test D", "[U:1:42424254]")])
+            && BridgePost.Fakes.All(f => Core.LabFakes.IsFake(long.Parse(f.Sid[5..^1], System.Globalization.CultureInfo.InvariantCulture)))
+            && Core.LabFakes.IsFake(long.Parse(DocShots.FakeAccount, System.Globalization.CultureInfo.InvariantCulture)));
         var (tmp, config, oldState) = SimConfig.Make("bp-sim-");
         try
         {

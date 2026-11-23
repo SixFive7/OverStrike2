@@ -111,6 +111,30 @@ static partial class Program
             File.AppendAllText(BallotsPath, "a line that is no ballot\n");
             Check("...and a bridge reads them back at its start, a line that does not read skipped and said",
                 LoadBallots().Contains("1 decided ballot(s)", StringComparison.Ordinal) && LoadBallots().Contains("1 line(s) that do not read skipped", StringComparison.Ordinal) && Ballots.Count == 1);
+            // the lab's fake players vote on a test copy (deploy's bridgepost: Test A to Test D), but the record counts real humans alone (core's LabFakes)
+            var fake = (LabFakes.Players[0].Name, LabFakes.SteamId(LabFakes.Players[0].Account));
+            h.Join(fake);
+            var withFake = new BallotState { Round = 4242 };
+            var mapA = new MapInfo(1, 3000000001, "alpha", 100);
+            var mapB = new MapInfo(2, 3000000002, "beta", 100);
+            withFake.Options.Add(new BallotOption(VoteSource.Rolled, mapA, Modes.ArmsRace, 1) { N = 1 });
+            withFake.Options.Add(new BallotOption(VoteSource.Rolled, mapB, Modes.ArmsRace, 2) { N = 2 });
+            withFake.Choices[alice.Item2] = 1; withFake.Choices[bob.Item2] = 1; withFake.Choices[fake.Item2] = 2;
+            var fakeTally = withFake.Options.ToDictionary(o => o.N, o => withFake.Choices.Values.Count(n => n == o.N));
+            KeepBallot(withFake, withFake.Options[0], "all", fakeTally, PresentIds(Now()).Count);
+            var fakeRecord = Ballots[^1];
+            Check($"...a vote a fake player of the lab's took part in is kept with real humans alone: not among its present ({fakeRecord.Present} of {PresentIds(Now()).Count} on), "
+                  + "none of its votes on the cards; what won stays the vote's own",
+                PresentIds(Now()).Contains(fake.Item2) && fakeRecord is { Present: 2, How: "all" } && fakeRecord.Cards[0].Votes == 2 && fakeRecord.Cards[1].Votes == 0
+                && fakeRecord.Won == Key(mapA));
+            var keptBefore = Ballots.Count;
+            var linesBefore = File.ReadAllLines(BallotsPath).Length;
+            var fakesOnly = new BallotState { Round = 4243 };
+            fakesOnly.Options.Add(new BallotOption(VoteSource.Rolled, mapA, Modes.ArmsRace, 1) { N = 1 });
+            fakesOnly.Choices[fake.Item2] = 1;
+            KeepBallot(fakesOnly, fakesOnly.Options[0], "all", new() { [1] = 1 }, 1); // as at the decision: the fake alone counted as present
+            Check("...and a vote only fakes were at or voted in is kept nowhere, as the history keeps no match nobody human was in",
+                Ballots.Count == keptBefore && File.ReadAllLines(BallotsPath).Length == linesBefore);
         }
         finally { h.Dispose(); }
 

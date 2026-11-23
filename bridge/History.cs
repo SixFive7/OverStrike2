@@ -8,8 +8,9 @@
 // map, should the vote play it again - to that end. A map that ends during its warm-up is no match. Its humans are everybody who entered the game during
 // it - whoever joined during the warm-up from its start - and everybody still in from the match before it; their seconds are their time in it. Their
 // frags come from the game's kill lines (LogFrag: kills, assists, suicides, chickens), the most of them in it at once from who is in, Arms Race's winner
-// from the knife kill that came with its end. Bots never enter the log as players with a Steam account, and the lab's fake players never enter the game
-// at all, so neither is ever in it. A match nobody human was in is no entry, nor is the end screen alone before a change (EndScreenSeconds). The live
+// from the knife kill that came with its end. Its humans are real humans alone: bots and CS2's other fake clients never enter the log as players with a
+// Steam account, and the lab's fake players - who do, on a test copy or the rehearsal, through deploy's bridgepost (Test A to Test D, HUDtest) - are left
+// out by their accounts (core's LabFakes). A match nobody human was in is no entry, nor is the end screen alone before a change (EndScreenSeconds). The live
 // bridge feeds it from its log stream (HistoryIngest, HistoryFrag); --history-backfill feeds it the same events read back from the bridge's day logs and
 // the game's console log, as far back as they reach - its matches from before the warm-up, counted from the map's start, their frags where a console log
 // has the kill lines - and marks what they cannot tell (Missing).
@@ -223,10 +224,10 @@ sealed partial class MatchTracker
 
     /// <summary>A human entered the game. With no match known - the record began, or came back, inside one - a match begins here, its start and its
     /// players not known in full; or, for the live record (FromMapStart), nothing until the next map's start. During the warm-up they are present, and
-    /// in the match once it starts.</summary>
+    /// in the match once it starts. A bot (account 0) or one of the lab's fake players (LabFakes) is no human: never in it.</summary>
     public void Entered(DateTimeOffset at, long account, string name)
     {
-        if (account <= 0 || cur == null && FromMapStart) return;
+        if (account <= 0 || LabFakes.IsFake(account) || cur == null && FromMapStart) return;
         if (cur == null) { cur = new Match { Start = at }; cur.Missing.Add("start"); cur.Missing.Add("players"); }
         present[account] = present.TryGetValue(account, out var p) ? (name, p.Since) : (name, at);
         if (cur.Warming) return;
@@ -237,7 +238,7 @@ sealed partial class MatchTracker
     /// <summary>A human who was not known to be in acted (chat): in from now - the record missed their entering.</summary>
     public void Seen(DateTimeOffset at, long account, string name)
     {
-        if (account <= 0 || present.ContainsKey(account)) return;
+        if (account <= 0 || LabFakes.IsFake(account) || present.ContainsKey(account)) return;
         Entered(at, account, name);
         if (cur is { Warming: false }) cur.Missing.Add("players");
     }

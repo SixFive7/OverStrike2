@@ -28,6 +28,26 @@ static partial class Program
             && second.Players.Select(p => (p.Account, p.Seconds)).SequenceEqual([(1001L, 660), (1002L, 240), (1003L, 360)]));
         t.MapStarted(T(21, 23), "de_beta", 3000000002, "Beta", "wingman");
         Check("...the end screen alone before a change is no match", got.Count == 2);
+
+        // ---- real humans alone: the lab's fake players (core's LabFakes) enter, chat and leave through the bridge's log on a test copy, never as humans ----
+        var fakes = new List<HudHistory.Entry>();
+        var lab = new MatchTracker { Finished = fakes.Add };
+        lab.MapStarted(T(20, 0), "de_alpha", 3000000001, "Alpha", "wingman");
+        lab.Entered(T(20, 0, 10), 1001, "Alice");
+        foreach (var (name, account) in LabFakes.Players) lab.Entered(T(20, 0, 20), account, name);
+        lab.Seen(T(20, 2), LabFakes.HudTest.Account, LabFakes.HudTest.Name); // a chat line of the click harness's own fake
+        lab.Left(T(20, 5), LabFakes.Players[0].Account);
+        lab.MatchEnded(T(20, 11), "scrimcomp2v2 mg_x de_alpha score 9:4 after 10 min");
+        var labEntry = fakes.Count == 1 ? fakes[0] : null;
+        var onlyFakes = new List<HudHistory.Entry>();
+        var empty = new MatchTracker { Finished = onlyFakes.Add };
+        empty.MapStarted(T(20, 20), "de_beta", 3000000002, "Beta", "wingman");
+        foreach (var (name, account) in LabFakes.Players) empty.Entered(T(20, 20, 20), account, name);
+        empty.MatchEnded(T(20, 31), "scrimcomp2v2 mg_x de_beta score 9:2 after 10 min");
+        Check("History: real humans alone - the lab's fake players (Test A to Test D, HUDtest), who enter and chat through the bridge's log on a test copy, are in no "
+              + "entry, count for no most at once and mark no player as missed; a match they alone were in is no match",
+            labEntry is { Most: 1, Missing.Count: 0 } && labEntry.Players.Select(p => p.Account).SequenceEqual([1001L]) && onlyFakes.Count == 0
+            && LabFakes.Players.All(p => LabFakes.IsFake(p.Account)) && LabFakes.IsFake(LabFakes.HudTest.Account) && !LabFakes.IsFake(1001) && !LabFakes.IsFake(0));
         t.Entered(T(21, 23, 30), 1004, "Dan");
         t.Restarted(T(21, 23, 40), fair: true);
         t.Restarted(T(21, 30), fair: false);

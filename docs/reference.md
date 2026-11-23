@@ -851,7 +851,9 @@ humans are everybody who entered the game during it - whoever joined during the 
 with their time in it. Their frags come from the game's kill lines, which the rest of the bridge does not read and which are never logged (`LogFrag`): a kill
 names both players and their places, so the distance between them is the kill's length (a unit is an inch); an assist, a suicide and a chicken have their own
 lines; a kill in the warm-up is none. Arms Race's winner is the human whose knife kill came with its end (CS2 logs both in the same second). Bots never enter the
-log with a Steam account and the lab's fake players never enter the game, so neither is ever in it; a test copy keeps its own file. A match nobody human was in
+log with a Steam account, so they are never in it. The lab's fake players do enter the bridge's log, on a test copy or the rehearsal, through deploy's
+`bridgepost` (Test A to Test D, HUDtest), so they look like humans there. They are left out by their accounts (core's `LabFakes`). A test copy keeps its own
+file. A match nobody human was in
 is no entry, nor one they were in for under a minute (`LeastSeconds`), nor an end screen alone before a change (`EndScreenSeconds`). A bridge that starts
 inside a map - a restart, every deploy's - records nothing of it, not at a match end nor at the server's stop: the record starts again at the next map's start,
 where everybody enters again (`FromMapStart`; the backfill, whose first log may begin inside a match, keeps that one, not known in full). A match's mode is the
@@ -871,6 +873,8 @@ won. `bridge --ballots-backfill OUT --maps DIR [--zone ZONE] [--until "yyyy-MM-d
 cards, each vote and its moves, each added card, each decision - and looks each card's name up in the map lists in DIR (a copy of the bridge's data folder:
 `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`); a name no list has stays a name (`name:` and the label). Every crash counted on a map is kept too
 (`crashesEver` in `state.json`, begun with the crash marks there were), where the crash marks are lifted by a Workshop update.
+The record counts real humans alone: the lab's fake players vote on a test copy, but they are neither among a ballot's present nor in its cards' votes. A
+ballot no real human was at or voted in is not kept, as the history keeps no match nobody human was in.
 
 **The pages** (content v4.15.0; drawn from content v4.16.0 on with no panel of their own - `HudBrowser.HistoryLevel` 58: only a game whose HUD check named
 v4.16.0 or a newer content gets anything of them - not v4.15.0's, nor one not seen yet or not known): HISTORY and STATS are pages of their own, tabs in the top row

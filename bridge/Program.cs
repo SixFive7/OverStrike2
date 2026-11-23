@@ -1,5 +1,6 @@
 // The bridge: hears the game server's log and the plugin's clicks, decides, and sends the server its orders over RCON. See docs/reference.md.
 global using BridgeWire = OverStrike2.Core.BridgeWire; // what the other programs say to the bridge, and where (core/BridgeWire.cs)
+global using LabFakes = OverStrike2.Core.LabFakes;   // the lab's fake players, which the records count nowhere (core/LabFakes.cs)
 global using GamePools = OverStrike2.Core.GamePools;   // the installed game's own map pools, as the restart watcher reports them (core/GamePools.cs)
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;

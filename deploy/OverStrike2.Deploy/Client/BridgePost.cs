@@ -42,7 +42,7 @@ namespace OverStrike2.Deploy;
 sealed class BridgePost(TestCopy tc)
 {
     public static readonly (string Name, string Sid)[] Fakes =
-        [("Test A", "[U:1:42424251]"), ("Test B", "[U:1:42424252]"), ("Test C", "[U:1:42424253]"), ("Test D", "[U:1:42424254]")];   // test names only: the pictures are public
+        [.. Core.LabFakes.Players.Select(p => (p.Name, Core.LabFakes.SteamId(p.Account)))];   // core's LabFakes: test names only (the pictures are public), and the bridge keeps them out of its records
     const string ClientName = "Alice";   // docshots' test name for the real client, in what the bridge says about them
     public static readonly Dictionary<string, string> Acts = new()
     {
@@ -50,7 +50,7 @@ sealed class BridgePost(TestCopy tc)
         ["time10"] = "!time 10", ["time60"] = "!time 60",
         ["cancel-restart"] = "!cancel restart", ["cancel-rematch"] = "!cancel rematch", ["cancel-previous"] = "!cancel previous",
     };
-    static readonly (string Name, string Sid) HudTest = ("HUDtest", "[U:1:42424243]");
+    static readonly (string Name, string Sid) HudTest = (Core.LabFakes.HudTest.Name, Core.LabFakes.SteamId(Core.LabFakes.HudTest.Account));
     static readonly string[] Kinds = ["game-update", "our-update", "daily", "downloads"];
     static readonly string[] When = ["match-end", "now"];
     public const int RoundTries = 5;

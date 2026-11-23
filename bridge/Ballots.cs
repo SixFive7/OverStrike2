@@ -62,12 +62,19 @@ static partial class Program
         return $"ballots: {Ballots.Count} decided ballot(s) from {BallotsPath}" + (bad > 0 ? $", {bad} line(s) that do not read skipped" : "");
     }
 
-    /// <summary>A ballot decided (VoteRound.CloseBallot): its record, appended to ballots.jsonl - every card with its final votes, and what won.</summary>
+    /// <summary>A ballot decided (VoteRound.CloseBallot): its record, appended to ballots.jsonl - every card with its final votes, and what won. The record counts
+    /// real humans alone: the lab's fake players (LabFakes), who vote on a test copy, are neither among its present nor in its cards' votes; what won is the
+    /// vote's own. A ballot no real human was at or voted in is kept nowhere, as the history keeps no match nobody human was in.</summary>
     static void KeepBallot(BallotState b, BallotOption won, string how, Dictionary<int, int> tally, int present)
     {
         string KeyOf(BallotOption o) => o.Source == VoteSource.Random || o.Map == null ? RandomKey : Key(o.Map);
-        var cards = b.Options.Select(o => new BallotCard(KeyOf(o), o.Map?.Name ?? "Random", o.Map != null ? ModeOf(o.Map).Id : b.FillMode.Id, tally.GetValueOrDefault(o.N))).ToList();
-        var r = new BallotRecord(HistoryNow(), b.Round, CurrentMode.Id, how, present, cards, KeyOf(won), "live");
+        var fakeVotes = b.Choices.Where(c => LabFakes.IsFake(AccountId(c.Key))).Select(c => c.Value).ToList();
+        var fakesHere = PresentIds(Now()).Count(id => LabFakes.IsFake(AccountId(id)));
+        var cards = b.Options.Select(o => new BallotCard(KeyOf(o), o.Map?.Name ?? "Random", o.Map != null ? ModeOf(o.Map).Id : b.FillMode.Id,
+            Math.Max(0, tally.GetValueOrDefault(o.N) - fakeVotes.Count(n => n == o.N)))).ToList();
+        var humans = Math.Max(0, present - fakesHere);
+        if (humans == 0 && cards.All(c => c.Votes == 0)) { Log($"ballots: round {b.Round} not kept - no real human was at it (the lab's fake players count for none)"); return; }
+        var r = new BallotRecord(HistoryNow(), b.Round, CurrentMode.Id, how, humans, cards, KeyOf(won), "live");
         Ballots.Add(r);
         try { File.AppendAllText(BallotsPath, BallotLine(r) + "\n"); }
         catch (Exception x) { Log($"ballots: {BallotsPath} could not be written - {x.Message}"); }
