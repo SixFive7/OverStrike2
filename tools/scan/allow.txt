@@ -31,6 +31,20 @@ binary hud/images/lock_shut.png a4ba06f484b91571d02e763858b803449ee6b14ec798be5b
 binary hud/images/lock_open.png e65a8c4d7ae5b263394acc91a38bd8a112d5a37d8ea8f0b7a13a2665c2b11fee  # the same padlock, open
 binary hud/workshop_preview.jpg eebf2abc31669287fcf4f2d4022968e5eef0a6ad000a100f542b646ff891ca19  # the HUD item's preview: the Fun page as a test client drew it, on a plain ground - our own menu, no other authors' pictures
 
+# The README's showcase (docs/media/): the lab's recordings of release 220 (rel-220 at ce3e9af) and of hotfix 221a's match end (55d566d), every frame cleaned and read by OCR: test names only - the client painted over as Alice, its Steam avatar and CS2's build line filled out
+binary docs/media/hero.jpg cf557c72b32a73ed673a29687752c9fc01574c5a8b45a3c5c4c8d23d9ae7b168  # the README's hero: the vote window as a test client drew it on a test copy, beside the title
+binary docs/media/demo-loop.webp 99b75b5c43a5a047dbd93aa1e6615fced281f2f43237b34290534d276f0b3254  # the README's autoplaying loop (animated WebP): the vote, History, Stats, the warm-up, the map browser and the scores at a match end
+binary docs/media/demo.mp4 d69cee5549b9fda4e79bfbc37a97719a9c5c3f0b967a71f58d61ad4cf28fa688  # the full demo (H.264): the warm-up, the window's pages, History, Stats, the vote, TAB, a match end's SCORES and download, 32:9, with our own captions
+binary docs/media/vote.jpg 8bad5f0d49b146d877973218645bbb207a2b39a0b1fbeeef28611cb19189f3fd  # a gallery picture: a vote everybody has voted in
+binary docs/media/maps.jpg f43f4cc9cba0eec2f7fe9d8e213b86b328251119d54b27c7cb2adbee2edf4cbe  # a gallery picture: the map browser
+binary docs/media/history.jpg 122af8bc3358351f66b4b60b7de7d0401584bb0b968a3b4eca770d8c4718470c  # a gallery picture: HISTORY, a wide card per match (the lab's made-up history)
+binary docs/media/stats.jpg 6a631543ea974da41d670df589e302e2b2e54d8af48b46bd2c2b6e7dde3efaaf  # a gallery picture: the STATS tab (the lab's made-up history)
+binary docs/media/warmup.jpg 2c17d777352581da6f3e559be8c6d6293a2fce2721dfbb88f2f93e957d6a0b1a  # a gallery picture: a map's warm-up, its banner naming who we wait for
+binary docs/media/search.jpg 90f8d6a318c3b679849185925ecf610202a3138b0713b81da837d98fa420570c  # a gallery picture: a search by Valve's own name, cobblestone
+binary docs/media/fun.jpg 7e6d8e47e7eae58ee6b22c8d984488bdf1a2b50a2c0a4c98a991cc44fd32f5ce  # a gallery picture: the fun settings
+binary docs/media/bots.jpg 9e012b8f244ff0f54fd256e3edfe3c6adfdfa8015cd18b165dceda624914181a  # a gallery picture: the bots page
+binary docs/media/chat.jpg 882c04495674917dc314ef0f3cbb994a0fd2eb564d436cb67acce21b7ad24def  # a gallery picture: the whole 21:9 screen during a vote, the chat column beside the window
+
 # Self-test values that look like secrets
 token core/SelfTest/SettingsTests.cs 0123456789ABCDEF0123456789ABCDEF  # a made-up Web API key, in the settings self-test
 token .gitleaks.toml 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in gitleaks' allowlist
