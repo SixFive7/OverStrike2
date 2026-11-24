@@ -102,14 +102,18 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     // (1411 and older: API 17; 1460 segfaults on current CS2). Bump with CounterStrikeSharp.
     public const string MetamodVersion = "2.0.0-git1483";
     // CounterStrikeSharp with its .NET runtime (Linux): ConVar<T>, the client-authorization engine calls fixed (s2sdk's IVEngineServer2
-    // slot fix); 1.0.374's library asked for an executable stack, 1.0.375 and later do not. 1.0.380 is its fix for CS2 1.41.9.7 (build 14197),
-    // the SDK's net messages as plain records: 1.0.379 segfaults at every map change on that build. The plugin is built against the same 1.0.380
-    // package (NuGet, 2026-11-12).
-    public const string CssVersion = "1.0.380";
+    // slot fix); 1.0.374's library asked for an executable stack, 1.0.375 and later do not. 1.0.380 was its fix for CS2 1.41.9.7 (build
+    // 14197), the SDK's net messages as plain records: 1.0.379 segfaults at every map change on that build. 1.0.381 is its fix for CS2 1.42.0.1
+    // (build 14201), which put a new virtual into ISource2Server after GameCreateNetworkStringTables (s2sdk 64de8f6): 1.0.380 hooks shifted
+    // slots there and segfaults the engine in the game server's Steam start. Its managed API changes nothing public (an internal schema
+    // string write), so the plugin stays built against the 1.0.380 package (NuGet, 2026-11-12) and loads on 1.0.381.
+    public const string CssVersion = "1.0.381";
     // MultiAddonManager, the SteamRT4 build for the image's runtime: hands the HUD's Workshop addon to every client; reads the server's addon
-    // string and client list through the SDK; tracks the Workshop map when a level really loads, also after a ChangeLevel. 1.7.4 is its fix for
-    // CS2 1.41.9.7 (build 14197): 1.7.3 does not load on that build, and its main before the fix crashed the server at any client connect.
-    public const string MamVersion = "1.7.4";
+    // string and client list through the SDK; tracks the Workshop map when a level really loads, also after a ChangeLevel. 1.7.4 was its fix
+    // for CS2 1.41.9.7 (build 14197): 1.7.3 does not load on that build, and its main before the fix crashed the server at any client connect.
+    // 1.7.5 is 1.7.4's source rebuilt for CS2 1.42.0.1 (the ISource2Server virtual above: 1.7.4's GameFrame hook took a shifted slot and
+    // segfaulted the engine), with no change to its addon handling.
+    public const string MamVersion = "1.7.5";
 
     public static string MetamodUrl => $"https://github.com/alliedmodders/metamod-source/releases/download/{ReplaceFirst(MetamodVersion, "-git", ".")}/mmsource-{MetamodVersion}-linux.tar.gz";
     public static string CssUrl => $"https://github.com/roflmuffin/CounterStrikeSharp/releases/download/v{CssVersion}/counterstrikesharp-with-runtime-linux-{CssVersion}.zip";
