@@ -24,6 +24,7 @@ static partial class Program
         var f = body.Trim().Split('\t');
         if (f.Length != 3 || !SteamId3Rx().IsMatch(f[0]) || !(Hud.IsAction(f[2]) || MapVote.IsAction(f[2]))) { Log($"hud: refused '{Hud.Clean(body, 80)}'"); return false; }
         var name = Hud.Clean(f[1], 64) is { Length: > 0 } n ? n : "?";
+        if (f[2] == Hud.NameWord) { NameShown(f[0], name); return true; } // Players.cs: the name the server shows - no click, nobody made present (Present) or verified
         Log($"hud: {name} {f[0]} clicked {ClickWords(f[2])}");
         Present(f[0], name);
         if (f[2].StartsWith("!hudok ", StringComparison.Ordinal)) { HudVerify(f[0], name, f[2][7..]); return true; } // never a chat command: only a click says it

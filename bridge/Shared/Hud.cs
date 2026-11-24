@@ -42,10 +42,16 @@ public static class Hud
 
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and
     /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
-    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", StartWord, "!time", "!time 10", "!time 60", "!time 8", "!time 16", CancelMine];
+    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", StartWord, "!time", "!time 10", "!time 60", "!time 8", "!time 16", CancelMine, NameWord];
 
     /// <summary>!start: the warm-up ends now, for everybody (EarlyJoin.cs) - a friend who is not coming.</summary>
     public const string StartWord = "!start";
+
+    /// <summary>!name: no click, the plugin's word of the name the server shows for a player (the /act line's name) - when it first sees them and whenever it
+    /// changes. The game's log names a player at the connect, which a test name the server gives them later (the lab's OsDocName on a copy) never reaches, so
+    /// the bridge would name them by that until their first chat line or click: on a ballot's Waiting line, its chips, the vote's chat lines. It changes
+    /// nothing but the name the bridge says them by - nobody is made present or verified by it. Production's names are the same either way.</summary>
+    public const string NameWord = "!name";
 
     /// <summary>The chat's !cancel: the newest countdown of the player's own stops (the bridge's CancelMine) - a click on a countdown's button names it instead.</summary>
     public const string CancelMine = "!cancel mine";

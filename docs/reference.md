@@ -1144,13 +1144,24 @@ version twin, 35 in all: the tabs, Start's Like, Dislike and its action, the boa
   catcher, `os_vcatch__v4.17.0`, whose click only proves.
 - A twinned control whose content flowed or kept padding holds it in a wrapper (`os-btn-in`), so its twin covers it whole.
 
-The bridge's log says a click that proved no content as `clicked !hudok - content not known`. A player not
+The bridge's log says a click that proved no content as `clicked !hudok - content not known`.
+
+A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
 `hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. With `warn` and with the check off, the end of the 90 s also closes that player's window - the
 welcome too, which otherwise waits for its X - so the [spawn cloak](#in-game-hud) cannot hide a game that cannot draw the window for longer than that (`HudGate.ClosesWindow`); a player who has not
 clicked by then sees the window close. A verification lives in memory, per connection: a reconnecting player may have a new HUD. No fresh word from the bridge for `HudCheck.StaleSeconds` means off
 (no state, no disconnects) - and the plugin asks the bridge only while a human is on, so the check reads off whenever the server is empty and its mode again from the first answer after a join; the
 clock's grace runs on through such a switch, and the step back up re-arms everybody still waiting with a full grace, at most once a map.
+
+**The name a player goes by.** The game's log names a player at the connect, and a test name the server gives them later (the lab's OsDocName on a copy)
+never reaches it.
+- So the plugin tells the bridge the name the server shows for every human, with no click: when it first sees them on a connection, whenever it changes, and
+  again every 30 s (`Hud.NameWord`, `!name` on `/act`). A word the line drops is told again.
+- The bridge keeps that name, like every chat line's or click's, through the reconnects of map changes until a real departure (`ShownNames`).
+- It says that name wherever it names a player (`VoterName`): the ballot's Waiting line and chips, the vote's chat and board lines, and the history.
+- The word makes nobody present and verifies nobody.
+- A short gap stays between a join or a rename and the plugin's next frame, so the lab still runs `bridgepost names-check` before a ballot's picture.
 
 **The item watch.** While Steam does not show the HUD's Workshop item to everybody - Valve reviews every new version, and a held item is an error page for everybody but its owner - the server must not make
 joiners download it, and nobody is disconnected. The plugin reads the Web API every minute, which says whether the item is gone, private or banned and when a new version went up, but not whether Valve

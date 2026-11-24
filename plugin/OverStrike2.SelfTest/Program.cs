@@ -505,6 +505,14 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !hudClicks.Contains("HistoryButton", StringComparison.Ordinal) && !hudClicks.Contains("me.Browser.History", StringComparison.Ordinal)
           && historyChat.Contains("|| HistoryOpen(player), VoteOpen);", StringComparison.Ordinal) && historyChat.Contains("Player(player.Slot).History.Find(words);", StringComparison.Ordinal),
         "HUD: the HISTORY page takes its own clicks - its chips, Mine, the order, Clear, the pager, a card's Like, Dislike and Vote for it (the tabs open the pages, HudView.Tabs; MAPS' old History button is gone, its click with it) - and a chat line typed while it shows searches it");
+    // the name the server shows goes to the bridge with no click (Hud.NameWord): the live lab's ballot on release 222 named the client by its Steam name,
+    // where the lab's OsDocName had given a test name the game's log never carries
+    var hudScreenSrc = Source("plugin", "OverStrike2", "HudScreen.cs");
+    Check(hudFrameSrc.Contains("shownNames[p.Slot] = p.PlayerName; TellName(p, now); }", StringComparison.Ordinal)
+          && hudScreenSrc.Contains("bridge.Act(Account(p), p.PlayerName, Hud.NameWord);", StringComparison.Ordinal)
+          && hudScreenSrc.Contains("me.ToldName == p.PlayerName && (now - me.ToldAt).TotalSeconds < TellAgainSeconds) return;", StringComparison.Ordinal)
+          && hudClicks.Contains("if (command == Hud.NameWord)", StringComparison.Ordinal) && hudClicks.Contains("Player(named.Slot).ToldName = null;", StringComparison.Ordinal),
+        "HUD: every frame tells the bridge the name the server shows for each human it has not told yet, or that changed, and again every 30 s - no click, so vcheck and the vote stand - and a word the line drops is told again");
     // 316 c (content v4.17.0's version twins): every click is read first - the content it proves verifies the game before anything else, the version button
     // closes, the catcher and a twin's second half only prove, and a twin's click goes on as its control's own
     var readAt = hudClicks.IndexOf("var click = HudFrame.ReadClick(Player(player.Slot), buttonId, now);", StringComparison.Ordinal);

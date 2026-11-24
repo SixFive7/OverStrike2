@@ -53,9 +53,9 @@ static partial class Program
         {
             if (p.GoneSince == null) { p.ReloadSince ??= now; p.Returning = p.Returning is { } back && (now - back).TotalSeconds <= EarlyJoin.SignOnMostSeconds ? back : now; }
         }
-        else // left for real: the HUD check forgets them, and it is no sign-on
+        else // left for real: the HUD check forgets them, and the name the server showed for them; it is no sign-on
         {
-            p.GoneSince = now; p.ReloadSince = null; p.Joining = false; HudSeen.Remove(id);
+            p.GoneSince = now; p.ReloadSince = null; p.Joining = false; HudSeen.Remove(id); ShownNames.Remove(id);
             if (p.SigningOn != null || p.Returning != null) { p.SigningOn = null; p.Returning = null; SignOnsChanged(); }
         }
     }
@@ -65,7 +65,28 @@ static partial class Program
     {
         var p = PlayerOf(id);
         p.Name = name; p.GoneSince = null; p.ReloadSince = null;
+        Shows(id, name);
+    }
+
+    /// <summary>The name the server shows for each player, by SteamID: the plugin's word (Hud.NameWord) and every chat line or click, kept through the reconnects of
+    /// map changes - whose "connected" and "entered the game" lines name a player as at their first connect - until a real departure. What every name the
+    /// bridge says of a player is (VoterName): on a copy, the lab's OsDocName test name from the moment the plugin sees it, never the Steam name it replaces.</summary>
+    static readonly Dictionary<string, string> ShownNames = new();
+
+    /// <summary>This player's name as the server shows it: kept for what the bridge says of them, and for the history.</summary>
+    static void Shows(string id, string name)
+    {
+        if (name.Trim() == "") return;
+        ShownNames[id] = name;
         MatchHistory.Shown(AccountId(id), name);
+    }
+
+    /// <summary>The plugin's word of a player's name (Hud.NameWord): the name kept, nothing else - no one is made present or verified by it.</summary>
+    static void NameShown(string id, string name)
+    {
+        if (name.Trim() == "" || ShownNames.GetValueOrDefault(id) == name) return;
+        Log($"hud: {id} goes by {name} - the name the server shows");
+        Shows(id, name);
     }
 
     /// <summary>A map start or a server restart: everyone in game is now reloading. The log usually said so already; this is the safety net.</summary>

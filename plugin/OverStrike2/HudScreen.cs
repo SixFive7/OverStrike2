@@ -239,6 +239,21 @@ sealed partial class HudScreen
     /// disconnect the engine's name can be another (on a test copy the Steam name, where the lab's OsDocName gave a test name).</summary>
     public string NameShown(int slot, string given) => shownNames.TryGetValue(slot, out var name) && name.Trim() != "" ? name : given;
 
+    /// <summary>The bridge hears the name the server shows for a player (Hud.NameWord) when this plugin first sees them on a connection and whenever it changes
+    /// - no click, nothing else. The game's log names a player at the connect, which a test name the server gives them later (the lab's OsDocName on a copy)
+    /// never reaches, so the bridge would say the Steam name on a ballot's Waiting line, its chips and the vote's chat lines until the player's first chat line or
+    /// click. A word the line drops is told again (ClickDropped), and every word again after TellAgainSeconds: a bridge swapped in meanwhile starts knowing none.</summary>
+    void TellName(CCSPlayerController p, DateTime now)
+    {
+        var me = Player(p.Slot);
+        if (bridge == null || p.PlayerName.Trim() == "" || me.ToldName == p.PlayerName && (now - me.ToldAt).TotalSeconds < TellAgainSeconds) return;
+        (me.ToldName, me.ToldAt) = (p.PlayerName, now);
+        bridge.Act(Account(p), p.PlayerName, Hud.NameWord);
+    }
+
+    /// <summary>How often the bridge hears a name again that did not change: a bridge that started since knows the test name within this, not at the next click.</summary>
+    const double TellAgainSeconds = 30;
+
     /// <summary>A player left (a map change's reconnect too): their slot forgets them (Leave), and the HUD their game showed is forgotten here too, not only at
     /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read. The slot's
     /// entries in the entity go at once (ClearSlot), marked through the slot's own state (its capture, off): a game that takes the slot next is handed them in its

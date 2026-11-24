@@ -30,6 +30,12 @@ public sealed class HudPlayer
     /// HISTORY, so the page starts afresh each time it is opened.</summary>
     public Dictionary<string, string[]> HistoryPictures { get; } = new();
 
+    /// <summary>The name the plugin last told the bridge this player goes by (Hud.NameWord; HudScreen.TellName), null before the first word, and when: the bridge
+    /// hears it again when the name the server shows changes - the lab's OsDocName giving a test name - when the line dropped the last word, and every
+    /// HudScreen.TellAgainSeconds, so a bridge that started meanwhile (a swap) knows it too.</summary>
+    public string? ToldName;
+    public DateTime ToldAt;
+
     /// <summary>A bar's snap, by its panel (HudFrame.Snapped, content v4.14.0): the step it shows, and where the snap stands - 0 none, 1 snapped, 2 the new step taken.</summary>
     public Dictionary<string, (string Shown, int Stage)> Snap { get; } = new();
 

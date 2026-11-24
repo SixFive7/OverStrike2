@@ -166,6 +166,35 @@ static partial class Program
             h.MatchEnd();
             Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Diced() && h.Said("Match over - Rolling the dice"));
 
+            // ---- the name the server shows (Hud.NameWord): the plugin's word, no click - what a ballot, its chips and its chat lines say of a player ----
+            // The log names a player at the connect; the lab's OsDocName gives a test name later, which the log never carries. The live lab's q2c-0 frame on
+            // release 222 named the client by its Steam name on the Waiting line.
+            Fresh();
+            var steamName = ("Steam Name A", alice.Item2); // the name the game's log has for her: as at her connect
+            h.Join(steamName); h.Join(bob); h.Join(cara);
+            HudAct($"{alice.Item2}\tAlice\t{Hud.NameWord}"); // the plugin's word: the server shows her as Alice
+            var notPresent = ("Ghost", "[U:1:2099]");
+            HudAct($"{notPresent.Item2}\t{notPresent.Item1}\t{Hud.NameWord}"); // a word for somebody the log has never seen
+            Settle();
+            HudAct($"{bob.Item2}\t{bob.Item1}\t!next");
+            var shownVote = LiveVote();
+            var wasNamed = shownVote.Waiting.Contains("Alice") && !shownVote.Waiting.Contains("Steam Name A");
+            if (Ballot is { Open: true } nb) Click(cara, nb.Options.First(o => o.Source != VoteSource.Keep && o.Source != VoteSource.Random).N); // Cara's vote: its line names who still has to
+            var waitingLines = Told.Where(t => t.Contains("Waiting for", StringComparison.Ordinal)).ToList();
+            var lineNamed = waitingLines.Count > 0 && waitingLines.All(t => !t.Contains("Steam Name A", StringComparison.Ordinal)) && waitingLines[^1].Contains("Alice", StringComparison.Ordinal);
+            if (Ballot is { Open: true } nb2) Click(alice, nb2.Options.First(o => o.Source != VoteSource.Keep && o.Source != VoteSource.Random).N);
+            var chip = LiveVote().Voters.Values.SelectMany(v => v).ToList();
+            h.Line($"\"Steam Name A<2><{alice.Item2}><CT>\" disconnected (reason \"NETWORK_DISCONNECT_SHUTDOWN\")"); // a map change's reconnect, under the connect's name again
+            h.Line($"\"Steam Name A<2><{alice.Item2}><>\" connected, address \"192.0.2.1:27005\"");
+            h.Line($"\"Steam Name A<2><{alice.Item2}><>\" entered the game");
+            var afterReconnect = VoterName(alice.Item2);
+            Check("The name the server shows, as the plugin tells it with no click (Hud.NameWord): the ballot's Waiting line and its chat line name her by it, never by the "
+                  + "log's connect name, her chip after her vote too, and a map change's reconnect keeps it; the word makes nobody present and verifies nobody",
+                wasNamed && lineNamed && chip.Contains("Alice") && !chip.Contains("Steam Name A") && afterReconnect == "Alice" && !PresentIds(h.Clock).Contains(notPresent.Item2)
+                && !HudSeen.ContainsKey(notPresent.Item2) && !HudSeen.ContainsKey(alice.Item2) && Hud.IsAction(Hud.NameWord));
+            h.Leave(steamName);
+            Check("...and a real departure forgets it: the next player on that account is named as the log names them until the plugin's word", VoterName(alice.Item2) == "Steam Name A");
+
             // ---- the ballot at a match end: Play this map again, the server's mode to a page, one map of each other mode, Random ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);

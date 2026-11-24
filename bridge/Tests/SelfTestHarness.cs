@@ -31,7 +31,7 @@ static partial class Program
         knownFor = null; knownByKey = new(); updatedByKey = new(); popularityFor = null; popularity.Clear(); keptFor = null; kept = new(); wingmanIndex = (null, new());
         CatalogVersion++; // the menu's map list is made again
         // what the bridge keeps (state.json, votes.json), and who is on
-        S = new State(); Likes = new(); Players.Clear(); PickConfirms.Clear(); HudSeen.Clear(); WhyOpen.Clear(); RefusedSaid.Clear();
+        S = new State(); Likes = new(); Players.Clear(); ShownNames.Clear(); PickConfirms.Clear(); HudSeen.Clear(); WhyOpen.Clear(); RefusedSaid.Clear();
         // the map change, the vote, the server's life, the crash watch, the empty server, the modes, the restarts
         Pending = null; LoadPending = false; LoadUntil = default; LoadSentAt = default; LoadBehindDownload = false; MatchEndUntil = default; EndScreenAt = null;
         Ballot = null; LastRound = 0; VoteWaitUntil = default;

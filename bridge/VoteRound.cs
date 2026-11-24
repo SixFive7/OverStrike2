@@ -157,7 +157,7 @@ static partial class Program
     static string VoterMark(string name) => M.N(Clip(name, 24));
 
     /// <summary>A player's name as the vote's lists say it: the log stream's, the fakes of a test too.</summary>
-    static string VoterName(string id) => Players.TryGetValue(id, out var pl) && pl.Name != "" ? Clip(pl.Name, 24) : id;
+    static string VoterName(string id) => ShownNames.TryGetValue(id, out var shown) ? Clip(shown, 24) : Players.TryGetValue(id, out var pl) && pl.Name != "" ? Clip(pl.Name, 24) : id; // Players.cs: the name the server shows first
 
     /// <summary>The board keeps the newest of a vote's own lines (VoteLine): the list as it stands, with the line it started with and its result beside it.</summary>
     static string VoteLineKey(BallotState b) => $"vote{b.Round}";

@@ -207,9 +207,9 @@ sealed class BridgePost(TestCopy tc)
                                                  : "a test copy, the candidate on its copy of the data") + ", production and its bridge aside");
                 break;
             case "names-check":
-                // The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (OsDocName) reaches
-                // the bridge only with that player's next chat line or click. So a ballot can name the client by its own Steam name: refuse before
-                // a picture.
+                // The game's log names a player at the connect; a test name the server goes by (OsDocName) reaches the bridge with the plugin's word
+                // (Hud.NameWord, from release 223 on: within a frame or two of the rename) or the player's next chat line or click. Until then a
+                // ballot can name the client by its own Steam name - and always with an older plugin or bridge: refuse before a picture.
                 var (secret, port) = Route(b);
                 var voteLines = Py.SplitLines(ExecInCopy($"http://{tc.Bridge}:{port}/hud/{secret}", ["python3", "-c", GetVoteLines], secret));
                 var privateNames = h.PrivateNames();
