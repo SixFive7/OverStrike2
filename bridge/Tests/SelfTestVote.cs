@@ -1174,6 +1174,33 @@ static partial class Program
                 keepOnBallot is { Map: { Official: true, Name: "de_inferno" } } && keptOn is { Won: "de_inferno" }
                 && keptOn.Cards.FirstOrDefault(c => c.Key == "de_inferno") is { Name: "de_inferno", Mode: Modes.WingmanId, Votes: 2 });
 
+            // ---- release 225: the live lab's switch on release 224 - game_type 0, game_mode 2 and changelevel de_inferno, with no os_mode: the plugin was told Arms
+            //      Race, so the server runs the official map in Arms Race, which the bridge knows as Deathmatch's, its first official mode. A vote there that keeps it
+            //      has its Keep card on record in Arms Race, the mode the server ran, where release 224 wrote Deathmatch ----
+            Fresh();
+            fakePlugin = true; fakeAnswers = true; fakeBlockLate = false;
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            Ask(alice, m[3]); Land(); Settle(); // an Arms Race Workshop map, loaded from the boot map
+            h.Quiet();
+            ModeProbeEnabled = true;
+            foreach (var c in new[] { "game_type 0", "game_mode 2", "changelevel de_inferno" }) h.Server(c); // the operator's RCON, with no os_mode
+            foreach (var p in new[] { alice, bob }) h.Leave(p, "NETWORK_DISCONNECT_SHUTDOWN");
+            h.Line("Loading map \"de_inferno\""); h.Line("Started:  \"\"");
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.Run(3);
+            Settle();
+            var keptInArBefore = Ballots.Count;
+            StartVote(alice.Item1, alice.Item2);
+            var keepInAr = Ballot is { Open: true } arb ? arb.Options.FirstOrDefault(o => o.Source == VoteSource.Keep) : null;
+            if (keepInAr != null) foreach (var p in new[] { alice, bob }) if (Ballot is { Open: true }) Click(p, keepInAr.N);
+            h.Run(1);
+            var keptInAr = Ballots.Count > keptInArBefore ? Ballots[^1] : null;
+            Check($"An operator's changelevel to de_inferno with no os_mode runs it in Arms Race, the plugin's mode; a vote there that keeps it has its Keep card on record in Arms "
+                  + $"Race, the mode the server ran - not Deathmatch, the map's first official mode, as release 224 wrote it (release 225) ({S.Mode}, {S.Map}, "
+                  + $"{(keptInAr is null ? "nothing kept" : BallotLine(keptInAr))})",
+                S.Mode == "armsrace" && keepInAr is { Map: { Official: true, Name: "de_inferno", Mode: Modes.DeathmatchId } } && keptInAr is { Mode: "armsrace", Won: "de_inferno" }
+                && keptInAr.Cards.FirstOrDefault(c => c.Key == "de_inferno") is { Mode: Modes.ArmsRaceId, Votes: 2 });
+
             // ---- release 198: the match length after such a start goes by the mode the bridge knows 2 s after it - the plugin's word, taken 1.5 s
             //      after the start - not by the one on its record at the start: an operator's switch onto a Deathmatch map set to 10 ran the cfg's 60 ----
             Fresh();

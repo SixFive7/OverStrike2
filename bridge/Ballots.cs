@@ -74,7 +74,9 @@ static partial class Program
         string NameOf(BallotOption o) => o.Map?.Name ?? (o.Source == VoteSource.Keep && b.KeepLabel != "" ? b.KeepLabel : "Random");
         var fakeVotes = b.Choices.Where(c => LabFakes.IsFake(AccountId(c.Key))).Select(c => c.Value).ToList();
         var fakesHere = PresentIds(Now()).Count(id => LabFakes.IsFake(AccountId(id)));
-        var cards = b.Options.Select(o => new BallotCard(KeyOf(o), NameOf(o), o.Map != null ? ModeOf(o.Map).Id : o.Source == VoteSource.Keep ? o.Mode.Id : b.FillMode.Id,
+        // a card's mode is its map's; Keep's is the mode the server runs the kept map in, the ballot's own - not the map's first official mode, as before release 225
+        // (the live lab on release 224: de_inferno an operator put on in Arms Race was on record as Deathmatch)
+        var cards = b.Options.Select(o => new BallotCard(KeyOf(o), NameOf(o), o.Source == VoteSource.Keep ? o.Mode.Id : o.Map != null ? ModeOf(o.Map).Id : b.FillMode.Id,
             Math.Max(0, tally.GetValueOrDefault(o.N) - fakeVotes.Count(n => n == o.N)))).ToList();
         var humans = Math.Max(0, present - fakesHere);
         if (humans == 0 && cards.All(c => c.Votes == 0)) { Log($"ballots: round {b.Round} not kept - no real human was at it (the lab's fake players count for none)"); return; }

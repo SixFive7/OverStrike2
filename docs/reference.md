@@ -877,7 +877,8 @@ map id`), and the frags where they have kill lines (the day logs have none). Its
 **Our ballots** (`Ballots.cs`): every decided ballot is a line of `ballots.jsonl` beside it - when, its round, the server's mode, how it was decided, how many
 were present, every card (its map's key, `random` for Random, its name, mode and final votes: a player's last vote of the round counts) and the key of what
 won. A Keep card is the map it kept: when no map is known for it - a map start the bridge did not ask for, of a map no list or pool names - by the name the
-server logged (`name:` and it), never Random, as it was before release 224. `bridge --ballots-backfill OUT --maps DIR [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...` reads the ballots back out of the day logs - each open line's
+server logged (`name:` and it), never Random, as it was before release 224; and in the mode the server ran it in, the ballot's own - an official map an operator
+put on in another mode was on record in its first official mode before release 225. `bridge --ballots-backfill OUT --maps DIR [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...` reads the ballots back out of the day logs - each open line's
 cards, each vote and its moves, each added card, each decision - and looks each card's name up in the map lists in DIR (a copy of the bridge's data folder:
 `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`); a name no list has stays a name (`name:` and the label). Every crash counted on a map is kept too
 (`crashesEver` in `state.json`, begun with the crash marks there were), where the crash marks are lifted by a Workshop update.

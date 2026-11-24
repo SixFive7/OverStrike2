@@ -149,6 +149,19 @@ static partial class Program
             keptOfficial.Choices[alice.Item2] = 1;
             KeepBallot(keptOfficial, keptOfficial.Options[0], "all", new() { [1] = 1, [2] = 0 }, PresentIds(Now()).Count);
             var keptOfficialRecord = Ballots[^1];
+            // release 225: an official map kept in a mode its catalog does not put first - de_inferno an operator put on in Arms Race, which the bridge knows as
+            // Deathmatch's (the live lab on release 224 found its Keep card on record as Deathmatch)
+            var keptElsewhere = new BallotState { Round = 4246, KeepLabel = "de_inferno (official)" };
+            keptElsewhere.Options.Add(new BallotOption(VoteSource.Keep, new MapInfo(0, 0, "de_inferno", 0, true, Modes.DeathmatchId), Modes.ArmsRace, 0) { N = 1 });
+            keptElsewhere.Options.Add(new BallotOption(VoteSource.Rolled, mapA, Modes.ArmsRace, 1) { N = 2 });
+            keptElsewhere.Options.Add(new BallotOption(VoteSource.Random, null, Modes.ArmsRace, 99) { N = 3 });
+            keptElsewhere.Choices[alice.Item2] = 1;
+            KeepBallot(keptElsewhere, keptElsewhere.Options[0], "all", new() { [1] = 1, [2] = 0, [3] = 0 }, PresentIds(Now()).Count);
+            var keptElsewhereRecord = Ballots[^1];
+            Check($"...a kept map's card is on record in the mode the server ran it in, the ballot's own - de_inferno kept in Arms Race is Arms Race's, not Deathmatch's, its "
+                  + $"first official mode (release 225) - while every other card keeps its map's own ({BallotLine(keptElsewhereRecord)})",
+                keptElsewhereRecord is { Round: 4246, Won: "de_inferno" } && keptElsewhereRecord.Cards[0] is { Key: "de_inferno", Name: "de_inferno", Mode: Modes.ArmsRaceId, Votes: 1 }
+                && keptElsewhereRecord.Cards[1].Mode == ModeOf(mapA).Id && keptElsewhereRecord.Cards[2] is { Key: RandomKey, Mode: Modes.ArmsRaceId });
             Check($"...a kept map is on record as the map it kept, never Random: with no map known, by the name the server logged ({keptRecord.Cards[0].Key}), in the mode it "
                   + "was kept in, its votes on it and won naming it; an official map by its name; Random stays Random",
                 keptRecord is { Round: 4244, Won: "name:aim_nobodys_map" } && keptRecord.Cards[0] is { Key: "name:aim_nobodys_map", Name: "aim_nobodys_map", Mode: "wingman", Votes: 2 }
