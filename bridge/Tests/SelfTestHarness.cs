@@ -44,7 +44,7 @@ static partial class Program
         // the stock and the watcher's report, the data files' watch, the Sync page, the plugin's polls, the messages
         StockSize = BridgeConfig.Values.DiscoveryStock; ReadyIds = new(); CoveredIds = new(); ReadyAt = default; ExportedIds = new(); QueuesWritten = ""; StockTickAt = default; Background = null;
         WatchStop();
-        SyncDoc?.Dispose(); SyncDoc = null; SyncStamp = null; SyncReadAt = default; SyncProblem = ""; dashBody = ""; webWritten = ""; webPage = ""; webWrittenAt = default; syncTicks = 0;
+        SyncDoc?.Dispose(); SyncDoc = null; SyncStamp = null; SyncReadAt = default; SyncProblem = ""; SyncStateSaid = null; dashBody = ""; webWritten = ""; webPage = ""; webWrittenAt = default; syncTicks = 0;
         hudPolledTicks = 0; hudHeldTicks = 0;
         MatchHistory.Clear(); History.Clear(); HistoryText = History.Encode(); LastStartWasServerStart = false; // History.cs: the match history, its plugin copy
         Ballots.Clear(); var statsVersion = StatsNow.Version + 1; StatsNow = MakeStats([], new(), [], new Dictionary<string, int>(), HistoryNow(), null); StatsNow.Version = statsVersion; // Ballots.cs, Stats.cs: no ballot,

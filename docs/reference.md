@@ -934,6 +934,9 @@ still clears for v4.14.0 and v4.15.0.
   knife kills, chickens, the longest shot, the nemesis - the most kills of one player on another - and `ossfnote`, `Counting since` the day the frags began). The
   page dims while there is no history (`stnone`). Its words, classes and bars are the same for everybody, on `os_global`, which every content has; You goes on
   each viewer's `os_screen` and the two pictures on their own picture panels 1 and 2 (3 and 4 none), only while their window shows the page.
+  A player opening the page is one line in the plugin's log, at the click that opens it, never in a frame:
+  `Over Strike 2 HUD: <name> [U:1:<account>] opened the STATS page - its records shown (content v4.17.0)`, or `- empty: that game's HUD is ...` for a
+  game whose content does not show them.
 
 **The lab's seed**: `bridge --lab-seed DIR` writes a made-up `history.jsonl`, `ballots.jsonl` and `votes.json` into DIR - Test A to Test D and four more names,
 fifteen matches over the five evenings before the day it runs, on maps with pictures, every record of STATS with data - so the pages can be filmed and tested
@@ -1243,7 +1246,9 @@ things of it. The menu's **Sync** page: what the sync does now (its state, why, 
 lacks, the stock, the next maps six a page) and its history (the runs three a page and the map events eight a page, newest first). The bridge writes every word of it and serves the block on `GET /dash/<secret>`, its version in the live state; the plugin
 pages each list per player and passes the rest through (`bridge/Shared/HudDash.cs`), so a change to the page's words or rows needs a bridge alone. And a website: `index.html` and `dashboard.json` in `web/` in the bridge's data folder, rewritten when they change and
 every minute, for a static web server behind a login (the page reads the JSON every 5 s and searches the whole history) - the bridge's own HTTP port is never reachable from outside. A file that is missing, does not parse or is older than 15 minutes is said as such,
-and the last good one stays on screen meanwhile.
+and the last good one stays on screen meanwhile. Each change of the sync's state is one line in the bridge's log, never one a poll: `sync: now download - Downloading new maps,
+the Sync page's busy look: <why>`, and the same for `stopped` (the page's stop look), `waiting` and `idle` (`SyncStateNews`). So the day logs show which of the
+page's states real sessions met.
 
 ## The data files
 

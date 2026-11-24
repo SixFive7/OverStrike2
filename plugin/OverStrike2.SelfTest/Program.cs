@@ -514,6 +514,11 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && hudScreenSrc.Contains("me.ToldName == p.PlayerName && (now - me.ToldAt).TotalSeconds < TellAgainSeconds) return false;", StringComparison.Ordinal)
           && hudClicks.Contains("if (command == Hud.NameWord)", StringComparison.Ordinal) && hudClicks.Contains("Player(named.Slot).ToldName = null;", StringComparison.Ordinal),
         "HUD: every frame tells the bridge the name the server shows for each human it has not told yet, or that changed, and again every 30 s - no click, so vcheck and the vote stand - two a frame at the most and never in a click's place on the line, and a word the line drops is told again");
+    // the STATS page's use, for the day logs: one line an opening, at the click that opens it - never in the frame
+    var statsAt = hudClicks.IndexOf("if (pageBefore != HudSlots.Page.Stats && slots.PageOf(player.Slot) == HudSlots.Page.Stats)", StringComparison.Ordinal);
+    Check(statsAt > 0 && hudClicks.IndexOf("var pageBefore = slots.PageOf(player.Slot);", StringComparison.Ordinal) is var beforeAt && beforeAt > 0 && beforeAt < statsAt
+          && hudClicks.Contains("opened the STATS page - {Words}", StringComparison.Ordinal) && !hudFrameSrc.Contains("opened the STATS page", StringComparison.Ordinal),
+        "HUD: a player opening the STATS page is one line in the plugin's log, at the click that opens it - with whether that game shows its records - and nothing in the frames");
     // 316 c (content v4.17.0's version twins): every click is read first - the content it proves verifies the game before anything else, the version button
     // closes, the catcher and a twin's second half only prove, and a twin's click goes on as its control's own
     var readAt = hudClicks.IndexOf("var click = HudFrame.ReadClick(Player(player.Slot), buttonId, now);", StringComparison.Ordinal);

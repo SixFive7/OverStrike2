@@ -189,6 +189,7 @@ static partial class Program
             Now = () => clock;
             (SyncOn, SyncDoc, SyncStamp, SyncProblem, dashBody, webWritten, webPage, webWrittenAt, syncTicks) = (true, null, null, "", "", "", "", default, 0);
             var v0 = DashVersion;
+            SyncStateSaid = null; // as a bridge that has just started
             SyncTick(clock);
             var before = HudDash.Decode(DashText);
             File.WriteAllText(SyncStatusPath, DashSample(updated));
@@ -202,6 +203,20 @@ static partial class Program
             var version = DashVersion;
             for (var i = 0; i < DashBuildSeconds; i++) SyncTick(clock = clock.AddSeconds(1));
             Check("...nothing changed: the same version, so the plugin fetches nothing", DashVersion == version);
+            // the day logs show the Sync page's busy and stopped states as they came: a line a change of the sync's state, never one a poll
+            var saidBefore = SyncStateSaid;
+            JsonElement Status(string state, long at) => JsonDocument.Parse(DashSample(at, state: state)).RootElement;
+            SyncStateSaid = null;
+            var lines = new[] { Status("serve", updated), Status("serve", updated + 15), Status("download", updated + 30), Status("stopped", updated + 45), Status("stopped", updated + 60),
+                Status("idle", updated + 75), Status("something_new", updated + 90) }.Select(SyncStateNews).ToList();
+            Check($"The sync's state in the bridge's log: a line when it changes - its word, the page's look and why - and none while it stays, whatever else the file moved "
+                  + $"({string.Join(" | ", lines.Select(l => l ?? "-"))})",
+                saidBefore == "serve" && lines[0] == "sync: now serve - Fetching maps for the server, the Sync page's busy look: Downloading the maps the server keeps but does not have yet."
+                && lines[1] == null && lines[2]!.StartsWith("sync: now download - Downloading new maps, the Sync page's busy look", StringComparison.Ordinal)
+                && lines[3]!.StartsWith("sync: now stopped - Stopped, the Sync page's stop look", StringComparison.Ordinal) && lines[4] == null
+                && lines[5]!.StartsWith("sync: now idle - Idle, the Sync page's idle look", StringComparison.Ordinal)
+                && lines[6]!.StartsWith("sync: now something_new - something_new, the Sync page's busy look", StringComparison.Ordinal));
+            SyncStateSaid = saidBefore;
             File.WriteAllText(SyncStatusPath, "{\"schema\":1, broken");
             File.SetLastWriteTimeUtc(SyncStatusPath, DateTime.UtcNow.AddSeconds(5));
             for (var i = 0; i < StatusLookSeconds; i++) SyncTick(clock = clock.AddSeconds(1));
@@ -221,6 +236,7 @@ static partial class Program
         finally
         {
             (StateDir, Now, SyncOn, SyncDoc, SyncStamp, SyncReadAt, SyncProblem, DashText, DashVersion, dashBody, webWritten, webPage, webWrittenAt, syncTicks, ReadyAt, ReadyIds) = saved;
+            SyncStateSaid = null;
             try { Directory.Delete(dir, true); } catch (Exception) { }
         }
 

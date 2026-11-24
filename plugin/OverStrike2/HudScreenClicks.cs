@@ -47,8 +47,12 @@ sealed partial class HudScreen
         }
         if (!slots.WindowOpen(player.Slot)) return;
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
+        var pageBefore = slots.PageOf(player.Slot);
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
+        if (pageBefore != HudSlots.Page.Stats && slots.PageOf(player.Slot) == HudSlots.Page.Stats) // one line an opening, at its click: nothing in the frames
+            log.LogInformation("Over Strike 2 HUD: {Name} [U:1:{Account}] opened the STATS page - {Words}", player.PlayerName, who,
+                HudBrowser.HasHistory(VersionOf(who)) ? $"its records shown (content {VersionOf(who)})" : $"empty: that game's HUD is {HudVersion.Words(VersionOf(who))}");
         if (slots.PageOf(player.Slot) == HudSlots.Page.History && HudBrowser.HasHistory(VersionOf(who))) // the HISTORY page (content v4.15.0; the tab opened it, HudView.Tabs)
         {
             var page = me.History;

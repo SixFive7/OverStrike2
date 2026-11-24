@@ -58,6 +58,7 @@ static partial class Program
             if (schema is not 1) { doc.Dispose(); SyncProblem = $"schema {schema?.ToString(CultureInfo.InvariantCulture) ?? "missing"}, not 1"; return false; }
             SyncDoc?.Dispose();
             (SyncDoc, SyncReadAt, SyncProblem) = (doc, Now(), "");
+            if (SyncStateNews(doc.RootElement) is { } news) Log(news);
             return true;
         }
         catch (Exception e)
@@ -65,6 +66,24 @@ static partial class Program
             SyncProblem = "the file does not parse: " + Clip(e.Message, 80);
             return false;
         }
+    }
+
+    /// <summary>The sync's state the bridge last logged (SyncStateNews), null before the first file of this process.</summary>
+    static string? SyncStateSaid;
+
+    /// <summary>The line the bridge's log says when the sync's state changes - its word, the Sync page's look (busy, wait, idle, stop) and why - once a
+    /// change, never a poll: a file that only moved its clock or its numbers says nothing. So the day logs show the page's busy and stopped states as they
+    /// came. Null when the state is the one last said.</summary>
+    static string? SyncStateNews(JsonElement root)
+    {
+        var state = SyncWords.Str(root, "now", "state");
+        if (state == SyncStateSaid) return null;
+        SyncStateSaid = state;
+        var known = SyncWords.States.FirstOrDefault(s => s.State == state);
+        var look = known.State != null ? known.Look : state == "" ? "idle" : "busy";
+        var words = known.State != null ? known.Words : state == "" ? "Idle" : state;
+        var why = SyncWords.Str(root, "now", "why");
+        return $"sync: now {(state == "" ? "idle" : state)} - {words}, the Sync page's {look} look{(why != "" ? $": {Clip(why, 140)}" : "")}";
     }
 
     /// <summary>The stock as the dashboard shows it: a lane per mode, its entries the watcher's last report names on the disk out of its length, and
