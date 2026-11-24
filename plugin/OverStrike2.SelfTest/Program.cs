@@ -508,11 +508,12 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     // the name the server shows goes to the bridge with no click (Hud.NameWord): the live lab's ballot on release 222 named the client by its Steam name,
     // where the lab's OsDocName had given a test name the game's log never carries
     var hudScreenSrc = Source("plugin", "OverStrike2", "HudScreen.cs");
-    Check(hudFrameSrc.Contains("shownNames[p.Slot] = p.PlayerName; TellName(p, now); }", StringComparison.Ordinal)
+    Check(hudFrameSrc.Contains("shownNames[p.Slot] = p.PlayerName; if (tells < TellsPerFrame && TellName(p, now)) tells++; }", StringComparison.Ordinal)
+          && hudScreenSrc.Contains("if (!bridge.HasRoom(TellKeepsRoom)) return false;", StringComparison.Ordinal)
           && hudScreenSrc.Contains("bridge.Act(Account(p), p.PlayerName, Hud.NameWord);", StringComparison.Ordinal)
-          && hudScreenSrc.Contains("me.ToldName == p.PlayerName && (now - me.ToldAt).TotalSeconds < TellAgainSeconds) return;", StringComparison.Ordinal)
+          && hudScreenSrc.Contains("me.ToldName == p.PlayerName && (now - me.ToldAt).TotalSeconds < TellAgainSeconds) return false;", StringComparison.Ordinal)
           && hudClicks.Contains("if (command == Hud.NameWord)", StringComparison.Ordinal) && hudClicks.Contains("Player(named.Slot).ToldName = null;", StringComparison.Ordinal),
-        "HUD: every frame tells the bridge the name the server shows for each human it has not told yet, or that changed, and again every 30 s - no click, so vcheck and the vote stand - and a word the line drops is told again");
+        "HUD: every frame tells the bridge the name the server shows for each human it has not told yet, or that changed, and again every 30 s - no click, so vcheck and the vote stand - two a frame at the most and never in a click's place on the line, and a word the line drops is told again");
     // 316 c (content v4.17.0's version twins): every click is read first - the content it proves verifies the game before anything else, the version button
     // closes, the catcher and a twin's second half only prove, and a twin's click goes on as its control's own
     var readAt = hudClicks.IndexOf("var click = HudFrame.ReadClick(Player(player.Slot), buttonId, now);", StringComparison.Ordinal);
@@ -1749,7 +1750,11 @@ else
     var dropped = new List<(long Account, string Command, string Why)>();
     link.Dropped = (account, _, command, why) => dropped.Add((account, command, why));
     var t0 = new DateTime(2026, 11, 9, 21, 0, 0, DateTimeKind.Utc);
-    for (var i = 0; i < BridgeLink.InFlight; i++) link.Act(1000 + i, $"P{i}", "!up", t0);
+    var roomEmpty = link.HasRoom(4);
+    for (var i = 0; i < BridgeLink.InFlight - 4; i++) link.Act(1000 + i, $"P{i}", "!up", t0);
+    var roomHalf = link.HasRoom(4);
+    for (var i = BridgeLink.InFlight - 4; i < BridgeLink.InFlight; i++) link.Act(1000 + i, $"P{i}", "!up", t0);
+    Check(roomEmpty && !roomHalf && !link.HasRoom(0), "bridge link: a word that is no click (the name the server shows) finds room only while the line keeps the places it leaves to the players' clicks");
     Check(sent.Count == BridgeLink.InFlight && dropped.Count == 0 && sent[0] == "[U:1:1000]\tP0\t!up", $"bridge link: {BridgeLink.InFlight} clicks on their way at once, each as the bridge reads it");
     link.Act(2001, "Alice", "!mv 7 3", t0);
     link.Act(2002, "Bob", "!map 12", t0);

@@ -1157,7 +1157,8 @@ clock's grace runs on through such a switch, and the step back up re-arms everyb
 **The name a player goes by.** The game's log names a player at the connect, and a test name the server gives them later (the lab's OsDocName on a copy)
 never reaches it.
 - So the plugin tells the bridge the name the server shows for every human, with no click: when it first sees them on a connection, whenever it changes, and
-  again every 30 s (`Hud.NameWord`, `!name` on `/act`). A word the line drops is told again.
+  again every 30 s (`Hud.NameWord`, `!name` on `/act`). Two go out a frame at the most, never in the place of a player's click on the line, and a word
+  the line drops is told again.
 - The bridge keeps that name, like every chat line's or click's, through the reconnects of map changes until a real departure (`ShownNames`).
 - It says that name wherever it names a player (`VoterName`): the ballot's Waiting line and chips, the vote's chat and board lines, and the history.
 - The word makes nobody present and verifies nobody.

@@ -257,6 +257,10 @@ sealed class BridgeLink
     /// <summary>Clicks on their way: sent, not yet answered (an answered one waits for Take, and takes no room).</summary>
     int OnTheWay => acts.Count(a => !a.Task.IsCompleted);
 
+    /// <summary>Whether the line has room for a word that is no click (the name the server shows, Hud.NameWord) and still keeps this many places for the
+    /// players' own clicks: a word never takes a click's place, and waits for a quieter frame instead.</summary>
+    public bool HasRoom(int keep) => OnTheWay + keep < InFlight;
+
     /// <summary>The clicks waiting for room, for the console and the self-test.</summary>
     public int WaitingCount => waiting.Count;
 

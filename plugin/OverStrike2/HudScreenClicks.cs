@@ -176,12 +176,12 @@ sealed partial class HudScreen
     /// theirs took its place, or it was only the map browser's activity (!mvb), whose own click worked.</summary>
     void ClickDropped(long account, string name, string command, string why)
     {
-        log.LogInformation("Over Strike 2 vote: {Name} [U:1:{Account}] click dropped - {Why}: {Command}", name, account, why, command);
-        if (command == Hud.NameWord) // no click of the player's: no note to them, the name told again next frame (TellName)
+        if (command == Hud.NameWord) // no click of the player's: no note to them and no line in the log - the name is told again by a later frame (TellName)
         {
             if (Utilities.GetPlayers().FirstOrDefault(p => p is { IsValid: true, IsBot: false } && Account(p) == account) is { } named) Player(named.Slot).ToldName = null;
             return;
         }
+        log.LogInformation("Over Strike 2 vote: {Name} [U:1:{Account}] click dropped - {Why}: {Command}", name, account, why, command);
         if (why == BridgeLink.Replaced || command.StartsWith(MapVote.BusyVerb + " ", StringComparison.Ordinal)) return;
         if (Utilities.GetPlayers().FirstOrDefault(p => p is { IsValid: true, IsBot: false } && Account(p) == account) is { } player) LocalNote(player.Slot, ChatReply.ClickLost);
     }
