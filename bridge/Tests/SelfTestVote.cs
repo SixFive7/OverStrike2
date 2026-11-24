@@ -1160,6 +1160,19 @@ static partial class Program
             h.Run(3);
             Check("...the plugin's second load, official to official, comes up in Wingman; the bridge keeps Wingman and loads nothing itself",
                 fakeLoaded == Modes.Wingman && (gameType, gameMode) == (0, 2) && S.Mode == "wingman" && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("os_mode ")));
+            // release 224, end to end: a vote on the map the operator put on that keeps it is on the ballots' record as that map - its Keep card and the winner -
+            // where the live lab's S1 on rel-223 found Random for both
+            Settle();
+            var ballotsBefore = Ballots.Count;
+            StartVote(alice.Item1, alice.Item2);
+            var keepOnBallot = Ballot is { Open: true } ob ? ob.Options.FirstOrDefault(o => o.Source == VoteSource.Keep) : null;
+            if (keepOnBallot != null) foreach (var p in new[] { alice, bob }) if (Ballot is { Open: true }) Click(p, keepOnBallot.N);
+            h.Run(1);
+            var keptOn = Ballots.Count > ballotsBefore ? Ballots[^1] : null;
+            Check($"...a vote on it that keeps it has it on the ballots' record: its Keep card and the winner are de_inferno, in Wingman, with both votes - not Random, as before "
+                  + $"release 224 ({(keptOn is null ? "nothing kept" : BallotLine(keptOn))})",
+                keepOnBallot is { Map: { Official: true, Name: "de_inferno" } } && keptOn is { Won: "de_inferno" }
+                && keptOn.Cards.FirstOrDefault(c => c.Key == "de_inferno") is { Name: "de_inferno", Mode: Modes.WingmanId, Votes: 2 });
 
             // ---- release 198: the match length after such a start goes by the mode the bridge knows 2 s after it - the plugin's word, taken 1.5 s
             //      after the start - not by the one on its record at the start: an operator's switch onto a Deathmatch map set to 10 ran the cfg's 60 ----
