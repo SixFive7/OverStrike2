@@ -192,12 +192,14 @@ public class OverStrike2Plugin : BasePlugin
     {
         if (ev.Userid is not { IsValid: true } player) return HookResult.Continue;
         boosts.Remove(player.Slot); // a map change disconnects everyone too: nothing on screen survives it
-        if (!player.IsBot && !mapEnding && hud != null) hud.ChatEvent(HudChat.Left(hud.NameShown(player.Slot, player.PlayerName))); // the chat column's leave (HUD content v4.14.0), by the name the HUD showed
-        hud?.Gone(player.Slot);
+        var reason = EarlyJoinWatch.ReasonName(ev.Reason);
+        if (!player.IsBot && HudChat.LeaveShown(reason, mapEnding) && hud != null) // never a map change's: by its reason too, as one sent out at once disconnects everybody before the map's end
+            hud.ChatEvent(HudChat.Left(hud.NameShown(player.Slot, player.PlayerName))); // the chat column's leave (HUD content v4.14.0), by the name the HUD showed
+        hud?.Gone(player.Slot, reason);
         return HookResult.Continue;
     }
 
-    bool mapEnding; // between a map's end and the next map's start: the disconnects of a map change
+    bool mapEnding; // between a map's end and the next map's start: the disconnects of a map change (and by their reason before it - HudChat.LeaveShown)
 
     /// <summary>A join and a team change, for the chat column (HUD content v4.14.0): a human's, as CS2's own chat says them; a bot's and a disconnect's are none.</summary>
     HookResult OnPlayerConnectFull(EventPlayerConnectFull ev, GameEventInfo info)

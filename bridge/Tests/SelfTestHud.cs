@@ -730,6 +730,12 @@ static partial class Program
                 && column.Classes.Contains((HudChat.Line(1), "used", false)) && column.Classes.Contains((HudChat.Line(HudChat.Lines), "used", true))
                 && HudChat.Text(tView.Single(e => e.Kind == HudChat.Kind.Team)) == "(Team) Bob: rush b" && HudChat.Look(tView.Single(e => e.Kind == HudChat.Kind.Team)).SetEquals(["k-t", "k-team"])
                 && HudChat.Joined("Cara") == "Cara joined the game" && HudChat.Left("Cara") == "Cara left the game" && HudChat.TeamChanged("Cara", "CT") == "Cara joined the Counter-Terrorists");
+            Check("The chat column's leave line (release 224): a player's own leaving has it; a map change's disconnect never - by its reason before the map's end, as a change "
+                  + "sent out at once disconnects everybody then (the live lab on release 223: \"Alice left the game\" above Changing now), and any between the map's end and "
+                  + "the next map's start; the reason is the one the warm-up and the bridge read as a reconnect",
+                HudChat.LeaveShown("NETWORK_DISCONNECT_DISCONNECT_BY_USER", mapEnding: false) && HudChat.LeaveShown("", mapEnding: false)
+                && !HudChat.LeaveShown(HudChat.MapChangeReason, mapEnding: false) && !HudChat.LeaveShown("NETWORK_DISCONNECT_DISCONNECT_BY_USER", mapEnding: true)
+                && !HudChat.LeaveShown(HudChat.MapChangeReason, mapEnding: true) && EarlyJoin.Reconnects(HudChat.MapChangeReason));
             Check("The chat column's route is the server's (the owner's 277): always (a1), only while the window is open (c), never (d) - the same stylesheet for all, so no content update; c by default",
                 HudChat.Default == HudChat.Route.Window && HudChat.Shows(HudChat.Route.Always, false) && HudChat.Shows(HudChat.Route.Always, true) && !HudChat.Shows(HudChat.Route.Window, false)
                 && HudChat.Shows(HudChat.Route.Window, true) && !HudChat.Shows(HudChat.Route.Never, true));

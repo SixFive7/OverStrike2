@@ -215,4 +215,13 @@ public sealed class HudChat
     public static string Joined(string name) => $"{Hud.Clean(name, 32)} joined the game";
     public static string Left(string name) => $"{Hud.Clean(name, 32)} left the game";
     public static string TeamChanged(string name, string team) => $"{Hud.Clean(name, 32)} joined the {team switch { "CT" => "Counter-Terrorists", "T" => "Terrorists", _ => "Spectators" }}";
+
+    /// <summary>A map change's disconnect reason, as CS2 names it (NetworkDisconnectionReason): it disconnects everybody, who reconnect into the next map
+    /// (EarlyJoin.Reconnects).</summary>
+    public const string MapChangeReason = "NETWORK_DISCONNECT_SHUTDOWN";
+
+    /// <summary>Whether a human's disconnect has its line in the column (Left): not between a map's end and the next map's start, and never a map change's by its
+    /// reason - a change sent out at once (a vote's official map) disconnects everybody before the map's end, so the map's end alone let "Alice left the game"
+    /// show above Changing now (the live lab on release 223).</summary>
+    public static bool LeaveShown(string reason, bool mapEnding) => !mapEnding && reason != MapChangeReason;
 }

@@ -264,14 +264,17 @@ sealed partial class HudScreen
     /// <summary>A player left (a map change's reconnect too): their slot forgets them (Leave), and the HUD their game showed is forgotten here too, not only at
     /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read. The slot's
     /// entries in the entity go at once (ClearSlot), marked through the slot's own state (its capture, off): a game that takes the slot next is handed them in its
-    /// first full update, which comes before its put-in (the live lab's check of release 218: the clear at the put-in ran in the second the v4.13.0 game logged them).</summary>
-    public void Gone(int slot)
+    /// first full update, which comes before its put-in (the live lab's check of release 218: the clear at the put-in ran in the second the v4.13.0 game logged them).
+    /// A SCORES look on has its line first (HudScores.Gone, by the disconnect's reason): a change sent out at once disconnects everybody before the decision reaches
+    /// the plugin and before the map's end, and Leave forgot the look with no line (the live lab on release 223).</summary>
+    public void Gone(int slot, string reason)
     {
         if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving)
         {
             hudSeen.Remove(Account(leaving));
             if (Live && ClearSlot(slot)) entity!.SetInputCaptureEnabled(leaving, false);
         }
+        if (players.TryGetValue(slot, out var me) && HudScores.Gone(me, reason) is { } why) LogLookEnded(slot, why); // the look its game's disconnect ends, before the slot forgets it
         Leave(slot);
         captured.Remove(slot);
     }

@@ -454,7 +454,8 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         "warm-up's team damage: raised at its begin in Arms Race and Wingman (the settings' mode, and not while everybody is an enemy), once a map; put back at every end - the bridge's or the console's, CS2's own clock, CS2 leaving it for good, a map change that cuts it short, the plugin's unload, after the fun changes' own undo");
     Check(warm.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)
           && warm.Contains("if (ev.Userid is not { } p || !Human(p) || !OnTeam(p) || Account(p) is not (> 0 and var account)) return HookResult.Continue;", StringComparison.Ordinal)
-          && warm.Contains("EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason)", StringComparison.Ordinal)
+          && warm.Contains("static bool Reconnect(int reason) => EarlyJoin.Reconnects(ReasonName(reason));", StringComparison.Ordinal)
+          && warm.Contains("Enum.IsDefined(typeof(NetworkDisconnectionReason), reason) ? ((NetworkDisconnectionReason)reason).ToString() : \"\";", StringComparison.Ordinal)
           && Source("bridge", "Players.cs").Contains("if (EarlyJoin.Reconnects(reason))", StringComparison.Ordinal)
           && warm.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
         "warm-up: humans only - no bot, no TV - a spawn on a team, and a map change's or the addon download's reconnect is no leaving - by the bridge's own rule (EarlyJoin.Reconnects), so LOOPDEACTIVATE is a leaving in both");
@@ -488,8 +489,16 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(hudClicks.Contains("HudScores.Click(me, buttonId, window: true, matchEndLifted, vote, who)", StringComparison.Ordinal)
           && hudClicks.IndexOf("HudScores.Click(", StringComparison.Ordinal) < hudClicks.IndexOf("if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)", StringComparison.Ordinal)
           && hudFrameSrc.Contains("matchEndLifted = ChatLift(matchScreen, now);", StringComparison.Ordinal) && hudFrameSrc.Contains("ScoresEnded(humans);", StringComparison.Ordinal)
-          && hudFrameSrc.Contains("\"the match-end screen ended with the map\"", StringComparison.Ordinal) && Source("plugin", "OverStrike2", "HudScreen.cs").Contains("ScoresEndWithMap(); //", StringComparison.Ordinal),
+          && hudFrameSrc.Contains("LogLookEnded(slot, HudScores.MapEnded)", StringComparison.Ordinal) && Source("plugin", "OverStrike2", "HudScreen.cs").Contains("ScoresEndWithMap(); //", StringComparison.Ordinal),
         "HUD: SCORES and Back to the vote are handled before the ballot's own clicks, by the match-end screen as the last frame saw it, and a look that ends by itself is logged - with the map's end too, where no frame comes to see it");
+    // release 224: every look on record ends with the map, not only those a frame or a click saw on (scoresOn) - the live lab on release 223 found no line when the
+    // vote's decision changed the map at once
+    var endWithMap = hudFrameSrc.Replace("\r\n", "\n");
+    endWithMap = endWithMap[endWithMap.IndexOf("void ScoresEndWithMap()", StringComparison.Ordinal)..];
+    endWithMap = endWithMap[..endWithMap.IndexOf("\n    }\n", StringComparison.Ordinal)];
+    Check(endWithMap.Contains("foreach (var (slot, me) in players)", StringComparison.Ordinal) && endWithMap.Contains("if (me.Scores != null)", StringComparison.Ordinal)
+          && !endWithMap.Contains("foreach (var slot in scoresOn", StringComparison.Ordinal),
+        "HUD: the map's end ends every SCORES look on record, with its line - not only the slots a frame or a click saw looking");
     // the match history and the STATS page's block: fetched as the Sync page's block is, when their versions move, decoded on the thread pool, and handed to the frame
     var linkSrc = Source("plugin", "OverStrike2", "BridgeLink.cs");
     Check(hudFrameSrc.Contains("bridge?.TakeHistory(now, state?.HistoryVersion ?? 0) is { } past) history = past;", StringComparison.Ordinal)
@@ -853,6 +862,14 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         && File.ReadAllText(Path.Combine(plugin, "HudScreenFrame.cs")).Contains("shownNames[p.Slot] = p.PlayerName;", StringComparison.Ordinal)
         && Body(screen, "void Leave(int slot)").Contains("shownNames.Remove(slot);", StringComparison.Ordinal),
         "HUD: the chat column's leave line names the player as the HUD last showed them - on a test copy the lab's test name, not the Steam name the disconnect carries - and a slot's next player starts with no name of the last one's");
+    // release 224: a change sent out at once disconnects everybody before the map's end and before the decision reaches the plugin (the live lab on release 223)
+    var leaves = Body(hostSrc.Replace("\r\n", "\n"), "HookResult OnPlayerDisconnect(EventPlayerDisconnect ev, GameEventInfo info)");
+    var gone = Body(screen, "public void Gone(int slot, string reason)");
+    Check(leaves.Contains("var reason = EarlyJoinWatch.ReasonName(ev.Reason);", StringComparison.Ordinal) && leaves.Contains("HudChat.LeaveShown(reason, mapEnding)", StringComparison.Ordinal)
+        && !leaves.Contains("!mapEnding", StringComparison.Ordinal) && leaves.Contains("hud?.Gone(player.Slot, reason);", StringComparison.Ordinal)
+        && gone.Contains("HudScores.Gone(me, reason) is { } why) LogLookEnded(slot, why);", StringComparison.Ordinal)
+        && At(gone, "HudScores.Gone(") > 0 && At(gone, "HudScores.Gone(") < At(gone, "Leave(slot);"),
+        "HUD: a map change's disconnect has no leave line in the chat column by its reason too, not only between the map's end and the next start; and a SCORES look a disconnect ends has its line before the slot forgets the look");
 }
 
 // ---- the block file (bridge/Shared/Modes.cs): every game mode's value in one file ----

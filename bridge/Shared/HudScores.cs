@@ -50,4 +50,18 @@ public static class HudScores
         : vote.Round != s.Round ? "the vote is over"
         : s.WhileOpen && !vote.Open ? "the vote decided"
         : !window ? "the window closed" : "";
+
+    /// <summary>Why a look ended with the map (the plugin's ScoresEndWithMap), for the log.</summary>
+    public const string MapEnded = "the match-end screen ended with the map";
+
+    /// <summary>A player's game disconnects (the plugin's HudScreen.Gone) with a look on - before any frame saw it end, as a change sent out at once (a vote's
+    /// official map) has it: the disconnects come before the decision reaches the plugin and before the map's end, and the live lab on release 223 found no line
+    /// at all. Why it ended, for the log - a map change's disconnect (HudChat.MapChangeReason) as the map's end words it, any other as their leaving - and the
+    /// look forgotten; null when none was on.</summary>
+    public static string? Gone(HudPlayer p, string reason)
+    {
+        if (p.Scores == null) return null;
+        p.Scores = null;
+        return reason == HudChat.MapChangeReason ? MapEnded : "they left the game";
+    }
 }

@@ -422,5 +422,17 @@ static partial class Program
             && backShown && screenGone
             && HudScores.Click(MP(1), HudVote.RandomButton, true, true, shut, 1001) == null && HudScores.Click(MP(1), HudVote.BackButton, true, true, shut, 1001) == null
             && HudScores.Button != HudVote.BackButton && HudScores.BackButton != HudVote.BackButton);
+        // release 224: a look its game's disconnect ends (the plugin's HudScreen.Gone) - a change sent out at once disconnects everybody before the decision reaches
+        // the plugin and before the map's end, and the live lab on release 223 found no line at all
+        var bobsLook = MP(2).Scores != null; // his look begun after the decision, still on record: no frame saw the screen's end above end it
+        var mapChange = HudScores.Gone(MP(2), HudChat.MapChangeReason);
+        var bobForgotten = MP(2).Scores == null && HudScores.Gone(MP(2), HudChat.MapChangeReason) == null;
+        var noLook = HudScores.Gone(MP(1), HudChat.MapChangeReason); // hers ended at Back to the vote
+        HudScores.Click(MP(1), HudScores.Button, true, true, open, 1001); // a look begun while the vote is open, which its decision would end
+        var leftHerself = HudScores.Gone(MP(1), "NETWORK_DISCONNECT_DISCONNECT_BY_USER");
+        Check("Frame: a look its game's disconnect ends - before any frame saw it end, as a change sent out at once has it (release 224) - has its line, once: a map "
+            + "change's disconnect ends it as the map's end does, any other as the player's leaving; the look is forgotten, and a player with none has no line",
+            bobsLook && mapChange == HudScores.MapEnded && HudScores.MapEnded == "the match-end screen ended with the map" && bobForgotten && noLook == null
+            && leftHerself == "they left the game" && MP(1).Scores == null);
     }
 }

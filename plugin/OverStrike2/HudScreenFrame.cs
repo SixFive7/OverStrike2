@@ -96,19 +96,18 @@ sealed partial class HudScreen
     readonly HashSet<int> scoresOn = new();
 
     /// <summary>The map ends with a SCORES look on: the match-end screen goes with the map, and no frame comes to see the look end (ScoresEnded) - the lab round on
-    /// rel-220 found no line for it. Logged here as the look's own end, and forgotten.</summary>
+    /// rel-220 found no line for it. Logged here as the look's own end, and forgotten: every look on record, not only the ones a frame or a click saw on (scoresOn).</summary>
     void ScoresEndWithMap()
     {
-        foreach (var slot in scoresOn.ToList())
-        {
-            if (players.TryGetValue(slot, out var me) && me.Scores != null)
-            {
-                log.LogInformation("Over Strike 2 HUD: {Name} the window is back ({Why})", Utilities.GetPlayerFromSlot(slot) is { IsValid: true } p ? p.PlayerName : $"slot {slot}",
-                    "the match-end screen ended with the map");
-                me.Scores = null;
-            }
-            scoresOn.Remove(slot);
-        }
+        foreach (var (slot, me) in players)
+            if (me.Scores != null) { LogLookEnded(slot, HudScores.MapEnded); me.Scores = null; }
+        scoresOn.Clear();
+    }
+
+    /// <summary>The line of a SCORES look that ended with no frame to see it (ScoresEndWithMap, a disconnect - HudScreen.Gone), as ScoresEnded logs one.</summary>
+    void LogLookEnded(int slot, string why)
+    {
+        log.LogInformation("Over Strike 2 HUD: {Name} the window is back ({Why})", Utilities.GetPlayerFromSlot(slot) is { IsValid: true } p ? p.PlayerName : $"slot {slot}", why);
     }
 
     /// <summary>The match history as the bridge last sent it (BridgeLink.TakeHistory): the HISTORY page.</summary>

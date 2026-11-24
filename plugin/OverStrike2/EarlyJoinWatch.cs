@@ -491,8 +491,12 @@ sealed class EarlyJoinWatch(BasePlugin plugin, ILogger log, Func<string> modeId,
     /// <summary>A map change disconnects everybody (NETWORK_DISCONNECT_SHUTDOWN), and the HUD addon's download makes a joining game reconnect
     /// (NETWORK_DISCONNECT_LOOPSHUTDOWN): neither is leaving. Any other reason is, NETWORK_DISCONNECT_LOOPDEACTIVATE too - the bridge's log stream decides by the
     /// same rule (EarlyJoin.Reconnects), so a player who left that way and comes back is coming again here as there.</summary>
-    static bool Reconnect(int reason) =>
-        EarlyJoin.Reconnects(Enum.IsDefined(typeof(NetworkDisconnectionReason), reason) ? ((NetworkDisconnectionReason)reason).ToString() : "");
+    static bool Reconnect(int reason) => EarlyJoin.Reconnects(ReasonName(reason));
+
+    /// <summary>A disconnect's reason by the name CS2 gives it (NETWORK_DISCONNECT_SHUTDOWN...), "" for a number it has no name for: the chat column's leave line
+    /// and the HUD's SCORES look go by it too (HudChat.LeaveShown, HudScores.Gone).</summary>
+    internal static string ReasonName(int reason) =>
+        Enum.IsDefined(typeof(NetworkDisconnectionReason), reason) ? ((NetworkDisconnectionReason)reason).ToString() : "";
 
     HookResult OnDisconnect(EventPlayerDisconnect ev, GameEventInfo info)
     {

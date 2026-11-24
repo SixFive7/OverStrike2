@@ -348,7 +348,10 @@ The plugin reads TAB from the player's buttons (IN_SCORE) in either `hud.tab` mo
 (they go to the observer), and death forgets a TAB held. **At a match end, by the SCORES button:** CS2 takes every player's own pawn away for its
 whole end screen, so no key reaches the server there. The ballot's SCORES button, beside Random, steps the window aside for CS2's end-screen scoreboard, up
 behind it all along, and it stays aside - no timer - until a click on Back to the vote (the pill at the top centre), until the vote the look began in is
-decided - the player sees the result - or until the match-end screen ends; a look begun after the decision ends only at the pill or the screen's end. The server sends the player's screen `vpeekok` while they may look at all
+decided - the player sees the result - or until the match-end screen ends; a look begun after the decision ends only at the pill or the screen's end. Every
+end has its line in the plugin's log, `the window is back (<why>)`: a look the map's change ends says `the match-end screen ended with the map`, whether the
+map's end or the player's own disconnect at the change comes first - a change the vote sends out at once (an official map) disconnects everybody before the
+decision reaches the plugin and before the map's end (`HudScores.Gone`) - and a player who leaves mid-look, `they left the game`. The server sends the player's screen `vpeekok` while they may look at all
 (`HudFrame.Peekable`), `vpeek` while they look - TAB held, or the SCORES look on - and at the match-end screen, once CS2 shows its scoreboard there (`meos`),
 `vscoresok` while the button may show and `vscores` while its look is on; the stylesheet hides the window by these classes of
 ours alone, never by CS2's own end-screen classes.
@@ -459,7 +462,8 @@ the boxes the larger words outgrew are wider (the filter headings, the clock's k
 body); the column keeps its 12 px there. **The chat column** (`HudChat`) is our own chat history beside the open window: when it shows is the server's (`HudChat.Route`) - only while our window is
 open (c, the default), always (a1) or never (d), `os_hud chat window|always|off` until the plugin reloads, the same stylesheet for all three. The plugin keeps
 the lines CS2's chat shows - every player's line (a `say_team` line to that team alone; a / line shows nowhere), every line of its own (for everybody or for one
-player), joins, leaves and team changes - and draws each player's newest in rows of one row of type each, a long line running on in the rows under it
+player), joins, leaves and team changes, where a map change's disconnects are no leaves: none between a map's end and the next map's start, and none by their
+reason (`NETWORK_DISCONNECT_SHUTDOWN`) before it, as a change sent out at once disconnects everybody then (`HudChat.LeaveShown`) - and draws each player's newest in rows of one row of type each, a long line running on in the rows under it
 (`HudChat.Rows`, at most four), the newest at the bottom and whole rows only: the column's inner height is a whole number of 24 px rows in every state (37 at
 16:9 with CS2's chat closed, 35 with it open, 33 with the pointer, 23 and 21 at a match end; 30, 28, 26, 16, 14 at 16:10; at 4:3, rows of 16 px in 12 px type
 as the window there is at 67 %, 36, 33, 30, 15, 12), its type 15 px (17 before hud-415: louder than the window's 13-15), a line's mark down all its rows. It
