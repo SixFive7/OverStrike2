@@ -1144,7 +1144,12 @@ static partial class Program
             OperatorSwitch(answers: true, blockLate: true);
             Check("Race: CS2 brought Arms Race back under de_inferno, and the plugin's block has not put Wingman's values back yet",
                 fakeTold == Modes.Wingman && fakeLoaded == Modes.ArmsRace && (gameType, gameMode) == (1, 0) && S.Mode == "armsrace" && ModeProbing);
+            var onAtStart = S.Map;
             h.Run(3); // the warm-up's look a second into the map (os_warmup, WarmUp.cs) may come before the question: it reads nothing of the mode
+            Check($"...the map that is on is the official de_inferno although the bridge did not pick it - the first mode with it while the record says Arms Race, Wingman's once "
+                  + $"the plugin's word settles the mode - so a vote's Keep card holds it (before release 224 it was nobody's: Keep was recorded as Random) ({onAtStart} -> {S.Map})",
+                onAtStart is { Official: true, Name: "de_inferno", Mode: Modes.DeathmatchId } && S.Map is { Official: true, Name: "de_inferno", Mode: Modes.WingmanId }
+                && S.PickedBy == null && CurrentLabel() == "de_inferno (official)");
             Check($"...the bridge asks the plugin, which was told Wingman, and takes its word over the convars, which say Arms Race ({string.Join(" | ", h.Sent)})",
                 h.Sent.FirstOrDefault(c => !c.StartsWith(EarlyJoin.WarmUpCommand, StringComparison.Ordinal)) == Modes.AskLine && S.Mode == "wingman" && !ModeProbing && !h.Sent.Contains("game_type"));
             Check("...and tells the plugin no mode, then or at the re-tell after the start: nothing calls off the operator's os_mode, nor the plugin's own second load",

@@ -135,6 +135,25 @@ static partial class Program
             KeepBallot(fakesOnly, fakesOnly.Options[0], "all", new() { [1] = 1 }, 1); // as at the decision: the fake alone counted as present
             Check("...and a vote only fakes were at or voted in is kept nowhere, as the history keeps no match nobody human was in",
                 Ballots.Count == keptBefore && File.ReadAllLines(BallotsPath).Length == linesBefore);
+            // a vote on a map the bridge did not pick, that no list or pool names: its Keep card has no map, and kept it was recorded as Random (the live lab's S1 on rel-223)
+            var keptUnknown = new BallotState { Round = 4244, KeepLabel = "aim_nobodys_map" };
+            keptUnknown.Options.Add(new BallotOption(VoteSource.Keep, null, Modes.Wingman, 0) { N = 1 });
+            keptUnknown.Options.Add(new BallotOption(VoteSource.Rolled, mapA, Modes.ArmsRace, 1) { N = 2 });
+            keptUnknown.Options.Add(new BallotOption(VoteSource.Random, null, Modes.ArmsRace, 99) { N = 3 });
+            keptUnknown.Choices[alice.Item2] = 1; keptUnknown.Choices[bob.Item2] = 1;
+            KeepBallot(keptUnknown, keptUnknown.Options[0], "all", new() { [1] = 2, [2] = 0, [3] = 0 }, PresentIds(Now()).Count);
+            var keptRecord = Ballots[^1];
+            var keptOfficial = new BallotState { Round = 4245, KeepLabel = "de_inferno (official)" };
+            keptOfficial.Options.Add(new BallotOption(VoteSource.Keep, new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId), Modes.Wingman, 0) { N = 1 });
+            keptOfficial.Options.Add(new BallotOption(VoteSource.Random, null, Modes.Wingman, 99) { N = 2 });
+            keptOfficial.Choices[alice.Item2] = 1;
+            KeepBallot(keptOfficial, keptOfficial.Options[0], "all", new() { [1] = 1, [2] = 0 }, PresentIds(Now()).Count);
+            var keptOfficialRecord = Ballots[^1];
+            Check($"...a kept map is on record as the map it kept, never Random: with no map known, by the name the server logged ({keptRecord.Cards[0].Key}), in the mode it "
+                  + "was kept in, its votes on it and won naming it; an official map by its name; Random stays Random",
+                keptRecord is { Round: 4244, Won: "name:aim_nobodys_map" } && keptRecord.Cards[0] is { Key: "name:aim_nobodys_map", Name: "aim_nobodys_map", Mode: "wingman", Votes: 2 }
+                && keptRecord.Cards[2] is { Key: RandomKey, Name: "Random" } && keptOfficialRecord is { Round: 4245, Won: "de_inferno" }
+                && keptOfficialRecord.Cards[0] is { Key: "de_inferno", Name: "de_inferno", Mode: "wingman", Votes: 1 });
         }
         finally { h.Dispose(); }
 

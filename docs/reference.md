@@ -688,7 +688,10 @@ folder and plays Deathmatch's and Wingman's official maps from it (`bridge/Offic
 dice by itself - its picture comes with the next HUD release - and one it takes away is out of them. `bridge/Shared/Modes.cs` is the fallback while there
 is no report: the same map groups read by hand from the server's install (CS2 1.41.9.9 of 2026-11-18: Deathmatch 13, with Cobblestone, `de_cbble`, back and
 `de_boulder`, `de_fachwerk` and `cs_shelter` gone, their files with them; Wingman 8, Cobblestone among them; Arms Race 4). Each report is compared with it,
-and every difference is logged and shown on `GET /health`, its `pools:` line. Arms Race's official maps stay the settings' (`bridge.officialMaps`); its
+and every difference is logged and shown on `GET /health`, its `pools:` line. A map start the bridge did not ask for (an operator's `changelevel`, a copy's own
+start) knows an official map by the name the server logs: Arms Race's from the settings, Deathmatch's and Wingman's from these pools - in the mode on record when
+its pool has it, else the first mode that has it, and in the mode the plugin's word settles on after (`OfficialOn`, `OfficialFollowsMode`). Until release 224
+only Arms Race's were known so, and the map that was on was nobody's. Arms Race's official maps stay the settings' (`bridge.officialMaps`); its
 pool is only compared. Deathmatch also plays one of ours, `de_ancient` - Ancient by day, installed but in Valve's competitive pool only - while its files
 are installed (`Modes.Mode.Extras`), its picture the game's own screenshot as every official map's. Valve's names of the official maps are search words in the map browser: "cobblestone" finds `de_cbble` as well as the
 Workshop's ports, "office" finds `cs_office`. A `changelevel` the server answers with `invalid map name` fails at once - nothing is awaited, the mode goes
@@ -869,7 +872,8 @@ map id`), and the frags where they have kill lines (the day logs have none). Its
 
 **Our ballots** (`Ballots.cs`): every decided ballot is a line of `ballots.jsonl` beside it - when, its round, the server's mode, how it was decided, how many
 were present, every card (its map's key, `random` for Random, its name, mode and final votes: a player's last vote of the round counts) and the key of what
-won. `bridge --ballots-backfill OUT --maps DIR [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...` reads the ballots back out of the day logs - each open line's
+won. A Keep card is the map it kept: when no map is known for it - a map start the bridge did not ask for, of a map no list or pool names - by the name the
+server logged (`name:` and it), never Random, as it was before release 224. `bridge --ballots-backfill OUT --maps DIR [--zone ZONE] [--until "yyyy-MM-dd HH:mm"] FILE...` reads the ballots back out of the day logs - each open line's
 cards, each vote and its moves, each added card, each decision - and looks each card's name up in the map lists in DIR (a copy of the bridge's data folder:
 `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`); a name no list has stays a name (`name:` and the label). Every crash counted on a map is kept too
 (`crashesEver` in `state.json`, begun with the crash marks there were), where the crash marks are lifted by a Workshop update.

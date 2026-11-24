@@ -126,7 +126,8 @@ static partial class Program
         }
         else if (logName != S.LogName) // the server rotated by itself, or a new process loaded its start map: attribution no longer applies
         {
-            S.Map = Officials.FirstOrDefault(o => o.Name.Equals(logName, StringComparison.OrdinalIgnoreCase)); // an official map is known by the name it logs
+            S.Map = Officials.FirstOrDefault(o => o.Name.Equals(logName, StringComparison.OrdinalIgnoreCase)) // an official map is known by the name it logs: Arms Race's,
+                ?? OfficialOn(logName);                                                                      // else Deathmatch's or Wingman's (ModeSwitch.cs)
             S.PickedBy = null; S.LogName = logName;
             if (S.Map != null) Remember(S.Map);
         }

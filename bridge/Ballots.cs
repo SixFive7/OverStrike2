@@ -67,10 +67,14 @@ static partial class Program
     /// vote's own. A ballot no real human was at or voted in is kept nowhere, as the history keeps no match nobody human was in.</summary>
     static void KeepBallot(BallotState b, BallotOption won, string how, Dictionary<int, int> tally, int present)
     {
-        string KeyOf(BallotOption o) => o.Source == VoteSource.Random || o.Map == null ? RandomKey : Key(o.Map);
+        // a card is its map; Keep with no map known (a map start the bridge did not ask for, of a map no list or pool names) is the map it kept, by the name the
+        // server logged ("name:" and it, as the backfill keeps a name it cannot find) - never Random, as it was before release 224
+        string KeyOf(BallotOption o) => o.Source == VoteSource.Random ? RandomKey : o.Map != null ? Key(o.Map)
+            : o.Source == VoteSource.Keep && b.KeepLabel != "" ? "name:" + b.KeepLabel : RandomKey;
+        string NameOf(BallotOption o) => o.Map?.Name ?? (o.Source == VoteSource.Keep && b.KeepLabel != "" ? b.KeepLabel : "Random");
         var fakeVotes = b.Choices.Where(c => LabFakes.IsFake(AccountId(c.Key))).Select(c => c.Value).ToList();
         var fakesHere = PresentIds(Now()).Count(id => LabFakes.IsFake(AccountId(id)));
-        var cards = b.Options.Select(o => new BallotCard(KeyOf(o), o.Map?.Name ?? "Random", o.Map != null ? ModeOf(o.Map).Id : b.FillMode.Id,
+        var cards = b.Options.Select(o => new BallotCard(KeyOf(o), NameOf(o), o.Map != null ? ModeOf(o.Map).Id : o.Source == VoteSource.Keep ? o.Mode.Id : b.FillMode.Id,
             Math.Max(0, tally.GetValueOrDefault(o.N) - fakeVotes.Count(n => n == o.N)))).ToList();
         var humans = Math.Max(0, present - fakesHere);
         if (humans == 0 && cards.All(c => c.Votes == 0)) { Log($"ballots: round {b.Round} not kept - no real human was at it (the lab's fake players count for none)"); return; }

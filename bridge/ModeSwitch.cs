@@ -75,6 +75,25 @@ static partial class Program
     static MapInfo? ListedIn(Modes.Mode mode, MapInfo map) =>
         (mode.ArmsRace ? Maps.Concat(Officials) : PoolOf(mode)).FirstOrDefault(m => Key(m) == Key(map));
 
+    /// <summary>A Deathmatch or Wingman official map by the name the server logs for it, as a map start the bridge did not ask for has it (an operator's changelevel, a
+    /// copy's own start): in the mode on record when its official maps hold it, else in the first mode that has it - one the HUD does not show on too (OfficialPools.cs).
+    /// Null for any other name. Until release 224 only Arms Race's official maps were known so, and such a start left the map that is on nobody's: its Keep card held
+    /// no map, and the ballots' record kept it as Random (the live lab's S1 on rel-223, de_inferno).</summary>
+    static MapInfo? OfficialOn(string name)
+    {
+        var inMode = CurrentMode.ArmsRace ? null
+            : OfficialsOf(CurrentMode).Concat(HudLessOf(CurrentMode)).FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        return inMode ?? OfficialElsewhere(name) ?? HudLessByName(name);
+    }
+
+    /// <summary>The mode on record settled after a map start nobody asked for (the plugin's word, the convars): an official map that is on, which the bridge did not
+    /// pick, follows it where that mode has it.</summary>
+    static void OfficialFollowsMode()
+    {
+        if (S.PickedBy != null || S.Map is not { Official: true } on || ModeOf(on).ArmsRace || ModeOf(on).Id == CurrentMode.Id) return;
+        if (OfficialOn(on.Name) is { } there && ModeOf(there).Id == CurrentMode.Id) { S.Map = there; Save(); }
+    }
+
     /// <summary>A Deathmatch or Wingman official map by its whole name, in the first mode that has it, or null.</summary>
     static MapInfo? OfficialElsewhere(string name) =>
         Modes.All.Where(m => !m.ArmsRace).SelectMany(OfficialsOf).FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -166,6 +185,7 @@ static partial class Program
         var came = loadedIn is { } l && l.Id != told.Id ? $" (the map that is on loaded in {l.Name})" : "";
         Log($"mode: the plugin was told {told.Name}{came}, not {CurrentMode.Name} as last recorded - taking the plugin's");
         S.Mode = told.Id; Save();
+        OfficialFollowsMode();
         HistoryModeSettled(); // History.cs: the match on this map runs in it
     }
 
@@ -184,6 +204,7 @@ static partial class Program
         if (on.Id == CurrentMode.Id) return;
         Log($"mode: the server is in {on.Name}, not {CurrentMode.Name} as last recorded - taking the server's");
         S.Mode = on.Id; Save();
+        OfficialFollowsMode();
         HistoryModeSettled();
     }
 
