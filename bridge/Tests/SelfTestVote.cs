@@ -175,6 +175,12 @@ static partial class Program
             HudAct($"{alice.Item2}\tAlice\t{Hud.NameWord}"); // the plugin's word: the server shows her as Alice
             var notPresent = ("Ghost", "[U:1:2099]");
             HudAct($"{notPresent.Item2}\t{notPresent.Item1}\t{Hud.NameWord}"); // a word for somebody the log has never seen
+            h.Line($"\"Steam Name A<2><{alice.Item2}><CT>\" disconnected (reason \"NETWORK_DISCONNECT_SHUTDOWN\")"); // a map change's reconnect before any click of hers,
+            h.Line($"\"Steam Name A<2><{alice.Item2}><>\" connected, address \"192.0.2.1:27005\"");            // under the connect's name again
+            h.Line($"\"Steam Name A<2><{alice.Item2}><>\" entered the game");
+            var wordAlone = VoterName(alice.Item2);
+            h.Talk(steamName, "hello"); // a chat line the game's log names her by her connect's name in: the plugin's word stands
+            var afterChat = VoterName(alice.Item2);
             Settle();
             HudAct($"{bob.Item2}\t{bob.Item1}\t!next");
             var shownVote = LiveVote();
@@ -188,9 +194,11 @@ static partial class Program
             h.Line($"\"Steam Name A<2><{alice.Item2}><>\" connected, address \"192.0.2.1:27005\"");
             h.Line($"\"Steam Name A<2><{alice.Item2}><>\" entered the game");
             var afterReconnect = VoterName(alice.Item2);
-            Check("The name the server shows, as the plugin tells it with no click (Hud.NameWord): the ballot's Waiting line and its chat line name her by it, never by the "
-                  + "log's connect name, her chip after her vote too, and a map change's reconnect keeps it; the word makes nobody present and verifies nobody",
-                wasNamed && lineNamed && chip.Contains("Alice") && !chip.Contains("Steam Name A") && afterReconnect == "Alice" && !PresentIds(h.Clock).Contains(notPresent.Item2)
+            Check("The name the server shows, as the plugin tells it with no click (Hud.NameWord): a map change's reconnect before any click of hers keeps it, a chat line the "
+                  + "log names her otherwise in does not undo it, the ballot's Waiting line and its chat line name her by it, never by the log's connect name, her chip after "
+                  + "her vote too, and a reconnect after it; the word makes nobody present and verifies nobody",
+                wordAlone == "Alice" && afterChat == "Alice" && wasNamed && lineNamed && chip.Contains("Alice") && !chip.Contains("Steam Name A") && afterReconnect == "Alice"
+                && !PresentIds(h.Clock).Contains(notPresent.Item2)
                 && !HudSeen.ContainsKey(notPresent.Item2) && !HudSeen.ContainsKey(alice.Item2) && Hud.IsAction(Hud.NameWord));
             h.Leave(steamName);
             Check("...and a real departure forgets it: the next player on that account is named as the log names them until the plugin's word", VoterName(alice.Item2) == "Steam Name A");

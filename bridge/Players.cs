@@ -60,12 +60,15 @@ static partial class Program
         }
     }
 
-    /// <summary>A chat line or a click proves its sender is on the server - under the name the server shows for them, which the history keeps (History.cs).</summary>
-    static void Present(string id, string name)
+    /// <summary>A chat line or a click proves its sender is on the server - under the name the server shows for them, which the history keeps (History.cs). A click's
+    /// name is the plugin's, the name the server shows (ShownNames); the game's log's chat line (fromLog) names nothing over the plugin's word, whatever name the
+    /// log gives it - the history takes it as ever.</summary>
+    static void Present(string id, string name, bool fromLog = false)
     {
         var p = PlayerOf(id);
         p.Name = name; p.GoneSince = null; p.ReloadSince = null;
-        Shows(id, name);
+        if (fromLog) MatchHistory.Shown(AccountId(id), name);
+        else Shows(id, name);
     }
 
     /// <summary>The name the server shows for each player, by SteamID: the plugin's word (Hud.NameWord) and every chat line or click, kept through the reconnects of

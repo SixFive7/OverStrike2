@@ -13,7 +13,7 @@ static partial class Program
         var warmUpGoesOn = inWarmUp && WarmUpFirstSpawn == null; // ...before anybody spawned: the waiting time goes on into the next match
         switch (e.Kind)
         {
-            case Kind.Chat: Present(e.SteamId, e.Name); break; // the players' own chat: who is on, never a command (the menu is the interface)
+            case Kind.Chat: Present(e.SteamId, e.Name, fromLog: true); break; // the players' own chat: who is on, never a command (the menu is the interface) - never over the plugin's word of the name
             case Kind.Connected or Kind.Entered: if (e.Kind == Kind.Entered) PlayerEnteredMap(e.SteamId, Now()); OnJoin(e, Arrive(e, Now())); break;
             case Kind.Disconnected: Depart(e.SteamId, e.Text, Now()); PlayerLeftMap(e.SteamId, e.Text, Now()); break; // BrokenWhy.cs: #6
             case Kind.MapStart: PlayerCrashMapStarted(); OnMapStart(e.Text != "" ? e.Text : gameMap ?? ""); break; // CS2's Started: line has no name; OnMapStart fills it in

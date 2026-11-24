@@ -1159,7 +1159,8 @@ never reaches it.
 - So the plugin tells the bridge the name the server shows for every human, with no click: when it first sees them on a connection, whenever it changes, and
   again every 30 s (`Hud.NameWord`, `!name` on `/act`). Two go out a frame at the most, never in the place of a player's click on the line, and a word
   the line drops is told again.
-- The bridge keeps that name, like every chat line's or click's, through the reconnects of map changes until a real departure (`ShownNames`).
+- The bridge keeps that name, like every click's, through the reconnects of map changes until a real departure (`ShownNames`). A chat line of the game's
+  log never undoes it, whichever name the log gives.
 - It says that name wherever it names a player (`VoterName`): the ballot's Waiting line and chips, the vote's chat and board lines, and the history.
 - The word makes nobody present and verifies nobody.
 - A short gap stays between a join or a rename and the plugin's next frame, so the lab still runs `bridgepost names-check` before a ballot's picture.
