@@ -11,7 +11,7 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
 
 1. Install the **Counter-Strike 2 Workshop Tools** if `game\bin\win64\resourcecompiler.exe` is missing from the CS2 folder:
    start CS2, Settings, search for "Install Counter-Strike Workshop Tools", then let Steam download them.
-2. The map pictures: `python hud\thumbs.py --export export.json` (needs Pillow) makes one small JPEG per map in `hud\thumbs\`.
+2. The map pictures: `uv run --script hud\thumbs.py --export export.json` (uv brings Pillow, from the script's header) makes one small JPEG per map in `hud\thumbs\`.
    `export.json` is what `os2-sync export` prints on the server: every mode's list with its previews, and the discovery stock, first in
    line. A map the sync's verdict says is gone from the Workshop (`ws`: removed, hidden, banned) gets no picture and nothing is asked for it:
    its preview went with it. Without `--export`: `bridge/maps.json`, with every preview asked of the Web API. `--ahead FILE` (a JSON array of `{"id", "preview"}`,

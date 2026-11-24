@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow"]
+# ///
 """Offline tests of thumbs.py's reading of the export and the queues. The export: Arms Race's list first, then every mode's, and a map whose
 sync verdict ("ws") is not ok left out, since its preview went with it; an older os2-sync's export, with no verdicts, leaves nothing out and
 says so in one line. The queues: queues.json version 2 gives the open ballot's maps first, then every lane of the stock in its name's order;
 anything else - an older bridge's version 1, a file with no version, not an object - is no queues, said in one line, and the run goes on
 without the head start (the pictures delete nothing, so stopping would protect nothing). The same cases as the C# port's ThumbsTests. No
-network and no pictures written; it needs Pillow only because thumbs.py imports it, as thumbs.py itself does.
+network and no pictures written; it needs Pillow only because thumbs.py imports it, as thumbs.py itself does. The system Python keeps no
+packages, so uv brings Pillow from the header above (PEP 723):
 
-    python -I hud/test_thumbs.py
+    uv run --script hud/test_thumbs.py
 """
 import contextlib
 import io

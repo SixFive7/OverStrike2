@@ -1,6 +1,10 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow"]
+# ///
 """The menu's map thumbnails: one small JPEG per map, the stylesheet that gives each one its class, and the list that numbers them.
 
-    python thumbs.py [--export FILE] [--queues FILE] [--ahead FILE] [--workers 4]
+    uv run --script thumbs.py [--export FILE] [--queues FILE] [--ahead FILE] [--workers 4]    (uv brings Pillow, the header above)
 
 The pictures are the maps' own Workshop previews, from Steam's image CDN: the preview the Workshop sync's export or an --ahead file names,
 else the preview_url the public Web API gives for an item (ISteamRemoteStorage/GetPublishedFileDetails, no key) - one request at a time,

@@ -44,7 +44,7 @@ dotnet run --project server/OverStrike2.Server/SelfTest         # the server pro
 dotnet run --project server/OverStrike2.Sync/SelfTest           # the Workshop sync's program; its Linux-only checks in the game image too
 (cd bridge && dotnet run -- --search-index --check)             # search.json in step with maps.json
 python -I tools/scan/test_scan.py                               # the scanner's rule against raw bidi control characters, offline
-python -I hud/test_thumbs.py                                    # the map pictures' reading of the sync's export and queues.json, offline (Pillow)
+uv run --script hud/test_thumbs.py                              # the map pictures' reading of the sync's export and queues.json, offline (uv brings Pillow: PEP 723 header)
 dotnet run --project deploy/OverStrike2.Deploy -- --selftest    # os2-deploy offline: the release tool and the client harness's server half (every case of the retired Python tests)
 dotnet run --project deploy/OverStrike2.Deploy -- docshots --selfcheck   # the documentation's screenshots: the run held to its dry run, every resolution
 python -I maps/selfcheck.py                                     # only for changes under maps/: each map and its preview as committed (maps/README.md)
