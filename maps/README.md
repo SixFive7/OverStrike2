@@ -36,16 +36,17 @@ After any change under `maps/`, run the self-check (it is the last line of the l
 neither CS2 nor the Workshop Tools):
 
 ```powershell
-python -I maps\selfcheck.py                    # each generate.py's files against selfcheck.json, each preview against workshop_preview.jpg
+uv run --script maps\selfcheck.py              # each generate.py's files against selfcheck.json, each preview against workshop_preview.jpg
 ```
 
 It regenerates every map into a scratch folder and compares each file it writes with the sha256 recorded in `selfcheck.json`,
 then renders every preview from that layout and compares it with the committed `workshop_preview.jpg`, byte for byte, and runs
 gg_vinceville's own `checks.py` (no holes, no overlapping faces, spawns that work) and `walkcheck.py` on its layout. A change that
 should leave the maps as they are must leave all of it as committed. A change that is meant to alter a map is recorded with
-`python -I maps\selfcheck.py --record`, and its preview is rendered anew with the map's `preview.py` and committed with its line
+`uv run --script maps\selfcheck.py --record`, and its preview is rendered anew with the map's `preview.py` and committed with its line
 in `tools/scan/allow.txt`; `--keep <folder>` keeps what a run wrote. The recorded hashes hold for the Python, numpy and Pillow
-named in `selfcheck.json`: another version can write other bytes without any change to a map.
+named in `selfcheck.json`: another version can write other bytes without any change to a map. So `selfcheck.py`'s header (PEP 723) pins exactly
+those, and uv runs it in them: a `--record` with other versions updates the pins in the same change.
 
 ## Publishing
 

@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = "==3.14.10"
+# dependencies = ["numpy==2.4.5", "pillow==13.0.0"]
+# ///
 """Checks that our maps come out as committed: runs each map's generate.py into a scratch folder and compares every file it
 writes with the hashes in selfcheck.json, then renders each preview.py from the layout it wrote and compares the picture with
 the committed workshop_preview.jpg, byte for byte, and runs the checks a map has of its own on its layout (gg_vinceville's
 checks.py and walkcheck.py: no holes, no overlapping faces, spawns that work, every floor reached on foot). Needs no CS2.
 
-  python -I maps/selfcheck.py                  exit 0 when everything is as committed, 1 when something differs or a check fails
-  python -I maps/selfcheck.py --record         after an intended change to a map: write selfcheck.json anew
-  python -I maps/selfcheck.py --keep <folder>  keep what the run wrote there, to look at what differs
+  uv run --script maps/selfcheck.py                  exit 0 when everything is as committed, 1 when something differs or a check fails
+  uv run --script maps/selfcheck.py --record         after an intended change to a map: write selfcheck.json anew
+  uv run --script maps/selfcheck.py --keep <folder>  keep what the run wrote there, to look at what differs
 
 The hashes hold for the Python, numpy and Pillow they were recorded with (selfcheck.json says which): another version can
-write other bytes with no change to a map. A changed map also needs its preview rendered anew and committed, with its line in
+write other bytes with no change to a map. So the header above pins exactly those (PEP 723), and uv runs the check in them;
+a new --record with other versions changes the pins with it. A changed map also needs its preview rendered anew and committed, with its line in
 tools/scan/allow.txt; this check does not write pictures."""
 import argparse
 import hashlib
