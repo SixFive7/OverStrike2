@@ -92,9 +92,10 @@ static partial class Program
             h.Quiet();
             h.Server = c => c.StartsWith("changelevel solo", StringComparison.Ordinal) ? $"{c}:  invalid map name" : "";
             h.Run(SkyboxOutMs / 1000.0 + 1);
-            Check($"A skybox with no other level the server takes: the dice, or the word to start a vote - nobody can spawn there ({Joined()})",
-                h.Sent.Contains("changelevel solo") && h.Said($"{Clip(Label(item), 40)} came up as its skybox, where nobody can spawn")
-                && (Pending != null || LoadPending || h.Said("Start a vote for another map")));
+            Check($"A name with _skybox and no other level the server takes stays - it may be a map of its own, never rolled away on its name alone - and the players "
+                  + $"hear that a vote takes them off it ({Joined()})",
+                MapCommands().SequenceEqual([Modes.PrepareLine(Modes.ArmsRace), "changelevel solo"]) && Pending == null && !LoadPending && S.LogName == "solo_skybox"
+                && S.Map == item && h.Said($"{Clip(Label(item), 40)} may have come up as its skybox - If nobody can spawn, Start a vote for another map"));
             h.Server = _ => "";
 
             // ---- an operator's load the bridge did not ask for comes up as a skybox: on to its level, nothing awaited ----

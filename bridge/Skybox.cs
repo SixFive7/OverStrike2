@@ -38,8 +38,8 @@ static partial class Program
 
     /// <summary>A skybox submap is on: its item's level at once, by changelevel, the mode's commands first as for a change (PrepareMode) when the bridge knows
     /// the item - each level of LevelsOf in turn until the server takes one (no "invalid map name"). Its map start is then awaited as the change's own, so
-    /// the map stays the item, picked by whom it was. None taken - a skybox that is all the item has, or levels the server does not find - the dice: nobody
-    /// can play there.</summary>
+    /// the map stays the item, picked by whom it was. None taken, it stays, and the players hear that a vote takes them off it: a skybox's level is always
+    /// beside it, so a name with "_skybox" and no other level the server finds may be a map of its own - never rolled away on its name alone.</summary>
     static void SkyboxOut(string skybox)
     {
         if (!(S.LogName ?? "").Equals(skybox, StringComparison.OrdinalIgnoreCase) || LoadPending || Pending != null) return; // another map, or a change, came meanwhile
@@ -58,8 +58,7 @@ static partial class Program
             return;
         }
         ModeBack();
-        Log($"skybox: {name} came up as {skybox}, its 3D skybox, and the server has no other level of it - nobody can spawn there");
-        if (AutoRoll($"{name} came up as its skybox, where nobody can spawn") == null)
-            Announce($"{name} came up as its skybox, where nobody can spawn - Start a vote for another map");
+        Log($"skybox: {name} came up as {skybox}, and the server takes no other level of it - it stays: a name like that may be a map of its own");
+        Announce($"{name} may have come up as its skybox - If nobody can spawn, Start a vote for another map");
     }
 }

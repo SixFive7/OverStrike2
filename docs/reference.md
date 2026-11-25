@@ -732,7 +732,8 @@ and CS2 can load that submap, where nobody can spawn - on 2026-11-25 a vote chan
 item that was on loaded `cs_assault_skybox`. So a change to the Workshop item that is on, in another mode, goes by `changelevel <the level it is on>`
 after the mode's commands (by its id after all when the server does not find that level), and a map start of a `*_skybox` level, whatever loaded it,
 goes on 2 s later to its item's level by `changelevel`: the name without `_skybox`, else the level the same item logged at its last start in the
-history. The map stays the item, picked by whom it was; with no level the server takes, the dice.
+history. The map stays the item, picked by whom it was. With no other level the server takes it stays - a name with `_skybox` may be a map of
+its own - and the players hear that a vote takes them off it.
 The grenade drops, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere; the match length is every mode's, each its own
 ([above](#the-match-length-and-the-restarts)): minutes in Arms Race and Deathmatch, rounds in Wingman.
 
