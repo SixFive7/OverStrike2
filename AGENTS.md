@@ -47,7 +47,7 @@ python -I tools/scan/test_scan.py                               # the scanner's 
 uv run --script hud/test_thumbs.py                              # the map pictures' reading of the sync's export and queues.json, offline (uv brings Pillow: PEP 723 header)
 dotnet run --project deploy/OverStrike2.Deploy -- --selftest    # os2-deploy offline: the release tool and the client harness's server half (every case of the retired Python tests)
 dotnet run --project deploy/OverStrike2.Deploy -- docshots --selfcheck   # the documentation's screenshots: the run held to its dry run, every resolution
-uv run --script maps/selfcheck.py                               # only for changes under maps/: each map and its preview as committed (maps/README.md; uv: the exact Python, numpy and Pillow its hashes hold for)
+uv run --script maps/selfcheck.py                               # only for changes under maps/: each map and its preview as committed (maps/README.md; uv brings numpy and Pillow: PEP 723 header)
 ```
 
 The rules are said in the menu's How it works and Help pages, and `--selftest` holds them to the code, number for number

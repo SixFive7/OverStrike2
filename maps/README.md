@@ -44,9 +44,12 @@ then renders every preview from that layout and compares it with the committed `
 gg_vinceville's own `checks.py` (no holes, no overlapping faces, spawns that work) and `walkcheck.py` on its layout. A change that
 should leave the maps as they are must leave all of it as committed. A change that is meant to alter a map is recorded with
 `uv run --script maps\selfcheck.py --record`, and its preview is rendered anew with the map's `preview.py` and committed with its line
-in `tools/scan/allow.txt`; `--keep <folder>` keeps what a run wrote. The recorded hashes hold for the Python, numpy and Pillow
-named in `selfcheck.json`: another version can write other bytes without any change to a map. So `selfcheck.py`'s header (PEP 723) pins exactly
-those, and uv runs it in them: a `--record` with other versions updates the pins in the same change.
+in `tools/scan/allow.txt`; `--keep <folder>` keeps what a run wrote. The recorded hashes were written with the Python, numpy and
+Pillow named in `selfcheck.json`, and hold beyond them: Python 3.15.2 with numpy 2.5.5 (what uv brought on 2026-11-25; Pillow's
+newest was still 13.0.0) wrote every file and every preview as recorded with Python 3.14.10 and numpy 2.4.5. So `selfcheck.py`'s
+header (PEP 723) asks for Python 3.14, numpy 2.4.5 and Pillow 13.0.0 or later, and uv brings the newest. A later version that
+writes other bytes with no change to a map fails the check, which then names both sets of versions: pin the last good ones in
+the header, or `--record` anew.
 
 ## Publishing
 

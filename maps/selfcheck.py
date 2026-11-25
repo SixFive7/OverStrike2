@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = "==3.14.10"
-# dependencies = ["numpy==2.4.5", "pillow==13.0.0"]
+# requires-python = ">=3.14"
+# dependencies = ["numpy>=2.4.5", "pillow>=13.0.0"]
 # ///
 """Checks that our maps come out as committed: runs each map's generate.py into a scratch folder and compares every file it
 writes with the hashes in selfcheck.json, then renders each preview.py from the layout it wrote and compares the picture with
@@ -12,10 +12,12 @@ checks.py and walkcheck.py: no holes, no overlapping faces, spawns that work, ev
   uv run --script maps/selfcheck.py --record         after an intended change to a map: write selfcheck.json anew
   uv run --script maps/selfcheck.py --keep <folder>  keep what the run wrote there, to look at what differs
 
-The hashes hold for the Python, numpy and Pillow they were recorded with (selfcheck.json says which): another version can
-write other bytes with no change to a map. So the header above pins exactly those (PEP 723), and uv runs the check in them;
-a new --record with other versions changes the pins with it. A changed map also needs its preview rendered anew and committed, with its line in
-tools/scan/allow.txt; this check does not write pictures."""
+The hashes were recorded with the Python, numpy and Pillow selfcheck.json names, and hold beyond them: Python 3.15.2 with
+numpy 2.5.5 (what uv brought on 2026-11-25; Pillow's newest was still 13.0.0) wrote every file and every preview as recorded
+with Python 3.14.10 and numpy 2.4.5. So the header above (PEP 723) asks only for those or later, and uv brings the newest.
+A later version that writes other bytes with no change to a map fails the check, which then names both sets of versions: pin
+the last good ones in the header, or --record anew. A changed map also needs its preview rendered anew and committed, with its
+line in tools/scan/allow.txt; this check does not write pictures."""
 import argparse
 import hashlib
 import json
