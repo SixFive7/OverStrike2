@@ -1495,12 +1495,12 @@ static partial class DocShots
     // ---------------------------------------------------------------- the command line
 
     public const string Doc = "docshots --list | --dry-run [--res WxH|all] [--only a,b] [--bridge-copy] [--renamed] | --selfcheck | --res WxH --out DIR [--only a,b] [--review-set] "
-                              + "[--bridge-copy] [--renamed] [--keep-raw] [--built C] [--remask] | --mask-file IN OUT --row ID   (also: publish, name, merge, maskview, sheets)";
+                              + "[--bridge-copy] [--renamed] [--keep-raw] [--built C] [--remask] | --mask-file IN OUT --row ID   (also: publish, name, full, merge, maskview, sheets)";
 
     public static int Command(string[] argv)
     {
         var (args, config) = Harness.TakeConfig(argv);
-        if (args.Count > 0 && args[0] is "publish" or "name" or "merge" or "maskview" or "sheets" or "fake-harness")
+        if (args.Count > 0 && args[0] is "publish" or "name" or "full" or "merge" or "maskview" or "sheets" or "fake-harness")
         {
             var rest = args.Skip(1).ToArray();
             if (args[0] == "fake-harness")
@@ -1512,6 +1512,7 @@ static partial class DocShots
             {
                 "publish" => Publish.Command(rest),
                 "name" => DocName(rest, config),
+                "full" => FullSide(rest, config),
                 "maskview" => MaskView(rest),
                 _ => Sheets(rest),
             };

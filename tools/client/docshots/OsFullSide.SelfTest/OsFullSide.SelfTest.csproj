@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- OsFullSide's self-test, offline: the plugin loaded as a game server would load its type, its command's registration, the rule it writes by, and that
+       what it writes is what Over Strike 2's SpawnRoom reads. dotnet run from this folder; exit 0 when every check passes. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The API itself, at run time too: the plugin's types load against it here. -->
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.381" />
+    <ProjectReference Include="..\OsFullSide\OsFullSide.csproj" />
+  </ItemGroup>
+
+</Project>

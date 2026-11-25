@@ -56,6 +56,58 @@ so the client plays under a test name: docshots --renamed then needs no mask for
         return 0;
     }
 
+    const string FullUsage = """
+The throwaway OsFullSide (tools/client/docshots/OsFullSide) on the test copy, for the lab: a join onto a side full of humans, with one game account.
+Copied to /tmp/osfullside in the game container and loaded; refuses unless the game server's container is the test copy and the harness holds the
+server lock. ct or t puts that side's spawn count at the humans on it, so the next human join to it is refused and Over Strike 2's SpawnRoom makes room
+(in Wingman); a round start or any player's side change puts the count back. unload removes it.
+
+    os2-deploy docshots full load          build, copy and load it, and say each side
+    os2-deploy docshots full ct|t          that side's count put at its humans: the next join to it is refused (osf_full ct|t)
+    os2-deploy docshots full status        each side: humans, bots, the game's count, its spawn points on (osf_full)
+    os2-deploy docshots full unload        unload and remove /tmp/osfullside
+""";
+
+    /// <summary>OsFullSide on the test copy, under the harness's lock, as OsDocName (DocName).</summary>
+    static int FullSide(string[] argv, string? config)
+    {
+        var verb = argv.Length > 0 ? argv[0] : "status";
+        if (verb is not ("load" or "status" or "unload" or "ct" or "t"))
+            throw Out.Stop(FullUsage);
+        var h = new Harness(config);
+        h.NeedLock();
+        var game = h.Game;
+        if (!TestCopy.IsTest(h.Inspect(game)))
+            throw Out.Stop($"REFUSED: {game} is not the test copy");
+        string Rcon(string cmd) => h.Rcon([cmd]);
+        bool Loaded() => Py.SplitLines(Rcon("css_plugins list")).Any(l => l.Contains("OsFullSide", StringComparison.Ordinal) && !l.Contains("UNLOADED", StringComparison.Ordinal));
+        if (verb == "load")
+        {
+            var project = Path.Combine(Here, "OsFullSide");
+            if (Proc.Run(["dotnet", "build", "-c", "Release", "-nologo", "-v", "q"], cwd: project) != 0)
+                throw new Exit(1, "dotnet build of OsFullSide failed");
+            if (Loaded()) // a newer build replaces the loaded one
+                Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins unload OsFullSide")), 0, 300));
+            var data = File.ReadAllBytes(Path.Combine(project, "bin", "Release", "net10.0", "OsFullSide.dll"));
+            Out.Print($"copied {data.Length} bytes, HTTP {h.Upload(new() { ["OsFullSide.dll"] = data }, folder: "osfullside")}");
+            Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins load /tmp/osfullside/OsFullSide.dll")), 0, 300));
+            Thread.Sleep(1000);
+            Out.Print(Py.Repr(Py.SplitLines(Rcon("css_plugins list")).Where(l => l.Contains("OsFullSide", StringComparison.Ordinal)).Select(Py.Strip).ToList()));
+            if (!Loaded())
+                throw new Exit(1, "OsFullSide is not loaded");
+            Out.Print(Py.Strip(Rcon("osf_full")));
+        }
+        else if (verb == "unload")
+        {
+            Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins unload OsFullSide")), 0, 300));
+            var gone = Py.Strip(h.ExecInGame(["rm", "-rf", "/tmp/osfullside"]));
+            Out.Print(gone.Length > 0 ? gone : "removed /tmp/osfullside");
+        }
+        else
+            Out.Print(Py.Strip(Rcon(verb == "status" ? "osf_full" : $"osf_full {verb}")));
+        return 0;
+    }
+
     /// <summary>merge_fix.py: a retake's rows into the main run - their raw frames replace the main run's for those rows, the manifest takes their frame
     /// list. Then --remask redoes the pictures. merge &lt;retake out&gt; &lt;main out&gt; &lt;res&gt; [row,row...] (default: every row the retake shot).</summary>
     static int Merge(string[] argv)
