@@ -139,6 +139,7 @@ static partial class Program
         Save();
         if (S.Map != null || S.LogName != null) Post(Messages.NowPlaying, NowPlayingLine(), key: "playing"); // the board's copy of the card everybody gets at their spawn
         After(1500, SyncMode); // ModeSwitch.cs: the plugin hears the mode again after the bridge's own change, in case it reloaded; is asked after any other
+        SkyboxStarted(logName); // Skybox.cs: a Workshop item's 3D-skybox submap, where nobody can spawn, goes on to its level
     }
 
     /// <summary>The now-playing card's words: what is on, how big, who picked it.</summary>

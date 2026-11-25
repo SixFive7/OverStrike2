@@ -366,6 +366,7 @@ static partial class Program
         GuiSelfTest(Check);
         SearchModesSelfTest(Check); // SelfTestSearch.cs: the search index's mode words follow the mode lists, every other word as written
         PoolsSelfTest(Check); // SelfTestPools.cs: the game's own pools, our extras, Valve's names, a map the server says it does not have
+        SkyboxSelfTest(Check); // SelfTestSkybox.cs: a Workshop item's 3D-skybox submap - a change on the item that is on, a skybox's map start
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
         FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings
         BotsSelfTest(Check); // SelfTestBots.cs: the Bots page - its rows and convars, what a mode cannot make, the presets, the page and its clicks

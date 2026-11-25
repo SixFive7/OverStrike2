@@ -726,6 +726,13 @@ says which mode the plugin was told and which one the map loaded in, and changes
 that and takes the told mode, and reads `game_type` and `game_mode` only when the plugin cannot say (a plugin older than bare `os_mode`). A map several
 modes list plays in the mode the map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode
 that does. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and its own values in the block list (`plugin/OverStrike2/blocked.txt`).
+
+**A Workshop item's skybox submap** (`bridge/Skybox.cs`): an item can carry its level's 3D skybox as a map of its own beside it (`maps/<level>_skybox.vpk`),
+and CS2 can load that submap, where nobody can spawn - on 2026-11-25 a vote changed Assault's mode on Assault itself, and `host_workshop_map` of the
+item that was on loaded `cs_assault_skybox`. So a change to the Workshop item that is on, in another mode, goes by `changelevel <the level it is on>`
+after the mode's commands (by its id after all when the server does not find that level), and a map start of a `*_skybox` level, whatever loaded it,
+goes on 2 s later to its item's level by `changelevel`: the name without `_skybox`, else the level the same item logged at its last start in the
+history. The map stays the item, picked by whom it was; with no level the server takes, the dice.
 The grenade drops, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere; the match length is every mode's, each its own
 ([above](#the-match-length-and-the-restarts)): minutes in Arms Race and Deathmatch, rounds in Wingman.
 

@@ -20,9 +20,17 @@ static partial class Program
         if (Pending != change) return; // cancelled in the meantime
         var now = Now();
         Pending = null;
-        var command = change.Map.Official ? $"changelevel {change.Map.Name}" : $"host_workshop_map {change.Map.Id}";
+        // the Workshop item that is on, in another mode: changelevel to its level - host_workshop_map of the item that is on loaded its skybox submap (Skybox.cs)
+        var level = SameItemLevel(change.Map);
+        var command = change.Map.Official ? $"changelevel {change.Map.Name}" : level != null ? $"changelevel {level}" : $"host_workshop_map {change.Map.Id}";
         var reply = PrepareMode(change.Map) ? Send(command) : null; // ModeSwitch.cs: os_mode, game_type and game_mode go first
         Log($"{command} -> {reply ?? "(rcon failed)"}");
+        if (level != null && reply != null && InvalidMapName(reply)) // the server does not find the level by name: the item by its id after all
+        {
+            command = $"host_workshop_map {change.Map.Id}";
+            reply = Send(command);
+            Log($"{command} -> {reply ?? "(rcon failed)"} (changelevel {level} was turned away)");
+        }
         if (reply == null) ModeBack();
         if (reply == null && change.Auto && StartRollOwed) { Log("start: the start roll did not reach the server - trying again"); return; }
         if (reply == null) // the server did not take it (it is restarting, or RCON is down): nothing is loading, so nothing may be waited for
